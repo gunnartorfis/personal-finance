@@ -1,0 +1,13 @@
+.DS_Store
+*.tmp
+
+# Node / Vite
+node_modules/
+dist/
+
+# Secrets — never commit the Claude token
+.env
+
+# Local data (bring your own) — raw statement + generated/state files, never committed
+combined.csv
+data/
