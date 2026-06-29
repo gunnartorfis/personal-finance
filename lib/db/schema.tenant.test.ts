@@ -19,10 +19,11 @@ describe("tenant & identity schema", () => {
     await migrate(db, { migrationsFolder: "./drizzle" });
   });
 
-  it("defaults a new household to the Free plan with no renewal date", async () => {
+  it("defaults a new household to Free, ISK, with no renewal date", async () => {
     const [hh] = await db.insert(households).values({}).returning();
     expect(hh.plan).toBe("Free");
     expect(hh.planRenewsAt).toBeNull();
+    expect(hh.billingCurrency).toBe("ISK");
   });
 
   it("links a member and an account to a household", async () => {
@@ -33,10 +34,10 @@ describe("tenant & identity schema", () => {
       .returning();
     const [account] = await db
       .insert(accounts)
-      .values({ householdId: hh.id, name: "Visa", billingCurrency: "ISK" })
+      .values({ householdId: hh.id, name: "Visa" })
       .returning();
     expect(member.householdId).toBe(hh.id);
-    expect(account.billingCurrency).toBe("ISK");
+    expect(account.householdId).toBe(hh.id);
   });
 
   it("rejects a member whose household does not exist (FK)", async () => {
@@ -50,6 +51,26 @@ describe("tenant & identity schema", () => {
     await db.insert(members).values({ householdId: hh.id, authUserId: "dupe" });
     await expect(
       db.insert(members).values({ householdId: hh.id, authUserId: "dupe" }),
+    ).rejects.toThrow();
+  });
+
+  it("rejects a Free household that carries a renewal date", async () => {
+    await expect(
+      db.insert(households).values({ plan: "Free", planRenewsAt: new Date("2026-07-01") }),
+    ).rejects.toThrow();
+  });
+
+  it("allows a Premium household with a renewal date", async () => {
+    const [hh] = await db
+      .insert(households)
+      .values({ plan: "Premium", planRenewsAt: new Date("2026-07-01") })
+      .returning();
+    expect(hh.plan).toBe("Premium");
+  });
+
+  it("rejects a non-ISO-4217 billing currency", async () => {
+    await expect(
+      db.insert(households).values({ billingCurrency: "isk" }),
     ).rejects.toThrow();
   });
 });
