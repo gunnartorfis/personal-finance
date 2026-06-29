@@ -55,7 +55,7 @@ the remainder as new unchecked items.
     sign-in pages (`AuthView`), and route-protection middleware (`proxy.ts`).
 - [x] **Household provisioning**: one Household per user (v1), mapped to a Stack Team; membership;
   all Members equal (ADR-0002).
-- [ ] **Tenant guard**: every request resolves a `household_id`; no cross-household reads.
+- [x] **Tenant guard**: every request resolves a `household_id`; no cross-household reads.
 
 ## Phase D — Ingestion (ADR-0003) — depends on B, C, and Phase A dedup/guard
 
