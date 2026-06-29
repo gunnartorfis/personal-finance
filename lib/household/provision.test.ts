@@ -40,4 +40,14 @@ describe("ensureHouseholdForUser", () => {
     expect(a.householdId).not.toBe(b.householdId);
     expect(await db.select().from(households)).not.toHaveLength(0);
   });
+
+  it("handles concurrent first sign-ins without creating duplicate households", async () => {
+    const [a, b] = await Promise.all([
+      ensureHouseholdForUser(asDb(db), "race_user"),
+      ensureHouseholdForUser(asDb(db), "race_user"),
+    ]);
+    expect(a.householdId).toBe(b.householdId);
+    const all = await db.select().from(members).where(eq(members.authUserId, "race_user"));
+    expect(all).toHaveLength(1);
+  });
 });
