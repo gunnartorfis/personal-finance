@@ -9,7 +9,7 @@ export const inMonth = (txns: TxnView[], m: string): TxnView[] =>
   m === "all" ? txns : txns.filter((t) => t.month === m);
 
 export const monthsOf = (txns: TxnView[]): string[] =>
-  [...new Set(txns.map((t) => t.month))].sort();
+  [...new Set(txns.map((t) => t.month))].toSorted();
 
 export function spendByType(list: TxnView[]): Record<RealType, number> {
   const o: Record<RealType, number> = { Fixed: 0, Necessary: 0, "Nice to have": 0 };

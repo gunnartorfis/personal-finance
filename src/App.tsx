@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { ExpenseType, TxnView } from "../shared/types.ts";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import type { ExpenseType, IncomeConfig, TxnView } from "../shared/types.ts";
 import { billingMonth } from "../shared/billing.ts";
 import { fetchIncome, fetchTransactions, postOverride, saveIncome } from "./api.ts";
-import { inMonth, monthsOf, type Included } from "./lib/aggregate.ts";
+import { inMonth, monthsOf } from "./lib/aggregate.ts";
 import { monthLabel } from "./lib/format.ts";
-import { DEFAULT_INCOME, sumSources, type Source } from "./lib/income.ts";
+import { DEFAULT_INCOME, sumSources, withIds } from "./lib/income.ts";
 import { Kpis } from "./components/Kpis.tsx";
 import { MonthlyChart } from "./components/MonthlyChart.tsx";
 import { Donut } from "./components/Donut.tsx";
@@ -13,17 +13,26 @@ import { AggTable } from "./components/AggTable.tsx";
 import { TransactionsTable } from "./components/TransactionsTable.tsx";
 import { ReviewMode } from "./components/ReviewMode.tsx";
 
+/** Income/net config grouped into one reducer — one logical update, one render. */
+const patchIncome = (state: IncomeConfig, patch: Partial<IncomeConfig>): IncomeConfig => ({ ...state, ...patch });
+
 export default function App() {
   const [txns, setTxns] = useState<TxnView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selMonth, setSelMonth] = useState("all");
   const [reviewOpen, setReviewOpen] = useState(false);
 
-  const [sources, setSources] = useState<Source[]>(DEFAULT_INCOME.sources);
-  const [monthExtra, setExtra] = useState<Record<string, number>>(DEFAULT_INCOME.monthExtra);
-  const [fixedExpenses, setFixedExpenses] = useState<Source[]>(DEFAULT_INCOME.fixedExpenses);
-  const [included, setIncluded] = useState<Included>(DEFAULT_INCOME.included);
-  const [incomeLoaded, setIncomeLoaded] = useState(false);
+  const [income, dispatch] = useReducer(patchIncome, undefined, (): IncomeConfig => ({
+    sources: withIds(DEFAULT_INCOME.sources),
+    monthExtra: { ...DEFAULT_INCOME.monthExtra },
+    fixedExpenses: withIds(DEFAULT_INCOME.fixedExpenses),
+    included: { ...DEFAULT_INCOME.included },
+  }));
+  const { sources, monthExtra, fixedExpenses, included } = income;
+  // Set once the initial income load settles; gates the debounced save so we
+  // never overwrite the store with defaults before it has loaded. A ref (not
+  // state) because nothing renders from it.
+  const incomeLoaded = useRef(false);
 
   useEffect(() => {
     // `month` is the billing cycle (27th–26th), derived from each date.
@@ -32,19 +41,21 @@ export default function App() {
       .catch((e) => setError(String(e)));
     fetchIncome()
       .then((cfg) => {
-        setSources(cfg.sources);
-        setExtra(cfg.monthExtra ?? {});
-        setFixedExpenses(cfg.fixedExpenses ?? []);
-        setIncluded({ ...DEFAULT_INCOME.included, ...cfg.included });
+        dispatch({
+          sources: withIds(cfg.sources),
+          monthExtra: cfg.monthExtra ?? {},
+          fixedExpenses: withIds(cfg.fixedExpenses ?? []),
+          included: { ...DEFAULT_INCOME.included, ...cfg.included },
+        });
       })
       .catch(() => {/* income store unreachable — keep defaults */})
-      .finally(() => setIncomeLoaded(true));
+      .finally(() => { incomeLoaded.current = true; });
   }, []);
 
   // Persist income + fixed expenses to data/income.json (debounced) once loaded.
   const saveTimer = useRef<number | null>(null);
   useEffect(() => {
-    if (!incomeLoaded) return;
+    if (!incomeLoaded.current) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
       saveIncome({ sources, monthExtra, fixedExpenses, included }).catch((e) => setError(String(e)));
@@ -52,7 +63,7 @@ export default function App() {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [sources, monthExtra, fixedExpenses, included, incomeLoaded]);
+  }, [sources, monthExtra, fixedExpenses, included]);
 
   const onOverride = (id: number, type: ExpenseType | null) => {
     setTxns((prev) =>
@@ -96,9 +107,9 @@ export default function App() {
           <button className="btn" style={{ marginTop: 10 }} onClick={() => setReviewOpen(true)}>⚡ Rapid review</button>
         </div>
         <div className="chips">
-          <div className={`chip${selMonth === "all" ? " active" : ""}`} onClick={() => setSelMonth("all")}>All</div>
+          <button type="button" className={`chip${selMonth === "all" ? " active" : ""}`} onClick={() => setSelMonth("all")}>All</button>
           {months.map((m) => (
-            <div key={m} className={`chip${selMonth === m ? " active" : ""}`} onClick={() => setSelMonth(m)}>{monthLabel(m)}</div>
+            <button type="button" key={m} className={`chip${selMonth === m ? " active" : ""}`} onClick={() => setSelMonth(m)}>{monthLabel(m)}</button>
           ))}
         </div>
       </div>
@@ -123,10 +134,10 @@ export default function App() {
         monthExtra={monthExtra}
         fixedExpenses={fixedExpenses}
         included={included}
-        setSources={setSources}
-        setExtra={setExtra}
-        setFixedExpenses={setFixedExpenses}
-        setIncluded={setIncluded}
+        setSources={(s) => dispatch({ sources: s })}
+        setExtra={(e) => dispatch({ monthExtra: e })}
+        setFixedExpenses={(s) => dispatch({ fixedExpenses: s })}
+        setIncluded={(i) => dispatch({ included: i })}
       />
 
       <div className="grid cols mb16">

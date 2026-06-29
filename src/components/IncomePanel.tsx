@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { TYPES, type RealType, type TxnView } from "../../shared/types.ts";
 import { inMonth, includedSpend, type Included } from "../lib/aggregate.ts";
 import { fmt, monthLabel } from "../lib/format.ts";
-import { sumSources, type Source } from "../lib/income.ts";
+import { sumSources, uid, withIds, type Source } from "../lib/income.ts";
 import { TYPE_COLOR } from "../lib/ui.ts";
 
 interface Props {
@@ -23,9 +23,10 @@ function SourceList({ rows, setRows, namePlaceholder }: { rows: Source[]; setRow
   return (
     <>
       {rows.map((s, i) => (
-        <div className="srcrow" key={i}>
+        <div className="srcrow" key={s.id ?? i}>
           <input
             className="name"
+            aria-label={namePlaceholder}
             value={s.name}
             placeholder={namePlaceholder}
             onChange={(e) => setRows(rows.map((r, j) => (j === i ? { ...r, name: e.target.value } : r)))}
@@ -33,11 +34,12 @@ function SourceList({ rows, setRows, namePlaceholder }: { rows: Source[]; setRow
           <input
             className="amt"
             type="number"
+            aria-label={`${namePlaceholder} — amount`}
             value={s.amt || ""}
             placeholder="0"
             onChange={(e) => setRows(rows.map((r, j) => (j === i ? { ...r, amt: parseFloat(e.target.value) || 0 } : r)))}
           />
-          <button className="iconbtn" title="Remove" onClick={() => setRows(rows.filter((_, j) => j !== i))}>✕</button>
+          <button type="button" className="iconbtn" title="Remove" aria-label="Remove row" onClick={() => setRows(rows.filter((_, j) => j !== i))}>✕</button>
         </div>
       ))}
     </>
@@ -75,8 +77,8 @@ export function IncomePanel({ months, txns, sources, monthExtra, fixedExpenses, 
     reader.onload = () => {
       try {
         const o = JSON.parse(String(reader.result));
-        if (Array.isArray(o.sources)) setSources(o.sources);
-        if (Array.isArray(o.fixedExpenses)) setFixedExpenses(o.fixedExpenses);
+        if (Array.isArray(o.sources)) setSources(withIds(o.sources));
+        if (Array.isArray(o.fixedExpenses)) setFixedExpenses(withIds(o.fixedExpenses));
         setExtra(o.monthExtra ?? (Array.isArray(o.sources) ? {} : o));
         setIncluded({ Fixed: true, Necessary: true, "Nice to have": true, ...(o.included ?? {}) });
       } catch {
@@ -92,21 +94,21 @@ export function IncomePanel({ months, txns, sources, monthExtra, fixedExpenses, 
 
       <div className="subhead">Recurring income — applied to every month</div>
       <SourceList rows={sources} setRows={setSources} namePlaceholder="Source name (e.g. Salary)" />
-      <button className="btn" onClick={() => setSources([...sources, { name: "", amt: 0 }])}>+ Add income source</button>
+      <button type="button" className="btn" onClick={() => setSources([...sources, { id: uid(), name: "", amt: 0 }])}>+ Add income source</button>
       <div className="srctotal">= <b>{fmt(base)}</b> recurring income / month</div>
 
       <div className="subhead">Fixed monthly expenses — off-card (rent, loans, …), applied to every month</div>
       <SourceList rows={fixedExpenses} setRows={setFixedExpenses} namePlaceholder="Expense name (e.g. Rent)" />
-      <button className="btn" onClick={() => setFixedExpenses([...fixedExpenses, { name: "", amt: 0 }])}>+ Add fixed expense</button>
+      <button type="button" className="btn" onClick={() => setFixedExpenses([...fixedExpenses, { id: uid(), name: "", amt: 0 }])}>+ Add fixed expense</button>
       <div className="srctotal">= <b>{fmt(fixedMonthly)}</b> fixed expenses / month</div>
 
       <div className="subhead">Include card spending in net</div>
       <div className="toggles">
         {(TYPES as readonly RealType[]).map((t) => (
-          <span key={t} className={`toggle${included[t] ? "" : " off"}`} onClick={() => setIncluded({ ...included, [t]: !included[t] })}>
+          <button type="button" key={t} aria-pressed={included[t]} className={`toggle${included[t] ? "" : " off"}`} onClick={() => setIncluded({ ...included, [t]: !included[t] })}>
             <span className="dot" style={{ background: TYPE_COLOR[t] }} />
             {t}
-          </span>
+          </button>
         ))}
       </div>
 
@@ -132,7 +134,7 @@ export function IncomePanel({ months, txns, sources, monthExtra, fixedExpenses, 
               <tr key={m}>
                 <td>{monthLabel(m)}</td>
                 <td className="num">
-                  <input type="number" placeholder="0" value={monthExtra[m] || ""} onChange={(e) => setExtraFor(m, e.target.value)} />
+                  <input type="number" aria-label={`One-off income for ${monthLabel(m)}`} placeholder="0" value={monthExtra[m] || ""} onChange={(e) => setExtraFor(m, e.target.value)} />
                 </td>
                 <td className="num">{fmt(inc)}</td>
                 <td className="num">{fmt(spend)}</td>
@@ -146,7 +148,7 @@ export function IncomePanel({ months, txns, sources, monthExtra, fixedExpenses, 
         <tfoot>
           <tr style={{ fontWeight: 700 }}>
             <td>Total</td>
-            <td className="num" />
+            <td className="num">—</td>
             <td className="num">{fmt(totalIncome)}</td>
             <td className="num">{fmt(totalSpendInc)}</td>
             <td className="num">{fmt(totalFixed)}</td>
@@ -157,14 +159,15 @@ export function IncomePanel({ months, txns, sources, monthExtra, fixedExpenses, 
       </table>
 
       <div className="toolbar" style={{ marginTop: 14 }}>
-        <button className="btn" onClick={exportJson}>Export (JSON)</button>
-        <button className="btn" onClick={() => fileRef.current?.click()}>Import</button>
-        <input ref={fileRef} type="file" accept="application/json" style={{ display: "none" }} onChange={(e) => e.target.files?.[0] && importJson(e.target.files[0])} />
+        <button type="button" className="btn" onClick={exportJson}>Export (JSON)</button>
+        <button type="button" className="btn" onClick={() => fileRef.current?.click()}>Import</button>
+        <input ref={fileRef} type="file" aria-label="Import income JSON file" accept="application/json" style={{ display: "none" }} onChange={(e) => e.target.files?.[0] && importJson(e.target.files[0])} />
         <button
+          type="button"
           className="btn"
           onClick={() => {
             if (confirm("Reset income, fixed expenses, one-offs and toggles?")) {
-              setSources([{ name: "Salary", amt: 0 }]);
+              setSources([{ id: uid(), name: "Salary", amt: 0 }]);
               setExtra({});
               setFixedExpenses([]);
               setIncluded({ Fixed: true, Necessary: true, "Nice to have": true });

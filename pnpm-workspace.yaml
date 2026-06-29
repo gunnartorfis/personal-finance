@@ -1,2 +1,24 @@
 allowBuilds:
   esbuild: true
+# Supply-chain hardening:
+# - minimumReleaseAge delays installs of freshly published versions (7 days) so
+#   malware caught and unpublished within hours never reaches us.
+# - trustPolicy: no-downgrade refuses any package whose trust signals
+#   (provenance, signatures) weakened since we last saw it.
+minimumReleaseAge: 10080
+trustPolicy: no-downgrade
+# Version-pinned exemptions for the exact versions already in the lockfile.
+# Pinned (not name-only) so a future malicious republish at a different version
+# is still caught; revisit when these deps are intentionally bumped.
+# High-churn build-data packages publish ~daily so can't satisfy a 7-day age;
+# @anthropic-ai/sdk@0.106.0 is current and only days old.
+minimumReleaseAgeExclude:
+  - "@anthropic-ai/sdk@0.106.0"
+  - baseline-browser-mapping@2.10.40
+  - browserslist@4.28.4
+  - electron-to-chromium@1.5.379
+  - node-releases@2.0.50
+# Long-lived, widely-used transitive deps the no-downgrade heuristic flags.
+trustPolicyExclude:
+  - semver@6.3.1
+  - undici-types@6.21.0

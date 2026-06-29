@@ -27,6 +27,7 @@ export type Overrides = Record<string, ExpenseType>; // id -> type
 
 /** A recurring monthly income source (e.g. a salary). */
 export interface Source {
+  id?: string; // stable client-side row id for React keys (optional; not all stores set it)
   name: string;
   amt: number;
 }

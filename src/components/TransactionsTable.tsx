@@ -26,7 +26,7 @@ export function TransactionsTable({ rows, onOverride }: Props) {
       list = list.filter((t) => !(t.confidence !== null && t.confidence > 0.9));
     }
     const { key, dir } = sort;
-    return [...list].sort((a, b) => {
+    return [...list].toSorted((a, b) => {
       const x: number | string = a[key] ?? "";
       const y: number | string = b[key] ?? "";
       if (typeof x === "number" && typeof y === "number") return (x - y) * dir;
@@ -43,7 +43,7 @@ export function TransactionsTable({ rows, onOverride }: Props) {
     <div className="card">
       <h2>Transactions</h2>
       <div className="toolbar">
-        <input className="search" placeholder="Search merchant / category…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input className="search" aria-label="Search transactions by merchant or category" placeholder="Search merchant / category…" value={search} onChange={(e) => setSearch(e.target.value)} />
         <label className="checkbox">
           <input type="checkbox" checked={hideHighConf} onChange={(e) => setHideHighConf(e.target.checked)} />
           Hide confidence &gt; 90%
