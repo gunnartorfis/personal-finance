@@ -3,6 +3,9 @@ export type ExpenseType = "Fixed" | "Necessary" | "Nice to have" | "";
 export const TYPES = ["Fixed", "Necessary", "Nice to have"] as const;
 export type RealType = (typeof TYPES)[number];
 
+/** A Household's subscription level (ADR-0002, ADR-0006). */
+export type Plan = "Free" | "Premium";
+
 /** A classified transaction as stored in data/transactions.json. */
 export interface Txn {
   id: number; // stable: source CSV row index
