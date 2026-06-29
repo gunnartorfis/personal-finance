@@ -50,15 +50,20 @@ export const households = pgTable(
 );
 
 /** A signed-in user belonging to a Household, linked to a Stack Auth user (ADR-0001/0002). */
-export const members = pgTable("members", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  householdId: uuid("household_id")
-    .notNull()
-    .references(() => households.id, { onDelete: "cascade" }),
-  /** The Stack Auth user id this Member maps to. */
-  authUserId: text("auth_user_id").notNull().unique(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const members = pgTable(
+  "members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    /** The Stack Auth user id this Member maps to. */
+    authUserId: text("auth_user_id").notNull().unique(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  // Target for composite same-household foreign keys from upload/override actor columns.
+  (t) => [unique("members_household_id_id_key").on(t.householdId, t.id)],
+);
 
 /**
  * A card or bank account within a Household; the provenance of every Transaction (ADR-0004).
@@ -94,10 +99,8 @@ export const uploads = pgTable(
       .notNull()
       .references(() => households.id, { onDelete: "cascade" }),
     accountId: uuid("account_id").notNull(),
-    /** The Member who uploaded; nulls out if they leave (the Household's data stays, ADR-0002). */
-    importedByMemberId: uuid("imported_by_member_id").references(() => members.id, {
-      onDelete: "set null",
-    }),
+    /** The Member who uploaded (same Household); nulled by the app if they leave (ADR-0002). */
+    importedByMemberId: uuid("imported_by_member_id"),
     fileName: text("file_name").notNull(),
     /** SHA-256 of the raw bytes — the exact-file import guard (ADR-0003). */
     fileHash: text("file_hash").notNull(),
@@ -110,6 +113,13 @@ export const uploads = pgTable(
       foreignColumns: [accounts.householdId, accounts.id],
       name: "uploads_account_household_fk",
     }).onDelete("cascade"),
+    // The importer Member must belong to the same Household (NO ACTION: a household-wide
+    // cascade still succeeds; deleting a lone Member requires the app to null this first).
+    foreignKey({
+      columns: [t.householdId, t.importedByMemberId],
+      foreignColumns: [members.householdId, members.id],
+      name: "uploads_importer_household_fk",
+    }),
     // Target for the composite same-household FK from transactions.
     unique("uploads_household_id_id_key").on(t.householdId, t.id),
     // One import of a given file per Household (the exact-file guard, enforced at the DB).
@@ -192,7 +202,8 @@ export const overrides = pgTable(
       .references(() => households.id, { onDelete: "cascade" }),
     /** Keyed off the real Transaction PK (ADR-0003); one override per Transaction. */
     transactionId: uuid("transaction_id").notNull().unique(),
-    memberId: uuid("member_id").references(() => members.id, { onDelete: "set null" }),
+    /** The Member who made the override (same Household); nulled by the app if they leave. */
+    memberId: uuid("member_id"),
     expenseType: text("expense_type").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -207,5 +218,11 @@ export const overrides = pgTable(
       foreignColumns: [transactions.householdId, transactions.id],
       name: "overrides_transaction_household_fk",
     }).onDelete("cascade"),
+    // The actor Member must belong to the same Household (NO ACTION; see uploads importer note).
+    foreignKey({
+      columns: [t.householdId, t.memberId],
+      foreignColumns: [members.householdId, members.id],
+      name: "overrides_member_household_fk",
+    }),
   ],
 );

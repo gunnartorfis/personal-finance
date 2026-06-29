@@ -1,4 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -147,5 +148,41 @@ describe("ingestion & classification schema", () => {
     await expect(
       db.insert(overrides).values({ householdId, transactionId: t2.id, expenseType: "Fixed" }),
     ).rejects.toThrow();
+  });
+
+  it("rejects an upload whose importer belongs to another household (composite FK)", async () => {
+    const [h2] = await db.insert(households).values({}).returning();
+    const [m2] = await db
+      .insert(members)
+      .values({ householdId: h2.id, authUserId: "other-importer" })
+      .returning();
+    await expect(
+      db
+        .insert(uploads)
+        .values({ householdId, accountId, importedByMemberId: m2.id, fileName: "x.csv", fileHash: "imp" }),
+    ).rejects.toThrow();
+  });
+
+  it("still cascade-deletes a household that has member-attributed rows", async () => {
+    const [h] = await db.insert(households).values({}).returning();
+    const [m] = await db.insert(members).values({ householdId: h.id, authUserId: "leaver" }).returning();
+    const [a] = await db.insert(accounts).values({ householdId: h.id, name: "Visa" }).returning();
+    const [u] = await db
+      .insert(uploads)
+      .values({ householdId: h.id, accountId: a.id, importedByMemberId: m.id, fileName: "f.csv", fileHash: "fh" })
+      .returning();
+    await db.insert(transactions).values({
+      householdId: h.id,
+      accountId: a.id,
+      uploadId: u.id,
+      date: "2026-03-01",
+      amount: -100,
+      merchant: "X",
+      rawCategory: "Y",
+      sourceRow: 0,
+    });
+    // Deleting the household cascades through members + uploads without an FK violation.
+    await db.delete(households).where(eq(households.id, h.id));
+    expect(await db.select().from(uploads).where(eq(uploads.householdId, h.id))).toHaveLength(0);
   });
 });
