@@ -11,6 +11,7 @@ import { Donut } from "./components/Donut.tsx";
 import { IncomePanel } from "./components/IncomePanel.tsx";
 import { AggTable } from "./components/AggTable.tsx";
 import { TransactionsTable } from "./components/TransactionsTable.tsx";
+import { ReviewMode } from "./components/ReviewMode.tsx";
 
 /** Income/net config grouped into one reducer — one logical update, one render. */
 const patchIncome = (state: IncomeConfig, patch: Partial<IncomeConfig>): IncomeConfig => ({ ...state, ...patch });
@@ -19,6 +20,7 @@ export default function App() {
   const [txns, setTxns] = useState<TxnView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selMonth, setSelMonth] = useState("all");
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   const [income, dispatch] = useReducer(patchIncome, undefined, (): IncomeConfig => ({
     sources: withIds(DEFAULT_INCOME.sources),
@@ -102,6 +104,7 @@ export default function App() {
         <div>
           <h1>Finance Dashboard</h1>
           <div className="sub">{range} · {txns.length} transactions · billing cycle 27th–26th</div>
+          <button className="btn" style={{ marginTop: 10 }} onClick={() => setReviewOpen(true)}>⚡ Rapid review</button>
         </div>
         <div className="chips">
           <button type="button" className={`chip${selMonth === "all" ? " active" : ""}`} onClick={() => setSelMonth("all")}>All</button>
@@ -151,6 +154,8 @@ export default function App() {
       <TransactionsTable rows={list} onOverride={onOverride} />
 
       <div className="foot">Edit a transaction's Type to override the AI classification — saved to data/overrides.json.</div>
+
+      {reviewOpen && <ReviewMode rows={list} onOverride={onOverride} onClose={() => setReviewOpen(false)} />}
     </div>
   );
 }
