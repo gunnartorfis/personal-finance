@@ -106,4 +106,46 @@ describe("ingestion & classification schema", () => {
       db.insert(overrides).values({ householdId, transactionId: t.id, expenseType: "Fixed" }),
     ).rejects.toThrow();
   });
+
+  it("rejects an upload whose account belongs to another household (composite FK)", async () => {
+    const [h2] = await db.insert(households).values({}).returning();
+    const [a2] = await db.insert(accounts).values({ householdId: h2.id, name: "Other" }).returning();
+    await expect(
+      db
+        .insert(uploads)
+        .values({ householdId, accountId: a2.id, fileName: "x.csv", fileHash: "cross" }),
+    ).rejects.toThrow();
+  });
+
+  it("rejects re-importing the same file hash within a household (unique)", async () => {
+    await db.insert(uploads).values({ householdId, accountId, fileName: "a.csv", fileHash: "dup-hash" });
+    await expect(
+      db.insert(uploads).values({ householdId, accountId, fileName: "b.csv", fileHash: "dup-hash" }),
+    ).rejects.toThrow();
+  });
+
+  it("rejects an override on a transaction from another household (composite FK)", async () => {
+    const [h2] = await db.insert(households).values({}).returning();
+    const [a2] = await db.insert(accounts).values({ householdId: h2.id, name: "Other" }).returning();
+    const [u2] = await db
+      .insert(uploads)
+      .values({ householdId: h2.id, accountId: a2.id, fileName: "o.csv", fileHash: "h2" })
+      .returning();
+    const [t2] = await db
+      .insert(transactions)
+      .values({
+        householdId: h2.id,
+        accountId: a2.id,
+        uploadId: u2.id,
+        date: "2026-03-01",
+        amount: -100,
+        merchant: "X",
+        rawCategory: "Y",
+        sourceRow: 0,
+      })
+      .returning();
+    await expect(
+      db.insert(overrides).values({ householdId, transactionId: t2.id, expenseType: "Fixed" }),
+    ).rejects.toThrow();
+  });
 });

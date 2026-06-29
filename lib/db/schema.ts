@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   check,
   date,
+  foreignKey,
   integer,
   numeric,
   pgEnum,
@@ -9,15 +10,16 @@ import {
   real,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 
 /**
  * Database schema (ADR-0002: Household is the tenant boundary).
  *
- * Every financial row is keyed by `household_id`. This module currently covers the tenant and
- * identity tables (Household + Plan + billing currency, Member, Account); ingestion/classification
- * tables (Upload, Transaction, Override) and MerchantRule are added in later schema slices.
+ * Every financial row is keyed by `household_id`. Cross-table references additionally use
+ * COMPOSITE foreign keys that include `household_id`, so a child row can only reference a parent
+ * in the same household — tenant isolation is enforced by the database, not just the app layer.
  */
 
 /** A Household's subscription level (ADR-0002/0006). */
@@ -62,14 +64,19 @@ export const members = pgTable("members", {
  * A card or bank account within a Household; the provenance of every Transaction (ADR-0004).
  * Its billing currency is the Household's (one per Household in v1), so it is not stored here.
  */
-export const accounts = pgTable("accounts", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  householdId: uuid("household_id")
-    .notNull()
-    .references(() => households.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const accounts = pgTable(
+  "accounts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  // Target for composite same-household foreign keys from uploads/transactions.
+  (t) => [unique("accounts_household_id_id_key").on(t.householdId, t.id)],
+);
 
 /** The lifecycle of a Transaction's classification (ADR-0005). */
 export const classificationStatusEnum = pgEnum("classification_status", [
@@ -79,23 +86,36 @@ export const classificationStatusEnum = pgEnum("classification_status", [
 ]);
 
 /** One CSV import into a Household: the file, the Account its rows belong to, and the importer. */
-export const uploads = pgTable("uploads", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  householdId: uuid("household_id")
-    .notNull()
-    .references(() => households.id, { onDelete: "cascade" }),
-  accountId: uuid("account_id")
-    .notNull()
-    .references(() => accounts.id, { onDelete: "cascade" }),
-  /** The Member who uploaded; nulls out if they leave (the Household's data stays, ADR-0002). */
-  importedByMemberId: uuid("imported_by_member_id").references(() => members.id, {
-    onDelete: "set null",
-  }),
-  fileName: text("file_name").notNull(),
-  /** SHA-256 of the raw bytes — the exact-file import guard (ADR-0003). */
-  fileHash: text("file_hash").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const uploads = pgTable(
+  "uploads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").notNull(),
+    /** The Member who uploaded; nulls out if they leave (the Household's data stays, ADR-0002). */
+    importedByMemberId: uuid("imported_by_member_id").references(() => members.id, {
+      onDelete: "set null",
+    }),
+    fileName: text("file_name").notNull(),
+    /** SHA-256 of the raw bytes — the exact-file import guard (ADR-0003). */
+    fileHash: text("file_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // The Account must belong to the same Household as the Upload.
+    foreignKey({
+      columns: [t.householdId, t.accountId],
+      foreignColumns: [accounts.householdId, accounts.id],
+      name: "uploads_account_household_fk",
+    }).onDelete("cascade"),
+    // Target for the composite same-household FK from transactions.
+    unique("uploads_household_id_id_key").on(t.householdId, t.id),
+    // One import of a given file per Household (the exact-file guard, enforced at the DB).
+    unique("uploads_household_id_file_hash_key").on(t.householdId, t.fileHash),
+  ],
+);
 
 /**
  * One line from an Upload (ADR-0003/0004/0005). Append-only with a DB-generated PK; `sourceRow`
@@ -110,12 +130,8 @@ export const transactions = pgTable(
     householdId: uuid("household_id")
       .notNull()
       .references(() => households.id, { onDelete: "cascade" }),
-    accountId: uuid("account_id")
-      .notNull()
-      .references(() => accounts.id, { onDelete: "cascade" }),
-    uploadId: uuid("upload_id")
-      .notNull()
-      .references(() => uploads.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").notNull(),
+    uploadId: uuid("upload_id").notNull(),
     date: date("date").notNull(),
     /** Charged amount in the Household's billing currency; negative = expense. */
     amount: integer("amount").notNull(),
@@ -150,6 +166,19 @@ export const transactions = pgTable(
       "transactions_original_amount_currency",
       sql`(${t.originalAmount} IS NULL) = (${t.originalCurrency} IS NULL)`,
     ),
+    // The Account and Upload must belong to the same Household as the Transaction.
+    foreignKey({
+      columns: [t.householdId, t.accountId],
+      foreignColumns: [accounts.householdId, accounts.id],
+      name: "transactions_account_household_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [t.householdId, t.uploadId],
+      foreignColumns: [uploads.householdId, uploads.id],
+      name: "transactions_upload_household_fk",
+    }).onDelete("cascade"),
+    // Target for the composite same-household FK from overrides.
+    unique("transactions_household_id_id_key").on(t.householdId, t.id),
   ],
 );
 
@@ -162,10 +191,7 @@ export const overrides = pgTable(
       .notNull()
       .references(() => households.id, { onDelete: "cascade" }),
     /** Keyed off the real Transaction PK (ADR-0003); one override per Transaction. */
-    transactionId: uuid("transaction_id")
-      .notNull()
-      .unique()
-      .references(() => transactions.id, { onDelete: "cascade" }),
+    transactionId: uuid("transaction_id").notNull().unique(),
     memberId: uuid("member_id").references(() => members.id, { onDelete: "set null" }),
     expenseType: text("expense_type").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -175,5 +201,11 @@ export const overrides = pgTable(
       "overrides_expense_type_valid",
       sql`${t.expenseType} IN ('Fixed', 'Necessary', 'Nice to have', '')`,
     ),
+    // The Transaction must belong to the same Household as the Override.
+    foreignKey({
+      columns: [t.householdId, t.transactionId],
+      foreignColumns: [transactions.householdId, transactions.id],
+      name: "overrides_transaction_household_fk",
+    }).onDelete("cascade"),
   ],
 );
