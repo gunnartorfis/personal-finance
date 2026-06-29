@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.9.0",
   "description": "Local dashboard that classifies an Icelandic credit-card statement with Claude (Fixed / Necessary / Nice to have + confidence), with editable types and income / net-profit tracking.",
   "license": "MIT",
   "repository": {
@@ -10,7 +11,7 @@
     "url": "git+https://github.com/gunnartorfis/personal-finance.git"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "classify": "tsx scripts/classify.ts",

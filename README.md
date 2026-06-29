@@ -12,7 +12,7 @@ It runs entirely on your machine. Your statement and all derived data stay local
 
 ## Prerequisites
 
-- **Node 20+** and **pnpm** (`npm i -g pnpm`).
+- **Node 22+** and **pnpm** (`npm i -g pnpm`).
 - A way to call Claude (for the AI classifier — optional; see [seed](#no-token-bootstrap)):
   - a **Claude subscription** token via `claude setup-token`, **or**
   - an **Anthropic API key** from <https://console.anthropic.com> → *Settings → API keys* (recommended — higher, clearer rate limits).
