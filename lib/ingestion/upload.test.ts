@@ -6,80 +6,97 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { householdRepo } from "@/lib/db/household-repo";
 import { households } from "@/lib/db/schema";
 
-import { createUpload } from "./upload";
+import type { ParsedRow } from "./parse-csv";
+import { ingestUpload } from "./upload";
 
 let db: ReturnType<typeof drizzle>;
-const asDb = (d: typeof db) => d as unknown as Parameters<typeof householdRepo>[0];
+const asDb = (d: typeof db) => d as unknown as Parameters<typeof ingestUpload>[0];
+const repoDb = (d: typeof db) => d as unknown as Parameters<typeof householdRepo>[0];
 const bytes = (s: string) => new TextEncoder().encode(s);
+const row = (sourceRow: number, amount: number, merchant: string): ParsedRow => ({
+  sourceRow,
+  date: "2026-03-01",
+  amount,
+  merchant,
+  rawCategory: "Verslun",
+});
 
 beforeAll(async () => {
   db = drizzle(new PGlite());
   await migrate(db, { migrationsFolder: "./drizzle" });
 });
 
-/** A fresh household with one account, and a repo scoped to it. */
-async function newHouseholdWithAccount() {
+async function setup() {
   const [hh] = await db.insert(households).values({}).returning();
-  const repo = householdRepo(asDb(db), hh.id);
+  const repo = householdRepo(repoDb(db), hh.id);
   const [account] = await repo.accounts.create({ name: "Visa" });
-  return { repo, accountId: account.id };
+  return { householdId: hh.id, accountId: account.id, repo };
 }
 
-describe("createUpload", () => {
-  it("registers a new upload with its file hash", async () => {
-    const { repo, accountId } = await newHouseholdWithAccount();
-    const result = await createUpload(repo, {
+describe("ingestUpload", () => {
+  it("registers the upload and appends its rows as pending transactions", async () => {
+    const { householdId, accountId, repo } = await setup();
+    const result = await ingestUpload(asDb(db), householdId, {
       accountId,
       fileName: "mar.csv",
-      bytes: bytes("Dagsetning,Mótaðili\n01.03.2026,NETFLIX\n"),
+      bytes: bytes("file-a"),
+      rows: [row(0, -1990, "NETFLIX"), row(1, -3200, "BONUS")],
     });
     expect(result.status).toBe("created");
+    if (result.status === "created") expect(result.appended).toBe(2);
     expect(await repo.uploads.list()).toHaveLength(1);
+    expect(await repo.transactions.list()).toHaveLength(2);
   });
 
-  it("flags a byte-identical re-upload as a duplicate (exact-file guard)", async () => {
-    const { repo, accountId } = await newHouseholdWithAccount();
-    const file = bytes("same bytes");
-    const first = await createUpload(repo, { accountId, fileName: "a.csv", bytes: file });
-    const second = await createUpload(repo, { accountId, fileName: "a-again.csv", bytes: file });
-    expect(first.status).toBe("created");
+  it("reports an exact re-import as a duplicate", async () => {
+    const { householdId, accountId, repo } = await setup();
+    const file = bytes("dup-file");
+    await ingestUpload(asDb(db), householdId, {
+      accountId,
+      fileName: "a.csv",
+      bytes: file,
+      rows: [row(0, -1, "X")],
+    });
+    const second = await ingestUpload(asDb(db), householdId, {
+      accountId,
+      fileName: "a2.csv",
+      bytes: file,
+      rows: [row(0, -1, "X")],
+    });
     expect(second.status).toBe("duplicate");
     expect(await repo.uploads.list()).toHaveLength(1);
   });
 
-  it("treats a one-byte-different file as a new upload", async () => {
-    const { repo, accountId } = await newHouseholdWithAccount();
-    await createUpload(repo, { accountId, fileName: "a.csv", bytes: bytes("content") });
-    const res = await createUpload(repo, { accountId, fileName: "b.csv", bytes: bytes("content ") });
-    expect(res.status).toBe("created");
-    expect(await repo.uploads.list()).toHaveLength(2);
+  it("reports an account not in the household", async () => {
+    const { householdId } = await setup();
+    const result = await ingestUpload(asDb(db), householdId, {
+      accountId: "00000000-0000-0000-0000-000000000000",
+      fileName: "a.csv",
+      bytes: bytes("z"),
+      rows: [],
+    });
+    expect(result.status).toBe("unknown-account");
   });
 
-  it("rejects an account that is not in the household", async () => {
-    const { repo } = await newHouseholdWithAccount();
-    const NONEXISTENT = "00000000-0000-0000-0000-000000000000";
-    const res = await createUpload(repo, { accountId: NONEXISTENT, fileName: "a.csv", bytes: bytes("x") });
-    expect(res.status).toBe("unknown-account");
+  it("rolls back the upload if appending rows fails (atomic)", async () => {
+    const { householdId, accountId, repo } = await setup();
+    const badRow: ParsedRow = {
+      sourceRow: 0,
+      date: "not-a-date",
+      amount: -1,
+      merchant: "X",
+      rawCategory: "Y",
+    };
+    await expect(
+      ingestUpload(asDb(db), householdId, {
+        accountId,
+        fileName: "bad.csv",
+        bytes: bytes("bad-file"),
+        rows: [badRow],
+      }),
+    ).rejects.toThrow();
+    // Neither the upload nor any transaction is persisted — and the file hash isn't locked.
     expect(await repo.uploads.list()).toHaveLength(0);
-  });
-
-  it("does not let one household upload to another household's account", async () => {
-    const a = await newHouseholdWithAccount();
-    const b = await newHouseholdWithAccount();
-    // b's repo cannot use a's accountId (scoped lookup returns nothing).
-    const res = await createUpload(b.repo, { accountId: a.accountId, fileName: "x.csv", bytes: bytes("y") });
-    expect(res.status).toBe("unknown-account");
-  });
-
-  it("handles a concurrent upload of the same file without a duplicate row (TOCTOU)", async () => {
-    const { repo, accountId } = await newHouseholdWithAccount();
-    const file = bytes("racing file");
-    const results = await Promise.all([
-      createUpload(repo, { accountId, fileName: "x.csv", bytes: file }),
-      createUpload(repo, { accountId, fileName: "x.csv", bytes: file }),
-    ]);
-    const statuses = results.map((r) => r.status).sort();
-    expect(statuses).toEqual(["created", "duplicate"]);
-    expect(await repo.uploads.list()).toHaveLength(1);
+    expect(await repo.transactions.list()).toHaveLength(0);
   });
 });
