@@ -18,7 +18,7 @@ export function AggTable({ list, keyFn, head }: Props) {
     e.n += 1;
     m.set(k, e);
   }
-  const rows = [...m.entries()].sort((a, b) => b[1].sum - a[1].sum).slice(0, 15);
+  const rows = [...m.entries()].toSorted((a, b) => b[1].sum - a[1].sum).slice(0, 15);
   const tot = totalSpend(list);
 
   return (

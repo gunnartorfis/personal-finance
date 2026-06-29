@@ -16,7 +16,8 @@ h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute
 .head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:22px}
 .chips{display:flex;gap:8px;flex-wrap:wrap}
 .chip{padding:6px 13px;border:1px solid var(--line);border-radius:999px;background:var(--panel);
-  color:var(--muted);cursor:pointer;font-size:13px;user-select:none;transition:.12s}
+  color:var(--muted);cursor:pointer;font-size:13px;font-family:inherit;line-height:inherit;
+  user-select:none;transition:.12s}
 .chip:hover{border-color:var(--accent);color:var(--txt)}
 .chip.active{background:var(--accent);border-color:var(--accent);color:#08101f;font-weight:600}
 .grid{display:grid;gap:16px}
@@ -95,6 +96,7 @@ tbody tr:hover{background:var(--panel2)}
 .srctotal{font-size:13px;color:var(--muted);margin-top:10px}
 .toggles{display:flex;gap:8px;flex-wrap:wrap}
 .toggle{padding:6px 13px;border:1px solid var(--line);border-radius:999px;cursor:pointer;font-size:13px;
+  font-family:inherit;line-height:inherit;color:var(--txt);
   user-select:none;display:inline-flex;align-items:center;gap:7px;background:var(--panel2)}
 .toggle .dot{margin:0}
 .toggle.off{opacity:.4;text-decoration:line-through}
