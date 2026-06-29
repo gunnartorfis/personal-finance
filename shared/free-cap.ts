@@ -27,6 +27,9 @@ export function isExpense(amount: number): boolean {
  */
 export function freeClassificationsRemaining(plan: Plan, classifiedCount: number): number {
   if (plan === "Premium") return Infinity;
+  // Fail safe: a missing or unparsable stored count must never let a Free household classify
+  // past the cap, so an invalid count is treated as "cap reached" (no remaining).
+  if (!Number.isFinite(classifiedCount) || classifiedCount < 0) return 0;
   return Math.max(0, FREE_CAP - classifiedCount);
 }
 

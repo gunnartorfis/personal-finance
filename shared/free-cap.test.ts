@@ -51,4 +51,17 @@ describe("free-cap counting", () => {
     expect(canClassify("Free", 50)).toBe(false);
     expect(canClassify("Premium", 10_000)).toBe(true);
   });
+
+  it("fails safe on an invalid count for a Free household (treats it as capped)", () => {
+    for (const bad of [NaN, -1, Infinity]) {
+      expect(freeClassificationsRemaining("Free", bad)).toBe(0);
+      expect(isClassificationPaused("Free", bad)).toBe(true);
+      expect(canClassify("Free", bad)).toBe(false);
+    }
+  });
+
+  it("stays uncapped for Premium regardless of count validity", () => {
+    expect(freeClassificationsRemaining("Premium", NaN)).toBe(Infinity);
+    expect(canClassify("Premium", NaN)).toBe(true);
+  });
 });
