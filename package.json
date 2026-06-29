@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.9.0",
   "description": "Local dashboard that classifies an Icelandic credit-card statement with Claude (Fixed / Necessary / Nice to have + confidence), with editable types and income / net-profit tracking.",
   "license": "MIT",
   "repository": {
