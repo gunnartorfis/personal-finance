@@ -61,7 +61,7 @@ the remainder as new unchecked items.
 
 - [x] **Upload endpoint**: accept a CSV plus column mapping and Account; run the exact-file guard;
   persist the Upload.
-- [ ] **Append rows**: parse → append Transactions (with dedup, `source_row`, status `pending`).
+- [x] **Append rows**: parse → append Transactions (with dedup, `source_row`, status `pending`).
 
 ## Phase E — Classification pipeline (ADR-0005) — depends on D and Phase A rules
 

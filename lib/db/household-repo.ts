@@ -56,6 +56,11 @@ export function householdRepo(db: Db, householdId: string) {
     },
     transactions: {
       list: () => db.select().from(transactions).where(eq(transactions.householdId, householdId)),
+      listByAccount: (accountId: string) =>
+        db
+          .select()
+          .from(transactions)
+          .where(and(eq(transactions.householdId, householdId), eq(transactions.accountId, accountId))),
       findById: async (id: string) => {
         const [row] = await db
           .select()
@@ -65,6 +70,13 @@ export function householdRepo(db: Db, householdId: string) {
       },
       create: (value: Omit<typeof transactions.$inferInsert, "householdId">) =>
         db.insert(transactions).values({ ...value, householdId }).returning(),
+      createMany: (values: Array<Omit<typeof transactions.$inferInsert, "householdId">>) =>
+        values.length === 0
+          ? Promise.resolve([])
+          : db
+              .insert(transactions)
+              .values(values.map((v) => ({ ...v, householdId })))
+              .returning(),
     },
     merchantRules: {
       list: () => db.select().from(merchantRules).where(eq(merchantRules.householdId, householdId)),
