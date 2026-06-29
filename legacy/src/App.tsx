@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { ExpenseType, IncomeConfig, TxnView } from "../shared/types.ts";
-import { billingMonth } from "../shared/billing.ts";
+import { statementCycle } from "../shared/billing.ts";
 import { fetchIncome, fetchTransactions, postOverride, saveIncome } from "./api.ts";
 import { inMonth, monthsOf } from "./lib/aggregate.ts";
 import { monthLabel } from "./lib/format.ts";
@@ -37,7 +37,7 @@ export default function App() {
   useEffect(() => {
     // `month` is the billing cycle (27th–26th), derived from each date.
     fetchTransactions()
-      .then((rows) => setTxns(rows.map((t) => ({ ...t, month: billingMonth(t.date) }))))
+      .then((rows) => setTxns(rows.map((t) => ({ ...t, month: statementCycle(t.date, 27) }))))
       .catch((e) => setError(String(e)));
     fetchIncome()
       .then((cfg) => {
