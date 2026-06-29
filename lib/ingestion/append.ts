@@ -5,9 +5,11 @@ import type { ParsedRow } from "./parse-csv";
 
 /**
  * Append parsed rows to a Household's Transactions (ADR-0003), skipping duplicates via the
- * row-fingerprint dedup. New rows are inserted as `pending` (the schema default) for later
- * classification, carrying their `source_row` for traceability. The repo is household-scoped, and
- * the composite FKs ensure the Account/Upload belong to the same Household.
+ * row-fingerprint dedup. Dedup is scoped to the Account (the card), since two different Accounts
+ * can legitimately have identical `(date, amount, merchant, category)` rows. New rows are inserted
+ * as `pending` (the schema default) for later classification, carrying their `source_row` for
+ * traceability. The repo is household-scoped, and the composite FKs ensure the Account/Upload
+ * belong to the same Household.
  */
 export interface AppendResult {
   appended: number;
@@ -18,7 +20,7 @@ export async function appendTransactions(
   repo: HouseholdRepo,
   input: { uploadId: string; accountId: string; rows: ParsedRow[] },
 ): Promise<AppendResult> {
-  const stored = await repo.transactions.list();
+  const stored = await repo.transactions.listByAccount(input.accountId);
   const existing: FingerprintInput[] = stored.map((t) => ({
     date: t.date,
     amount: t.amount,

@@ -56,6 +56,11 @@ export function householdRepo(db: Db, householdId: string) {
     },
     transactions: {
       list: () => db.select().from(transactions).where(eq(transactions.householdId, householdId)),
+      listByAccount: (accountId: string) =>
+        db
+          .select()
+          .from(transactions)
+          .where(and(eq(transactions.householdId, householdId), eq(transactions.accountId, accountId))),
       findById: async (id: string) => {
         const [row] = await db
           .select()

@@ -62,6 +62,21 @@ describe("appendTransactions", () => {
     expect(await repo.transactions.list()).toHaveLength(1);
   });
 
+  it("does not dedup identical rows across different accounts", async () => {
+    const [hh] = await db.insert(households).values({}).returning();
+    const repo = householdRepo(asDb(db), hh.id);
+    const [acctA] = await repo.accounts.create({ name: "Visa" });
+    const [acctB] = await repo.accounts.create({ name: "Mastercard" });
+    const [upA] = await repo.uploads.create({ accountId: acctA.id, fileName: "a.csv", fileHash: "ha" });
+    const [upB] = await repo.uploads.create({ accountId: acctB.id, fileName: "b.csv", fileHash: "hb" });
+    const sameRow = [row(0, -1990, "NETFLIX")];
+    await appendTransactions(repo, { uploadId: upA.id, accountId: acctA.id, rows: sameRow });
+    // The same (date, amount, merchant, category) on a different account is NOT a duplicate.
+    const b = await appendTransactions(repo, { uploadId: upB.id, accountId: acctB.id, rows: sameRow });
+    expect(b).toEqual({ appended: 1, duplicates: 0 });
+    expect(await repo.transactions.list()).toHaveLength(2);
+  });
+
   it("keeps genuine same-day same-price repeats (occurrence ordinal)", async () => {
     const { repo, accountId, uploadId } = await freshUpload();
     const result = await appendTransactions(repo, {
