@@ -1,13 +1,45 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
 .DS_Store
+*.pem
 *.tmp
 
-# Node / Vite
-node_modules/
-dist/
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# Secrets — never commit the Claude token
-.env
+# env files (can opt-in for committing if needed)
+.env*
 
-# Local data (bring your own) — raw statement + generated/state files, never committed
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# local data (bring your own) — raw statement + generated/state files, never committed
 combined.csv
 data/
+
+# frozen Vite tool (legacy/) — deps + build output
+legacy/node_modules/
+legacy/dist/

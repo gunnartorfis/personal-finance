@@ -1,5 +1,8 @@
 allowBuilds:
   esbuild: true
+  sharp: true
+  unrs-resolver: true
+  msw: false
 # Supply-chain hardening:
 # - minimumReleaseAge delays installs of freshly published versions (7 days) so
 #   malware caught and unpublished within hours never reaches us.
@@ -22,3 +25,10 @@ minimumReleaseAgeExclude:
 trustPolicyExclude:
   - semver@6.3.1
   - undici-types@6.21.0
+# eslint-config-next wants eslint-import-resolver-typescript@^3.5.2; pnpm picks the
+# newest in-range (3.10.1), which DROPPED the provenance attestation its earlier
+# versions had — no-downgrade flags it as a possible takeover. Pin to 3.10.0, the
+# last provenance-attested 3.x, instead of excluding the suspect build. Revisit when
+# the maintainer restores attestation on a newer release.
+overrides:
+  eslint-import-resolver-typescript: "3.10.0"

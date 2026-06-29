@@ -1,0 +1,41 @@
+{
+  "name": "personal-finance",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.9.0",
+  "description": "Local dashboard that classifies an Icelandic credit-card statement with Claude (Fixed / Necessary / Nice to have + confidence), with editable types and income / net-profit tracking.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gunnartorfis/personal-finance.git"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "classify": "tsx scripts/classify.ts",
+    "seed": "tsx scripts/seed.ts",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.106.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/papaparse": "^5.3.15",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "dotenv": "^16.4.7",
+    "papaparse": "^5.4.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  }
+}
