@@ -65,6 +65,13 @@ export function householdRepo(db: Db, householdId: string) {
       },
       create: (value: Omit<typeof transactions.$inferInsert, "householdId">) =>
         db.insert(transactions).values({ ...value, householdId }).returning(),
+      createMany: (values: Array<Omit<typeof transactions.$inferInsert, "householdId">>) =>
+        values.length === 0
+          ? Promise.resolve([])
+          : db
+              .insert(transactions)
+              .values(values.map((v) => ({ ...v, householdId })))
+              .returning(),
     },
     merchantRules: {
       list: () => db.select().from(merchantRules).where(eq(merchantRules.householdId, householdId)),

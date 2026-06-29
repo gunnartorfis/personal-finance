@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { requireHousehold } from "@/lib/household/current";
+import { appendTransactions } from "@/lib/ingestion/append";
+import { parseStatementCsv, type ParsedRow } from "@/lib/ingestion/parse-csv";
 import { createUpload } from "@/lib/ingestion/upload";
 
 /** Upper bound on a single CSV upload; statements are small, so this is generous headroom. */
@@ -28,14 +30,32 @@ export async function POST(request: Request) {
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());
+
+  // Parse first so a malformed CSV is rejected before an Upload row is created.
+  let rows: ParsedRow[];
+  try {
+    rows = parseStatementCsv(new TextDecoder().decode(bytes));
+  } catch {
+    return NextResponse.json({ error: "could not parse CSV" }, { status: 422 });
+  }
+
   const result = await createUpload(repo, {
     accountId,
     fileName: file.name,
     bytes,
     importedByMemberId: memberId,
   });
+  if (result.status === "duplicate") {
+    return NextResponse.json(result, { status: 409 });
+  }
+  if (result.status === "unknown-account") {
+    return NextResponse.json(result, { status: 404 });
+  }
 
-  const status =
-    result.status === "duplicate" ? 409 : result.status === "unknown-account" ? 404 : 201;
-  return NextResponse.json(result, { status });
+  const { appended, duplicates } = await appendTransactions(repo, {
+    uploadId: result.upload.id,
+    accountId,
+    rows,
+  });
+  return NextResponse.json({ ...result, appended, duplicates }, { status: 201 });
 }
