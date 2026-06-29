@@ -53,7 +53,7 @@ the remainder as new unchecked items.
     server-side session helpers (`getCurrentUser`/`requireUser`).
   - [x] **Auth UI + route protection** — `NeonAuthUIProvider` + `UserButton` in the layout,
     sign-in pages (`AuthView`), and route-protection middleware (`proxy.ts`).
-- [ ] **Household provisioning**: one Household per user (v1), mapped to a Stack Team; membership;
+- [x] **Household provisioning**: one Household per user (v1), mapped to a Stack Team; membership;
   all Members equal (ADR-0002).
 - [ ] **Tenant guard**: every request resolves a `household_id`; no cross-household reads.
 
