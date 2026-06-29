@@ -17,6 +17,7 @@
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
@@ -43,3 +44,8 @@ data/
 # frozen Vite tool (legacy/) — deps + build output
 legacy/node_modules/
 legacy/dist/
+
+# agent tooling — git worktrees + installed skills (reproducible from skills-lock.json)
+.claude/worktrees/
+.claude/skills/
+.agents/skills/
