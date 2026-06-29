@@ -18,7 +18,7 @@ the remainder as new unchecked items.
   never summed. Guard against totalling mixed currencies.
 - [x] **Row-fingerprint dedup** (ADR-0003): fingerprint = (date, amount, merchant, raw-category)
   plus an occurrence ordinal, so genuine same-day / same-price repeats both survive.
-- [ ] **Exact-file import guard** (ADR-0003): hash an upload's bytes and flag when the Household
+- [x] **Exact-file import guard** (ADR-0003): hash an upload's bytes and flag when the Household
   has already imported an identical file.
 - [ ] **Merchant-rule matching** (ADR-0005, `CONTEXT.md`): normalize the merchant (uppercase,
   trim, strip store-number / location); support flat (`merchant → type`) and amount-threshold
