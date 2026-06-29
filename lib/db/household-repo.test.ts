@@ -71,4 +71,34 @@ describe("householdRepo", () => {
     expect(await a.merchantRules.list()).toHaveLength(1);
     expect(await b.merchantRules.list()).toHaveLength(0);
   });
+
+  it("scopes overrides to the bound household", async () => {
+    const { a, b } = await twoHouseholds();
+    const [account] = await a.accounts.create({ name: "Visa" });
+    const [upload] = await a.uploads.create({
+      accountId: account.id,
+      fileName: "f.csv",
+      fileHash: "ovr",
+    });
+    const [txn] = await a.transactions.create({
+      accountId: account.id,
+      uploadId: upload.id,
+      date: "2026-03-01",
+      amount: -1990,
+      merchant: "NETFLIX",
+      rawCategory: "Afþreying",
+      sourceRow: 0,
+    });
+    await a.overrides.create({ transactionId: txn.id, expenseType: "Necessary" });
+    expect(await a.overrides.list()).toHaveLength(1);
+    expect(await b.overrides.list()).toHaveLength(0);
+  });
+
+  it("findById returns a row in the household but not one from another", async () => {
+    const { a, b } = await twoHouseholds();
+    const [account] = await a.accounts.create({ name: "Visa" });
+    expect((await a.accounts.findById(account.id))?.name).toBe("Visa");
+    // B cannot read A's account by id — scoping returns undefined, not the row.
+    expect(await b.accounts.findById(account.id)).toBeUndefined();
+  });
 });
