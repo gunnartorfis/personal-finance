@@ -22,20 +22,23 @@ the remainder as new unchecked items.
   has already imported an identical file.
 - [ ] **Merchant-rule matching** (ADR-0005, `CONTEXT.md`): normalize the merchant (uppercase,
   trim, strip store-number / location); support flat (`merchant → type`) and amount-threshold
-  split rules; apply deterministically before AI classification. Extends `shared/rules.ts`.
+  split rules in deterministic shared logic that runs before AI classification. Keep this separate
+  from the existing LLM classifier prompt in `shared/rules.ts`.
 - [ ] **Expense-type model + Free-cap counting** (ADR-0002, `CONTEXT.md`): credits and split
   payments map to `""` (not bucketed); the Free cap is 50 *distinct classified* Transactions,
   lifetime, per Household.
-- [ ] **Statement-cycle bucketing** (`CONTEXT.md`): a configurable cutoff day (default 1 =
-  calendar month; e.g. 27 → 27th–26th), applied uniformly to every Account by transaction date.
+- [ ] **Statement-cycle bucketing** (`CONTEXT.md`): replace or migrate the existing shared
+  statement-cycle helper so the cutoff day is configurable and applied uniformly to every Account
+  by transaction date; document the intended default and cover the current 27th–26th behavior.
 
 ## Phase B — Persistence: Neon Postgres
 
 - [ ] **Neon connection + migration tooling** (ADR-0001): environment wiring (EU region) and a
   migration runner.
-- [ ] **Schema** (ADR-0002/0003/0005): Household, Member, Account, Upload, Transaction, Override,
-  MerchantRule, Plan — every financial row keyed by `household_id`; append-only DB-generated PKs;
-  `source_row` for traceability; `classification_status` (`pending` / `classified` / `failed`).
+- [ ] **Schema** (ADR-0002/0003/0005/0006): Household (including Plan fields), Member, Account,
+  Upload, Transaction, Override, MerchantRule — every financial row keyed by `household_id`;
+  append-only DB-generated PKs; `source_row` for traceability; `classification_status`
+  (`pending` / `classified` / `failed`).
 - [ ] **Data-access layer** with `household_id` scoping enforced on every query.
 
 ## Phase C — Auth & tenancy: Neon Auth (Stack) — depends on B
@@ -65,7 +68,7 @@ the remainder as new unchecked items.
 - [ ] **Override UI**: a manual expense-type change that takes precedence over the classified type.
 - [ ] **Merchant-rule management UI**.
 
-## Phase G — Billing (ADR-0006) — depends on C and Phase E Free-cap
+## Phase G — Billing (ADR-0006) — depends on C and Phase A Free-cap counting
 
 - [ ] **Plan on Household** + Free-cap enforcement: reaching 50 pauses AI classification only;
   Uploads, dashboard, Overrides, and net tracking stay usable.
