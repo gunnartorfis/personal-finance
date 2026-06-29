@@ -6,6 +6,8 @@ import { createUpload } from "@/lib/ingestion/upload";
 /** Upper bound on a single CSV upload; statements are small, so this is generous headroom. */
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * POST /api/uploads — register a CSV upload for the current Household (ADR-0003). Multipart form:
  * `file` (the CSV) and `accountId`. Returns 201 with the Upload, 409 if this exact file was
@@ -17,8 +19,8 @@ export async function POST(request: Request) {
   const form = await request.formData();
   const file = form.get("file");
   const accountId = form.get("accountId");
-  if (!(file instanceof File) || typeof accountId !== "string") {
-    return NextResponse.json({ error: "file and accountId are required" }, { status: 400 });
+  if (!(file instanceof File) || typeof accountId !== "string" || !UUID_RE.test(accountId)) {
+    return NextResponse.json({ error: "file and a valid accountId are required" }, { status: 400 });
   }
   if (file.size > MAX_UPLOAD_BYTES) {
     // Bound memory before buffering the whole file into a Uint8Array.
@@ -33,5 +35,7 @@ export async function POST(request: Request) {
     importedByMemberId: memberId,
   });
 
-  return NextResponse.json(result, { status: result.status === "duplicate" ? 409 : 201 });
+  const status =
+    result.status === "duplicate" ? 409 : result.status === "unknown-account" ? 404 : 201;
+  return NextResponse.json(result, { status });
 }

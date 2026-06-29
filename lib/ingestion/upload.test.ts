@@ -55,6 +55,22 @@ describe("createUpload", () => {
     expect(await repo.uploads.list()).toHaveLength(2);
   });
 
+  it("rejects an account that is not in the household", async () => {
+    const { repo } = await newHouseholdWithAccount();
+    const NONEXISTENT = "00000000-0000-0000-0000-000000000000";
+    const res = await createUpload(repo, { accountId: NONEXISTENT, fileName: "a.csv", bytes: bytes("x") });
+    expect(res.status).toBe("unknown-account");
+    expect(await repo.uploads.list()).toHaveLength(0);
+  });
+
+  it("does not let one household upload to another household's account", async () => {
+    const a = await newHouseholdWithAccount();
+    const b = await newHouseholdWithAccount();
+    // b's repo cannot use a's accountId (scoped lookup returns nothing).
+    const res = await createUpload(b.repo, { accountId: a.accountId, fileName: "x.csv", bytes: bytes("y") });
+    expect(res.status).toBe("unknown-account");
+  });
+
   it("handles a concurrent upload of the same file without a duplicate row (TOCTOU)", async () => {
     const { repo, accountId } = await newHouseholdWithAccount();
     const file = bytes("racing file");

@@ -23,7 +23,8 @@ export interface CreateUploadInput {
 
 export type CreateUploadResult =
   | { status: "created"; upload: Upload }
-  | { status: "duplicate"; fileHash: string };
+  | { status: "duplicate"; fileHash: string }
+  | { status: "unknown-account" };
 
 /**
  * Hash the upload and either register it or report it as an exact re-import the Household already
@@ -33,6 +34,12 @@ export async function createUpload(
   repo: HouseholdRepo,
   input: CreateUploadInput,
 ): Promise<CreateUploadResult> {
+  // The Account must exist in this Household. The scoped lookup also rejects another household's
+  // account (returns undefined), so a bad/foreign accountId is a clean result, not an FK 500.
+  if (!(await repo.accounts.findById(input.accountId))) {
+    return { status: "unknown-account" };
+  }
+
   const fileHash = await hashUpload(input.bytes);
 
   // Fast path: targeted indexed lookup (household_id, file_hash) instead of scanning all uploads.
