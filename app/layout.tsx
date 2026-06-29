@@ -1,7 +1,9 @@
+import { NeonAuthUIProvider, UserButton } from "@neondatabase/auth-ui"
 import { Geist_Mono, Inter } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { authClient } from "@/lib/auth/client"
 import { cn } from "@/lib/utils";
 
 const inter = Inter({subsets:['latin'],variable:'--font-sans'})
@@ -23,7 +25,14 @@ export default function RootLayout({
       className={cn("antialiased", fontMono.variable, "font-sans", inter.variable)}
     >
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <NeonAuthUIProvider authClient={authClient} emailOTP>
+            <header className="flex h-14 items-center justify-end border-b px-4">
+              <UserButton size="icon" />
+            </header>
+            {children}
+          </NeonAuthUIProvider>
+        </ThemeProvider>
       </body>
     </html>
   )
