@@ -16,7 +16,7 @@ the remainder as new unchecked items.
 - [x] **Net math uses the charged amount only** (ADR-0004): net profit/loss sums the charged
   amount in the Account's billing currency; the foreign `original` amount is display-only and
   never summed. Guard against totalling mixed currencies.
-- [ ] **Row-fingerprint dedup** (ADR-0003): fingerprint = (date, amount, merchant, raw-category)
+- [x] **Row-fingerprint dedup** (ADR-0003): fingerprint = (date, amount, merchant, raw-category)
   plus an occurrence ordinal, so genuine same-day / same-price repeats both survive.
 - [ ] **Exact-file import guard** (ADR-0003): hash an upload's bytes and flag when the Household
   has already imported an identical file.
