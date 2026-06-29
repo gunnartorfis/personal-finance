@@ -13,7 +13,7 @@ the remainder as new unchecked items.
 
 ## Phase A — Pure domain logic (`shared/`, no infrastructure)
 
-- [ ] **Net math uses the charged amount only** (ADR-0004): net profit/loss sums the charged
+- [x] **Net math uses the charged amount only** (ADR-0004): net profit/loss sums the charged
   amount in the Account's billing currency; the foreign `original` amount is display-only and
   never summed. Guard against totalling mixed currencies.
 - [ ] **Row-fingerprint dedup** (ADR-0003): fingerprint = (date, amount, merchant, raw-category)
