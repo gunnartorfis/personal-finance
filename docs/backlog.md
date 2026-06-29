@@ -51,7 +51,7 @@ the remainder as new unchecked items.
 - Neon Auth integration and session handling (ADR-0001). Split into reviewable slices:
   - [x] **Auth core + session** — Neon Auth SDK, server/client instances, `/api/auth` handler,
     server-side session helpers (`getCurrentUser`/`requireUser`).
-  - [ ] **Auth UI + route protection** — `NeonAuthUIProvider` + `UserButton` in the layout,
+  - [x] **Auth UI + route protection** — `NeonAuthUIProvider` + `UserButton` in the layout,
     sign-in pages (`AuthView`), and route-protection middleware (`proxy.ts`).
 - [ ] **Household provisioning**: one Household per user (v1), mapped to a Stack Team; membership;
   all Members equal (ADR-0002).
