@@ -24,7 +24,7 @@ the remainder as new unchecked items.
   trim, strip store-number / location); support flat (`merchant → type`) and amount-threshold
   split rules in deterministic shared logic that runs before AI classification. Keep this separate
   from the existing LLM classifier prompt in `shared/rules.ts`.
-- [ ] **Expense-type model + Free-cap counting** (ADR-0002, `CONTEXT.md`): credits and split
+- [x] **Expense-type model + Free-cap counting** (ADR-0002, `CONTEXT.md`): credits and split
   payments map to `""` (not bucketed); the Free cap is 50 *distinct classified* Transactions,
   lifetime, per Household.
 - [ ] **Statement-cycle bucketing** (`CONTEXT.md`): replace or migrate the existing shared
