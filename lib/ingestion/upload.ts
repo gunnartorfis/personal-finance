@@ -1,6 +1,7 @@
+import { isUniqueViolation } from "@/lib/db/errors";
 import type { HouseholdRepo } from "@/lib/db/household-repo";
 import type { uploads } from "@/lib/db/schema";
-import { checkExactFile, type UploadBytes } from "@/shared/upload-hash";
+import { hashUpload, type UploadBytes } from "@/shared/upload-hash";
 
 /**
  * Upload ingestion — step one (ADR-0003): register a CSV upload for a Household, guarded by the
@@ -32,19 +33,28 @@ export async function createUpload(
   repo: HouseholdRepo,
   input: CreateUploadInput,
 ): Promise<CreateUploadResult> {
-  const existing = await repo.uploads.list();
-  const { hash, alreadyImported } = await checkExactFile(
-    input.bytes,
-    existing.map((u) => u.fileHash),
-  );
-  if (alreadyImported) {
-    return { status: "duplicate", fileHash: hash };
+  const fileHash = await hashUpload(input.bytes);
+
+  // Fast path: targeted indexed lookup (household_id, file_hash) instead of scanning all uploads.
+  if (await repo.uploads.findByFileHash(fileHash)) {
+    return { status: "duplicate", fileHash };
   }
-  const [upload] = await repo.uploads.create({
-    accountId: input.accountId,
-    fileName: input.fileName,
-    fileHash: hash,
-    importedByMemberId: input.importedByMemberId,
-  });
-  return { status: "created", upload };
+
+  try {
+    const [upload] = await repo.uploads.create({
+      accountId: input.accountId,
+      fileName: input.fileName,
+      fileHash,
+      importedByMemberId: input.importedByMemberId,
+    });
+    if (!upload) throw new Error("upload insert returned no row");
+    return { status: "created", upload };
+  } catch (err) {
+    // TOCTOU: a concurrent upload of the same file committed first. The unique
+    // (household_id, file_hash) constraint catches it — report it as a duplicate, not a 500.
+    if (isUniqueViolation(err)) {
+      return { status: "duplicate", fileHash };
+    }
+    throw err;
+  }
 }

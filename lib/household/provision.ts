@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
+import { isUniqueViolation } from "@/lib/db/errors";
 import { households, members } from "@/lib/db/schema";
 import type * as schema from "@/lib/db/schema";
 
@@ -18,19 +19,6 @@ type Db = NodePgDatabase<typeof schema>;
 export interface Membership {
   householdId: string;
   memberId: string;
-}
-
-/** Postgres unique-violation SQLSTATE. */
-const UNIQUE_VIOLATION = "23505";
-
-/** Whether an error is a Postgres unique violation (drizzle may wrap the driver error in `cause`). */
-function isUniqueViolation(err: unknown): boolean {
-  const codeOf = (e: unknown): unknown =>
-    typeof e === "object" && e !== null && "code" in e ? (e as { code?: unknown }).code : undefined;
-  return (
-    codeOf(err) === UNIQUE_VIOLATION ||
-    codeOf((err as { cause?: unknown } | null)?.cause) === UNIQUE_VIOLATION
-  );
 }
 
 async function findMembership(db: Db, authUserId: string): Promise<Membership | undefined> {

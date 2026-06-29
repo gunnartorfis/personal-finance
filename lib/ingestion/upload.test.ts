@@ -54,4 +54,16 @@ describe("createUpload", () => {
     expect(res.status).toBe("created");
     expect(await repo.uploads.list()).toHaveLength(2);
   });
+
+  it("handles a concurrent upload of the same file without a duplicate row (TOCTOU)", async () => {
+    const { repo, accountId } = await newHouseholdWithAccount();
+    const file = bytes("racing file");
+    const results = await Promise.all([
+      createUpload(repo, { accountId, fileName: "x.csv", bytes: file }),
+      createUpload(repo, { accountId, fileName: "x.csv", bytes: file }),
+    ]);
+    const statuses = results.map((r) => r.status).sort();
+    expect(statuses).toEqual(["created", "duplicate"]);
+    expect(await repo.uploads.list()).toHaveLength(1);
+  });
 });

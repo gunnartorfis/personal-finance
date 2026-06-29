@@ -44,6 +44,13 @@ export function householdRepo(db: Db, householdId: string) {
           .where(and(eq(uploads.id, id), eq(uploads.householdId, householdId)));
         return row;
       },
+      findByFileHash: async (fileHash: string) => {
+        const [row] = await db
+          .select()
+          .from(uploads)
+          .where(and(eq(uploads.householdId, householdId), eq(uploads.fileHash, fileHash)));
+        return row;
+      },
       create: (value: Omit<typeof uploads.$inferInsert, "householdId">) =>
         db.insert(uploads).values({ ...value, householdId }).returning(),
     },
