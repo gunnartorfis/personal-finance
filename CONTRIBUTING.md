@@ -5,7 +5,7 @@ Thanks for your interest! This is a small, local-first personal-finance dashboar
 
 ## Setup
 
-- **Node 20+** and **pnpm** (`npm i -g pnpm`)
+- **Node 22+** and **pnpm** (`npm i -g pnpm`)
 - `pnpm install`
 - See the [README](README.md) for adding your own `combined.csv`, configuring the
   Claude token, and running `pnpm classify` / `pnpm dev`.
