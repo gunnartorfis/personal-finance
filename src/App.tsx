@@ -11,11 +11,13 @@ import { Donut } from "./components/Donut.tsx";
 import { IncomePanel } from "./components/IncomePanel.tsx";
 import { AggTable } from "./components/AggTable.tsx";
 import { TransactionsTable } from "./components/TransactionsTable.tsx";
+import { ReviewMode } from "./components/ReviewMode.tsx";
 
 export default function App() {
   const [txns, setTxns] = useState<TxnView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selMonth, setSelMonth] = useState("all");
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   const [sources, setSources] = useState<Source[]>(DEFAULT_INCOME.sources);
   const [monthExtra, setExtra] = useState<Record<string, number>>(DEFAULT_INCOME.monthExtra);
@@ -91,6 +93,7 @@ export default function App() {
         <div>
           <h1>Finance Dashboard</h1>
           <div className="sub">{range} · {txns.length} transactions · billing cycle 27th–26th</div>
+          <button className="btn" style={{ marginTop: 10 }} onClick={() => setReviewOpen(true)}>⚡ Rapid review</button>
         </div>
         <div className="chips">
           <div className={`chip${selMonth === "all" ? " active" : ""}`} onClick={() => setSelMonth("all")}>All</div>
@@ -140,6 +143,8 @@ export default function App() {
       <TransactionsTable rows={list} onOverride={onOverride} />
 
       <div className="foot">Edit a transaction's Type to override the AI classification — saved to data/overrides.json.</div>
+
+      {reviewOpen && <ReviewMode rows={list} onOverride={onOverride} onClose={() => setReviewOpen(false)} />}
     </div>
   );
 }
