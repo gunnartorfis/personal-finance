@@ -18,7 +18,8 @@ export type UploadBytes = Uint8Array;
 
 /** SHA-256 hex digest of an upload's raw bytes — the exact-file identity. */
 export async function hashUpload(bytes: UploadBytes): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  // `bytes` is a real ArrayBuffer-backed view at runtime; cast satisfies BufferSource typing.
+  const digest = await crypto.subtle.digest("SHA-256", bytes as BufferSource);
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 

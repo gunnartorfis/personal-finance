@@ -59,7 +59,7 @@ the remainder as new unchecked items.
 
 ## Phase D — Ingestion (ADR-0003) — depends on B, C, and Phase A dedup/guard
 
-- [ ] **Upload endpoint**: accept a CSV plus column mapping and Account; run the exact-file guard;
+- [x] **Upload endpoint**: accept a CSV plus column mapping and Account; run the exact-file guard;
   persist the Upload.
 - [ ] **Append rows**: parse → append Transactions (with dedup, `source_row`, status `pending`).
 
