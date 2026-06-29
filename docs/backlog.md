@@ -34,7 +34,7 @@ the remainder as new unchecked items.
 
 ## Phase B — Persistence: Neon Postgres
 
-- [ ] **Neon connection + migration tooling** (ADR-0001): environment wiring (EU region) and a
+- [x] **Neon connection + migration tooling** (ADR-0001): environment wiring (EU region) and a
   migration runner.
 - [ ] **Schema** (ADR-0002/0003/0005/0006): Household (including Plan fields), Member, Account,
   Upload, Transaction, Override, MerchantRule — every financial row keyed by `household_id`;
