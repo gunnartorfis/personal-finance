@@ -24,3 +24,15 @@ export function getDb(): NodePgDatabase<typeof schema> {
   }
   return database;
 }
+
+/**
+ * Close the connection pool, if one was opened. Safe to call when no pool exists. Use in tests,
+ * one-off scripts, and graceful-shutdown paths so TCP handles don't leak.
+ */
+export async function closeDb(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = undefined;
+    database = undefined;
+  }
+}
