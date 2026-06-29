@@ -15,6 +15,9 @@ const eslintConfig = defineConfig([
     // Frozen Vite tool + not-yet-wired shared core (excluded from tsconfig too).
     "legacy/**",
     "shared/**",
+    // Stale legacy build output and local tool state — never source.
+    "dist/**",
+    ".claude/**",
   ]),
 ]);
 

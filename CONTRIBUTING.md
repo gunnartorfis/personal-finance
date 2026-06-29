@@ -19,7 +19,10 @@ that already has a `Type` column; confidence shows as `—`).
 |---|---|
 | `pnpm dev` | Run the app + local data API at http://localhost:5173 |
 | `pnpm typecheck` | `tsc --noEmit` — must pass (CI enforces it) |
+| `pnpm lint` | ESLint — must pass (CI enforces it) |
+| `pnpm test` | Vitest in watch mode (`pnpm test:run` for a single run, as CI does) |
 | `pnpm build` | Production build — must pass (CI enforces it) |
+| `pnpm doctor` | React Doctor health scan (CI runs it on changed files per PR) |
 
 ## Conventions
 
@@ -35,5 +38,5 @@ that already has a `Type` column; confidence shows as `—`).
 ## Submitting a PR
 
 1. Branch off `main`.
-2. Make your change; run `pnpm typecheck` and `pnpm build` locally.
-3. Open a PR against `main`. CI runs typecheck + build on every PR.
+2. Make your change; run `pnpm lint`, `pnpm typecheck`, `pnpm test:run`, and `pnpm build` locally.
+3. Open a PR against `main`. CI runs lint, typecheck, test, build, and React Doctor on every PR.
