@@ -1,0 +1,1 @@
+ALTER TABLE "merchant_rules" ADD CONSTRAINT "merchant_rules_threshold_positive" CHECK ("merchant_rules"."threshold" IS NULL OR "merchant_rules"."threshold" > 0);

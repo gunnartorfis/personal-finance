@@ -271,5 +271,7 @@ export const merchantRules = pgTable(
         AND (${t.atOrAboveType} IS NULL OR ${t.atOrAboveType} IN ('Fixed', 'Necessary', 'Nice to have', ''))
         AND (${t.belowType} IS NULL OR ${t.belowType} IN ('Fixed', 'Necessary', 'Nice to have', ''))`,
     ),
+    // A split threshold is a positive magnitude (0 would make the at-or-above branch always fire).
+    check("merchant_rules_threshold_positive", sql`${t.threshold} IS NULL OR ${t.threshold} > 0`),
   ],
 );

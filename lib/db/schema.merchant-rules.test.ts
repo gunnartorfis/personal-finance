@@ -89,4 +89,20 @@ describe("merchant rules schema", () => {
       db.insert(merchantRules).values({ householdId, merchant: "BONUS", flatType: "Fixed" }),
     ).rejects.toThrow();
   });
+
+  it("rejects a non-positive split threshold", async () => {
+    for (const threshold of [0, -100]) {
+      await expect(
+        db
+          .insert(merchantRules)
+          .values({
+            householdId,
+            merchant: `T${threshold}`,
+            threshold,
+            atOrAboveType: "Fixed",
+            belowType: "Nice to have",
+          }),
+      ).rejects.toThrow();
+    }
+  });
 });

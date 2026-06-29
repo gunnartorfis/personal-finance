@@ -50,6 +50,13 @@
       "when": 1782765579140,
       "tag": "0006_parched_colossus",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782765958311,
+      "tag": "0007_slim_rictor",
+      "breakpoints": true
     }
   ]
 }
