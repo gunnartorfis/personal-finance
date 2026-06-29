@@ -27,7 +27,7 @@ the remainder as new unchecked items.
 - [x] **Expense-type model + Free-cap counting** (ADR-0002, `CONTEXT.md`): credits and split
   payments map to `""` (not bucketed); the Free cap is 50 *distinct classified* Transactions,
   lifetime, per Household.
-- [ ] **Statement-cycle bucketing** (`CONTEXT.md`): replace or migrate the existing shared
+- [x] **Statement-cycle bucketing** (`CONTEXT.md`): replace or migrate the existing shared
   statement-cycle helper so the cutoff day is configurable, with **cutoff day `1` (calendar month)
   as the default**, applied uniformly to every Account by transaction date; cover the current
   27th–26th behavior as a configured (non-default) case.

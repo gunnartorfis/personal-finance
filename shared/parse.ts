@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import Papa from "papaparse";
-import { billingMonth } from "./billing.ts";
+import { statementCycle } from "./billing.ts";
 
 /** "-2.979 kr." -> -2979 ; "100.000 kr." -> 100000 ; null if unparsable. */
 function parseAmount(s: string): number | null {
@@ -67,7 +67,7 @@ export function parseCsv(path: string): RawRow[] {
     out.push({
       id: idx,
       date,
-      month: billingMonth(date), // credit-card billing cycle, not calendar month
+      month: statementCycle(date, 27), // legacy CLI: fixed 27th–26th credit-card cycle
       merchant: (r[iMerch] ?? "").trim(),
       category: (r[iCat] ?? "").trim(),
       amount,
