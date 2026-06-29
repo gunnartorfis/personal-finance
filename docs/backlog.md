@@ -20,7 +20,7 @@ the remainder as new unchecked items.
   plus an occurrence ordinal, so genuine same-day / same-price repeats both survive.
 - [x] **Exact-file import guard** (ADR-0003): hash an upload's bytes and flag when the Household
   has already imported an identical file.
-- [ ] **Merchant-rule matching** (ADR-0005, `CONTEXT.md`): normalize the merchant (uppercase,
+- [x] **Merchant-rule matching** (ADR-0005, `CONTEXT.md`): normalize the merchant (uppercase,
   trim, strip store-number / location); support flat (`merchant → type`) and amount-threshold
   split rules in deterministic shared logic that runs before AI classification. Keep this separate
   from the existing LLM classifier prompt in `shared/rules.ts`.
