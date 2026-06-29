@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 /**
  * Exact-file import guard (ADR-0003).
  *
@@ -8,14 +6,20 @@ import { createHash } from "node:crypto";
  * imported a byte-identical file. (The second layer — row-fingerprint dedup — handles files that
  * overlap but are not byte-identical; see `dedup.ts`.) The guard is exact: any change to the
  * bytes yields a different hash, so a modified re-export is treated as a new file.
+ *
+ * Hashing is over RAW bytes, never decoded text: decoding can fold invalid/non-UTF-8 byte
+ * sequences into U+FFFD replacement characters, which would let distinct files collide. Callers
+ * pass the upload's bytes (e.g. `new Uint8Array(await file.arrayBuffer())`). The Web Crypto API
+ * is used so the helper runs unchanged in Node, the browser, and edge runtimes.
  */
 
-/** The raw bytes of an uploaded file: the decoded text or its UTF-8 byte view. */
-export type UploadBytes = string | Uint8Array;
+/** The raw bytes of an uploaded file, before any text decoding. */
+export type UploadBytes = Uint8Array;
 
 /** SHA-256 hex digest of an upload's raw bytes — the exact-file identity. */
-export function hashUpload(bytes: UploadBytes): string {
-  return createHash("sha256").update(bytes).digest("hex");
+export async function hashUpload(bytes: UploadBytes): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /** The result of checking an upload against the Household's already-imported files. */
@@ -30,11 +34,11 @@ export interface ExactFileCheck {
  * Hash `bytes` and report whether the Household has already imported a byte-identical file,
  * given the set of hashes it has imported before.
  */
-export function checkExactFile(
+export async function checkExactFile(
   bytes: UploadBytes,
   importedHashes: Iterable<string>,
-): ExactFileCheck {
-  const hash = hashUpload(bytes);
+): Promise<ExactFileCheck> {
+  const hash = await hashUpload(bytes);
   const set = importedHashes instanceof Set ? importedHashes : new Set(importedHashes);
   return { hash, alreadyImported: set.has(hash) };
 }
