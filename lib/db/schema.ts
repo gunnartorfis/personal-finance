@@ -226,3 +226,52 @@ export const overrides = pgTable(
     }),
   ],
 );
+
+/**
+ * A household-level deterministic mapping from a (normalized) merchant to an Expense type,
+ * applied before AI classification (ADR-0005, `CONTEXT.md`). `merchant` stores the normalized
+ * key (see `shared/merchant-rules.ts`). A rule is either FLAT (`flatType`) or a SPLIT by charge
+ * magnitude (`threshold` + `atOrAboveType`/`belowType`) — exactly one shape, enforced by CHECK.
+ */
+export const merchantRules = pgTable(
+  "merchant_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    /** Normalized merchant key this rule matches. */
+    merchant: text("merchant").notNull(),
+    /** Flat rule: the Expense type to assign. Null for split rules. */
+    flatType: text("flat_type"),
+    /** Split rule: charge-magnitude threshold (`|amount| >= threshold`). Null for flat rules. */
+    threshold: integer("threshold"),
+    atOrAboveType: text("at_or_above_type"),
+    belowType: text("below_type"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // One rule per normalized merchant per Household.
+    unique("merchant_rules_household_id_merchant_key").on(t.householdId, t.merchant),
+    // Exactly one shape: flat (only flatType) XOR split (threshold + both branch types).
+    check(
+      "merchant_rules_one_shape",
+      sql`(
+        ${t.flatType} IS NOT NULL AND ${t.threshold} IS NULL
+          AND ${t.atOrAboveType} IS NULL AND ${t.belowType} IS NULL
+      ) OR (
+        ${t.flatType} IS NULL AND ${t.threshold} IS NOT NULL
+          AND ${t.atOrAboveType} IS NOT NULL AND ${t.belowType} IS NOT NULL
+      )`,
+    ),
+    // Every set type column is one of the known buckets ("" = not bucketed).
+    check(
+      "merchant_rules_types_valid",
+      sql`(${t.flatType} IS NULL OR ${t.flatType} IN ('Fixed', 'Necessary', 'Nice to have', ''))
+        AND (${t.atOrAboveType} IS NULL OR ${t.atOrAboveType} IN ('Fixed', 'Necessary', 'Nice to have', ''))
+        AND (${t.belowType} IS NULL OR ${t.belowType} IN ('Fixed', 'Necessary', 'Nice to have', ''))`,
+    ),
+    // A split threshold is a positive magnitude (0 would make the at-or-above branch always fire).
+    check("merchant_rules_threshold_positive", sql`${t.threshold} IS NULL OR ${t.threshold} > 0`),
+  ],
+);
