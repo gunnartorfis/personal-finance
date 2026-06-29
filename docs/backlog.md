@@ -41,7 +41,7 @@ the remainder as new unchecked items.
   `classified` / `failed`). Split into reviewable slices:
   - [x] **Schema: tenant & identity** — Household (+ Plan fields), Member (Stack auth link),
     Account (name, billing currency).
-  - [ ] **Schema: ingestion & classification** — Upload (file hash, importer), Transaction
+  - [x] **Schema: ingestion & classification** — Upload (file hash, importer), Transaction
     (append-only PK, `source_row`, amounts, `classification_status`, expense type), Override.
   - [ ] **Schema: merchant rules** — MerchantRule (flat or amount-threshold split), per Household.
 - [ ] **Data-access layer** with `household_id` scoping enforced on every query.
