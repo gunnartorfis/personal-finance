@@ -36,10 +36,14 @@ the remainder as new unchecked items.
 
 - [x] **Neon connection + migration tooling** (ADR-0001): environment wiring (EU region) and a
   migration runner.
-- [ ] **Schema** (ADR-0002/0003/0005/0006): Household (including Plan fields), Member, Account,
-  Upload, Transaction, Override, MerchantRule — every financial row keyed by `household_id`;
-  append-only DB-generated PKs; `source_row` for traceability; `classification_status`
-  (`pending` / `classified` / `failed`).
+- Schema (ADR-0002/0003/0005/0006) — every financial row keyed by `household_id`; append-only
+  DB-generated PKs; `source_row` for traceability; `classification_status` (`pending` /
+  `classified` / `failed`). Split into reviewable slices:
+  - [x] **Schema: tenant & identity** — Household (+ Plan fields), Member (Stack auth link),
+    Account (name, billing currency).
+  - [ ] **Schema: ingestion & classification** — Upload (file hash, importer), Transaction
+    (append-only PK, `source_row`, amounts, `classification_status`, expense type), Override.
+  - [ ] **Schema: merchant rules** — MerchantRule (flat or amount-threshold split), per Household.
 - [ ] **Data-access layer** with `household_id` scoping enforced on every query.
 
 ## Phase C — Auth & tenancy: Neon Auth (Stack) — depends on B
