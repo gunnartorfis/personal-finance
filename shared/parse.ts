@@ -3,7 +3,7 @@ import Papa from "papaparse";
 import { billingMonth } from "./billing.ts";
 
 /** "-2.979 kr." -> -2979 ; "100.000 kr." -> 100000 ; null if unparsable. */
-export function parseAmount(s: string): number | null {
+function parseAmount(s: string): number | null {
   const c = s.replace("kr.", "").replace(/\./g, "").replace(/\s/g, "").trim();
   return /^-?\d+$/.test(c) ? parseInt(c, 10) : null;
 }
@@ -18,10 +18,16 @@ export interface RawRow {
 }
 
 function colIndex(header: string[], names: string[]): number {
-  const low = header.map((h) => h.trim().toLowerCase());
+  // Map header label -> first column index for O(1) lookups (the loop below
+  // would otherwise re-scan the header for every candidate name).
+  const low = new Map<string, number>();
+  header.forEach((h, i) => {
+    const k = h.trim().toLowerCase();
+    if (!low.has(k)) low.set(k, i);
+  });
   for (const n of names) {
-    const i = low.indexOf(n.toLowerCase());
-    if (i !== -1) return i;
+    const i = low.get(n.toLowerCase());
+    if (i !== undefined) return i;
   }
   return -1;
 }
