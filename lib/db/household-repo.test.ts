@@ -72,6 +72,17 @@ describe("householdRepo", () => {
     expect(await b.merchantRules.list()).toHaveLength(0);
   });
 
+  it("removes a merchant rule, scoped to the household", async () => {
+    const { a, b } = await twoHouseholds();
+    const [rule] = await a.merchantRules.create({ merchant: "NETFLIX", flatType: "Fixed" });
+    // Another household cannot remove it.
+    expect(await b.merchantRules.remove(rule.id)).toHaveLength(0);
+    expect(await a.merchantRules.list()).toHaveLength(1);
+    // The owner can.
+    expect(await a.merchantRules.remove(rule.id)).toHaveLength(1);
+    expect(await a.merchantRules.list()).toHaveLength(0);
+  });
+
   it("scopes overrides to the bound household", async () => {
     const { a, b } = await twoHouseholds();
     const [account] = await a.accounts.create({ name: "Visa" });
