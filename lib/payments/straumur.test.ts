@@ -122,19 +122,20 @@ describe("verifyStraumurHmac", () => {
     expect(await verifyStraumurHmac({ ...base, hmacSignature: "null" }, hexKey)).toBe(false);
   });
 
-  it("rejects when the key is not valid hex", async () => {
+  it("rejects when the key is not valid hex (incl. partial-hex pairs)", async () => {
     const hmacSignature = await sign(signed, hexKey);
-    const ok = await verifyStraumurHmac(
-      {
-        payfacReference: "TTM8R7M75KM528Q9",
-        merchantReference: "118610369",
-        amount: "199000",
-        currency: "ISK",
-        success: "true",
-        hmacSignature,
-      },
-      "zzzz",
-    );
-    expect(ok).toBe(false);
+    const base = {
+      payfacReference: "TTM8R7M75KM528Q9",
+      merchantReference: "118610369",
+      amount: "199000",
+      currency: "ISK",
+      success: "true",
+      hmacSignature,
+    };
+    expect(await verifyStraumurHmac(base, "zzzz")).toBe(false);
+    // "1g" is even-length and parseInt("1g",16) === 1 — must still be rejected as non-hex.
+    expect(await verifyStraumurHmac(base, "1g")).toBe(false);
+    // Odd length.
+    expect(await verifyStraumurHmac(base, "abc")).toBe(false);
   });
 });

@@ -112,6 +112,9 @@ export async function verifyStraumurHmac(
 function hexToBytes(hex: string): Uint8Array | null {
   const clean = hex.trim();
   if (clean.length === 0 || clean.length % 2 !== 0) return null;
+  // Full-string check: parseInt stops at the first non-hex char (parseInt("1g",16) === 1), so the
+  // per-byte NaN guard alone would silently accept a key like "1g..." and use wrong bytes.
+  if (!/^[0-9a-fA-F]+$/.test(clean)) return null;
   const out = new Uint8Array(clean.length / 2);
   for (let i = 0; i < out.length; i++) {
     const byte = Number.parseInt(clean.slice(i * 2, i * 2 + 2), 16);
