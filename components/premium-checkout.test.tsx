@@ -87,13 +87,15 @@ describe("PremiumCheckout", () => {
     expect(unmount).toHaveBeenCalledTimes(1)
   })
 
-  it("shows a confirming state while activation is still pending", async () => {
-    stubCheckout("test_ABC", "Free") // webhook hasn't flipped the plan yet
-    render(<PremiumCheckout />)
+  it("shows a confirming state, then a submitted notice if activation never confirms", async () => {
+    stubCheckout("test_ABC", "Free") // status never flips to Premium
+    // Tiny cadence so the bounded poll exhausts quickly under real timers (no fake-timer leakage).
+    render(<PremiumCheckout pollIntervalMs={1} maxPolls={3} />)
     await userEvent.click(screen.getByRole("button", { name: /upgrade to premium/i }))
 
     lastConfig.onPaymentCompleted({ resultCode: "Authorised" })
-    expect(await screen.findByText(/confirming/i)).toBeInTheDocument()
+    // Lands on the reassurance once the poll budget is spent — never claims active.
+    expect(await screen.findByText(/once it.?s confirmed/i)).toBeInTheDocument()
     expect(screen.queryByText(/premium is active/i)).not.toBeInTheDocument()
   })
 

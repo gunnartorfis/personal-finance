@@ -35,7 +35,16 @@ const priceLabel = (period: BillingPeriod) =>
  * returned session + clientKey (environment derived from the key prefix). Premium activation itself
  * is webhook-driven; the Drop-in's completion callback just confirms the payment went through.
  */
-export function PremiumCheckout({ className }: { className?: string }) {
+export function PremiumCheckout({
+  className,
+  pollIntervalMs = POLL_INTERVAL_MS,
+  maxPolls = MAX_CONFIRM_POLLS,
+}: {
+  className?: string
+  /** Activation-poll cadence; overridable so tests can exercise the loop without long waits. */
+  pollIntervalMs?: number
+  maxPolls?: number
+}) {
   const [period, setPeriod] = useState<BillingPeriod>("monthly")
   const [phase, setPhase] = useState<Phase>("choose")
   const [busy, setBusy] = useState(false)
@@ -60,7 +69,7 @@ export function PremiumCheckout({ className }: { className?: string }) {
   // active. If it hasn't landed within the window, fall back to the "submitted" reassurance.
   async function confirmActivation() {
     setPhase("confirming")
-    for (let attempt = 0; attempt < MAX_CONFIRM_POLLS; attempt++) {
+    for (let attempt = 0; attempt < maxPolls; attempt++) {
       if (cancelledRef.current) return
       try {
         const res = await fetch("/api/billing/status")
@@ -75,9 +84,12 @@ export function PremiumCheckout({ className }: { className?: string }) {
         // transient — keep polling
       }
       if (cancelledRef.current) return
-      await new Promise<void>((resolve) => {
-        pollTimerRef.current = setTimeout(resolve, POLL_INTERVAL_MS)
-      })
+      if (attempt < maxPolls - 1) {
+        // No need to wait after the final attempt — we're about to give up below.
+        await new Promise<void>((resolve) => {
+          pollTimerRef.current = setTimeout(resolve, pollIntervalMs)
+        })
+      }
     }
     if (!cancelledRef.current) setPhase("submitted")
   }
