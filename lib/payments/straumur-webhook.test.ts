@@ -118,6 +118,7 @@ describe("activatePremiumFromAuthorization", () => {
     expect(row.plan).toBe("Premium");
     expect(row.planRenewsAt?.toISOString()).toBe("2026-04-15T00:00:00.000Z");
     expect(row.straumurRecurringDetailReference).toBe("TOK");
+    expect(row.subscriptionPeriod).toBe("monthly");
 
     // A later event with no token must not clear the stored one; re-running is harmless.
     await activatePremiumFromAuthorization(asDb(db), {

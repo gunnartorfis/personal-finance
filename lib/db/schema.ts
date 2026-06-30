@@ -42,11 +42,22 @@ export const households = pgTable(
     billingCurrency: text("billing_currency").notNull().default("ISK"),
     /** Adyen recurringDetailReference (stored card token) for renewal charges; null until set. */
     straumurRecurringDetailReference: text("straumur_recurring_detail_reference"),
+    /** Billing period of the active subscription; drives the renewal amount + cadence. Null on Free. */
+    subscriptionPeriod: text("subscription_period"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     // A Free household never carries a renewal date (prevents stray charges / dunning on Free).
     check("households_free_has_no_renewal", sql`${t.plan} <> 'Free' OR ${t.planRenewsAt} IS NULL`),
+    // Likewise a Free household carries no subscription period. NOTE: any downgrade to Free (cancel
+    // / dunning) MUST null subscriptionPeriod (and planRenewsAt) in the same UPDATE, or this CHECK
+    // rejects it — the symmetry of activation, which sets both together.
+    check("households_free_has_no_period", sql`${t.plan} <> 'Free' OR ${t.subscriptionPeriod} IS NULL`),
+    // The subscription period, when set, is one of the known billing periods.
+    check(
+      "households_subscription_period_valid",
+      sql`${t.subscriptionPeriod} IS NULL OR ${t.subscriptionPeriod} IN ('monthly', 'annual')`,
+    ),
     // Billing currency is a normalized ISO 4217 code: exactly three uppercase letters.
     check("households_billing_currency_iso4217", sql`${t.billingCurrency} ~ '^[A-Z]{3}$'`),
   ],

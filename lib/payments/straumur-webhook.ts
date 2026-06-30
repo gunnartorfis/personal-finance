@@ -107,6 +107,7 @@ export async function activatePremiumFromAuthorization(
     .set({
       plan: "Premium",
       planRenewsAt: nextRenewal(args.now, args.period),
+      subscriptionPeriod: args.period,
       ...(args.recurringDetailReference
         ? { straumurRecurringDetailReference: args.recurringDetailReference }
         : {}),

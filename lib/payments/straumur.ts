@@ -141,6 +141,100 @@ export async function createSession(request: CreateSessionRequest): Promise<Crea
   };
 }
 
+export interface ChargeStoredTokenRequest {
+  /** Whole units of the billing currency (ISK krónur); normalised to wire format internally. */
+  amount: number;
+  currency: string;
+  reference: string;
+  /** The stored card token (Adyen recurringDetailReference) captured at signup. */
+  tokenValue: string;
+  recurringProcessingModel: RecurringProcessingModel;
+  /** Required by the API though no shopper is redirected for a merchant-initiated charge. */
+  returnUrl: string;
+  /**
+   * Optional idempotency key, sent as the `Idempotency-Key` header. Adyen-based gateways don't
+   * dedupe on `reference`, so a retried charge after a network timeout could double-charge — pass a
+   * stable key per renewal cycle so the gateway collapses retries.
+   */
+  idempotencyKey?: string;
+}
+
+export interface ChargeResult {
+  resultCode: string; // "Authorised" | "Refused" | "Error" | "Cancelled" | "RedirectShopper"
+  payfacReference?: string; // pspReference of the charge
+  checkoutReference?: string;
+  reference?: string;
+}
+
+/** Whether a {@link ChargeResult} is a successful authorisation. */
+export function isAuthorised(result: ChargeResult): boolean {
+  return result.resultCode === "Authorised";
+}
+
+/**
+ * Whether a charge is still being processed asynchronously (neither a success nor a definitive
+ * failure). The renewal caller should NOT start dunning on these — the eventual outcome arrives via
+ * the Authorization webhook.
+ */
+export function isPending(result: ChargeResult): boolean {
+  return result.resultCode === "Pending" || result.resultCode === "Received";
+}
+
+/**
+ * Merchant-initiated charge against a stored token (ADR-0006) — the renewal charge. Calls Straumur's
+ * "Pay with Token" endpoint (`POST /api/v1/payment`) with `tokenDetails`. No shopper is present, so
+ * 3-D Secure can't run; a `RedirectShopper` result is therefore a failure for an unattended renewal
+ * and the caller should treat it as such (dunning).
+ */
+export async function chargeStoredToken(request: ChargeStoredTokenRequest): Promise<ChargeResult> {
+  const config = getConfig();
+  const wire = toStraumurWireAmount(request.amount, request.currency);
+
+  const body = {
+    terminalIdentifier: config.terminalIdentifier,
+    amount: wire.amount,
+    currency: wire.currency,
+    reference: request.reference,
+    channel: "Web",
+    origin: originFromUrl(request.returnUrl),
+    returnUrl: request.returnUrl,
+    tokenDetails: {
+      tokenValue: request.tokenValue,
+      recurringProcessingModel: request.recurringProcessingModel,
+    },
+  };
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "X-API-Key": config.apiKey,
+  };
+  if (request.idempotencyKey) {
+    headers["Idempotency-Key"] = request.idempotencyKey;
+  }
+
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/payment`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to charge Straumur token: ${response.status} ${await response.text()}`);
+  }
+
+  const json = (await response.json()) as {
+    resultCode: string;
+    payfacReference?: string;
+    checkoutReference?: string;
+    reference?: string;
+  };
+  return {
+    resultCode: json.resultCode,
+    payfacReference: json.payfacReference,
+    checkoutReference: json.checkoutReference,
+    reference: json.reference,
+  };
+}
+
 /** Poll a session's coarse status. Payment details (pspReference/amount) arrive via the webhook. */
 export async function getSessionStatus(
   sessionId: string,

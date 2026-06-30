@@ -102,5 +102,10 @@ the remainder as new unchecked items.
     table; idempotent recording of Authorization events.
   - [x] **Premium activation** — on a successful Authorization, set the Household to Premium with a
     renewal date + the stored token (from the recorded event).
-- [ ] **Renewal cron** + dunning / retry driven by payment webhooks.
+- **Renewal cron** + dunning / retry driven by payment webhooks. Split:
+  - [x] **Recurring charge client + period** — `chargeStoredToken` (Pay-with-Token MIT) +
+    `households.subscription_period` set on activation.
+  - [ ] **Renew route + cron** — due-for-renewal query + a secured `/api/billing/renew` that charges
+    due households, run on a daily cron.
+  - [ ] **Dunning** — retry window on a failed charge, then downgrade to Free.
 - [ ] **In-app manage / cancel** subscription screen.
