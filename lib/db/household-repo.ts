@@ -97,6 +97,28 @@ export function householdRepo(db: Db, householdId: string) {
           .orderBy(asc(transactions.createdAt), asc(transactions.id));
         return limit === undefined ? q : q.limit(limit);
       },
+      /**
+       * Classification progress for one upload: how many of its transactions are still pending vs
+       * classified vs failed. Drives the upload progress indicator (a client polls this until
+       * `pending` reaches 0). Scoped to the household, so another tenant's upload id counts as zero.
+       */
+      progress: async (uploadId: string) => {
+        const rows = await db
+          .select({ status: transactions.classificationStatus, value: count() })
+          .from(transactions)
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              eq(transactions.uploadId, uploadId),
+            ),
+          )
+          .groupBy(transactions.classificationStatus);
+        const counts = { pending: 0, classified: 0, failed: 0 };
+        for (const row of rows) {
+          counts[row.status] = row.value;
+        }
+        return { total: counts.pending + counts.classified + counts.failed, ...counts };
+      },
       /** Count of classified transactions for the Household (lifetime) — used for the Free cap. */
       countClassified: async () => {
         const [row] = await db
