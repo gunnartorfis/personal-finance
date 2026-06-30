@@ -40,6 +40,8 @@ export const households = pgTable(
     planRenewsAt: timestamp("plan_renews_at", { withTimezone: true }),
     /** ISO 4217 billing currency; the charged amount is the sole source of truth for net math. */
     billingCurrency: text("billing_currency").notNull().default("ISK"),
+    /** Adyen recurringDetailReference (stored card token) for renewal charges; null until set. */
+    straumurRecurringDetailReference: text("straumur_recurring_detail_reference"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

@@ -64,6 +64,13 @@
       "when": 1782830477587,
       "tag": "0008_wealthy_spot",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782831568343,
+      "tag": "0009_premium_exodus",
+      "breakpoints": true
     }
   ]
 }

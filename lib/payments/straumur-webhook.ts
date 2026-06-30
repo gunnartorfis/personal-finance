@@ -1,6 +1,9 @@
+import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
-import { straumurPayments } from "@/lib/db/schema";
+import { isBillingPeriod, type BillingPeriod } from "@/lib/billing/pricing";
+import { nextRenewal } from "@/lib/billing/renewal";
+import { households, straumurPayments } from "@/lib/db/schema";
 import type * as schema from "@/lib/db/schema";
 
 /** Works with the live Neon pool or pglite in tests. */
@@ -18,6 +21,15 @@ export function parseHouseholdIdFromReference(reference: string | null | undefin
   const parts = reference.split("_");
   if (parts[0] !== "sub" || parts.length < 2) return null;
   return UUID_RE.test(parts[1]) ? parts[1] : null;
+}
+
+/** Recover the billing period from a subscription `merchantReference` (`sub_{hh}_{period}_…`). */
+export function parsePeriodFromReference(
+  reference: string | null | undefined,
+): BillingPeriod | null {
+  if (!reference) return null;
+  const parts = reference.split("_");
+  return parts[0] === "sub" && isBillingPeriod(parts[2]) ? parts[2] : null;
 }
 
 /** Best-effort extract of Adyen's recurring token from the webhook `additionalData`. */
@@ -50,10 +62,15 @@ export interface RecordWebhookArgs {
  * patches the existing row instead of inserting a duplicate (Straumur retries until it gets the
  * `[accepted]` ACK, so the same event can arrive more than once).
  */
-export async function recordWebhookEvent(db: Db, args: RecordWebhookArgs): Promise<void> {
+export async function recordWebhookEvent(
+  db: Db,
+  args: RecordWebhookArgs,
+): Promise<{ createdAt: Date }> {
   // Atomic upsert: two concurrent deliveries of the same event (Straumur retries immediately if it
-  // doesn't get the [accepted] ACK) can't race a select-then-insert into a unique violation.
-  await db
+  // doesn't get the [accepted] ACK) can't race a select-then-insert into a unique violation. Returns
+  // `createdAt` — set once on first insert, unchanged on patch — a stable per-event anchor callers
+  // use for renewal math so retries don't drift the date.
+  const [row] = await db
     .insert(straumurPayments)
     .values(args)
     .onConflictDoUpdate({
@@ -71,5 +88,36 @@ export async function recordWebhookEvent(db: Db, args: RecordWebhookArgs): Promi
         rawEvent: args.rawEvent,
         receivedAt: new Date(),
       },
-    });
+    })
+    .returning({ createdAt: straumurPayments.createdAt });
+  return row;
+}
+
+/**
+ * Activate Premium for a Household after a successful Authorization (ADR-0006): set the plan, the
+ * next renewal date, and the stored card token. Idempotent — re-running is a harmless re-set. The
+ * token is only written when present, so a later event missing it doesn't clear an earlier one.
+ */
+export async function activatePremiumFromAuthorization(
+  db: Db,
+  args: { householdId: string; period: BillingPeriod; recurringDetailReference: string | null; now: Date },
+): Promise<void> {
+  const updated = await db
+    .update(households)
+    .set({
+      plan: "Premium",
+      planRenewsAt: nextRenewal(args.now, args.period),
+      ...(args.recurringDetailReference
+        ? { straumurRecurringDetailReference: args.recurringDetailReference }
+        : {}),
+    })
+    .where(eq(households.id, args.householdId))
+    .returning({ id: households.id });
+
+  // 0 rows = the household vanished between checkout and webhook. The payment succeeded, so don't
+  // silently ACK — throw so the route 500s and Straumur retries (and it surfaces a real anomaly:
+  // a charge with no household to credit).
+  if (updated.length === 0) {
+    throw new Error(`Household ${args.householdId} not found for Premium activation`);
+  }
 }

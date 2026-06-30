@@ -1,0 +1,1 @@
+ALTER TABLE "households" ADD COLUMN "straumur_recurring_detail_reference" text;
