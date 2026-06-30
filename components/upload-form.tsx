@@ -1,8 +1,11 @@
 "use client"
 
+import { CircleAlert, Loader2, Upload } from "lucide-react"
 import { type FormEvent, useEffect, useState } from "react"
 
 import { ClassifyTrigger } from "@/components/classify-trigger"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { UploadProgress } from "@/components/upload-progress"
 import { cn } from "@/lib/utils"
 
@@ -97,28 +100,44 @@ export function UploadForm({ className }: { className?: string }) {
   }
 
   return (
-    <section className={cn("flex flex-col gap-4", className)}>
-      <form onSubmit={submit} className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="upload-account" className="text-sm text-muted-foreground">
+    <section className={cn("flex flex-col gap-6", className)}>
+      <form
+        onSubmit={submit}
+        className="flex flex-col gap-5 rounded-xl border border-border bg-card p-6"
+      >
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="upload-account" className="text-sm font-medium">
             Account
           </label>
-          <select
-            id="upload-account"
-            value={accountId}
-            onChange={(event) => setAccountId(event.target.value)}
-            required
-            className="rounded-md border border-border bg-transparent px-2 py-1 text-sm"
-          >
-            <option value="" disabled>
-              Select an account…
-            </option>
-            {accounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.name}
+          <div className="grid grid-cols-[1fr_--spacing(7)] items-center rounded-md border border-input bg-input/20 transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30 dark:bg-input/30">
+            <select
+              id="upload-account"
+              name="accountId"
+              value={accountId}
+              onChange={(event) => setAccountId(event.target.value)}
+              required
+              className="col-span-full row-start-1 h-7 appearance-none bg-transparent py-0.5 pr-7 pl-2 text-sm outline-none"
+            >
+              <option value="" disabled>
+                Select an account…
               </option>
-            ))}
-          </select>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                </option>
+              ))}
+            </select>
+            <svg
+              viewBox="0 0 8 5"
+              width="8"
+              height="5"
+              fill="none"
+              aria-hidden="true"
+              className="pointer-events-none col-start-2 row-start-1 place-self-center text-muted-foreground"
+            >
+              <path d="M.5.5 4 4 7.5.5" stroke="currentColor" />
+            </svg>
+          </div>
           {loadingAccounts && (
             <p className="text-sm text-muted-foreground">Loading accounts…</p>
           )}
@@ -129,37 +148,41 @@ export function UploadForm({ className }: { className?: string }) {
           )}
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor="upload-file" className="text-sm text-muted-foreground">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="upload-file" className="text-sm font-medium">
             CSV file
           </label>
-          <input
+          <Input
             key={fileInputKey}
             id="upload-file"
+            name="file"
             type="file"
             accept=".csv,text/csv"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-            className="text-sm"
           />
+          <p className="text-sm text-muted-foreground">
+            Export your statement as CSV, then choose it here.
+          </p>
         </div>
 
-        <button
-          type="submit"
-          disabled={busy || !file || !accountId}
-          className="self-start rounded-md border border-border px-3 py-1 text-sm font-medium disabled:opacity-50"
-        >
+        <Button type="submit" disabled={busy || !file || !accountId} className="self-start">
+          {busy ? <Loader2 className="animate-spin" /> : <Upload />}
           {busy ? "Uploading…" : "Upload"}
-        </button>
+        </Button>
       </form>
 
       {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <p>{error}</p>
+        </div>
       )}
 
       {uploadId && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6">
           {/* Kick classification for the rows just appended, then watch it drain. */}
           <ClassifyTrigger autoRun />
           <UploadProgress uploadId={uploadId} />
