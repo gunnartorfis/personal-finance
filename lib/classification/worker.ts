@@ -54,6 +54,21 @@ export async function drainPending(
   let failed = 0;
   let capped = 0;
   for (const txn of batch) {
+    if (txn.overrideType !== null) {
+      // The user already typed this row by hand — record their type directly (no model call) so it
+      // leaves the queue instead of burning a Sonnet call on a result the override would hide
+      // anyway. Deterministic like credits, so it bypasses the Free-cap gate; it still counts as a
+      // classified row (mirrors credits / `countClassified`).
+      const [row] = await repo.transactions.classify(txn.id, {
+        expenseType: txn.overrideType as ExpenseType,
+        reasoning: "manual override",
+      });
+      if (row) {
+        classified += 1;
+        classifiedCount += 1;
+      }
+      continue;
+    }
     if (!isExpense(txn.amount)) {
       // Credits and transfers are not bucketed — no model call, not gated by the cap.
       const [row] = await repo.transactions.classify(txn.id, {

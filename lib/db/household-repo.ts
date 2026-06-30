@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, lt } from "drizzle-orm";
+import { and, asc, count, desc, eq, getTableColumns, gte, lt } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import type { ExpenseType } from "@/shared/types";
@@ -82,12 +82,22 @@ export function householdRepo(db: Db, householdId: string) {
       /**
        * The classification work queue: transactions still awaiting classification, in a stable
        * order (oldest first) so a crash-resumable worker drains them deterministically. `limit`
-       * bounds the batch in SQL so a large queue isn't materialised in memory.
+       * bounds the batch in SQL so a large queue isn't materialised in memory. Each row carries any
+       * manual `overrideType` (left-joined) so the worker can record it without a model call —
+       * re-classifying a row the user already typed would only burn a token on a result the
+       * override hides anyway.
        */
       listPending: (limit?: number) => {
         const q = db
-          .select()
+          .select({ ...getTableColumns(transactions), overrideType: overrides.expenseType })
           .from(transactions)
+          .leftJoin(
+            overrides,
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactions.id),
+            ),
+          )
           .where(
             and(
               eq(transactions.householdId, householdId),

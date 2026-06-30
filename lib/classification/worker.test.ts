@@ -66,6 +66,53 @@ describe("drainPending", () => {
     expect((await repo.transactions.findById(credit.id))?.expenseType).toBe("");
   });
 
+  it("records a manually-overridden row without calling the model", async () => {
+    const { repo, addTxn } = await setup();
+    const [txn] = await addTxn(-1990, "OVERRIDDEN");
+    await repo.overrides.upsert({ transactionId: txn.id, expenseType: "Nice to have" });
+    let calls = 0;
+    const counting: Classifier = async () => {
+      calls += 1;
+      return { expenseType: "Fixed" };
+    };
+    const result = await drainPending(repo, counting, { plan: "Premium" });
+    expect(calls).toBe(0); // override already records the type — no token spent
+    expect(result).toEqual({ classified: 1, failed: 0, capped: 0 });
+    const row = await repo.transactions.findById(txn.id);
+    expect(row?.classificationStatus).toBe("classified");
+    expect(row?.expenseType).toBe("Nice to have"); // the override's type, not the model's
+  });
+
+  it("records an overridden row even when the Free cap is reached", async () => {
+    const { repo, addTxn, accountId, uploadId } = await setup();
+    await repo.transactions.createMany(
+      Array.from({ length: 50 }, (_, i) => ({
+        accountId,
+        uploadId,
+        date: "2026-01-01",
+        amount: -(i + 1),
+        merchant: `M${i}`,
+        rawCategory: "x",
+        sourceRow: i,
+        classificationStatus: "classified" as const,
+        expenseType: "Fixed" as const,
+      })),
+    );
+    const [over] = await addTxn(-5000, "OVER-CAP-OVERRIDDEN");
+    await repo.overrides.upsert({ transactionId: over.id, expenseType: "Necessary" });
+
+    let calls = 0;
+    const counting: Classifier = async () => {
+      calls += 1;
+      return { expenseType: "Fixed" };
+    };
+    const result = await drainPending(repo, counting, { plan: "Free" });
+
+    expect(calls).toBe(0); // deterministic, so not gated by the cap
+    expect(result).toEqual({ classified: 1, failed: 0, capped: 0 });
+    expect((await repo.transactions.findById(over.id))?.expenseType).toBe("Necessary");
+  });
+
   it("marks a row failed when the classifier throws, and continues", async () => {
     const { repo, addTxn } = await setup();
     await addTxn(-100);
