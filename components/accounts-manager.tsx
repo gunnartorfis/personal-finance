@@ -80,7 +80,7 @@ export function AccountsManager({ className }: { className?: string }) {
   }
 
   return (
-    <section className={cn("flex flex-col gap-6", className)}>
+    <section aria-label="Accounts" className={cn("flex flex-col gap-6", className)}>
       <form
         onSubmit={addAccount}
         className="flex flex-col gap-3 rounded-xl border border-border bg-card p-6 sm:flex-row sm:items-end"
