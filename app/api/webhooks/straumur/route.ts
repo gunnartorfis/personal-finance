@@ -54,6 +54,15 @@ export async function POST(request: Request): Promise<Response> {
   if (eventType !== "Authorization") {
     // Other events (Capture/Refund/Tokenization/…) share the pspReference and would overwrite the
     // Authorization row; ACK so Straumur stops retrying. Opt them in as their flows land.
+    // additionalData isn't HMAC-signed, so a *missing* eventType on a verified payload is
+    // suspicious (a genuine Authorization we'd silently drop) — warn so it stays observable.
+    if (eventType === undefined) {
+      console.warn(
+        `[straumur-webhook] HMAC-verified payload with no eventType — dropped (psp=${payload.payfacReference ?? "<missing>"})`,
+      )
+    } else {
+      console.info(`[straumur-webhook] ignoring non-Authorization event: ${eventType}`)
+    }
     return accepted()
   }
 

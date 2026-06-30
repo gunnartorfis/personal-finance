@@ -112,6 +112,20 @@ describe("POST /api/webhooks/straumur", () => {
     expect(rows).toHaveLength(0)
   })
 
+  it("warns and drops an HMAC-verified payload with no eventType", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const body = await authBody({ payfacReference: "psp_noevent" })
+    const res = await post({ ...body, additionalData: null })
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe("[accepted]")
+    expect(warn).toHaveBeenCalled()
+
+    const db = holder.db as ReturnType<typeof drizzle>
+    const rows = await db.select().from(straumurPayments).where(eq(straumurPayments.pspReference, "psp_noevent"))
+    expect(rows).toHaveLength(0)
+    warn.mockRestore()
+  })
+
   it("400s a valid signature with a missing required field (so Straumur retries)", async () => {
     // currency empty: signed consistently, passes HMAC, but fails the field check.
     const res = await post(await authBody({ payfacReference: "psp_missing", currency: "" }))

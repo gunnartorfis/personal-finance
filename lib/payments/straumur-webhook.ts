@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import { straumurPayments } from "@/lib/db/schema";
@@ -52,15 +51,14 @@ export interface RecordWebhookArgs {
  * `[accepted]` ACK, so the same event can arrive more than once).
  */
 export async function recordWebhookEvent(db: Db, args: RecordWebhookArgs): Promise<void> {
-  const [existing] = await db
-    .select({ id: straumurPayments.id })
-    .from(straumurPayments)
-    .where(eq(straumurPayments.pspReference, args.pspReference));
-
-  if (existing) {
-    await db
-      .update(straumurPayments)
-      .set({
+  // Atomic upsert: two concurrent deliveries of the same event (Straumur retries immediately if it
+  // doesn't get the [accepted] ACK) can't race a select-then-insert into a unique violation.
+  await db
+    .insert(straumurPayments)
+    .values(args)
+    .onConflictDoUpdate({
+      target: straumurPayments.pspReference,
+      set: {
         householdId: args.householdId,
         merchantReference: args.merchantReference,
         checkoutReference: args.checkoutReference,
@@ -72,10 +70,6 @@ export async function recordWebhookEvent(db: Db, args: RecordWebhookArgs): Promi
         reason: args.reason,
         rawEvent: args.rawEvent,
         receivedAt: new Date(),
-      })
-      .where(eq(straumurPayments.id, existing.id));
-    return;
-  }
-
-  await db.insert(straumurPayments).values(args);
+      },
+    });
 }
