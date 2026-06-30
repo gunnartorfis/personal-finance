@@ -1,6 +1,9 @@
+import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
-import { straumurPayments } from "@/lib/db/schema";
+import { isBillingPeriod, type BillingPeriod } from "@/lib/billing/pricing";
+import { nextRenewal } from "@/lib/billing/renewal";
+import { households, straumurPayments } from "@/lib/db/schema";
 import type * as schema from "@/lib/db/schema";
 
 /** Works with the live Neon pool or pglite in tests. */
@@ -18,6 +21,15 @@ export function parseHouseholdIdFromReference(reference: string | null | undefin
   const parts = reference.split("_");
   if (parts[0] !== "sub" || parts.length < 2) return null;
   return UUID_RE.test(parts[1]) ? parts[1] : null;
+}
+
+/** Recover the billing period from a subscription `merchantReference` (`sub_{hh}_{period}_…`). */
+export function parsePeriodFromReference(
+  reference: string | null | undefined,
+): BillingPeriod | null {
+  if (!reference) return null;
+  const parts = reference.split("_");
+  return parts[0] === "sub" && isBillingPeriod(parts[2]) ? parts[2] : null;
 }
 
 /** Best-effort extract of Adyen's recurring token from the webhook `additionalData`. */
@@ -72,4 +84,25 @@ export async function recordWebhookEvent(db: Db, args: RecordWebhookArgs): Promi
         receivedAt: new Date(),
       },
     });
+}
+
+/**
+ * Activate Premium for a Household after a successful Authorization (ADR-0006): set the plan, the
+ * next renewal date, and the stored card token. Idempotent — re-running is a harmless re-set. The
+ * token is only written when present, so a later event missing it doesn't clear an earlier one.
+ */
+export async function activatePremiumFromAuthorization(
+  db: Db,
+  args: { householdId: string; period: BillingPeriod; recurringDetailReference: string | null; now: Date },
+): Promise<void> {
+  await db
+    .update(households)
+    .set({
+      plan: "Premium",
+      planRenewsAt: nextRenewal(args.now, args.period),
+      ...(args.recurringDetailReference
+        ? { straumurRecurringDetailReference: args.recurringDetailReference }
+        : {}),
+    })
+    .where(eq(households.id, args.householdId));
 }

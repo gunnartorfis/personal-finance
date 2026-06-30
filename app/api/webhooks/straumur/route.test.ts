@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/pglite"
 import { migrate } from "drizzle-orm/pglite/migrator"
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 
-import { straumurPayments } from "@/lib/db/schema"
+import { households, straumurPayments } from "@/lib/db/schema"
 
 // getDb is read at call-time; a hoisted holder lets the mock return the migrated pglite db.
 const holder = vi.hoisted(() => ({ db: null as unknown }))
@@ -99,6 +99,19 @@ describe("POST /api/webhooks/straumur", () => {
     expect(rows[0].recurringDetailReference).toBe("TOK_R")
     expect(rows[0].amount).toBe(199000)
     expect(rows[0].success).toBe(true)
+  })
+
+  it("activates Premium on a successful subscription Authorization", async () => {
+    const db = holder.db as ReturnType<typeof drizzle>
+    await db.insert(households).values({ id: UUID }).onConflictDoNothing()
+
+    const res = await post(await authBody({ payfacReference: "psp_activate" }))
+    expect(res.status).toBe(200)
+
+    const [h] = await db.select().from(households).where(eq(households.id, UUID))
+    expect(h.plan).toBe("Premium")
+    expect(h.planRenewsAt).not.toBeNull()
+    expect(h.straumurRecurringDetailReference).toBe("TOK_R")
   })
 
   it("ACKs but does not record a non-Authorization event", async () => {

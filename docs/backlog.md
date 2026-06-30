@@ -100,7 +100,7 @@ the remainder as new unchecked items.
     checkout-session endpoint (recurringProcessingModel: Subscription).
   - [x] **Payment webhook + records** — `POST /api/webhooks/straumur` (HMAC) + `straumur_payments`
     table; idempotent recording of Authorization events.
-  - [ ] **Premium activation** — on a successful Authorization, set the Household to Premium with a
+  - [x] **Premium activation** — on a successful Authorization, set the Household to Premium with a
     renewal date + the stored token (from the recorded event).
 - [ ] **Renewal cron** + dunning / retry driven by payment webhooks.
 - [ ] **In-app manage / cancel** subscription screen.

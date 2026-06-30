@@ -1,8 +1,10 @@
 import { getDb } from "@/lib/db"
 import { normalizeStraumurField, verifyStraumurHmac } from "@/lib/payments/straumur"
 import {
+  activatePremiumFromAuthorization,
   extractRecurringDetailReference,
   parseHouseholdIdFromReference,
+  parsePeriodFromReference,
   recordWebhookEvent,
 } from "@/lib/payments/straumur-webhook"
 
@@ -81,20 +83,36 @@ export async function POST(request: Request): Promise<Response> {
     return new Response("Bad Request", { status: 400 })
   }
 
+  const householdId = parseHouseholdIdFromReference(merchantReference)
+  const recurringDetailReference = extractRecurringDetailReference(additionalData)
+  const success = successStr === "true"
+
   try {
-    await recordWebhookEvent(getDb(), {
+    const db = getDb()
+    await recordWebhookEvent(db, {
       pspReference,
-      householdId: parseHouseholdIdFromReference(merchantReference),
+      householdId,
       merchantReference,
       checkoutReference: normalizeStraumurField(payload.checkoutReference) || null,
-      recurringDetailReference: extractRecurringDetailReference(additionalData),
+      recurringDetailReference,
       amount,
       currency,
-      success: successStr === "true",
+      success,
       eventCode: eventType,
       reason: normalizeStraumurField(payload.reason) || null,
       rawEvent: rawBody.slice(0, 8192),
     })
+
+    // A successful Authorization for one of our subscription references activates Premium.
+    const period = parsePeriodFromReference(merchantReference)
+    if (success && householdId && period) {
+      await activatePremiumFromAuthorization(db, {
+        householdId,
+        period,
+        recurringDetailReference,
+        now: new Date(),
+      })
+    }
   } catch (error) {
     // Transient DB failure: don't ACK, so Straumur retries.
     console.error("[straumur-webhook] failed to record event", error)
