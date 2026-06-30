@@ -43,4 +43,10 @@ describe("householdContext", () => {
     const ctx = await householdContext(asDb(db), "ctx_user_6");
     expect(ctx.billingCurrency).toBe("ISK");
   });
+
+  it("exposes the subscription fields (null on a fresh Free household)", async () => {
+    const ctx = await householdContext(asDb(db), "ctx_user_7");
+    expect(ctx.planRenewsAt).toBeNull();
+    expect(ctx.subscriptionPeriod).toBeNull();
+  });
 });

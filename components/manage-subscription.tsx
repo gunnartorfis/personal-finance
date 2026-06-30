@@ -1,0 +1,107 @@
+"use client"
+
+import { useState } from "react"
+
+import { cn } from "@/lib/utils"
+
+function formatRenewal(iso: string): string {
+  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(
+    new Date(iso),
+  )
+}
+
+/**
+ * Manage the current Household's subscription (ADR-0006). Premium shows the period + renewal date
+ * and a Cancel action (`POST /api/billing/cancel`, which downgrades to Free and stops the renewal
+ * cron); Free shows the plan. Prop-driven so it renders on the server-loaded page and is easy to
+ * test; after a successful cancel it reflects Free locally.
+ */
+export function ManageSubscription({
+  plan,
+  planRenewsAt,
+  period,
+  className,
+}: {
+  plan: string
+  planRenewsAt: string | null
+  period: string | null
+  className?: string
+}) {
+  const [cancelled, setCancelled] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [errored, setErrored] = useState(false)
+
+  async function cancel() {
+    setBusy(true)
+    setErrored(false)
+    try {
+      const res = await fetch("/api/billing/cancel", { method: "POST" })
+      if (!res.ok) throw new Error(`cancel ${res.status}`)
+      setCancelled(true)
+    } catch {
+      setErrored(true)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const isPremium = plan === "Premium" && !cancelled
+
+  return (
+    <section className={cn("flex flex-col gap-3 rounded-xl border border-border p-6", className)}>
+      <h2 className="text-lg font-medium">Subscription</h2>
+
+      {isPremium ? (
+        <>
+          <p className="text-sm text-muted-foreground">
+            Premium{period ? ` (${period})` : ""}
+            {planRenewsAt ? ` — renews ${formatRenewal(planRenewsAt)}` : ""}.
+          </p>
+          {confirming ? (
+            // Two-step confirm: cancelling is destructive, so the POST only fires on explicit confirm.
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm">Cancel your Premium subscription?</span>
+              <button
+                type="button"
+                onClick={() => void cancel()}
+                disabled={busy}
+                className="rounded-md border border-destructive px-3 py-1 text-sm font-medium text-destructive"
+              >
+                Yes, cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                disabled={busy}
+                className="rounded-md border border-border px-3 py-1 text-sm font-medium"
+              >
+                Keep it
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              className="self-start rounded-md border border-border px-3 py-1 text-sm font-medium"
+            >
+              Cancel subscription
+            </button>
+          )}
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {cancelled
+            ? "Your subscription is cancelled — you’re on the Free plan."
+            : "You’re on the Free plan."}
+        </p>
+      )}
+
+      {errored && (
+        <p role="alert" className="text-sm text-destructive">
+          Couldn’t cancel — please try again.
+        </p>
+      )}
+    </section>
+  )
+}
