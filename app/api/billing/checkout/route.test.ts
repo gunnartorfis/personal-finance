@@ -53,6 +53,13 @@ describe("POST /api/billing/checkout", () => {
     expect(createSession.mock.calls[0][0].amount).toBe(16716)
   })
 
+  it("500s and does not call the gateway for a non-ISK billing currency", async () => {
+    requireHousehold.mockResolvedValue({ householdId: "h1", billingCurrency: "EUR" })
+    const res = await POST(postReq({ period: "monthly" }))
+    expect(res.status).toBe(500)
+    expect(createSession).not.toHaveBeenCalled()
+  })
+
   it("502s when the gateway call fails", async () => {
     requireHousehold.mockResolvedValue({ householdId: "h1", billingCurrency: "ISK" })
     createSession.mockRejectedValue(new Error("gateway down"))

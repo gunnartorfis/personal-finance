@@ -23,10 +23,18 @@ export async function POST(request: Request) {
 
   try {
     const { householdId, billingCurrency } = await requireHousehold()
+    // Pricing is ISK-only (ADR-0004); the DB CHECK only validates the currency *format*, so guard
+    // against a non-ISK value sending a wrongly-scaled amount (toStraumurWireAmount skips the ×100).
+    if (billingCurrency !== "ISK") {
+      console.error(`checkout: unsupported billing currency ${billingCurrency}`)
+      return NextResponse.json({ error: "unsupported_currency" }, { status: 500 })
+    }
     const session = await createSession({
       amount: subscriptionPriceISK(period),
       currency: billingCurrency,
-      reference: `sub_${householdId}_${period}_${Date.now()}`,
+      // Random suffix so rapid/concurrent requests from one household can't collide on a reference
+      // (Straumur/Adyen require it to be unique).
+      reference: `sub_${householdId}_${period}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       returnUrl: new URL("/dashboard", request.url).toString(),
       recurringProcessingModel: "Subscription",
       merchantShopperReference: householdId,
