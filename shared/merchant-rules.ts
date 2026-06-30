@@ -1,4 +1,4 @@
-import type { ExpenseType } from "./types.ts";
+import type { ExpenseType } from "./types";
 
 /**
  * Deterministic merchant-rule matching (ADR-0005, `CONTEXT.md`).
