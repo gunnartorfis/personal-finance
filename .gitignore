@@ -49,3 +49,4 @@ legacy/dist/
 .claude/worktrees/
 .claude/skills/
 .agents/skills/
+.vercel

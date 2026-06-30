@@ -33,4 +33,9 @@ describe("householdContext", () => {
     const second = await householdContext(asDb(db), "ctx_user_4");
     expect(second.householdId).toBe(first.householdId);
   });
+
+  it("exposes the household plan (defaulting to Free) for free-cap gating", async () => {
+    const ctx = await householdContext(asDb(db), "ctx_user_5");
+    expect(ctx.plan).toBe("Free");
+  });
 });
