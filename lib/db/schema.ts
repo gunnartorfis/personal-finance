@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   date,
   foreignKey,
@@ -275,3 +276,32 @@ export const merchantRules = pgTable(
     check("merchant_rules_threshold_positive", sql`${t.threshold} IS NULL OR ${t.threshold} > 0`),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// straumurPayments — webhook-sourced Straumur/Adyen payment records (ADR-0006)
+// ---------------------------------------------------------------------------
+// Authoritative record of `Authorization` (and related) events received via Straumur's payment
+// webhook. The session status poll returns only a coarse status; pspReference, amount, currency,
+// and the recurring token arrive here. Idempotent on pspReference: re-receiving the same event
+// patches the existing row rather than inserting a duplicate.
+//
+// The webhook is externally sourced, so `householdId` is a best-effort parse of our own
+// merchantReference (`sub_{householdId}_…`) and is intentionally nullable and unconstrained — an
+// unrecognised reference is still recorded for diagnostics rather than rejected.
+export const straumurPayments = pgTable("straumur_payments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  householdId: uuid("household_id"),
+  pspReference: text("psp_reference").notNull().unique(),
+  merchantReference: text("merchant_reference"),
+  checkoutReference: text("checkout_reference"),
+  /** Adyen recurringDetailReference / stored token, when present — used for renewal charges. */
+  recurringDetailReference: text("recurring_detail_reference"),
+  amount: integer("amount").notNull(), // minor units, as received from the webhook
+  currency: text("currency").notNull(),
+  success: boolean("success").notNull(),
+  eventCode: text("event_code").notNull(),
+  reason: text("reason"),
+  rawEvent: text("raw_event"), // capped diagnostic copy of the payload
+  receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

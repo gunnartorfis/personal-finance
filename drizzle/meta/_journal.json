@@ -57,6 +57,13 @@
       "when": 1782765958311,
       "tag": "0007_slim_rictor",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782830477587,
+      "tag": "0008_wealthy_spot",
+      "breakpoints": true
     }
   ]
 }

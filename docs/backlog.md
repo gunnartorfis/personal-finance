@@ -98,7 +98,9 @@ the remainder as new unchecked items.
   - [x] **Straumur primitives** — wire-amount, webhook field-normalize, and HMAC webhook verification.
   - [x] **Checkout session client + route** — `createSession`/`getSessionStatus` + a tokenized
     checkout-session endpoint (recurringProcessingModel: Subscription).
-  - [ ] **Payment webhook + records** — `POST /api/webhooks/straumur` (HMAC) + `straumur_payments`
-    table; activate Premium / store token on Authorization.
+  - [x] **Payment webhook + records** — `POST /api/webhooks/straumur` (HMAC) + `straumur_payments`
+    table; idempotent recording of Authorization events.
+  - [ ] **Premium activation** — on a successful Authorization, set the Household to Premium with a
+    renewal date + the stored token (from the recorded event).
 - [ ] **Renewal cron** + dunning / retry driven by payment webhooks.
 - [ ] **In-app manage / cancel** subscription screen.
