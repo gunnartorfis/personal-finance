@@ -73,7 +73,7 @@ the remainder as new unchecked items.
     credits not bucketed (no model call); per-row classify/markFailed; resumable; batch limit.
   - [x] **Sonnet 4.6 classifier (Vercel AI Gateway) + durable trigger** — real classifier calling
     `anthropic/claude-sonnet-4-6` via the AI Gateway with the rules prompt; durable drain trigger.
-- [ ] **Upload progress**: a polling endpoint plus a UI progress indicator.
+- [x] **Upload progress**: a polling endpoint plus a UI progress indicator.
 
 ## Phase F — Dashboard & overrides — depends on D, E, and Phase A cycle/net
 

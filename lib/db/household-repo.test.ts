@@ -101,4 +101,77 @@ describe("householdRepo", () => {
     // B cannot read A's account by id — scoping returns undefined, not the row.
     expect(await b.accounts.findById(account.id)).toBeUndefined();
   });
+
+  describe("transactions.progress", () => {
+    /** Seed an upload in household `a` with `n` rows, then classify/fail some of them. */
+    async function seedUpload(
+      a: Awaited<ReturnType<typeof twoHouseholds>>["a"],
+      counts: { classified: number; failed: number; pending: number },
+    ) {
+      const [account] = await a.accounts.create({ name: "Visa" });
+      const [upload] = await a.uploads.create({
+        accountId: account.id,
+        fileName: "p.csv",
+        fileHash: `hash-${counts.classified}-${counts.failed}-${counts.pending}`,
+      });
+      const total = counts.classified + counts.failed + counts.pending;
+      const rows = await a.transactions.createMany(
+        Array.from({ length: total }, (_, i) => ({
+          accountId: account.id,
+          uploadId: upload.id,
+          date: "2026-03-01",
+          amount: -1000 - i,
+          merchant: `M${i}`,
+          rawCategory: "",
+          sourceRow: i,
+        })),
+      );
+      for (let i = 0; i < counts.classified; i++) {
+        await a.transactions.classify(rows[i].id, { expenseType: "Necessary" });
+      }
+      for (let i = counts.classified; i < counts.classified + counts.failed; i++) {
+        await a.transactions.markFailed(rows[i].id);
+      }
+      return upload.id;
+    }
+
+    it("counts transactions by classification status for the upload", async () => {
+      const { a } = await twoHouseholds();
+      const uploadId = await seedUpload(a, { classified: 3, failed: 1, pending: 2 });
+      expect(await a.transactions.progress(uploadId)).toEqual({
+        total: 6,
+        pending: 2,
+        classified: 3,
+        failed: 1,
+      });
+    });
+
+    it("returns all-zero counts for an upload with no transactions", async () => {
+      const { a } = await twoHouseholds();
+      const [account] = await a.accounts.create({ name: "Empty" });
+      const [upload] = await a.uploads.create({
+        accountId: account.id,
+        fileName: "empty.csv",
+        fileHash: "empty",
+      });
+      expect(await a.transactions.progress(upload.id)).toEqual({
+        total: 0,
+        pending: 0,
+        classified: 0,
+        failed: 0,
+      });
+    });
+
+    it("scopes progress to the upload and never counts another household's rows", async () => {
+      const { a, b } = await twoHouseholds();
+      const aUpload = await seedUpload(a, { classified: 1, failed: 0, pending: 1 });
+      // B has its own upload; querying A's upload id through B's repo sees nothing.
+      expect(await b.transactions.progress(aUpload)).toEqual({
+        total: 0,
+        pending: 0,
+        classified: 0,
+        failed: 0,
+      });
+    });
+  });
 });
