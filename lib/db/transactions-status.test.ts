@@ -43,6 +43,20 @@ describe("classification status model", () => {
     expect(pending.map((t) => t.id)).toContain(txnId);
   });
 
+  it("excludes a row with a manual override from the queue, and re-includes it once removed", async () => {
+    const { repo, txnId } = await pendingTxn();
+    expect((await repo.transactions.listPending()).map((t) => t.id)).toContain(txnId);
+
+    await repo.overrides.upsert({ transactionId: txnId, expenseType: "Nice to have" });
+    // The override fixes the effective type (wins on read), so the row drops out of the work queue —
+    // no model call, and nothing is baked into expenseType.
+    expect(await repo.transactions.listPending()).toHaveLength(0);
+
+    await repo.overrides.remove(txnId);
+    // Removing the override re-exposes the row, so it classifies for real on the next drain.
+    expect((await repo.transactions.listPending()).map((t) => t.id)).toContain(txnId);
+  });
+
   it("classify records the result and removes the row from the queue", async () => {
     const { repo, txnId } = await pendingTxn();
     const [updated] = await repo.transactions.classify(txnId, {

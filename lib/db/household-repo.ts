@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, lt } from "drizzle-orm";
+import { and, asc, count, desc, eq, getTableColumns, gte, isNull, lt } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import type { ExpenseType } from "@/shared/types";
@@ -83,15 +83,29 @@ export function householdRepo(db: Db, householdId: string) {
        * The classification work queue: transactions still awaiting classification, in a stable
        * order (oldest first) so a crash-resumable worker drains them deterministically. `limit`
        * bounds the batch in SQL so a large queue isn't materialised in memory.
+       *
+       * Rows that already carry a manual override are excluded (anti-join on `overrides`): their
+       * effective type is fixed by the override (which wins on read), so classifying them would only
+       * burn a model call on a result the override hides — and writing the override value into
+       * `expenseType` would leave stale ground-truth if the override were later removed. Removing the
+       * override re-exposes the row here, so it then classifies for real (AI / merchant rule).
        */
       listPending: (limit?: number) => {
         const q = db
-          .select()
+          .select(getTableColumns(transactions))
           .from(transactions)
+          .leftJoin(
+            overrides,
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactions.id),
+            ),
+          )
           .where(
             and(
               eq(transactions.householdId, householdId),
               eq(transactions.classificationStatus, "pending"),
+              isNull(overrides.id),
             ),
           )
           .orderBy(asc(transactions.createdAt), asc(transactions.id));

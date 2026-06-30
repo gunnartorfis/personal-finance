@@ -71,6 +71,18 @@ describe("applyRulesFirst", () => {
     expect(classified?.reasoning).toBe("merchant rule");
   });
 
+  it("skips a row that already has a manual override", async () => {
+    const { repo, addTxn } = await setup();
+    await repo.merchantRules.create({ merchant: "NETFLIX", flatType: "Fixed" });
+    const [txn] = await addTxn("NETFLIX", -1990, 0);
+    await repo.overrides.upsert({ transactionId: txn.id, expenseType: "Nice to have" });
+
+    const result = await applyRulesFirst(repo);
+
+    expect(result.classified).toBe(0); // override wins on read — don't record the rule's type
+    expect((await repo.transactions.findById(txn.id))?.classificationStatus).toBe("pending");
+  });
+
   it("does nothing when there are no rules", async () => {
     const { repo, addTxn } = await setup();
     await addTxn("ANYTHING", -100, 0);
