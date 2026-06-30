@@ -105,6 +105,48 @@ describe("householdRepo", () => {
     expect(await b.overrides.list()).toHaveLength(0);
   });
 
+  it("lists transactions in a cycle with their override joined, scoped + range-filtered", async () => {
+    const { a, b } = await twoHouseholds();
+    const [account] = await a.accounts.create({ name: "Visa" });
+    const [upload] = await a.uploads.create({
+      accountId: account.id,
+      fileName: "mar.csv",
+      fileHash: "lwo",
+    });
+    const base = {
+      accountId: account.id,
+      uploadId: upload.id,
+      rawCategory: "x",
+    };
+    const [inRange] = await a.transactions.create({
+      ...base,
+      date: "2026-03-15",
+      amount: -1990,
+      merchant: "NETFLIX",
+      sourceRow: 0,
+    });
+    await a.transactions.create({
+      ...base,
+      date: "2026-02-28", // before the range
+      amount: -500,
+      merchant: "OLD",
+      sourceRow: 1,
+    });
+    await a.overrides.create({ transactionId: inRange.id, expenseType: "Necessary" });
+
+    const range = { from: "2026-03-01", to: "2026-04-01" };
+    const rows = await a.transactions.listWithOverrides(range);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: inRange.id,
+      merchant: "NETFLIX",
+      amount: -1990,
+      overrideType: "Necessary",
+    });
+    // Another household sees nothing through its own repo.
+    expect(await b.transactions.listWithOverrides(range)).toHaveLength(0);
+  });
+
   it("findById returns a row in the household but not one from another", async () => {
     const { a, b } = await twoHouseholds();
     const [account] = await a.accounts.create({ name: "Visa" });
