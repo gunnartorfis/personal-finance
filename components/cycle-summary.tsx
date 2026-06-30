@@ -1,24 +1,6 @@
-import type { CSSProperties } from "react"
-
+import { SpendingByType } from "@/components/spending-by-type"
 import type { NetSummary } from "@/lib/dashboard/net-summary"
 import { cn } from "@/lib/utils"
-
-/**
- * Spending categories in display order, each with the swatch colour used in both the proportion bar
- * and its legend dot. The three real expense types get distinct hues; the unbucketed (`""`) and
- * not-yet-classified totals share a neutral so the eye reads them as "no category".
- */
-const CATEGORIES = [
-  { key: "Fixed", label: "Fixed", swatch: "bg-emerald-500" },
-  { key: "Necessary", label: "Necessary", swatch: "bg-amber-500" },
-  { key: "Nice to have", label: "Nice to have", swatch: "bg-rose-500" },
-  { key: "Other", label: "Other", swatch: "bg-zinc-400 dark:bg-zinc-500" },
-  {
-    key: "Unclassified",
-    label: "Unclassified",
-    swatch: "bg-zinc-300 dark:bg-zinc-700",
-  },
-] as const
 
 /**
  * Period overview for the transactions view: an income / expenses / net stat strip over a
@@ -44,17 +26,6 @@ export function CycleSummary({
 
   const isProfit = summary.net >= 0
   const totalExpense = Math.abs(summary.expense)
-
-  const breakdown = CATEGORIES.map((category) => {
-    const magnitude = Math.abs(
-      category.key === "Other"
-        ? summary.byExpenseType[""]
-        : category.key === "Unclassified"
-          ? summary.unclassified
-          : summary.byExpenseType[category.key]
-    )
-    return { ...category, magnitude }
-  }).filter((category) => category.magnitude > 0)
 
   return (
     <section className={cn("@container flex flex-col gap-6", className)}>
@@ -88,53 +59,7 @@ export function CycleSummary({
         </div>
       </dl>
 
-      {totalExpense > 0 && (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-baseline justify-between gap-4">
-            <h2 className="text-sm font-medium">Spending by type</h2>
-            <p className="text-sm text-muted-foreground tabular-nums">
-              {fmt(totalExpense)} total
-            </p>
-          </div>
-
-          <div className="flex h-2 overflow-hidden rounded-full bg-muted">
-            {breakdown.map((category) => (
-              <div
-                key={category.key}
-                className={cn("h-full w-(--share)", category.swatch)}
-                style={
-                  {
-                    "--share": `${(category.magnitude / totalExpense) * 100}%`,
-                  } as CSSProperties
-                }
-              />
-            ))}
-          </div>
-
-          <ul role="list" className="flex flex-col gap-2">
-            {breakdown.map((category) => (
-              <li
-                key={category.key}
-                className="flex items-center justify-between gap-3 text-sm"
-              >
-                <span className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      "size-2 shrink-0 rounded-full",
-                      category.swatch
-                    )}
-                    aria-hidden="true"
-                  />
-                  <span className="text-muted-foreground">
-                    {category.label}
-                  </span>
-                </span>
-                <span className="tabular-nums">{fmt(category.magnitude)}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <SpendingByType summary={summary} currency={currency} />
     </section>
   )
 }
