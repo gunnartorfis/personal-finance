@@ -44,6 +44,8 @@ export const households = pgTable(
     straumurRecurringDetailReference: text("straumur_recurring_detail_reference"),
     /** Billing period of the active subscription; drives the renewal amount + cadence. Null on Free. */
     subscriptionPeriod: text("subscription_period"),
+    /** Consecutive failed renewal charges; drives dunning. Reset to 0 on success / downgrade. */
+    renewalFailureCount: integer("renewal_failure_count").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

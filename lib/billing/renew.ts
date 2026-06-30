@@ -14,6 +14,7 @@ export interface RenewableHousehold {
   token: string;
   billingCurrency: string;
   planRenewsAt: Date;
+  renewalFailureCount: number;
 }
 
 /**
@@ -29,6 +30,7 @@ export async function dueForRenewal(db: Db, now: Date): Promise<RenewableHouseho
       token: households.straumurRecurringDetailReference,
       billingCurrency: households.billingCurrency,
       planRenewsAt: households.planRenewsAt,
+      renewalFailureCount: households.renewalFailureCount,
     })
     .from(households)
     .where(
@@ -50,6 +52,7 @@ export async function dueForRenewal(db: Db, now: Date): Promise<RenewableHouseho
             token: row.token,
             billingCurrency: row.billingCurrency,
             planRenewsAt: row.planRenewsAt,
+            renewalFailureCount: row.renewalFailureCount,
           },
         ]
       : [],

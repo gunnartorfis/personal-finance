@@ -107,5 +107,5 @@ the remainder as new unchecked items.
     `households.subscription_period` set on activation.
   - [x] **Renew route + cron** — due-for-renewal query + a secured `/api/billing/renew` that charges
     due households, run on a daily cron.
-  - [ ] **Dunning** — retry window on a failed charge, then downgrade to Free.
+  - [x] **Dunning** — retry window on a failed charge, then downgrade to Free.
 - [ ] **In-app manage / cancel** subscription screen.

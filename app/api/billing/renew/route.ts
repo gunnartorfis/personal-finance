@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto"
 import { eq } from "drizzle-orm"
 import { NextResponse } from "next/server"
 
+import { downgradeToFree, shouldDowngrade } from "@/lib/billing/dunning"
 import { isBillingPeriod, subscriptionPriceISK } from "@/lib/billing/pricing"
 import { dueForRenewal } from "@/lib/billing/renew"
 import { nextRenewal } from "@/lib/billing/renewal"
@@ -43,7 +44,9 @@ async function handle(request: Request): Promise<Response> {
 
   let charged = 0
   let pending = 0
-  let failed = 0
+  let failed = 0 // definitive refusals (includes any that crossed the cap into a downgrade)
+  let downgraded = 0 // subset of `failed` that hit the retry cap
+  let errored = 0 // exceptions: outcome unknown, dunning count left untouched so the retry dedupes
 
   for (const household of due) {
     if (!isBillingPeriod(household.subscriptionPeriod) || household.billingCurrency !== "ISK") {
@@ -53,6 +56,22 @@ async function handle(request: Request): Promise<Response> {
     const period = household.subscriptionPeriod
     // The cycle being renewed identifies the charge — stable across retries so the gateway dedupes.
     const cycleKey = household.planRenewsAt.toISOString().slice(0, 10)
+
+    // A *definitive* refusal: always a failure; bump the dunning count, or downgrade at the cap.
+    const recordRefusal = async () => {
+      failed += 1
+      const nextCount = household.renewalFailureCount + 1
+      if (shouldDowngrade(nextCount)) {
+        await downgradeToFree(db, household.id)
+        downgraded += 1
+      } else {
+        await db
+          .update(households)
+          .set({ renewalFailureCount: nextCount })
+          .where(eq(households.id, household.id))
+      }
+    }
+
     try {
       const result = await chargeStoredToken({
         amount: subscriptionPriceISK(period),
@@ -63,28 +82,33 @@ async function handle(request: Request): Promise<Response> {
         tokenValue: household.token,
         recurringProcessingModel: "Subscription",
         returnUrl: new URL("/dashboard", request.url).toString(),
-        idempotencyKey: `renew-${household.id}-${cycleKey}`,
+        // Attempt-indexed: a recorded refusal bumps the count so the next run is a fresh attempt,
+        // while a mid-charge crash leaves the count unchanged so the retry dedupes.
+        idempotencyKey: `renew-${household.id}-${cycleKey}-${household.renewalFailureCount}`,
       })
       if (isAuthorised(result)) {
         // Anchor the next renewal on the existing cycle date, not the cron's wall-clock, so a late
-        // run doesn't drift (and compound) the billing anchor.
+        // run doesn't drift (and compound) the billing anchor. Reset the failure count.
         await db
           .update(households)
-          .set({ planRenewsAt: nextRenewal(household.planRenewsAt, period) })
+          .set({ planRenewsAt: nextRenewal(household.planRenewsAt, period), renewalFailureCount: 0 })
           .where(eq(households.id, household.id))
         charged += 1
       } else if (isPending(result)) {
         pending += 1
       } else {
-        failed += 1
+        await recordRefusal()
       }
     } catch (error) {
-      console.error(`[renew] charge failed for household ${household.id}`, error)
-      failed += 1
+      // Unknown outcome (network/gateway error): the charge may have actually gone through, so do
+      // NOT bump the dunning count — leaving it unchanged keeps the same idempotency key, so the
+      // next run dedupes instead of risking a double charge.
+      console.error(`[renew] charge errored for household ${household.id}`, error)
+      errored += 1
     }
   }
 
-  return NextResponse.json({ total: due.length, charged, pending, failed })
+  return NextResponse.json({ total: due.length, charged, pending, failed, downgraded, errored })
 }
 
 // Vercel Cron only issues GET — don't expose POST as an out-of-schedule charge trigger.
