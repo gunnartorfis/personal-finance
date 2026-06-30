@@ -8,9 +8,9 @@ export const dynamic = "force-dynamic"
 export default async function RulesPage() {
   await requireHousehold() // gate on auth; the manager fetches the list client-side
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
       <h1 className="text-2xl font-semibold">Merchant rules</h1>
       <MerchantRulesManager />
-    </main>
+    </div>
   )
 }
