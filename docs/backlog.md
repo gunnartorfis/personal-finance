@@ -120,7 +120,7 @@ own, dependency-ordered. Adyen client Drop-in (Premium upgrade) is deferred to a
   `householdRepo.accounts`) and an `/accounts` page to list and add accounts, linked from the nav.
   Acceptance: a signed-in user can create an account and see it listed; duplicate-safe; tests cover
   the route (list/create/validation) and the page/form. Blocked by: none.
-- [ ] **Upload flow page** — an `/upload` page with an account selector + CSV file picker that posts
+- [x] **Upload flow page** — an `/upload` page with an account selector + CSV file picker that posts
   to `POST /api/uploads` (multipart) and renders the existing `<UploadProgress>` for the created
   upload. Acceptance: a user picks an account + file, uploads, and sees progress; 4xx errors
   surface inline. Blocked by: Accounts API + management UI.
