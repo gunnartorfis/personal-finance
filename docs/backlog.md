@@ -124,7 +124,7 @@ own, dependency-ordered. Adyen client Drop-in (Premium upgrade) is deferred to a
   to `POST /api/uploads` (multipart) and renders the existing `<UploadProgress>` for the created
   upload. Acceptance: a user picks an account + file, uploads, and sees progress; 4xx errors
   surface inline. Blocked by: Accounts API + management UI.
-- [ ] **Run classification from the UI** — kick `POST /api/classify` after a successful upload (and
+- [x] **Run classification from the UI** — kick `POST /api/classify` after a successful upload (and
   expose a manual "Classify pending" affordance), surfacing the returned counts. Acceptance:
   after an upload the user can trigger/observe classification without leaving the app. Blocked by:
   Upload flow page.

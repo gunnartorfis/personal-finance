@@ -2,6 +2,7 @@
 
 import { type FormEvent, useEffect, useState } from "react"
 
+import { ClassifyTrigger } from "@/components/classify-trigger"
 import { UploadProgress } from "@/components/upload-progress"
 import { cn } from "@/lib/utils"
 
@@ -157,7 +158,13 @@ export function UploadForm({ className }: { className?: string }) {
         </p>
       )}
 
-      {uploadId && <UploadProgress uploadId={uploadId} />}
+      {uploadId && (
+        <div className="flex flex-col gap-3">
+          {/* Kick classification for the rows just appended, then watch it drain. */}
+          <ClassifyTrigger autoRun />
+          <UploadProgress uploadId={uploadId} />
+        </div>
+      )}
     </section>
   )
 }
