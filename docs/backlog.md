@@ -66,7 +66,7 @@ the remainder as new unchecked items.
 ## Phase E — Classification pipeline (ADR-0005) — depends on D and Phase A rules
 
 - [x] **Idempotent status model**: re-running classification skips already-classified rows.
-- [ ] **Rules-first pass**: rule-matched rows skip the model entirely.
+- [x] **Rules-first pass**: rule-matched rows skip the model entirely.
 - [ ] **Background worker** (leaning Vercel Workflow) draining `pending` rows through Sonnet 4.6;
   store per-row confidence + reasoning; crash-safe and resumable.
 - [ ] **Upload progress**: a polling endpoint plus a UI progress indicator.
