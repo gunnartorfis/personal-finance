@@ -1,5 +1,7 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+
+import type { ExpenseType } from "@/shared/types";
 
 import { accounts, merchantRules, overrides, transactions, uploads } from "./schema";
 import type * as schema from "./schema";
@@ -77,6 +79,58 @@ export function householdRepo(db: Db, householdId: string) {
               .insert(transactions)
               .values(values.map((v) => ({ ...v, householdId })))
               .returning(),
+      /**
+       * The classification work queue: transactions still awaiting classification, in a stable
+       * order (oldest first) so a crash-resumable worker drains them deterministically.
+       */
+      listPending: () =>
+        db
+          .select()
+          .from(transactions)
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              eq(transactions.classificationStatus, "pending"),
+            ),
+          )
+          .orderBy(asc(transactions.createdAt), asc(transactions.id)),
+      /**
+       * Record a classification result. Only updates a still-`pending` row, so re-running
+       * classification is idempotent — an already-classified row is left untouched (returns []).
+       */
+      classify: (
+        id: string,
+        result: { expenseType: ExpenseType; confidence?: number; reasoning?: string },
+      ) =>
+        db
+          .update(transactions)
+          .set({
+            classificationStatus: "classified",
+            expenseType: result.expenseType,
+            confidence: result.confidence ?? null,
+            reasoning: result.reasoning ?? null,
+          })
+          .where(
+            and(
+              eq(transactions.id, id),
+              eq(transactions.householdId, householdId),
+              eq(transactions.classificationStatus, "pending"),
+            ),
+          )
+          .returning(),
+      /** Mark a pending transaction as failed (e.g. the model errored); leaves it unbucketed. */
+      markFailed: (id: string) =>
+        db
+          .update(transactions)
+          .set({ classificationStatus: "failed" })
+          .where(
+            and(
+              eq(transactions.id, id),
+              eq(transactions.householdId, householdId),
+              eq(transactions.classificationStatus, "pending"),
+            ),
+          )
+          .returning(),
     },
     merchantRules: {
       list: () => db.select().from(merchantRules).where(eq(merchantRules.householdId, householdId)),
