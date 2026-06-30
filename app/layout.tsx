@@ -1,5 +1,4 @@
 import { NeonAuthUIProvider, UserButton } from "@neondatabase/auth-ui"
-import Link from "next/link"
 import { Geist_Mono, Inter } from "next/font/google"
 
 import "./globals.css"
@@ -30,12 +29,7 @@ export default function RootLayout({
         <ThemeProvider>
           <NeonAuthUIProvider authClient={authClient} emailOTP>
             <header className="flex h-14 items-center justify-between border-b px-4">
-              <div className="flex items-center gap-6">
-                <Link href="/dashboard" className="font-semibold">
-                  Finance
-                </Link>
-                <MainNav />
-              </div>
+              <MainNav />
               <UserButton size="icon" />
             </header>
             {children}

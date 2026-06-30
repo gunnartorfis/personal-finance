@@ -9,9 +9,10 @@ import { MainNav } from "@/components/main-nav"
 afterEach(() => usePathname.mockReset())
 
 describe("MainNav", () => {
-  it("renders the dashboard and billing links", () => {
+  it("renders the brand plus dashboard and billing links", () => {
     usePathname.mockReturnValue("/dashboard")
     render(<MainNav />)
+    expect(screen.getByRole("link", { name: "Finance" })).toHaveAttribute("href", "/dashboard")
     expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/dashboard")
     expect(screen.getByRole("link", { name: "Billing" })).toHaveAttribute("href", "/billing")
   })
