@@ -77,6 +77,54 @@ export function householdRepo(db: Db, householdId: string) {
               .insert(transactions)
               .values(values.map((v) => ({ ...v, householdId })))
               .returning(),
+      /** The classification work queue: transactions still awaiting classification. */
+      listPending: () =>
+        db
+          .select()
+          .from(transactions)
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              eq(transactions.classificationStatus, "pending"),
+            ),
+          ),
+      /**
+       * Record a classification result. Only updates a still-`pending` row, so re-running
+       * classification is idempotent — an already-classified row is left untouched (returns []).
+       */
+      classify: (
+        id: string,
+        result: { expenseType: string; confidence?: number; reasoning?: string },
+      ) =>
+        db
+          .update(transactions)
+          .set({
+            classificationStatus: "classified",
+            expenseType: result.expenseType,
+            confidence: result.confidence ?? null,
+            reasoning: result.reasoning ?? null,
+          })
+          .where(
+            and(
+              eq(transactions.id, id),
+              eq(transactions.householdId, householdId),
+              eq(transactions.classificationStatus, "pending"),
+            ),
+          )
+          .returning(),
+      /** Mark a pending transaction as failed (e.g. the model errored); leaves it unbucketed. */
+      markFailed: (id: string) =>
+        db
+          .update(transactions)
+          .set({ classificationStatus: "failed" })
+          .where(
+            and(
+              eq(transactions.id, id),
+              eq(transactions.householdId, householdId),
+              eq(transactions.classificationStatus, "pending"),
+            ),
+          )
+          .returning(),
     },
     merchantRules: {
       list: () => db.select().from(merchantRules).where(eq(merchantRules.householdId, householdId)),
