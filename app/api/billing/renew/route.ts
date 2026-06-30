@@ -44,8 +44,9 @@ async function handle(request: Request): Promise<Response> {
 
   let charged = 0
   let pending = 0
-  let failed = 0
-  let downgraded = 0
+  let failed = 0 // definitive refusals (includes any that crossed the cap into a downgrade)
+  let downgraded = 0 // subset of `failed` that hit the retry cap
+  let errored = 0 // exceptions: outcome unknown, dunning count left untouched so the retry dedupes
 
   for (const household of due) {
     if (!isBillingPeriod(household.subscriptionPeriod) || household.billingCurrency !== "ISK") {
@@ -56,8 +57,9 @@ async function handle(request: Request): Promise<Response> {
     // The cycle being renewed identifies the charge — stable across retries so the gateway dedupes.
     const cycleKey = household.planRenewsAt.toISOString().slice(0, 10)
 
-    // Record a failed attempt: bump the count, or downgrade once retries are exhausted.
-    const recordFailure = async () => {
+    // A *definitive* refusal: always a failure; bump the dunning count, or downgrade at the cap.
+    const recordRefusal = async () => {
+      failed += 1
       const nextCount = household.renewalFailureCount + 1
       if (shouldDowngrade(nextCount)) {
         await downgradeToFree(db, household.id)
@@ -67,7 +69,6 @@ async function handle(request: Request): Promise<Response> {
           .update(households)
           .set({ renewalFailureCount: nextCount })
           .where(eq(households.id, household.id))
-        failed += 1
       }
     }
 
@@ -96,15 +97,18 @@ async function handle(request: Request): Promise<Response> {
       } else if (isPending(result)) {
         pending += 1
       } else {
-        await recordFailure()
+        await recordRefusal()
       }
     } catch (error) {
-      console.error(`[renew] charge failed for household ${household.id}`, error)
-      await recordFailure()
+      // Unknown outcome (network/gateway error): the charge may have actually gone through, so do
+      // NOT bump the dunning count — leaving it unchanged keeps the same idempotency key, so the
+      // next run dedupes instead of risking a double charge.
+      console.error(`[renew] charge errored for household ${household.id}`, error)
+      errored += 1
     }
   }
 
-  return NextResponse.json({ total: due.length, charged, pending, failed, downgraded })
+  return NextResponse.json({ total: due.length, charged, pending, failed, downgraded, errored })
 }
 
 // Vercel Cron only issues GET — don't expose POST as an out-of-schedule charge trigger.

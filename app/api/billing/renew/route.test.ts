@@ -92,6 +92,19 @@ describe("GET /api/billing/renew", () => {
     expect(row.planRenewsAt!.toISOString()).toBe(PAST.toISOString()) // not advanced
   })
 
+  it("does not bump the dunning count on an exception (unknown outcome dedupes next run)", async () => {
+    const h = await seedDuePremium(1)
+    chargeMock.fn = vi.fn().mockRejectedValue(new Error("gateway timeout"))
+
+    const res = await GET(cronReq(`Bearer ${SECRET}`))
+    expect((await res.json()).errored).toBeGreaterThanOrEqual(1)
+
+    const db = holder.db as ReturnType<typeof drizzle>
+    const [row] = await db.select().from(households).where(eq(households.id, h.id))
+    expect(row.plan).toBe("Premium")
+    expect(row.renewalFailureCount).toBe(1) // unchanged, so the retry reuses the same idempotency key
+  })
+
   it("downgrades to Free once the retry cap is reached", async () => {
     const h = await seedDuePremium(2) // one short of the cap (3)
     chargeMock.fn = vi.fn().mockResolvedValue({ resultCode: "Refused" })
