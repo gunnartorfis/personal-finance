@@ -27,6 +27,7 @@
     "doctor": "pnpm dlx react-doctor@latest"
   },
   "dependencies": {
+    "@adyen/adyen-web": "^6.40.1",
     "@base-ui/react": "^1.6.0",
     "@neondatabase/auth": "0.4.2-beta",
     "@neondatabase/auth-ui": "0.2.1-beta",

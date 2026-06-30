@@ -38,10 +38,11 @@ describe("ManageSubscription", () => {
     expect(screen.getByRole("button", { name: /cancel subscription/i })).toBeInTheDocument()
   })
 
-  it("shows the Free plan with no cancel action", () => {
+  it("shows the Free plan with an upgrade affordance and no cancel action", () => {
     render(<ManageSubscription plan="Free" period={null} planRenewsAt={null} />)
     expect(screen.getByText(/Free plan/i)).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /cancel/i })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /upgrade to premium/i })).toBeInTheDocument()
   })
 
   it("surfaces an error when cancel fails", async () => {

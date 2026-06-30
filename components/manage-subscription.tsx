@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 
+import { PremiumCheckout } from "@/components/premium-checkout"
 import { cn } from "@/lib/utils"
 
 function formatRenewal(iso: string): string {
@@ -90,11 +91,14 @@ export function ManageSubscription({
           )}
         </>
       ) : (
-        <p className="text-sm text-muted-foreground">
-          {cancelled
-            ? "Your subscription is cancelled — you’re on the Free plan."
-            : "You’re on the Free plan."}
-        </p>
+        <>
+          <p className="text-sm text-muted-foreground">
+            {cancelled
+              ? "Your subscription is cancelled — you’re on the Free plan."
+              : "You’re on the Free plan."}
+          </p>
+          <PremiumCheckout />
+        </>
       )}
 
       {errored && (
