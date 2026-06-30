@@ -1,6 +1,116 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { normalizeStraumurField, toStraumurWireAmount, verifyStraumurHmac } from "./straumur";
+import {
+  createSession,
+  getSessionStatus,
+  normalizeStraumurField,
+  toStraumurWireAmount,
+  verifyStraumurHmac,
+} from "./straumur";
+
+function stubStraumurEnv() {
+  vi.stubEnv("STRAUMUR_API_KEY", "test-api-key");
+  vi.stubEnv("STRAUMUR_TERMINAL_IDENTIFIER", "TERMINAL1234");
+  vi.stubEnv("STRAUMUR_API_BASE_URL", "https://checkout-api.staging.straumur.is/");
+}
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
+
+describe("createSession", () => {
+  it("posts the documented body (with tokenization fields) and parses the session", async () => {
+    stubStraumurEnv();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        checkoutReference: "chk_1",
+        clientKey: "test_abc",
+        session: { id: "CSBB_1", sessionData: "blob" },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await createSession({
+      amount: 1990,
+      currency: "ISK",
+      reference: "sub_h1_monthly_123",
+      returnUrl: "https://app.example.com/dashboard",
+      recurringProcessingModel: "Subscription",
+      merchantShopperReference: "h1",
+    });
+
+    expect(result).toEqual({
+      id: "CSBB_1",
+      sessionData: "blob",
+      clientKey: "test_abc",
+      checkoutReference: "chk_1",
+    });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    // No trailing-slash duplication despite the env's trailing slash.
+    expect(url).toBe("https://checkout-api.staging.straumur.is/api/v1/sessioncheckout");
+    expect((init as RequestInit).method).toBe("POST");
+    expect((init as RequestInit & { headers: Record<string, string> }).headers["X-API-Key"]).toBe(
+      "test-api-key",
+    );
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+      terminalIdentifier: "TERMINAL1234",
+      amount: 199000, // 1990 ISK -> minor units
+      currency: "ISK",
+      reference: "sub_h1_monthly_123",
+      channel: "Web",
+      origin: "https://app.example.com",
+      threeDsReturnUrl: "https://app.example.com/dashboard",
+      recurringProcessingModel: "Subscription",
+      merchantShopperReference: "h1",
+    });
+  });
+
+  it("throws when the gateway returns a non-ok response", async () => {
+    stubStraumurEnv();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 422, text: async () => "errorCode 1006" }),
+    );
+    await expect(
+      createSession({
+        amount: 1990,
+        currency: "ISK",
+        reference: "r",
+        returnUrl: "https://app.example.com/dashboard",
+      }),
+    ).rejects.toThrow(/422/);
+  });
+
+  it("throws a clear error when the API key is not configured", async () => {
+    vi.stubEnv("STRAUMUR_TERMINAL_IDENTIFIER", "TERMINAL1234");
+    vi.stubEnv("STRAUMUR_API_BASE_URL", "https://x");
+    // STRAUMUR_API_KEY intentionally unset
+    await expect(
+      createSession({ amount: 1990, currency: "ISK", reference: "r", returnUrl: "https://a.b/c" }),
+    ).rejects.toThrow(/STRAUMUR_API_KEY/);
+  });
+});
+
+describe("getSessionStatus", () => {
+  it("GETs the status endpoint with the api key and returns the status", async () => {
+    stubStraumurEnv();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: "Completed" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getSessionStatus("CSBB 1", "res-token");
+    expect(result.status).toBe("Completed");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(
+      "https://checkout-api.staging.straumur.is/api/v1/sessioncheckout/status/CSBB%201?sessionResult=res-token",
+    );
+    expect((init as RequestInit & { headers: Record<string, string> }).headers["X-API-Key"]).toBe(
+      "test-api-key",
+    );
+  });
+});
 
 describe("toStraumurWireAmount", () => {
   it("multiplies ISK whole krónur to minor units (ends in 00)", () => {

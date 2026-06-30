@@ -29,6 +29,141 @@ export function toStraumurWireAmount(
   return { amount, currency };
 }
 
+// =============================================================================
+// HTTP client (sessioncheckout) — Adyen Components session via Straumur's wrapper
+// =============================================================================
+
+/** Adyen `recurringProcessingModel`; subscriptions use `Subscription` (merchant-initiated, fixed). */
+export type RecurringProcessingModel = "Subscription" | "CardOnFile" | "UnscheduledCardOnFile";
+
+export interface CreateSessionRequest {
+  /** Whole units of the billing currency (ISK krónur); normalised to wire format internally. */
+  amount: number;
+  currency: string;
+  /** Unique order reference; echoed back as `merchantReference` in webhooks. */
+  reference: string;
+  /** Where Adyen redirects after 3-D Secure; its origin is also sent as `origin`. */
+  returnUrl: string;
+  /** Set to tokenize the card for future charges (subscriptions: `Subscription`). */
+  recurringProcessingModel?: RecurringProcessingModel;
+  /** Ties the stored token to our customer (we use the householdId). */
+  merchantShopperReference?: string;
+}
+
+export interface CreateSessionResponse {
+  id: string;
+  sessionData: string;
+  clientKey: string;
+  checkoutReference: string;
+}
+
+export type SessionStatus =
+  | "Active"
+  | "Completed"
+  | "Canceled"
+  | "Expired"
+  | "PaymentPending"
+  | "Refused";
+
+export interface SessionStatusResponse {
+  status: SessionStatus;
+  responseDateTime?: string;
+  responseIdentifier?: string;
+}
+
+interface StraumurConfig {
+  apiKey: string;
+  terminalIdentifier: string;
+  apiBaseUrl: string;
+}
+
+/** Read Straumur config from the environment. Throws only when called (keeps `next build` green). */
+function getConfig(): StraumurConfig {
+  const apiKey = process.env.STRAUMUR_API_KEY;
+  const terminalIdentifier = process.env.STRAUMUR_TERMINAL_IDENTIFIER;
+  const apiBaseUrl = process.env.STRAUMUR_API_BASE_URL;
+  if (!apiKey) throw new Error("STRAUMUR_API_KEY not configured");
+  if (!terminalIdentifier) throw new Error("STRAUMUR_TERMINAL_IDENTIFIER not configured");
+  if (!apiBaseUrl) throw new Error("STRAUMUR_API_BASE_URL not configured");
+  return { apiKey, terminalIdentifier, apiBaseUrl: apiBaseUrl.replace(/\/+$/, "") };
+}
+
+function originFromUrl(returnUrl: string): string {
+  const url = new URL(returnUrl); // throws on an invalid URL — surfaced to the caller
+  return `${url.protocol}//${url.host}`;
+}
+
+/**
+ * Create an Adyen Components checkout session via Straumur's wrapper. The terminal id and amount
+ * normalisation are injected server-side. Passing `recurringProcessingModel` tokenizes the card for
+ * later merchant-initiated charges. Straumur rejects unknown fields (errorCode 1006), so only the
+ * documented fields are sent.
+ */
+export async function createSession(request: CreateSessionRequest): Promise<CreateSessionResponse> {
+  const config = getConfig();
+  const wire = toStraumurWireAmount(request.amount, request.currency);
+
+  const body: Record<string, unknown> = {
+    terminalIdentifier: config.terminalIdentifier,
+    amount: wire.amount,
+    currency: wire.currency,
+    reference: request.reference,
+    channel: "Web",
+    origin: originFromUrl(request.returnUrl),
+    threeDsReturnUrl: request.returnUrl,
+  };
+  if (request.recurringProcessingModel) {
+    body.recurringProcessingModel = request.recurringProcessingModel;
+  }
+  if (request.merchantShopperReference) {
+    body.merchantShopperReference = request.merchantShopperReference;
+  }
+
+  const response = await fetch(`${config.apiBaseUrl}/api/v1/sessioncheckout`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-API-Key": config.apiKey },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to create Straumur session: ${response.status} ${await response.text()}`);
+  }
+
+  const json = (await response.json()) as {
+    checkoutReference: string;
+    clientKey: string;
+    session: { id: string; sessionData: string };
+  };
+  return {
+    id: json.session.id,
+    sessionData: json.session.sessionData,
+    clientKey: json.clientKey,
+    checkoutReference: json.checkoutReference,
+  };
+}
+
+/** Poll a session's coarse status. Payment details (pspReference/amount) arrive via the webhook. */
+export async function getSessionStatus(
+  sessionId: string,
+  sessionResult?: string,
+): Promise<SessionStatusResponse> {
+  const config = getConfig();
+  const url = new URL(
+    `${config.apiBaseUrl}/api/v1/sessioncheckout/status/${encodeURIComponent(sessionId)}`,
+  );
+  if (sessionResult) url.searchParams.set("sessionResult", sessionResult);
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: { "X-API-Key": config.apiKey },
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Failed to get Straumur session status: ${response.status} ${await response.text()}`,
+    );
+  }
+  return (await response.json()) as SessionStatusResponse;
+}
+
 /**
  * Coalesce a Straumur webhook field to the empty string the HMAC calculator expects for "missing".
  * Straumur's serialiser emits the literal text `"null"` for missing optional fields, but signs them
