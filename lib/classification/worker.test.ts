@@ -36,7 +36,7 @@ async function setup() {
       rawCategory: "x",
       sourceRow: n++,
     });
-  return { repo, addTxn };
+  return { repo, addTxn, accountId: account.id, uploadId: upload.id };
 }
 
 const always =
@@ -48,8 +48,8 @@ describe("drainPending", () => {
     const { repo, addTxn } = await setup();
     await addTxn(-1990);
     await addTxn(-3200);
-    const result = await drainPending(repo, always("Necessary"));
-    expect(result).toEqual({ classified: 2, failed: 0 });
+    const result = await drainPending(repo, always("Necessary"), { plan: "Premium" });
+    expect(result).toEqual({ classified: 2, failed: 0, capped: 0 });
     expect(await repo.transactions.listPending()).toHaveLength(0);
   });
 
@@ -61,7 +61,7 @@ describe("drainPending", () => {
       calls += 1;
       return { expenseType: "Fixed" };
     };
-    await drainPending(repo, counting);
+    await drainPending(repo, counting, { plan: "Premium" });
     expect(calls).toBe(0);
     expect((await repo.transactions.findById(credit.id))?.expenseType).toBe("");
   });
@@ -72,17 +72,17 @@ describe("drainPending", () => {
     const boom: Classifier = async () => {
       throw new Error("model error");
     };
-    const result = await drainPending(repo, boom);
-    expect(result).toEqual({ classified: 0, failed: 1 });
+    const result = await drainPending(repo, boom, { plan: "Premium" });
+    expect(result).toEqual({ classified: 0, failed: 1, capped: 0 });
     expect(await repo.transactions.listPending()).toHaveLength(0); // moved to failed
   });
 
   it("is resumable — a second drain does nothing once the queue is empty", async () => {
     const { repo, addTxn } = await setup();
     await addTxn(-100);
-    await drainPending(repo, always("Fixed"));
-    const second = await drainPending(repo, always("Necessary"));
-    expect(second).toEqual({ classified: 0, failed: 0 });
+    await drainPending(repo, always("Fixed"), { plan: "Premium" });
+    const second = await drainPending(repo, always("Necessary"), { plan: "Premium" });
+    expect(second).toEqual({ classified: 0, failed: 0, capped: 0 });
   });
 
   it("respects the batch limit", async () => {
@@ -90,8 +90,38 @@ describe("drainPending", () => {
     await addTxn(-1);
     await addTxn(-2);
     await addTxn(-3);
-    const result = await drainPending(repo, always("Fixed"), { limit: 2 });
+    const result = await drainPending(repo, always("Fixed"), { plan: "Premium", limit: 2 });
     expect(result.classified).toBe(2);
     expect(await repo.transactions.listPending()).toHaveLength(1);
+  });
+
+  it("stops AI-classifying a Free household at its cap, leaving rows pending", async () => {
+    const { repo, addTxn, accountId, uploadId } = await setup();
+    // Seed 50 already-classified transactions to reach the Free cap.
+    await repo.transactions.createMany(
+      Array.from({ length: 50 }, (_, i) => ({
+        accountId,
+        uploadId,
+        date: "2026-01-01",
+        amount: -(i + 1),
+        merchant: `M${i}`,
+        rawCategory: "x",
+        sourceRow: i,
+        classificationStatus: "classified" as const,
+        expenseType: "Fixed" as const,
+      })),
+    );
+    await addTxn(-5000, "OVER-CAP");
+
+    let calls = 0;
+    const counting: Classifier = async () => {
+      calls += 1;
+      return { expenseType: "Fixed" };
+    };
+    const result = await drainPending(repo, counting, { plan: "Free" });
+
+    expect(calls).toBe(0); // model never called once the cap is reached
+    expect(result.capped).toBe(1);
+    expect(await repo.transactions.listPending()).toHaveLength(1); // left pending for upgrade
   });
 });

@@ -1,6 +1,6 @@
 import type { HouseholdRepo } from "@/lib/db/household-repo";
-import { NOT_BUCKETED, isExpense } from "@/shared/free-cap";
-import type { ExpenseType } from "@/shared/types";
+import { NOT_BUCKETED, canClassify, isExpense } from "@/shared/free-cap";
+import type { ExpenseType, Plan } from "@/shared/types";
 
 /**
  * Background classification worker — orchestration (ADR-0005).
@@ -11,6 +11,10 @@ import type { ExpenseType } from "@/shared/types";
  * is crash-safe / resumable: it only touches `pending` rows (classify/markFailed are no-ops
  * otherwise), so re-running continues where a previous run stopped. A classifier error marks just
  * that row `failed` and the drain continues.
+ *
+ * The Free cap (ADR-0002) is enforced on the model path: a Free Household stops being AI-classified
+ * once it has 50 classified Transactions lifetime — over-cap expense rows are left `pending` and
+ * classify on upgrade. Credits are cheap/deterministic and are not gated by the cap.
  */
 
 /** The salient fields a classifier sees for one transaction. */
@@ -29,30 +33,42 @@ export type Classifier = (
 export interface DrainResult {
   classified: number;
   failed: number;
+  /** Expense rows left pending because the Free cap was reached. */
+  capped: number;
 }
 
 /**
  * Drain pending transactions. `limit` bounds how many are processed in one run (the durable
- * trigger calls this repeatedly until the queue is empty).
+ * trigger calls this repeatedly until the queue is empty); `plan` gates AI classification by the
+ * Free cap.
  */
 export async function drainPending(
   repo: HouseholdRepo,
   classify: Classifier,
-  opts: { limit?: number } = {},
+  opts: { plan: Plan; limit?: number },
 ): Promise<DrainResult> {
-  const pending = await repo.transactions.listPending();
-  const batch = opts.limit === undefined ? pending : pending.slice(0, opts.limit);
+  const batch = await repo.transactions.listPending(opts.limit);
+  let classifiedCount = await repo.transactions.countClassified();
 
   let classified = 0;
   let failed = 0;
+  let capped = 0;
   for (const txn of batch) {
     if (!isExpense(txn.amount)) {
-      // Credits and transfers are not bucketed — no model call.
+      // Credits and transfers are not bucketed — no model call, not gated by the cap.
       const [row] = await repo.transactions.classify(txn.id, {
         expenseType: NOT_BUCKETED,
         reasoning: "credit (not bucketed)",
       });
-      if (row) classified += 1;
+      if (row) {
+        classified += 1;
+        classifiedCount += 1;
+      }
+      continue;
+    }
+    if (!canClassify(opts.plan, classifiedCount)) {
+      // Free cap reached: leave the expense pending; it classifies on upgrade.
+      capped += 1;
       continue;
     }
     try {
@@ -63,11 +79,14 @@ export async function drainPending(
         date: txn.date,
       });
       const [row] = await repo.transactions.classify(txn.id, result);
-      if (row) classified += 1;
+      if (row) {
+        classified += 1;
+        classifiedCount += 1;
+      }
     } catch {
       await repo.transactions.markFailed(txn.id);
       failed += 1;
     }
   }
-  return { classified, failed };
+  return { classified, failed, capped };
 }
