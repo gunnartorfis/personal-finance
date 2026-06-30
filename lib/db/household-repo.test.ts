@@ -283,4 +283,72 @@ describe("householdRepo", () => {
       });
     });
   });
+
+  describe("transactions.resetFailed / countFailed", () => {
+    /** Seed an upload in `repo` with the given per-status counts; returns the upload id. */
+    async function seed(
+      repo: Awaited<ReturnType<typeof twoHouseholds>>["a"],
+      counts: { classified: number; failed: number; pending: number },
+      tag: string,
+    ) {
+      const [account] = await repo.accounts.create({ name: "Visa" });
+      const [upload] = await repo.uploads.create({
+        accountId: account.id,
+        fileName: `${tag}.csv`,
+        fileHash: `hash-${tag}`,
+      });
+      const total = counts.classified + counts.failed + counts.pending;
+      const rows = await repo.transactions.createMany(
+        Array.from({ length: total }, (_, i) => ({
+          accountId: account.id,
+          uploadId: upload.id,
+          date: "2026-03-01",
+          amount: -1000 - i,
+          merchant: `M${i}`,
+          rawCategory: "",
+          sourceRow: i,
+        })),
+      );
+      for (let i = 0; i < counts.classified; i++) {
+        await repo.transactions.classify(rows[i].id, { expenseType: "Necessary" });
+      }
+      for (let i = counts.classified; i < counts.classified + counts.failed; i++) {
+        await repo.transactions.markFailed(rows[i].id);
+      }
+      return upload.id;
+    }
+
+    it("requeues only failed rows back to pending, leaving classified/pending untouched", async () => {
+      const { a } = await twoHouseholds();
+      const uploadId = await seed(a, { classified: 2, failed: 3, pending: 1 }, "reset");
+
+      const reset = await a.transactions.resetFailed();
+      expect(reset).toHaveLength(3);
+      // The three failed rows are now pending; the two classified and one already-pending stay put.
+      expect(await a.transactions.progress(uploadId)).toEqual({
+        total: 6,
+        pending: 4,
+        classified: 2,
+        failed: 0,
+      });
+    });
+
+    it("requeues nothing when there are no failed rows", async () => {
+      const { a } = await twoHouseholds();
+      await seed(a, { classified: 1, failed: 0, pending: 1 }, "none");
+      expect(await a.transactions.resetFailed()).toHaveLength(0);
+    });
+
+    it("counts failed rows and never touches or counts another household's", async () => {
+      const { a, b } = await twoHouseholds();
+      await seed(a, { classified: 1, failed: 2, pending: 0 }, "a");
+      const bUpload = await seed(b, { classified: 0, failed: 2, pending: 0 }, "b");
+
+      expect(await a.transactions.countFailed()).toBe(2);
+      // A's reset must not requeue B's failures.
+      await a.transactions.resetFailed();
+      expect(await b.transactions.countFailed()).toBe(2);
+      expect(await b.transactions.progress(bUpload)).toMatchObject({ failed: 2, pending: 0 });
+    });
+  });
 });

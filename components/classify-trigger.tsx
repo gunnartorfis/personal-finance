@@ -19,12 +19,18 @@ const MAX_BATCHES = 1000
  * drains one batch per call, so this re-posts until a batch makes no further progress (queue empty
  * or fully paused by the Free cap), accumulating the counts. Use `autoRun` to fire once on mount —
  * e.g. right after an upload — or leave it off for a manual "Classify pending" button.
+ *
+ * When `failedCount > 0` a "Retry failed" button requeues prior failures (`POST /api/classify/retry`
+ * flips `failed → pending`) and then runs the same drain — the only way back from a `failed` row,
+ * e.g. after AI Gateway credits are topped up following a 403.
  */
 export function ClassifyTrigger({
   autoRun = false,
+  failedCount = 0,
   className,
 }: {
   autoRun?: boolean
+  failedCount?: number
   className?: string
 }) {
   const [busy, setBusy] = useState(false)
@@ -62,6 +68,28 @@ export function ClassifyTrigger({
     }
   }, [])
 
+  // Requeue prior failures, then drain them. The reset POST is quick (a status flip, no model
+  // calls). It gets its own AbortController via abortRef — same as the drain — so an unmount during
+  // the reset window cancels it; the subsequent classify() then owns busy/totals/error for the drain.
+  const retryFailed = useCallback(async () => {
+    abortRef.current?.abort() // cancel any prior run before starting a fresh one
+    const controller = new AbortController()
+    abortRef.current = controller
+    setBusy(true)
+    setErrored(false)
+    setTotals(null) // clear any prior run's totals so they don't linger during the reset POST
+    try {
+      const res = await fetch("/api/classify/retry", { method: "POST", signal: controller.signal })
+      if (!res.ok) throw new Error("retry failed")
+    } catch {
+      if (controller.signal.aborted) return // intentional cancel, not a failure
+      setErrored(true)
+      setBusy(false)
+      return
+    }
+    await classify()
+  }, [classify])
+
   const autoRan = useRef(false)
   useEffect(() => {
     if (autoRun && !autoRan.current) {
@@ -73,14 +101,27 @@ export function ClassifyTrigger({
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <button
-        type="button"
-        onClick={() => void classify()}
-        disabled={busy}
-        className="self-start rounded-md border border-border px-3 py-1 text-sm font-medium disabled:opacity-50"
-      >
-        {busy ? "Classifying…" : "Classify pending"}
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => void classify()}
+          disabled={busy}
+          className="self-start rounded-md border border-border px-3 py-1 text-sm font-medium disabled:opacity-50"
+        >
+          {busy ? "Classifying…" : "Classify pending"}
+        </button>
+
+        {failedCount > 0 && (
+          <button
+            type="button"
+            onClick={() => void retryFailed()}
+            disabled={busy}
+            className="self-start rounded-md border border-border px-3 py-1 text-sm font-medium disabled:opacity-50"
+          >
+            {`Retry ${failedCount} failed`}
+          </button>
+        )}
+      </div>
 
       {errored && (
         <p role="alert" className="text-sm text-destructive">

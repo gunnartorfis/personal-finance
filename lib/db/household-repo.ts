@@ -207,6 +207,19 @@ export function householdRepo(db: Db, householdId: string) {
           );
         return row?.value ?? 0;
       },
+      /** Count of transactions left in `failed` state — drives the "Retry failed" affordance. */
+      countFailed: async () => {
+        const [row] = await db
+          .select({ value: count() })
+          .from(transactions)
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              eq(transactions.classificationStatus, "failed"),
+            ),
+          );
+        return row?.value ?? 0;
+      },
       /**
        * Record a classification result. Only updates a still-`pending` row, so re-running
        * classification is idempotent — an already-classified row is left untouched (returns []).
@@ -241,6 +254,24 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.id, id),
               eq(transactions.householdId, householdId),
               eq(transactions.classificationStatus, "pending"),
+            ),
+          )
+          .returning(),
+      /**
+       * Requeue every `failed` transaction in the Household back to `pending` so the next drain
+       * re-attempts it — used after the cause of a prior failure is cleared (e.g. AI Gateway
+       * credits topped up, a transient outage). Failed rows are already unbucketed, so only the
+       * status flips. Scoped to the household and to `failed` rows; classified/pending are
+       * untouched. Returns the requeued rows (the count is the only thing callers need).
+       */
+      resetFailed: () =>
+        db
+          .update(transactions)
+          .set({ classificationStatus: "pending" })
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              eq(transactions.classificationStatus, "failed"),
             ),
           )
           .returning(),

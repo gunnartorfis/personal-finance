@@ -17,9 +17,10 @@ export const dynamic = "force-dynamic"
 export default async function DashboardPage() {
   const { repo, plan, billingCurrency } = await requireHousehold()
   const now = new Date()
-  const [summary, classifiedCount] = await Promise.all([
+  const [summary, classifiedCount, failedCount] = await Promise.all([
     loadNetSummary(repo, cycleRange(now)),
     repo.transactions.countClassified(),
+    repo.transactions.countFailed(),
   ])
   const capStatus = freeCapStatus({ plan, classifiedCount })
 
@@ -28,7 +29,7 @@ export default async function DashboardPage() {
       <h1 className="text-2xl font-semibold">Dashboard</h1>
       <FreeCapStatusBanner status={capStatus} />
       <NetSummaryCard summary={summary} currency={billingCurrency} cycleLabel={cycleLabel(now)} />
-      <ClassifyTrigger />
+      <ClassifyTrigger failedCount={failedCount} />
     </div>
   )
 }
