@@ -99,7 +99,9 @@ describe("loadNetSummary", () => {
       fileHash: "mar",
     });
     const base = { accountId: account.id, uploadId: upload.id, rawCategory: "" };
-    const [credit, fixed, overridden, pending, beforeRange, onUpperBound] =
+    // The 4th row (UNKNOWN) is intentionally left pending — never classified — so it lands in the
+    // `unclassified` bucket; its binding is skipped.
+    const [credit, fixed, overridden, , beforeRange, onUpperBound] =
       await repo.transactions.createMany([
         { ...base, date: "2026-03-05", amount: 1000, merchant: "SALARY", sourceRow: 0 },
         { ...base, date: "2026-03-10", amount: -300, merchant: "RENT", sourceRow: 1 },
