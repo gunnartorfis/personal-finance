@@ -25,8 +25,13 @@ export default async function DashboardPage() {
   const capStatus = freeCapStatus({ plan, classifiedCount })
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-6">
+      <header className="flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <p className="text-sm text-pretty text-muted-foreground">
+          Profit and loss for the current statement cycle.
+        </p>
+      </header>
       <FreeCapStatusBanner status={capStatus} />
       <NetSummaryCard summary={summary} currency={billingCurrency} cycleLabel={cycleLabel(now)} />
       <ClassifyTrigger failedCount={failedCount} />

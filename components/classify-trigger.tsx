@@ -1,7 +1,9 @@
 "use client"
 
+import { Loader2, RefreshCw, Sparkles } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 /** Accumulated `POST /api/classify` (DrainResult) counts across the batches drained this run. */
@@ -102,24 +104,21 @@ export function ClassifyTrigger({
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => void classify()}
-          disabled={busy}
-          className="self-start rounded-md border border-border px-3 py-1 text-sm font-medium disabled:opacity-50"
-        >
+        <Button type="button" onClick={() => void classify()} disabled={busy}>
+          {busy ? <Loader2 className="animate-spin" /> : <Sparkles />}
           {busy ? "Classifying…" : "Classify pending"}
-        </button>
+        </Button>
 
         {failedCount > 0 && (
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => void retryFailed()}
             disabled={busy}
-            className="self-start rounded-md border border-border px-3 py-1 text-sm font-medium disabled:opacity-50"
           >
+            <RefreshCw />
             {`Retry ${failedCount} failed`}
-          </button>
+          </Button>
         )}
       </div>
 
