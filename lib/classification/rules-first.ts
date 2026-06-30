@@ -37,9 +37,6 @@ export async function applyRulesFirst(repo: HouseholdRepo): Promise<RulesFirstRe
 
   let classified = 0;
   for (const txn of pending) {
-    // A manual override already fixes this row's type and wins on read, so don't spend a rule match
-    // recording a type the override hides — leave it for the worker to record the override's type.
-    if (txn.overrideType !== null) continue;
     const match = applyMerchantRules(rules, { merchant: txn.merchant, amount: txn.amount });
     if (!match.matched) continue;
     // Count only rows this pass actually classified — classify() is a no-op (returns []) if the

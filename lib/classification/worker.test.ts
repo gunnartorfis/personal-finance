@@ -66,24 +66,27 @@ describe("drainPending", () => {
     expect((await repo.transactions.findById(credit.id))?.expenseType).toBe("");
   });
 
-  it("records a manually-overridden row without calling the model", async () => {
+  it("does not classify a manually-overridden row — only non-overridden rows hit the model", async () => {
     const { repo, addTxn } = await setup();
-    const [txn] = await addTxn(-1990, "OVERRIDDEN");
-    await repo.overrides.upsert({ transactionId: txn.id, expenseType: "Nice to have" });
+    const [overridden] = await addTxn(-1990, "OVERRIDDEN");
+    await addTxn(-3200, "NORMAL");
+    await repo.overrides.upsert({ transactionId: overridden.id, expenseType: "Nice to have" });
     let calls = 0;
     const counting: Classifier = async () => {
       calls += 1;
       return { expenseType: "Fixed" };
     };
     const result = await drainPending(repo, counting, { plan: "Premium" });
-    expect(calls).toBe(0); // override already records the type — no token spent
+    expect(calls).toBe(1); // only the non-overridden row is classified — no token on the overridden one
     expect(result).toEqual({ classified: 1, failed: 0, capped: 0 });
-    const row = await repo.transactions.findById(txn.id);
-    expect(row?.classificationStatus).toBe("classified");
-    expect(row?.expenseType).toBe("Nice to have"); // the override's type, not the model's
+    // The overridden row stays pending with no AI type baked into `expenseType`, so the override's
+    // type isn't frozen as ground-truth — removing the override re-exposes it for real classification.
+    const row = await repo.transactions.findById(overridden.id);
+    expect(row?.classificationStatus).toBe("pending");
+    expect(row?.expenseType).toBeNull();
   });
 
-  it("keeps an overridden credit not-bucketed (override does not pollute the classified type)", async () => {
+  it("does not classify an overridden credit either (no model call, stays out of the buckets)", async () => {
     const { repo, addTxn } = await setup();
     const [credit] = await addTxn(5000, "REFUND"); // positive amount = credit
     await repo.overrides.upsert({ transactionId: credit.id, expenseType: "Nice to have" });
@@ -92,41 +95,12 @@ describe("drainPending", () => {
       calls += 1;
       return { expenseType: "Fixed" };
     };
-    await drainPending(repo, counting, { plan: "Premium" });
+    const result = await drainPending(repo, counting, { plan: "Premium" });
     expect(calls).toBe(0);
-    // The credit guard wins: classified type stays "" so removing the override reverts to
-    // not-bucketed rather than leaving the credit in the expense buckets.
-    expect((await repo.transactions.findById(credit.id))?.expenseType).toBe("");
-  });
-
-  it("records an overridden row even when the Free cap is reached", async () => {
-    const { repo, addTxn, accountId, uploadId } = await setup();
-    await repo.transactions.createMany(
-      Array.from({ length: 50 }, (_, i) => ({
-        accountId,
-        uploadId,
-        date: "2026-01-01",
-        amount: -(i + 1),
-        merchant: `M${i}`,
-        rawCategory: "x",
-        sourceRow: i,
-        classificationStatus: "classified" as const,
-        expenseType: "Fixed" as const,
-      })),
-    );
-    const [over] = await addTxn(-5000, "OVER-CAP-OVERRIDDEN");
-    await repo.overrides.upsert({ transactionId: over.id, expenseType: "Necessary" });
-
-    let calls = 0;
-    const counting: Classifier = async () => {
-      calls += 1;
-      return { expenseType: "Fixed" };
-    };
-    const result = await drainPending(repo, counting, { plan: "Free" });
-
-    expect(calls).toBe(0); // deterministic, so not gated by the cap
-    expect(result).toEqual({ classified: 1, failed: 0, capped: 0 });
-    expect((await repo.transactions.findById(over.id))?.expenseType).toBe("Necessary");
+    expect(result).toEqual({ classified: 0, failed: 0, capped: 0 });
+    // `expenseType` stays null (not "" from the credit guard), so removing the override reverts the
+    // credit to the credit path (NOT_BUCKETED) rather than freezing it as an expense type.
+    expect((await repo.transactions.findById(credit.id))?.expenseType).toBeNull();
   });
 
   it("marks a row failed when the classifier throws, and continues", async () => {
