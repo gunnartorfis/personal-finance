@@ -23,7 +23,7 @@ describe("sonnetClassifier", () => {
     expect(result).toEqual({ expenseType: "Fixed", confidence: 0.96, reasoning: "named subscription" });
   });
 
-  it("calls Sonnet 4.6 via the gateway with the rules system prompt and the transaction details", async () => {
+  it("calls Sonnet 5 via the gateway with the rules system prompt and the transaction details", async () => {
     generateObject.mockResolvedValue({ object: { expenseType: "", confidence: 0.9, reasoning: "split" } });
     await sonnetClassifier()({ merchant: "Aur", amount: -5000, rawCategory: "", date: "2026-03-02" });
     const args = generateObject.mock.calls[0][0];

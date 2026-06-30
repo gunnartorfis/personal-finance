@@ -17,7 +17,7 @@ export const maxDuration = 300;
 
 /**
  * POST /api/classify — drain a batch of the current Household's pending transactions through the
- * Sonnet 4.6 classifier (ADR-0005). Crash-safe and resumable via the idempotent status model, so
+ * Sonnet 5 classifier (ADR-0005). Crash-safe and resumable via the idempotent status model, so
  * re-invoking (poll / cron) continues until the queue is empty. Returns the batch counts.
  *
  * (A fully durable Vercel Workflow orchestration is a future enhancement; batch-draining on the

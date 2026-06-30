@@ -6,7 +6,7 @@ import type { ExpenseType, Plan } from "@/shared/types";
  * Background classification worker — orchestration (ADR-0005).
  *
  * Drains a Household's pending transactions. Credits (non-expense rows) are not bucketed and need
- * no model call; expense rows are classified by an injected `Classifier` (the real Sonnet 4.6 call
+ * no model call; expense rows are classified by an injected `Classifier` (the real Sonnet 5 call
  * via the Vercel AI Gateway is wired separately, so this core is testable without a key). The drain
  * is crash-safe / resumable: it only touches `pending` rows (classify/markFailed are no-ops
  * otherwise), so re-running continues where a previous run stopped. A classifier error marks just
