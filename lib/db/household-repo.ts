@@ -249,6 +249,9 @@ export function householdRepo(db: Db, householdId: string) {
           .onConflictDoUpdate({
             target: overrides.transactionId,
             set: { expenseType: value.expenseType, memberId: value.memberId ?? null },
+            // Defence in depth: the composite FK already makes a cross-household conflict impossible,
+            // but scoping the update keeps the tenant invariant explicit at the SQL layer too.
+            where: eq(overrides.householdId, householdId),
           })
           .returning(),
       /** Remove a transaction's override (revert to the classified type). Returns the removed rows. */

@@ -63,6 +63,12 @@ describe("PUT /api/transactions/[id]/override", () => {
 })
 
 describe("DELETE /api/transactions/[id]/override", () => {
+  it("400s a malformed id before resolving the household", async () => {
+    const res = await DELETE(new Request("http://test/", { method: "DELETE" }), ctx("not-a-uuid"))
+    expect(res.status).toBe(400)
+    expect(requireHousehold).not.toHaveBeenCalled()
+  })
+
   it("404s when the transaction is not in the household", async () => {
     requireHousehold.mockResolvedValue(householdWith(undefined))
     const res = await DELETE(new Request("http://test/", { method: "DELETE" }), ctx(ID))
