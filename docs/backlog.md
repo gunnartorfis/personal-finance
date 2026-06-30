@@ -81,7 +81,10 @@ the remainder as new unchecked items.
   - [x] **Net-summary aggregation** — household-scoped income/expense/net plus a per-expense-type
     breakdown over a date range, with manual Overrides taking precedence over the classified type.
   - [x] **Dashboard UI** — page rendering the summary for the current statement cycle.
-- [ ] **Override UI**: a manual expense-type change that takes precedence over the classified type.
+- **Override**: a manual expense-type change that takes precedence over the classified type. Split:
+  - [x] **Set/clear endpoint** — `overrides.upsert`/`remove` repo methods + `PUT`/`DELETE
+    /api/transactions/:id/override`, household-scoped.
+  - [ ] **Override UI** — an expense-type control on a transaction that calls the endpoint.
 - [ ] **Merchant-rule management UI**.
 
 ## Phase G — Billing (ADR-0006) — depends on C and Phase A Free-cap counting

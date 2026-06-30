@@ -102,6 +102,62 @@ describe("householdRepo", () => {
     expect(await b.accounts.findById(account.id)).toBeUndefined();
   });
 
+  describe("overrides.upsert / remove", () => {
+    async function seedTransaction(a: Awaited<ReturnType<typeof twoHouseholds>>["a"]) {
+      const [account] = await a.accounts.create({ name: "Visa" });
+      const [upload] = await a.uploads.create({
+        accountId: account.id,
+        fileName: "o.csv",
+        fileHash: `ovr-${account.id}`,
+      });
+      const [txn] = await a.transactions.create({
+        accountId: account.id,
+        uploadId: upload.id,
+        date: "2026-03-01",
+        amount: -1990,
+        merchant: "NETFLIX",
+        rawCategory: "",
+        sourceRow: 0,
+      });
+      return txn;
+    }
+
+    it("inserts then updates a single override per transaction", async () => {
+      const { a, aId } = await twoHouseholds();
+      const txn = await seedTransaction(a);
+
+      const [created] = await a.overrides.upsert({ transactionId: txn.id, expenseType: "Necessary" });
+      expect(created.householdId).toBe(aId);
+      expect(created.expenseType).toBe("Necessary");
+
+      const [updated] = await a.overrides.upsert({ transactionId: txn.id, expenseType: "Nice to have" });
+      expect(updated.id).toBe(created.id); // same row, not a duplicate
+      expect(updated.expenseType).toBe("Nice to have");
+      expect(await a.overrides.list()).toHaveLength(1);
+    });
+
+    it("findByTransactionId returns the override and remove reverts it", async () => {
+      const { a } = await twoHouseholds();
+      const txn = await seedTransaction(a);
+      await a.overrides.upsert({ transactionId: txn.id, expenseType: "Fixed" });
+
+      expect((await a.overrides.findByTransactionId(txn.id))?.expenseType).toBe("Fixed");
+      const removed = await a.overrides.remove(txn.id);
+      expect(removed).toHaveLength(1);
+      expect(await a.overrides.findByTransactionId(txn.id)).toBeUndefined();
+      // Removing again is a no-op.
+      expect(await a.overrides.remove(txn.id)).toHaveLength(0);
+    });
+
+    it("scopes override reads to the bound household", async () => {
+      const { a, b } = await twoHouseholds();
+      const txn = await seedTransaction(a);
+      await a.overrides.upsert({ transactionId: txn.id, expenseType: "Fixed" });
+      expect(await b.overrides.findByTransactionId(txn.id)).toBeUndefined();
+      expect(await b.overrides.remove(txn.id)).toHaveLength(0);
+    });
+  });
+
   describe("transactions.progress", () => {
     /** Seed an upload in household `a` with `n` rows, then classify/fail some of them. */
     async function seedUpload(

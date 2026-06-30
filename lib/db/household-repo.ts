@@ -221,6 +221,47 @@ export function householdRepo(db: Db, householdId: string) {
       },
       create: (value: Omit<typeof overrides.$inferInsert, "householdId">) =>
         db.insert(overrides).values({ ...value, householdId }).returning(),
+      /** The override for a transaction, if one exists (one per transaction). */
+      findByTransactionId: async (transactionId: string) => {
+        const [row] = await db
+          .select()
+          .from(overrides)
+          .where(
+            and(eq(overrides.householdId, householdId), eq(overrides.transactionId, transactionId)),
+          );
+        return row;
+      },
+      /**
+       * Set (or change) the manual Expense-type override for a transaction. One override per
+       * transaction (unique `transaction_id`), so a second call updates the existing row rather than
+       * inserting a duplicate. The caller must have verified the transaction is in this household —
+       * the composite FK rejects a cross-household `transactionId` regardless.
+       */
+      upsert: (value: { transactionId: string; expenseType: ExpenseType; memberId?: string | null }) =>
+        db
+          .insert(overrides)
+          .values({
+            householdId,
+            transactionId: value.transactionId,
+            expenseType: value.expenseType,
+            memberId: value.memberId ?? null,
+          })
+          .onConflictDoUpdate({
+            target: overrides.transactionId,
+            set: { expenseType: value.expenseType, memberId: value.memberId ?? null },
+            // Defence in depth: the composite FK already makes a cross-household conflict impossible,
+            // but scoping the update keeps the tenant invariant explicit at the SQL layer too.
+            where: eq(overrides.householdId, householdId),
+          })
+          .returning(),
+      /** Remove a transaction's override (revert to the classified type). Returns the removed rows. */
+      remove: (transactionId: string) =>
+        db
+          .delete(overrides)
+          .where(
+            and(eq(overrides.householdId, householdId), eq(overrides.transactionId, transactionId)),
+          )
+          .returning(),
     },
   };
 }
