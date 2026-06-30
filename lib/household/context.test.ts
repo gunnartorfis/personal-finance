@@ -38,4 +38,9 @@ describe("householdContext", () => {
     const ctx = await householdContext(asDb(db), "ctx_user_5");
     expect(ctx.plan).toBe("Free");
   });
+
+  it("exposes the billing currency (defaulting to ISK) for money formatting", async () => {
+    const ctx = await householdContext(asDb(db), "ctx_user_6");
+    expect(ctx.billingCurrency).toBe("ISK");
+  });
 });

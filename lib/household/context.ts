@@ -24,5 +24,11 @@ export async function householdContext(db: Db, authUserId: string) {
     // noUncheckedIndexedAccess, so guard explicitly rather than let `.plan` throw a TypeError.
     throw new Error(`Household ${householdId} not found after provisioning`);
   }
-  return { householdId, memberId, plan: household.plan, repo: householdRepo(db, householdId) };
+  return {
+    householdId,
+    memberId,
+    plan: household.plan,
+    billingCurrency: household.billingCurrency,
+    repo: householdRepo(db, householdId),
+  };
 }
