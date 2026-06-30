@@ -20,6 +20,7 @@ describe("MainNav", () => {
       "href",
       "/transactions",
     )
+    expect(screen.getByRole("link", { name: "Rules" })).toHaveAttribute("href", "/rules")
     expect(screen.getByRole("link", { name: "Billing" })).toHaveAttribute("href", "/billing")
   })
 

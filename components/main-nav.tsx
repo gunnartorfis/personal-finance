@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/accounts", label: "Accounts" },
   { href: "/upload", label: "Upload" },
   { href: "/transactions", label: "Transactions" },
+  { href: "/rules", label: "Rules" },
   { href: "/billing", label: "Billing" },
 ]
 
