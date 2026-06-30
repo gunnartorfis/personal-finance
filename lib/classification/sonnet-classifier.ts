@@ -6,14 +6,14 @@ import { RULES_PROMPT } from "@/shared/rules";
 import type { Classifier } from "./worker";
 
 /**
- * The real classifier (ADR-0005): classifies an expense Transaction with Sonnet 4.6 through the
- * Vercel AI Gateway (the `"anthropic/claude-sonnet-4-6"` model string is resolved by the gateway,
+ * The real classifier (ADR-0005): classifies an expense Transaction with Sonnet 5 through the
+ * Vercel AI Gateway (the `"anthropic/claude-sonnet-5"` model string is resolved by the gateway,
  * authed via AI_GATEWAY_API_KEY / Vercel OIDC). The system prompt is the shared rules prompt; the
  * model returns a structured Expense type plus calibrated confidence and a short reasoning.
  *
  * Only expense rows reach here — the worker handles credits as not-bucketed without a model call.
  */
-export const SONNET_MODEL = "anthropic/claude-sonnet-4-6";
+export const SONNET_MODEL = "anthropic/claude-sonnet-5";
 
 const ClassificationSchema = z.object({
   expenseType: z.enum(["Fixed", "Necessary", "Nice to have", ""]),
@@ -21,7 +21,7 @@ const ClassificationSchema = z.object({
   reasoning: z.string().max(200),
 });
 
-/** Build a {@link Classifier} backed by Sonnet 4.6 via the AI Gateway. */
+/** Build a {@link Classifier} backed by Sonnet 5 via the AI Gateway. */
 export function sonnetClassifier(): Classifier {
   return async (txn) => {
     const { object } = await generateObject({
