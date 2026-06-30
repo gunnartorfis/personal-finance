@@ -135,3 +135,20 @@ own, dependency-ordered. Adyen client Drop-in (Premium upgrade) is deferred to a
 - [x] **Merchant-rules management page** — a `/rules` page that mounts the existing
   `<MerchantRulesManager>`, linked from the nav. Acceptance: a user can view, add, and delete
   merchant rules from a real page. Blocked by: none.
+
+## Phase I — Premium upgrade (Adyen Drop-in) — depends on Phase G billing
+
+The server checkout route (`POST /api/billing/checkout`) already returns an Adyen Sessions payload
+(`id` / `sessionData` / `clientKey`) for an embedded Drop-in, but the Free plan has no client upgrade
+flow. This phase adds it. Premium activation itself stays webhook-driven (already built).
+
+- [x] **Premium upgrade via Adyen Drop-in** — a client checkout: the Free plan shows an "Upgrade to
+  Premium" affordance with a monthly/annual period choice (prices from `lib/billing/pricing`), which
+  `POST`s `/api/billing/checkout`, then mounts the Adyen Web Drop-in (`@adyen/adyen-web`) with the
+  returned session + `clientKey` (environment derived from the key prefix). Acceptance: a Free user
+  can pick a period, see the Drop-in, and a completed payment shows confirmation; checkout/SDK errors
+  surface inline. Blocked by: none (server route + webhook activation already shipped).
+- [ ] **Post-payment activation confirmation** — after the Drop-in reports completion, confirm
+  Premium is active (poll `getSessionStatus` via a new status route and/or the household plan) so the
+  UI reflects activation rather than assuming it. Acceptance: after paying, the user sees Premium
+  active without a manual refresh. Blocked by: Premium upgrade via Adyen Drop-in.
