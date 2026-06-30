@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, getTableColumns, gte, isNull, lt } from "drizzle-orm";
+import { and, asc, count, desc, eq, getTableColumns, gte, isNull, lt, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import type { ExpenseType } from "@/shared/types";
@@ -194,6 +194,22 @@ export function householdRepo(db: Db, householdId: string) {
             ),
           )
           .orderBy(desc(transactions.date), asc(transactions.id)),
+      /**
+       * The distinct statement cycles (calendar months as `"YYYY-MM"`) that have at least one
+       * transaction for this Household, newest first. Drives the period selector on the transactions
+       * view. The month is derived in SQL from the date-only `date` column so it lines up exactly
+       * with the `[from, to)` cycle ranges used to list and summarise a period.
+       */
+      cycleMonths: async () => {
+        const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`;
+        const rows = await db
+          .select({ month })
+          .from(transactions)
+          .where(eq(transactions.householdId, householdId))
+          .groupBy(month)
+          .orderBy(desc(month));
+        return rows.map((row) => row.month);
+      },
       /** Count of classified transactions for the Household (lifetime) — used for the Free cap. */
       countClassified: async () => {
         const [row] = await db
