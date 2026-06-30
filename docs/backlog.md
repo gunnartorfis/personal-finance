@@ -132,6 +132,6 @@ own, dependency-ordered. Adyen client Drop-in (Premium upgrade) is deferred to a
   household repo, scoped to the current statement cycle) that mounts `<OverrideControl>` per row so
   a user can change an expense type. Acceptance: transactions render with merchant/amount/type and
   an override control that persists; nav link added. Blocked by: none (works on any data).
-- [ ] **Merchant-rules management page** — a `/rules` page that mounts the existing
+- [x] **Merchant-rules management page** — a `/rules` page that mounts the existing
   `<MerchantRulesManager>`, linked from the nav. Acceptance: a user can view, add, and delete
   merchant rules from a real page. Blocked by: none.
