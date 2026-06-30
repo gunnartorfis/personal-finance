@@ -83,6 +83,22 @@ describe("drainPending", () => {
     expect(row?.expenseType).toBe("Nice to have"); // the override's type, not the model's
   });
 
+  it("keeps an overridden credit not-bucketed (override does not pollute the classified type)", async () => {
+    const { repo, addTxn } = await setup();
+    const [credit] = await addTxn(5000, "REFUND"); // positive amount = credit
+    await repo.overrides.upsert({ transactionId: credit.id, expenseType: "Nice to have" });
+    let calls = 0;
+    const counting: Classifier = async () => {
+      calls += 1;
+      return { expenseType: "Fixed" };
+    };
+    await drainPending(repo, counting, { plan: "Premium" });
+    expect(calls).toBe(0);
+    // The credit guard wins: classified type stays "" so removing the override reverts to
+    // not-bucketed rather than leaving the credit in the expense buckets.
+    expect((await repo.transactions.findById(credit.id))?.expenseType).toBe("");
+  });
+
   it("records an overridden row even when the Free cap is reached", async () => {
     const { repo, addTxn, accountId, uploadId } = await setup();
     await repo.transactions.createMany(

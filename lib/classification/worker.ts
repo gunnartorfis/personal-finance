@@ -54,14 +54,14 @@ export async function drainPending(
   let failed = 0;
   let capped = 0;
   for (const txn of batch) {
-    if (txn.overrideType !== null) {
-      // The user already typed this row by hand — record their type directly (no model call) so it
-      // leaves the queue instead of burning a Sonnet call on a result the override would hide
-      // anyway. Deterministic like credits, so it bypasses the Free-cap gate; it still counts as a
-      // classified row (mirrors credits / `countClassified`).
+    if (!isExpense(txn.amount)) {
+      // Credits and transfers are not bucketed — no model call, not gated by the cap. This runs
+      // before the override branch on purpose: a credit's *classified* type stays NOT_BUCKETED even
+      // when overridden (the override still wins on read via `overrideType ?? classifiedType`), so
+      // removing the override correctly reverts the credit to not-bucketed rather than an expense.
       const [row] = await repo.transactions.classify(txn.id, {
-        expenseType: txn.overrideType as ExpenseType,
-        reasoning: "manual override",
+        expenseType: NOT_BUCKETED,
+        reasoning: "credit (not bucketed)",
       });
       if (row) {
         classified += 1;
@@ -69,11 +69,14 @@ export async function drainPending(
       }
       continue;
     }
-    if (!isExpense(txn.amount)) {
-      // Credits and transfers are not bucketed — no model call, not gated by the cap.
+    if (txn.overrideType !== null) {
+      // The user already typed this expense by hand — record their type directly (no model call) so
+      // it leaves the queue instead of burning a Sonnet call on a result the override would hide
+      // anyway. Deterministic like credits, so it bypasses the Free-cap gate; it still counts as a
+      // classified row (mirrors credits / `countClassified`).
       const [row] = await repo.transactions.classify(txn.id, {
-        expenseType: NOT_BUCKETED,
-        reasoning: "credit (not bucketed)",
+        expenseType: txn.overrideType as ExpenseType,
+        reasoning: "manual override",
       });
       if (row) {
         classified += 1;
