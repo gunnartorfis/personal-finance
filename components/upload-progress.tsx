@@ -76,6 +76,7 @@ export function UploadProgress({
       </div>
       <div
         role="progressbar"
+        aria-label="Classification progress"
         aria-valuenow={percent}
         aria-valuemin={0}
         aria-valuemax={100}

@@ -23,5 +23,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const counts = await repo.transactions.progress(id);
-  return NextResponse.json({ ...counts, done: counts.pending === 0 });
+  // `done` requires at least one row: total === 0 means the rows aren't visible yet, not finished —
+  // reporting done there would make a client stop polling before any transaction is classified.
+  return NextResponse.json({ ...counts, done: counts.total > 0 && counts.pending === 0 });
 }
