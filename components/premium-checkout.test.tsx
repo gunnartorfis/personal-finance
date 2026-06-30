@@ -10,14 +10,16 @@ let lastConfig: Record<string, (...args: unknown[]) => void> & {
   clientKey?: string
   session?: { id: string; sessionData: string }
 }
-const mount = vi.fn()
+const unmount = vi.fn()
+const mount = vi.fn(() => dropinInstance)
+const dropinInstance = { mount, unmount } // mount() returns the instance, which exposes unmount()
 const AdyenCheckout = vi.fn(async (config: typeof lastConfig) => {
   lastConfig = config
   return { isCheckout: true }
 })
 // A regular (newable) function — the component calls `new Dropin(checkout)`; an arrow isn't a constructor.
 const Dropin = vi.fn(function DropinMock() {
-  return { mount }
+  return dropinInstance
 })
 vi.mock("@adyen/adyen-web", () => ({ AdyenCheckout: (c: typeof lastConfig) => AdyenCheckout(c), Dropin }))
 
@@ -35,6 +37,7 @@ beforeEach(() => {
   AdyenCheckout.mockClear()
   Dropin.mockClear()
   mount.mockClear()
+  unmount.mockClear()
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -80,6 +83,16 @@ describe("PremiumCheckout", () => {
 
     lastConfig.onPaymentFailed({})
     expect(await screen.findByRole("alert")).toBeInTheDocument()
+  })
+
+  it("tears down the Drop-in when the component unmounts", async () => {
+    stubCheckout()
+    const { unmount: unmountComponent } = render(<PremiumCheckout />)
+    await userEvent.click(screen.getByRole("button", { name: /upgrade to premium/i }))
+    expect(mount).toHaveBeenCalledTimes(1)
+
+    unmountComponent()
+    expect(unmount).toHaveBeenCalledTimes(1)
   })
 
   it("surfaces an error when the checkout request fails", async () => {

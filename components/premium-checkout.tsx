@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import "@adyen/adyen-web/styles/adyen.css"
 
@@ -37,6 +37,10 @@ export function PremiumCheckout({ className }: { className?: string }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  // The mounted Drop-in, kept so we can tear it down (release Adyen's listeners/timers) on unmount.
+  const dropinRef = useRef<{ unmount: () => void } | null>(null)
+
+  useEffect(() => () => dropinRef.current?.unmount(), [])
 
   async function mountDropin(session: CheckoutSession) {
     // Dynamically imported so the heavy SDK stays out of the initial bundle and never evaluates
@@ -50,7 +54,9 @@ export function PremiumCheckout({ className }: { className?: string }) {
       onPaymentFailed: () => setError("Payment wasn’t completed. Please try again."),
       onError: () => setError("Something went wrong with the payment. Please try again."),
     })
-    if (containerRef.current) new Dropin(checkout).mount(containerRef.current)
+    if (containerRef.current) {
+      dropinRef.current = new Dropin(checkout).mount(containerRef.current)
+    }
   }
 
   async function startCheckout() {
@@ -67,6 +73,8 @@ export function PremiumCheckout({ className }: { className?: string }) {
       await mountDropin(session)
       setPhase("paying")
     } catch {
+      // An Adyen session is single-use, so a session spent on a failed mount is fine to abandon —
+      // the retry below re-POSTs /api/billing/checkout for a fresh session.
       setError("Couldn’t start checkout — please try again.")
     } finally {
       setBusy(false)
