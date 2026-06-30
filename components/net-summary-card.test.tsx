@@ -13,13 +13,15 @@ const summary: NetSummary = {
 }
 
 describe("NetSummaryCard", () => {
-  it("shows the cycle label, a net profit when net >= 0, and the income total", () => {
+  it("shows the cycle label, a net profit when net >= 0, and the income/expense totals", () => {
     render(<NetSummaryCard summary={summary} currency="ISK" cycleLabel="March 2026" />)
     expect(screen.getByText("March 2026")).toBeInTheDocument()
     expect(screen.getByText("Net profit")).toBeInTheDocument()
     expect(screen.getByText("Income")).toBeInTheDocument()
     expect(screen.getByText("Expenses")).toBeInTheDocument()
     expect(screen.getByText(/1,000/)).toBeInTheDocument()
+    // Expenses render as a positive magnitude (not "-600"), matching the breakdown rows.
+    expect(screen.getByText(/^[^-]*600$/)).toBeInTheDocument()
   })
 
   it("labels a negative net as a loss", () => {
@@ -32,6 +34,22 @@ describe("NetSummaryCard", () => {
     expect(screen.getByText("Fixed")).toBeInTheDocument()
     expect(screen.getByText("Necessary")).toBeInTheDocument()
     expect(screen.getByText("Nice to have")).toBeInTheDocument()
+  })
+
+  it("shows the Other row only when the not-bucketed total is nonzero", () => {
+    const { rerender } = render(
+      <NetSummaryCard summary={summary} currency="ISK" cycleLabel="March 2026" />,
+    )
+    expect(screen.queryByText("Other")).not.toBeInTheDocument()
+
+    rerender(
+      <NetSummaryCard
+        summary={{ ...summary, byExpenseType: { ...summary.byExpenseType, "": -25 } }}
+        currency="ISK"
+        cycleLabel="March 2026"
+      />,
+    )
+    expect(screen.getByText("Other")).toBeInTheDocument()
   })
 
   it("shows the unclassified row only when it is nonzero", () => {

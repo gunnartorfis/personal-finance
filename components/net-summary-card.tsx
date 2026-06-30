@@ -61,7 +61,8 @@ export function NetSummaryCard({
         </div>
         <div className="flex flex-col">
           <dt className="text-muted-foreground">Expenses</dt>
-          <dd className="font-medium tabular-nums">{fmt(summary.expense)}</dd>
+          {/* Magnitude, matching the breakdown rows — direction is conveyed by the label and net. */}
+          <dd className="font-medium tabular-nums">{fmt(Math.abs(summary.expense))}</dd>
         </div>
       </dl>
 
