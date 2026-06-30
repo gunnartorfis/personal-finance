@@ -14,7 +14,7 @@ interface CheckoutSession {
   clientKey: string
 }
 
-type Phase = "choose" | "paying" | "done"
+type Phase = "choose" | "paying" | "submitted" | "done"
 
 const PERIOD_LABELS: Record<BillingPeriod, string> = {
   monthly: "Monthly",
@@ -50,7 +50,10 @@ export function PremiumCheckout({ className }: { className?: string }) {
       environment: session.clientKey.startsWith("live") ? "live" : "test",
       clientKey: session.clientKey,
       session: { id: session.id, sessionData: session.sessionData },
-      onPaymentCompleted: () => setPhase("done"),
+      // `onPaymentCompleted` fires for final-or-actionable codes, not only Authorised — async
+      // methods (SEPA/iDEAL) return Pending/Received and clear later via the webhook, so only claim
+      // Premium is active for an outright Authorised.
+      onPaymentCompleted: (result) => setPhase(result.resultCode === "Authorised" ? "done" : "submitted"),
       onPaymentFailed: () => setError("Payment wasn’t completed. Please try again."),
       onError: () => setError("Something went wrong with the payment. Please try again."),
     })
@@ -86,6 +89,10 @@ export function PremiumCheckout({ className }: { className?: string }) {
       {phase === "done" ? (
         <p className="text-sm font-medium text-emerald-600">
           Premium is active — thanks for subscribing!
+        </p>
+      ) : phase === "submitted" ? (
+        <p className="text-sm text-muted-foreground">
+          Payment submitted — we’ll activate your plan once it’s confirmed.
         </p>
       ) : (
         <>

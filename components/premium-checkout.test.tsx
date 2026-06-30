@@ -67,13 +67,23 @@ describe("PremiumCheckout", () => {
     expect(lastConfig.environment).toBe("live")
   })
 
-  it("shows confirmation when the payment completes", async () => {
+  it("shows confirmation when the payment is authorised", async () => {
     stubCheckout()
     render(<PremiumCheckout />)
     await userEvent.click(screen.getByRole("button", { name: /upgrade to premium/i }))
 
     lastConfig.onPaymentCompleted({ resultCode: "Authorised" })
     expect(await screen.findByText(/premium is active/i)).toBeInTheDocument()
+  })
+
+  it("shows a pending notice for a non-authorised completion (e.g. Pending)", async () => {
+    stubCheckout()
+    render(<PremiumCheckout />)
+    await userEvent.click(screen.getByRole("button", { name: /upgrade to premium/i }))
+
+    lastConfig.onPaymentCompleted({ resultCode: "Pending" })
+    expect(await screen.findByText(/once it.?s confirmed/i)).toBeInTheDocument()
+    expect(screen.queryByText(/premium is active/i)).not.toBeInTheDocument()
   })
 
   it("surfaces a failed payment", async () => {

@@ -83,7 +83,13 @@ export async function drainPending(
         classified += 1;
         classifiedCount += 1;
       }
-    } catch {
+    } catch (error) {
+      // Surface the real cause on Vercel logs — the row is marked `failed` and the drain continues,
+      // so without this the AI Gateway / schema-validation / rate-limit error vanishes silently.
+      console.error(
+        `[classify] failed txn=${txn.id} merchant=${JSON.stringify(txn.merchant)} amount=${txn.amount}`,
+        error,
+      );
       await repo.transactions.markFailed(txn.id);
       failed += 1;
     }
