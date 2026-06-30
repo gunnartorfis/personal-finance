@@ -1,7 +1,10 @@
 "use client"
 
+import { CircleAlert, Loader2, Plus } from "lucide-react"
 import { type FormEvent, useEffect, useState } from "react"
 
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 
 interface Account {
@@ -77,49 +80,61 @@ export function AccountsManager({ className }: { className?: string }) {
   }
 
   return (
-    <section className={cn("flex flex-col gap-4", className)}>
-      <h2 className="text-lg font-medium">Accounts</h2>
-
-      <form onSubmit={addAccount} className="flex flex-wrap items-end gap-2">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="account-name" className="text-sm text-muted-foreground">
+    <section className={cn("flex flex-col gap-6", className)}>
+      <form
+        onSubmit={addAccount}
+        className="flex flex-col gap-3 rounded-xl border border-border bg-card p-6 sm:flex-row sm:items-end"
+      >
+        <div className="flex flex-1 flex-col gap-1.5">
+          <label htmlFor="account-name" className="text-sm font-medium">
             Name
           </label>
-          <input
+          <Input
             id="account-name"
+            name="name"
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
-            className="rounded-md border border-border bg-transparent px-2 py-1 text-sm"
+            placeholder="e.g. Visa, Landsbankinn"
           />
         </div>
-        <button
-          type="submit"
-          disabled={busy}
-          className="rounded-md border border-border px-3 py-1 text-sm font-medium"
-        >
+        <Button type="submit" disabled={busy}>
+          {busy ? <Loader2 className="animate-spin" /> : <Plus />}
           Add account
-        </button>
+        </Button>
       </form>
 
       {errored && (
-        <p role="alert" className="text-sm text-destructive">
-          Couldn’t add the account.
-        </p>
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <p>Couldn’t add the account.</p>
+        </div>
       )}
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : loadError ? (
-        <p role="alert" className="text-sm text-destructive">
-          Couldn’t load accounts. Please refresh.
-        </p>
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <p>Couldn’t load accounts. Please refresh.</p>
+        </div>
       ) : accounts.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No accounts yet.</p>
+        <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+          No accounts yet.
+        </div>
       ) : (
-        <ul className="flex flex-col gap-1 text-sm">
+        <ul
+          role="list"
+          className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card"
+        >
           {accounts.map((account) => (
-            <li key={account.id} className="font-medium">
+            <li key={account.id} className="px-4 py-3 text-sm font-medium">
               {account.name}
             </li>
           ))}
