@@ -11,7 +11,7 @@ afterEach(() => {
 const ID = "11111111-1111-1111-1111-111111111111"
 
 describe("OverrideControl", () => {
-  it("PUTs the chosen expense type and surfaces the reset action", async () => {
+  it("PUTs the chosen expense type and reports the change", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) })
     vi.stubGlobal("fetch", fetchMock)
     const onChanged = vi.fn()
@@ -26,7 +26,6 @@ describe("OverrideControl", () => {
       expect.objectContaining({ method: "PUT" }),
     )
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ expenseType: "Nice to have" })
-    expect(await screen.findByRole("button", { name: /reset/i })).toBeInTheDocument()
     expect(onChanged).toHaveBeenCalledWith({ expenseType: "Nice to have", hasOverride: true })
   })
 
@@ -56,14 +55,28 @@ describe("OverrideControl", () => {
     expect(onChanged).toHaveBeenCalledWith({ expenseType: null, hasOverride: false })
   })
 
-  it("shows an error alert and rolls the dropdown back to the persisted value on failure", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }))
+  it("reflects the props directly, so a parent refetch keeps the dropdown and reset consistent", () => {
+    vi.stubGlobal("fetch", vi.fn())
+    const { rerender } = render(<OverrideControl transactionId={ID} value="Fixed" hasOverride={true} />)
+    expect(screen.getByRole("combobox")).toHaveValue("Fixed")
+    expect(screen.getByRole("button", { name: /reset/i })).toBeInTheDocument()
 
-    render(<OverrideControl transactionId={ID} value="Fixed" hasOverride={false} />)
+    // Parent cleared the override and refetched: effective type is now the classified type.
+    rerender(<OverrideControl transactionId={ID} value="Necessary" hasOverride={false} />)
+    expect(screen.getByRole("combobox")).toHaveValue("Necessary")
+    expect(screen.queryByRole("button", { name: /reset/i })).not.toBeInTheDocument()
+  })
+
+  it("shows an error alert and does not report a change on failure", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }))
+    const onChanged = vi.fn()
+
+    render(<OverrideControl transactionId={ID} value="Fixed" hasOverride={false} onChanged={onChanged} />)
     await userEvent.selectOptions(screen.getByRole("combobox"), "Necessary")
 
     expect(await screen.findByRole("alert")).toBeInTheDocument()
-    // Optimistic change is rolled back, so the dropdown still shows the persisted type.
+    expect(onChanged).not.toHaveBeenCalled()
+    // Controlled by the prop, so the dropdown still shows the persisted type.
     expect(screen.getByRole("combobox")).toHaveValue("Fixed")
   })
 })
