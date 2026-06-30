@@ -1,7 +1,10 @@
 "use client"
 
+import { CircleAlert, Loader2, Plus, Trash2 } from "lucide-react"
 import { type FormEvent, useEffect, useState } from "react"
 
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { TYPES, type ExpenseType, type RealType } from "@/shared/types"
 
@@ -111,73 +114,100 @@ export function MerchantRulesManager({ className }: { className?: string }) {
   }
 
   return (
-    <section className={cn("flex flex-col gap-4", className)}>
-      <h2 className="text-lg font-medium">Merchant rules</h2>
-
-      <form onSubmit={addRule} className="flex flex-wrap items-end gap-2">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="rule-merchant" className="text-sm text-muted-foreground">
+    <section aria-label="Merchant rules" className={cn("flex flex-col gap-6", className)}>
+      <form
+        onSubmit={addRule}
+        className="flex flex-col gap-3 rounded-xl border border-border bg-card p-6 sm:flex-row sm:items-end"
+      >
+        <div className="flex flex-1 flex-col gap-1.5">
+          <label htmlFor="rule-merchant" className="text-sm font-medium">
             Merchant
           </label>
-          <input
+          <Input
             id="rule-merchant"
+            name="merchant"
             value={merchant}
             onChange={(event) => setMerchant(event.target.value)}
             required
-            className="rounded-md border border-border bg-transparent px-2 py-1 text-sm"
+            placeholder="e.g. NETFLIX"
           />
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="rule-type" className="text-sm text-muted-foreground">
+        <div className="flex flex-col gap-1.5 sm:w-44">
+          <label htmlFor="rule-type" className="text-sm font-medium">
             Type
           </label>
-          <select
-            id="rule-type"
-            value={flatType}
-            onChange={(event) => setFlatType(event.target.value as RealType)}
-            className="rounded-md border border-border bg-transparent px-2 py-1 text-sm"
-          >
-            {TYPES.map((type) => (
-              <option key={type} value={type}>
-                {LABELS[type]}
-              </option>
-            ))}
-          </select>
+          <div className="grid grid-cols-[1fr_--spacing(7)] items-center rounded-md border border-input bg-input/20 transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30 dark:bg-input/30">
+            <select
+              id="rule-type"
+              name="flatType"
+              value={flatType}
+              onChange={(event) => setFlatType(event.target.value as RealType)}
+              className="col-span-full row-start-1 h-7 appearance-none bg-transparent py-0.5 pr-7 pl-2 text-sm outline-none"
+            >
+              {TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {LABELS[type]}
+                </option>
+              ))}
+            </select>
+            <svg
+              viewBox="0 0 8 5"
+              width="8"
+              height="5"
+              fill="none"
+              aria-hidden="true"
+              className="pointer-events-none col-start-2 row-start-1 place-self-center text-muted-foreground"
+            >
+              <path d="M.5.5 4 4 7.5.5" stroke="currentColor" />
+            </svg>
+          </div>
         </div>
-        <button
-          type="submit"
-          disabled={busy}
-          className="rounded-md border border-border px-3 py-1 text-sm font-medium"
-        >
+        <Button type="submit" disabled={busy}>
+          {busy ? <Loader2 className="animate-spin" /> : <Plus />}
           Add
-        </button>
+        </Button>
       </form>
 
       {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <p>{error}</p>
+        </div>
       )}
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : rules.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No rules yet.</p>
+        <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+          No rules yet.
+        </div>
       ) : (
-        <ul className="flex flex-col gap-1">
+        <ul
+          role="list"
+          className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card"
+        >
           {rules.map((rule) => (
-            <li key={rule.id} className="flex items-center justify-between gap-4 text-sm">
-              <span>
-                <span className="font-medium">{rule.merchant}</span> → {describeRule(rule)}
-              </span>
-              <button
+            <li
+              key={rule.id}
+              className="flex items-center justify-between gap-4 px-4 py-3 text-sm"
+            >
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="truncate font-medium">{rule.merchant}</span>
+                <span className="truncate text-muted-foreground">{describeRule(rule)}</span>
+              </div>
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => void deleteRule(rule.id)}
                 disabled={busy}
-                className="text-muted-foreground underline underline-offset-2"
               >
+                <Trash2 />
                 Delete
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
