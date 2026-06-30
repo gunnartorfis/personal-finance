@@ -209,6 +209,12 @@ export function householdRepo(db: Db, householdId: string) {
       },
       create: (value: Omit<typeof merchantRules.$inferInsert, "householdId">) =>
         db.insert(merchantRules).values({ ...value, householdId }).returning(),
+      /** Delete a merchant rule. Returns the removed rows (empty if not in this household). */
+      remove: (id: string) =>
+        db
+          .delete(merchantRules)
+          .where(and(eq(merchantRules.id, id), eq(merchantRules.householdId, householdId)))
+          .returning(),
     },
     overrides: {
       list: () => db.select().from(overrides).where(eq(overrides.householdId, householdId)),
