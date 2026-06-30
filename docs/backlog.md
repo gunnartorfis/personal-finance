@@ -67,8 +67,12 @@ the remainder as new unchecked items.
 
 - [x] **Idempotent status model**: re-running classification skips already-classified rows.
 - [x] **Rules-first pass**: rule-matched rows skip the model entirely.
-- [ ] **Background worker** (leaning Vercel Workflow) draining `pending` rows through Sonnet 4.6;
-  store per-row confidence + reasoning; crash-safe and resumable.
+- Background worker (ADR-0005) — drain `pending` through Sonnet 4.6, store per-row confidence +
+  reasoning, crash-safe. Split into reviewable slices:
+  - [x] **Worker drain orchestration** — `drainPending(repo, classifier)` with the model injected;
+    credits not bucketed (no model call); per-row classify/markFailed; resumable; batch limit.
+  - [ ] **Sonnet 4.6 classifier (Vercel AI Gateway) + durable trigger** — real classifier calling
+    `anthropic/claude-sonnet-4-6` via the AI Gateway with the rules prompt; durable drain trigger.
 - [ ] **Upload progress**: a polling endpoint plus a UI progress indicator.
 
 ## Phase F — Dashboard & overrides — depends on D, E, and Phase A cycle/net

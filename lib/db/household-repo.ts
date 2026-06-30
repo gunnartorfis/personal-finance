@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import type { ExpenseType } from "@/shared/types";
@@ -81,10 +81,11 @@ export function householdRepo(db: Db, householdId: string) {
               .returning(),
       /**
        * The classification work queue: transactions still awaiting classification, in a stable
-       * order (oldest first) so a crash-resumable worker drains them deterministically.
+       * order (oldest first) so a crash-resumable worker drains them deterministically. `limit`
+       * bounds the batch in SQL so a large queue isn't materialised in memory.
        */
-      listPending: () =>
-        db
+      listPending: (limit?: number) => {
+        const q = db
           .select()
           .from(transactions)
           .where(
@@ -93,7 +94,22 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.classificationStatus, "pending"),
             ),
           )
-          .orderBy(asc(transactions.createdAt), asc(transactions.id)),
+          .orderBy(asc(transactions.createdAt), asc(transactions.id));
+        return limit === undefined ? q : q.limit(limit);
+      },
+      /** Count of classified transactions for the Household (lifetime) — used for the Free cap. */
+      countClassified: async () => {
+        const [row] = await db
+          .select({ value: count() })
+          .from(transactions)
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              eq(transactions.classificationStatus, "classified"),
+            ),
+          );
+        return row?.value ?? 0;
+      },
       /**
        * Record a classification result. Only updates a still-`pending` row, so re-running
        * classification is idempotent — an already-classified row is left untouched (returns []).
