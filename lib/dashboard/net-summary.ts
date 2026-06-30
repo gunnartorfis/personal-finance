@@ -32,6 +32,21 @@ function emptyByExpenseType(): Record<ExpenseType, number> {
   return { Fixed: 0, Necessary: 0, "Nice to have": 0, "": 0 };
 }
 
+/** The valid expense-type buckets (ADR-0005); `""` is the not-bucketed / split type. */
+const EXPENSE_TYPES: readonly ExpenseType[] = ["Fixed", "Necessary", "Nice to have", ""];
+
+/**
+ * Narrow a raw DB string (Drizzle types both expense columns as `string | null`) to a known
+ * {@link ExpenseType}, or `null`. DB CHECK constraints are the real guard, but this keeps the
+ * narrowing honest at runtime: an unexpected value resolves to `null` (counted as unclassified)
+ * rather than silently creating a phantom bucket and breaking the reconciliation invariant.
+ */
+export function toEffectiveType(value: string | null): ExpenseType | null {
+  return value !== null && (EXPENSE_TYPES as readonly string[]).includes(value)
+    ? (value as ExpenseType)
+    : null;
+}
+
 /**
  * Fold rows into a {@link NetSummary}. Pure and side-effect free so it can be unit-tested directly;
  * the database read lives in {@link loadNetSummary}. Credits add to income; everything else is an
@@ -49,10 +64,12 @@ export function computeNetSummary(rows: ReadonlyArray<NetSummaryRow>): NetSummar
       continue;
     }
     expense += amount;
-    if (effectiveType === null) {
-      unclassified += amount;
-    } else {
+    // Defence in depth: only a known bucket is summed; anything else counts as unclassified, so the
+    // `sum(byExpenseType) + unclassified === expense` invariant holds even on unexpected input.
+    if (effectiveType !== null && effectiveType in byExpenseType) {
       byExpenseType[effectiveType] += amount;
+    } else {
+      unclassified += amount;
     }
   }
 
@@ -71,7 +88,7 @@ export async function loadNetSummary(
   return computeNetSummary(
     rows.map((row) => ({
       amount: row.amount,
-      effectiveType: (row.overrideType ?? row.classifiedType) as ExpenseType | null,
+      effectiveType: toEffectiveType(row.overrideType ?? row.classifiedType),
     })),
   );
 }

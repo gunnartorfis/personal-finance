@@ -6,7 +6,22 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { householdRepo } from "@/lib/db/household-repo";
 import { households } from "@/lib/db/schema";
 
-import { computeNetSummary, loadNetSummary } from "./net-summary";
+import type { ExpenseType } from "@/shared/types";
+
+import { computeNetSummary, loadNetSummary, toEffectiveType } from "./net-summary";
+
+describe("toEffectiveType", () => {
+  it("passes through known expense types (including the empty not-bucketed type)", () => {
+    for (const t of ["Fixed", "Necessary", "Nice to have", ""] as const) {
+      expect(toEffectiveType(t)).toBe(t);
+    }
+  });
+
+  it("resolves null and unexpected values to null", () => {
+    expect(toEffectiveType(null)).toBeNull();
+    expect(toEffectiveType("Splurge")).toBeNull();
+  });
+});
 
 describe("computeNetSummary", () => {
   it("is all zero for no rows", () => {
@@ -35,6 +50,16 @@ describe("computeNetSummary", () => {
       byExpenseType: { Fixed: -300, Necessary: -200, "Nice to have": -100, "": -50 },
       unclassified: -40,
     });
+  });
+
+  it("counts an unexpected effective type as unclassified rather than corrupting a bucket", () => {
+    const summary = computeNetSummary([
+      { amount: -75, effectiveType: "Mystery" as ExpenseType },
+    ]);
+    expect(summary.unclassified).toBe(-75);
+    expect(summary.byExpenseType).toEqual({ Fixed: 0, Necessary: 0, "Nice to have": 0, "": 0 });
+    const bucketed = Object.values(summary.byExpenseType).reduce((a, b) => a + b, 0);
+    expect(bucketed + summary.unclassified).toBe(summary.expense);
   });
 
   it("keeps the reconciliation invariants", () => {
