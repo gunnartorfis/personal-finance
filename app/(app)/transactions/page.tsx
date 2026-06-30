@@ -22,10 +22,10 @@ export default async function TransactionsPage() {
   }))
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6">
       <h1 className="text-2xl font-semibold">Transactions</h1>
       <p className="text-sm text-muted-foreground">{cycleLabel(now)}</p>
       <TransactionsTable rows={rows} currency={billingCurrency} />
-    </main>
+    </div>
   )
 }
