@@ -1,6 +1,8 @@
+import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import { householdRepo } from "@/lib/db/household-repo";
+import { households } from "@/lib/db/schema";
 import type * as schema from "@/lib/db/schema";
 
 import { ensureHouseholdForUser } from "./provision";
@@ -12,8 +14,9 @@ import { ensureHouseholdForUser } from "./provision";
  */
 type Db = NodePgDatabase<typeof schema>;
 
-/** Resolve (provisioning if needed) the Household for `authUserId` and a repo scoped to it. */
+/** Resolve (provisioning if needed) the Household for `authUserId`, its Plan, and a scoped repo. */
 export async function householdContext(db: Db, authUserId: string) {
   const { householdId, memberId } = await ensureHouseholdForUser(db, authUserId);
-  return { householdId, memberId, repo: householdRepo(db, householdId) };
+  const [household] = await db.select().from(households).where(eq(households.id, householdId));
+  return { householdId, memberId, plan: household.plan, repo: householdRepo(db, householdId) };
 }
