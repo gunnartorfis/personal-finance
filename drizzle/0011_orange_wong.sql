@@ -1,0 +1,1 @@
+ALTER TABLE "households" ADD COLUMN "renewal_failure_count" integer DEFAULT 0 NOT NULL;

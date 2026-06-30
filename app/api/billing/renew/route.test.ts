@@ -37,7 +37,7 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllEnvs())
 
-async function seedDuePremium() {
+async function seedDuePremium(renewalFailureCount = 0) {
   const db = holder.db as ReturnType<typeof drizzle>
   const [h] = await db
     .insert(households)
@@ -46,6 +46,7 @@ async function seedDuePremium() {
       planRenewsAt: PAST,
       straumurRecurringDetailReference: "TOK",
       subscriptionPeriod: "monthly",
+      renewalFailureCount,
     })
     .returning()
   return h
@@ -73,8 +74,37 @@ describe("GET /api/billing/renew", () => {
     // Charge used a deterministic per-cycle reference (renew_ prefix) + idempotency key.
     const arg = (chargeMock.fn as ReturnType<typeof vi.fn>).mock.calls[0][0]
     expect(arg.reference).toBe(`renew_${h.id}_monthly_2026-01-01`)
-    expect(arg.idempotencyKey).toBe(`renew-${h.id}-2026-01-01`)
+    expect(arg.idempotencyKey).toBe(`renew-${h.id}-2026-01-01-0`) // attempt-indexed
     expect(arg.amount).toBe(1990)
+  })
+
+  it("increments the failure count on a refusal but keeps the household Premium", async () => {
+    const h = await seedDuePremium()
+    chargeMock.fn = vi.fn().mockResolvedValue({ resultCode: "Refused" })
+
+    const res = await GET(cronReq(`Bearer ${SECRET}`))
+    expect((await res.json()).failed).toBeGreaterThanOrEqual(1)
+
+    const db = holder.db as ReturnType<typeof drizzle>
+    const [row] = await db.select().from(households).where(eq(households.id, h.id))
+    expect(row.plan).toBe("Premium")
+    expect(row.renewalFailureCount).toBe(1)
+    expect(row.planRenewsAt!.toISOString()).toBe(PAST.toISOString()) // not advanced
+  })
+
+  it("downgrades to Free once the retry cap is reached", async () => {
+    const h = await seedDuePremium(2) // one short of the cap (3)
+    chargeMock.fn = vi.fn().mockResolvedValue({ resultCode: "Refused" })
+
+    const res = await GET(cronReq(`Bearer ${SECRET}`))
+    expect((await res.json()).downgraded).toBeGreaterThanOrEqual(1)
+
+    const db = holder.db as ReturnType<typeof drizzle>
+    const [row] = await db.select().from(households).where(eq(households.id, h.id))
+    expect(row.plan).toBe("Free")
+    expect(row.planRenewsAt).toBeNull()
+    expect(row.subscriptionPeriod).toBeNull()
+    expect(row.straumurRecurringDetailReference).toBeNull()
   })
 
   it("does not advance renewal for a pending charge", async () => {
