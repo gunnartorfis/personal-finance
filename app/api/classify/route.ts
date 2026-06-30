@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import { NextResponse } from "next/server";
 
 import { sonnetClassifier } from "@/lib/classification/sonnet-classifier";
@@ -16,7 +17,16 @@ const BATCH = 25;
  * idempotent queue gives the same resumability for v1.)
  */
 export async function POST() {
-  const { plan, repo } = await requireHousehold();
-  const result = await drainPending(repo, sonnetClassifier(), { plan, limit: BATCH });
-  return NextResponse.json(result);
+  try {
+    const { plan, repo } = await requireHousehold();
+    const result = await drainPending(repo, sonnetClassifier(), { plan, limit: BATCH });
+    return NextResponse.json(result);
+  } catch (error) {
+    // requireHousehold issues redirect()/notFound() via control-flow errors that Next must catch —
+    // rethrow those untouched, and only convert genuine infrastructure failures into a structured
+    // 500 so cron/poll callers can distinguish a server error from a bad request or empty queue.
+    unstable_rethrow(error);
+    console.error("POST /api/classify failed", error);
+    return NextResponse.json({ error: "classification_failed" }, { status: 500 });
+  }
 }
