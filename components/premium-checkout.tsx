@@ -14,7 +14,11 @@ interface CheckoutSession {
   clientKey: string
 }
 
-type Phase = "choose" | "paying" | "submitted" | "done"
+type Phase = "choose" | "paying" | "confirming" | "submitted" | "done"
+
+/** Activation is webhook-driven, so after an authorised payment we poll the plan until it flips. */
+const POLL_INTERVAL_MS = 1500
+const MAX_CONFIRM_POLLS = 10
 
 const PERIOD_LABELS: Record<BillingPeriod, string> = {
   monthly: "Monthly",
@@ -31,7 +35,16 @@ const priceLabel = (period: BillingPeriod) =>
  * returned session + clientKey (environment derived from the key prefix). Premium activation itself
  * is webhook-driven; the Drop-in's completion callback just confirms the payment went through.
  */
-export function PremiumCheckout({ className }: { className?: string }) {
+export function PremiumCheckout({
+  className,
+  pollIntervalMs = POLL_INTERVAL_MS,
+  maxPolls = MAX_CONFIRM_POLLS,
+}: {
+  className?: string
+  /** Activation-poll cadence; overridable so tests can exercise the loop without long waits. */
+  pollIntervalMs?: number
+  maxPolls?: number
+}) {
   const [period, setPeriod] = useState<BillingPeriod>("monthly")
   const [phase, setPhase] = useState<Phase>("choose")
   const [busy, setBusy] = useState(false)
@@ -39,8 +52,47 @@ export function PremiumCheckout({ className }: { className?: string }) {
   const containerRef = useRef<HTMLDivElement>(null)
   // The mounted Drop-in, kept so we can tear it down (release Adyen's listeners/timers) on unmount.
   const dropinRef = useRef<{ unmount: () => void } | null>(null)
+  // Cancel the activation poll on unmount so it doesn't keep fetching / setState after teardown.
+  const cancelledRef = useRef(false)
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  useEffect(() => () => dropinRef.current?.unmount(), [])
+  useEffect(() => {
+    cancelledRef.current = false
+    return () => {
+      cancelledRef.current = true
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
+      dropinRef.current?.unmount()
+    }
+  }, [])
+
+  // Poll the household plan until the Authorization webhook has activated Premium, then show it as
+  // active. If it hasn't landed within the window, fall back to the "submitted" reassurance.
+  async function confirmActivation() {
+    setPhase("confirming")
+    for (let attempt = 0; attempt < maxPolls; attempt++) {
+      if (cancelledRef.current) return
+      try {
+        const res = await fetch("/api/billing/status")
+        if (res.ok) {
+          const { plan } = (await res.json()) as { plan: string }
+          if (plan === "Premium") {
+            if (!cancelledRef.current) setPhase("done")
+            return
+          }
+        }
+      } catch {
+        // transient — keep polling
+      }
+      if (cancelledRef.current) return
+      if (attempt < maxPolls - 1) {
+        // No need to wait after the final attempt — we're about to give up below.
+        await new Promise<void>((resolve) => {
+          pollTimerRef.current = setTimeout(resolve, pollIntervalMs)
+        })
+      }
+    }
+    if (!cancelledRef.current) setPhase("submitted")
+  }
 
   async function mountDropin(session: CheckoutSession) {
     // Dynamically imported so the heavy SDK stays out of the initial bundle and never evaluates
@@ -58,7 +110,11 @@ export function PremiumCheckout({ className }: { className?: string }) {
         dropinRef.current?.unmount()
         dropinRef.current = null
         setError(null) // clear any prior failure so a successful retry doesn't show a stale alert
-        setPhase(result.resultCode === "Authorised" ? "done" : "submitted")
+        if (result.resultCode === "Authorised") {
+          void confirmActivation() // verify the webhook activated Premium before claiming it
+        } else {
+          setPhase("submitted")
+        }
       },
       onPaymentFailed: () => setError("Payment wasn’t completed. Please try again."),
       onError: () => setError("Something went wrong with the payment. Please try again."),
@@ -96,6 +152,8 @@ export function PremiumCheckout({ className }: { className?: string }) {
         <p className="text-sm font-medium text-emerald-600">
           Premium is active — thanks for subscribing!
         </p>
+      ) : phase === "confirming" ? (
+        <p className="text-sm text-muted-foreground">Confirming your payment…</p>
       ) : phase === "submitted" ? (
         <p className="text-sm text-muted-foreground">
           Payment submitted — we’ll activate your plan once it’s confirmed.
