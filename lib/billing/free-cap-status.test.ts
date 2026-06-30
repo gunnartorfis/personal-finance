@@ -27,9 +27,14 @@ describe("freeCapStatus", () => {
     expect(status.paused).toBe(true);
   });
 
-  it("treats an invalid count as zero used (fail-safe)", () => {
-    expect(freeCapStatus({ plan: "Free", classifiedCount: -5 }).used).toBe(0);
-    expect(freeCapStatus({ plan: "Free", classifiedCount: Number.NaN }).remaining).toBe(0);
+  it("treats an invalid count as zero used and stays paused (fail-safe)", () => {
+    const negative = freeCapStatus({ plan: "Free", classifiedCount: -5 });
+    expect(negative.used).toBe(0);
+    expect(negative.paused).toBe(true);
+
+    const notANumber = freeCapStatus({ plan: "Free", classifiedCount: Number.NaN });
+    expect(notANumber.remaining).toBe(0);
+    expect(notANumber.paused).toBe(true);
   });
 
   it("is unlimited and never paused for Premium", () => {
