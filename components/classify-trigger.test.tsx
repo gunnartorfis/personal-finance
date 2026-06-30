@@ -54,6 +54,25 @@ describe("ClassifyTrigger", () => {
     expect(await screen.findByRole("alert")).toBeInTheDocument()
   })
 
+  it("aborts the in-flight drain when unmounted", async () => {
+    let signal: AbortSignal | undefined
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        signal = init?.signal ?? undefined
+        if (init?.signal?.aborted) throw new DOMException("aborted", "AbortError")
+        // never-settling queue: every batch reports progress, so the loop would run forever
+        return { ok: true, json: async () => ({ classified: 25, failed: 0, capped: 0 }) }
+      }),
+    )
+    const { unmount } = render(<ClassifyTrigger autoRun />)
+    await vi.waitFor(() => expect(signal).toBeDefined())
+    expect(signal!.aborted).toBe(false)
+
+    unmount()
+    expect(signal!.aborted).toBe(true)
+  })
+
   it("notes when the Free cap pauses classification", async () => {
     stubClassify([{ classified: 0, failed: 0, capped: 4 }])
     render(<ClassifyTrigger />)

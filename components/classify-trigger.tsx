@@ -30,14 +30,21 @@ export function ClassifyTrigger({
   const [busy, setBusy] = useState(false)
   const [totals, setTotals] = useState<ClassifyTotals | null>(null)
   const [errored, setErrored] = useState(false)
+  // Aborts the in-flight drain so an unmount (navigation, or UploadForm dropping uploadId) stops
+  // firing further LLM batches instead of running on in the background.
+  const abortRef = useRef<AbortController | null>(null)
 
   const classify = useCallback(async () => {
+    abortRef.current?.abort() // cancel any prior run before starting a fresh one
+    const controller = new AbortController()
+    abortRef.current = controller
     setBusy(true)
     setErrored(false)
+    setTotals(null)
     const run: ClassifyTotals = { classified: 0, failed: 0, capped: 0 }
     try {
       for (let batch = 0; batch < MAX_BATCHES; batch++) {
-        const res = await fetch("/api/classify", { method: "POST" })
+        const res = await fetch("/api/classify", { method: "POST", signal: controller.signal })
         if (!res.ok) throw new Error("classify failed")
         const result = (await res.json()) as ClassifyTotals
         run.classified += result.classified
@@ -48,9 +55,10 @@ export function ClassifyTrigger({
         if (result.classified === 0 && result.failed === 0) break
       }
     } catch {
+      if (controller.signal.aborted) return // intentional cancel, not a failure
       setErrored(true)
     } finally {
-      setBusy(false)
+      if (!controller.signal.aborted) setBusy(false)
     }
   }, [])
 
@@ -60,6 +68,7 @@ export function ClassifyTrigger({
       autoRan.current = true
       void classify()
     }
+    return () => abortRef.current?.abort()
   }, [autoRun, classify])
 
   return (
