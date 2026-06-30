@@ -89,7 +89,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const db = getDb()
-    await recordWebhookEvent(db, {
+    const recorded = await recordWebhookEvent(db, {
       pspReference,
       householdId,
       merchantReference,
@@ -103,14 +103,16 @@ export async function POST(request: Request): Promise<Response> {
       rawEvent: rawBody.slice(0, 8192),
     })
 
-    // A successful Authorization for one of our subscription references activates Premium.
+    // A successful Authorization for one of our subscription references activates Premium. Anchor
+    // the renewal on the event's stable first-seen time (recorded.createdAt), not wall-clock, so a
+    // re-delivered Authorization doesn't drift planRenewsAt forward.
     const period = parsePeriodFromReference(merchantReference)
     if (success && householdId && period) {
       await activatePremiumFromAuthorization(db, {
         householdId,
         period,
         recurringDetailReference,
-        now: new Date(),
+        now: recorded.createdAt,
       })
     }
   } catch (error) {

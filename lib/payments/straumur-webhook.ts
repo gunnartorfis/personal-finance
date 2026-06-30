@@ -62,10 +62,15 @@ export interface RecordWebhookArgs {
  * patches the existing row instead of inserting a duplicate (Straumur retries until it gets the
  * `[accepted]` ACK, so the same event can arrive more than once).
  */
-export async function recordWebhookEvent(db: Db, args: RecordWebhookArgs): Promise<void> {
+export async function recordWebhookEvent(
+  db: Db,
+  args: RecordWebhookArgs,
+): Promise<{ createdAt: Date }> {
   // Atomic upsert: two concurrent deliveries of the same event (Straumur retries immediately if it
-  // doesn't get the [accepted] ACK) can't race a select-then-insert into a unique violation.
-  await db
+  // doesn't get the [accepted] ACK) can't race a select-then-insert into a unique violation. Returns
+  // `createdAt` — set once on first insert, unchanged on patch — a stable per-event anchor callers
+  // use for renewal math so retries don't drift the date.
+  const [row] = await db
     .insert(straumurPayments)
     .values(args)
     .onConflictDoUpdate({
@@ -83,7 +88,9 @@ export async function recordWebhookEvent(db: Db, args: RecordWebhookArgs): Promi
         rawEvent: args.rawEvent,
         receivedAt: new Date(),
       },
-    });
+    })
+    .returning({ createdAt: straumurPayments.createdAt });
+  return row;
 }
 
 /**
@@ -95,7 +102,7 @@ export async function activatePremiumFromAuthorization(
   db: Db,
   args: { householdId: string; period: BillingPeriod; recurringDetailReference: string | null; now: Date },
 ): Promise<void> {
-  await db
+  const updated = await db
     .update(households)
     .set({
       plan: "Premium",
@@ -104,5 +111,13 @@ export async function activatePremiumFromAuthorization(
         ? { straumurRecurringDetailReference: args.recurringDetailReference }
         : {}),
     })
-    .where(eq(households.id, args.householdId));
+    .where(eq(households.id, args.householdId))
+    .returning({ id: households.id });
+
+  // 0 rows = the household vanished between checkout and webhook. The payment succeeded, so don't
+  // silently ACK — throw so the route 500s and Straumur retries (and it surfaces a real anomaly:
+  // a charge with no household to credit).
+  if (updated.length === 0) {
+    throw new Error(`Household ${args.householdId} not found for Premium activation`);
+  }
 }

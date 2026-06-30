@@ -62,6 +62,9 @@ const post = (body: unknown) =>
 beforeAll(async () => {
   const db = drizzle(new PGlite())
   await migrate(db, { migrationsFolder: "./drizzle" })
+  // The subscription references in these tests resolve to this household; it must exist so a
+  // successful Authorization can activate it (activation throws on a missing household).
+  await db.insert(households).values({ id: UUID })
   holder.db = db
 })
 beforeEach(() => vi.stubEnv("STRAUMUR_WEBHOOK_HMAC_KEY", KEY))

@@ -131,4 +131,15 @@ describe("activatePremiumFromAuthorization", () => {
     expect(row.planRenewsAt?.toISOString()).toBe("2027-04-15T00:00:00.000Z");
     expect(row.straumurRecurringDetailReference).toBe("TOK"); // preserved
   });
+
+  it("throws when the household no longer exists (charge without a household to credit)", async () => {
+    await expect(
+      activatePremiumFromAuthorization(asDb(db), {
+        householdId: "22222222-2222-2222-2222-222222222222",
+        period: "monthly",
+        recurringDetailReference: null,
+        now: new Date("2026-03-15T00:00:00Z"),
+      }),
+    ).rejects.toThrow(/not found/);
+  });
 });
