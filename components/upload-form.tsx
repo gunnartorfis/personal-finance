@@ -33,8 +33,12 @@ function uploadErrorMessage(status: number, body: UploadResponse | null): string
  */
 export function UploadForm({ className }: { className?: string }) {
   const [accounts, setAccounts] = useState<Account[]>([])
+  const [loadingAccounts, setLoadingAccounts] = useState(true)
+  const [accountsError, setAccountsError] = useState(false)
   const [accountId, setAccountId] = useState("")
   const [file, setFile] = useState<File | null>(null)
+  // Bumped on a successful upload to remount the file input, clearing its native selection.
+  const [fileInputKey, setFileInputKey] = useState(0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadId, setUploadId] = useState<string | null>(null)
@@ -48,7 +52,9 @@ export function UploadForm({ className }: { className?: string }) {
         const data = (await res.json()) as Account[]
         if (!ignore) setAccounts(data)
       } catch {
-        // leave the selector empty; the submit guard blocks an upload with no account
+        if (!ignore) setAccountsError(true)
+      } finally {
+        if (!ignore) setLoadingAccounts(false)
       }
     }
     void loadAccounts()
@@ -75,6 +81,10 @@ export function UploadForm({ className }: { className?: string }) {
       }
       if (data?.status === "created" && data.upload) {
         setUploadId(data.upload.id)
+        // Clear the form so a stray second click can't re-post the same file (→ 409 duplicate).
+        setFile(null)
+        setAccountId("")
+        setFileInputKey((key) => key + 1)
       } else {
         setError(uploadErrorMessage(res.status, data))
       }
@@ -108,6 +118,14 @@ export function UploadForm({ className }: { className?: string }) {
               </option>
             ))}
           </select>
+          {loadingAccounts && (
+            <p className="text-sm text-muted-foreground">Loading accounts…</p>
+          )}
+          {accountsError && (
+            <p role="alert" className="text-sm text-destructive">
+              Couldn’t load accounts — try refreshing.
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -115,6 +133,7 @@ export function UploadForm({ className }: { className?: string }) {
             CSV file
           </label>
           <input
+            key={fileInputKey}
             id="upload-file"
             type="file"
             accept=".csv,text/csv"

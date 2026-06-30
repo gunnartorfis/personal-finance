@@ -84,6 +84,35 @@ describe("UploadForm", () => {
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument()
   })
 
+  it("shows an error when the accounts fail to load", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "/api/accounts") return { ok: false, status: 500, json: async () => ({}) }
+        return { ok: false, status: 404, json: async () => ({}) }
+      }),
+    )
+    render(<UploadForm />)
+    expect(await screen.findByText(/couldn.t load accounts/i)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /upload/i })).toBeDisabled()
+  })
+
+  it("resets the form after a successful upload so the same file isn't re-posted", async () => {
+    stubApi()
+    render(<UploadForm />)
+    await screen.findByRole("option", { name: "Visa" })
+
+    await userEvent.selectOptions(screen.getByLabelText(/account/i), ACCOUNTS[0].id)
+    await userEvent.upload(screen.getByLabelText(/csv file/i), csvFile())
+    await userEvent.click(screen.getByRole("button", { name: /upload/i }))
+
+    await screen.findByRole("progressbar")
+    // fields cleared → button disabled again, no second submit possible
+    expect(screen.getByRole("button", { name: /upload/i })).toBeDisabled()
+    expect((screen.getByLabelText(/csv file/i) as HTMLInputElement).value).toBe("")
+    expect((screen.getByLabelText(/account/i) as HTMLSelectElement).value).toBe("")
+  })
+
   it("reports an already-imported file as a duplicate", async () => {
     stubApi({ uploadStatus: 409, uploadBody: { status: "duplicate", fileHash: "abc" } })
     render(<UploadForm />)
