@@ -83,6 +83,27 @@ describe("AccountsManager", () => {
     expect(screen.queryByText(/no accounts yet/i)).not.toBeInTheDocument()
   })
 
+  it("surfaces an error when the post-create refetch fails", async () => {
+    let posted = false
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET"
+      if (method === "GET") {
+        if (posted) throw new Error("refresh failed") // refetch after POST fails
+        return { ok: true, json: async () => [] }
+      }
+      posted = true
+      return { ok: true, status: 201, json: async () => ({ id: "new", name: "X" }) }
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    render(<AccountsManager />)
+    await screen.findByText(/no accounts yet/i)
+
+    await userEvent.type(screen.getByLabelText("Name"), "X")
+    await userEvent.click(screen.getByRole("button", { name: /add account/i }))
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument()
+  })
+
   it("clears the load error once a later add succeeds and refetches", async () => {
     let accounts: { id: string; name: string }[] = []
     let firstGet = true

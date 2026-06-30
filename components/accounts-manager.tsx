@@ -28,13 +28,11 @@ export function AccountsManager({ className }: { className?: string }) {
     return (await res.json()) as Account[]
   }
 
+  // Re-list after a mutation. Lets failures propagate so the caller can surface them — its only
+  // caller, addAccount, has a catch that shows the error rather than silently dropping the refetch.
   async function refresh() {
-    try {
-      setAccounts(await fetchAccounts())
-      setLoadError(false)
-    } catch {
-      // keep the current list on a transient failure
-    }
+    setAccounts(await fetchAccounts())
+    setLoadError(false)
   }
 
   useEffect(() => {
