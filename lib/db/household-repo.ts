@@ -1,5 +1,7 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+
+import type { ExpenseType } from "@/shared/types";
 
 import { accounts, merchantRules, overrides, transactions, uploads } from "./schema";
 import type * as schema from "./schema";
@@ -77,7 +79,10 @@ export function householdRepo(db: Db, householdId: string) {
               .insert(transactions)
               .values(values.map((v) => ({ ...v, householdId })))
               .returning(),
-      /** The classification work queue: transactions still awaiting classification. */
+      /**
+       * The classification work queue: transactions still awaiting classification, in a stable
+       * order (oldest first) so a crash-resumable worker drains them deterministically.
+       */
       listPending: () =>
         db
           .select()
@@ -87,14 +92,15 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.householdId, householdId),
               eq(transactions.classificationStatus, "pending"),
             ),
-          ),
+          )
+          .orderBy(asc(transactions.createdAt), asc(transactions.id)),
       /**
        * Record a classification result. Only updates a still-`pending` row, so re-running
        * classification is idempotent — an already-classified row is left untouched (returns []).
        */
       classify: (
         id: string,
-        result: { expenseType: string; confidence?: number; reasoning?: string },
+        result: { expenseType: ExpenseType; confidence?: number; reasoning?: string },
       ) =>
         db
           .update(transactions)

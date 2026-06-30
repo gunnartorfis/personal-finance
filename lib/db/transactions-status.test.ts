@@ -70,4 +70,11 @@ describe("classification status model", () => {
     expect(failed.expenseType).toBeNull();
     expect(await repo.transactions.listPending()).toHaveLength(0);
   });
+
+  it("re-marking a non-pending row as failed is a no-op (idempotent)", async () => {
+    const { repo, txnId } = await pendingTxn();
+    await repo.transactions.markFailed(txnId);
+    const again = await repo.transactions.markFailed(txnId);
+    expect(again).toHaveLength(0);
+  });
 });
