@@ -94,6 +94,11 @@ the remainder as new unchecked items.
 
 - [x] **Plan on Household** + Free-cap enforcement: reaching 50 pauses AI classification only;
   Uploads, dashboard, Overrides, and net tracking stay usable.
-- [ ] **Straumur / Adyen**: tokenized card + initial charge (1990 ISK/month, or annually at −30%).
+- **Straumur / Adyen**: tokenized card + initial charge (1990 ISK/month, or annually at −30%). Split:
+  - [x] **Straumur primitives** — wire-amount, webhook field-normalize, and HMAC webhook verification.
+  - [ ] **Checkout session client + route** — `createSession`/`getSessionStatus` + a tokenized
+    checkout-session endpoint (recurringProcessingModel: Subscription).
+  - [ ] **Payment webhook + records** — `POST /api/webhooks/straumur` (HMAC) + `straumur_payments`
+    table; activate Premium / store token on Authorization.
 - [ ] **Renewal cron** + dunning / retry driven by payment webhooks.
 - [ ] **In-app manage / cancel** subscription screen.
