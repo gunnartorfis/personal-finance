@@ -1,4 +1,5 @@
 import type { HouseholdRepo } from "@/lib/db/household-repo";
+import { isExpenseType } from "@/shared/types";
 import type { ExpenseType } from "@/shared/types";
 
 /**
@@ -32,9 +33,6 @@ function emptyByExpenseType(): Record<ExpenseType, number> {
   return { Fixed: 0, Necessary: 0, "Nice to have": 0, "": 0 };
 }
 
-/** The valid expense-type buckets (ADR-0005); `""` is the not-bucketed / split type. */
-const EXPENSE_TYPES: readonly ExpenseType[] = ["Fixed", "Necessary", "Nice to have", ""];
-
 /**
  * Narrow a raw DB string (Drizzle types both expense columns as `string | null`) to a known
  * {@link ExpenseType}, or `null`. DB CHECK constraints are the real guard, but this keeps the
@@ -42,9 +40,7 @@ const EXPENSE_TYPES: readonly ExpenseType[] = ["Fixed", "Necessary", "Nice to ha
  * rather than silently creating a phantom bucket and breaking the reconciliation invariant.
  */
 export function toEffectiveType(value: string | null): ExpenseType | null {
-  return value !== null && (EXPENSE_TYPES as readonly string[]).includes(value)
-    ? (value as ExpenseType)
-    : null;
+  return isExpenseType(value) ? value : null;
 }
 
 /**

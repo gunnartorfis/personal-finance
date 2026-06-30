@@ -3,6 +3,14 @@ export type ExpenseType = "Fixed" | "Necessary" | "Nice to have" | "";
 export const TYPES = ["Fixed", "Necessary", "Nice to have"] as const;
 export type RealType = (typeof TYPES)[number];
 
+/** Every valid expense-type value, including `""` (the not-bucketed / split type). */
+export const EXPENSE_TYPES = ["Fixed", "Necessary", "Nice to have", ""] as const satisfies readonly ExpenseType[];
+
+/** Runtime guard that an unknown value is a valid {@link ExpenseType}. */
+export function isExpenseType(value: unknown): value is ExpenseType {
+  return typeof value === "string" && (EXPENSE_TYPES as readonly string[]).includes(value);
+}
+
 /** A Household's subscription level (ADR-0002, ADR-0006). */
 export type Plan = "Free" | "Premium";
 
