@@ -40,25 +40,30 @@ describe("OverrideControl", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ expenseType: "" })
   })
 
-  it("DELETEs when reset is clicked", async () => {
+  it("DELETEs when reset is clicked and reports the clear with no effective type", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) })
     vi.stubGlobal("fetch", fetchMock)
+    const onChanged = vi.fn()
 
-    render(<OverrideControl transactionId={ID} value="Fixed" hasOverride={true} />)
+    render(<OverrideControl transactionId={ID} value="Fixed" hasOverride={true} onChanged={onChanged} />)
     await userEvent.click(screen.getByRole("button", { name: /reset/i }))
 
     expect(fetchMock).toHaveBeenCalledWith(
       `/api/transactions/${ID}/override`,
       expect.objectContaining({ method: "DELETE" }),
     )
+    // The server reverted to the classified type, which the control doesn't know -> null.
+    expect(onChanged).toHaveBeenCalledWith({ expenseType: null, hasOverride: false })
   })
 
-  it("shows an error alert when saving fails", async () => {
+  it("shows an error alert and rolls the dropdown back to the persisted value on failure", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }))
 
     render(<OverrideControl transactionId={ID} value="Fixed" hasOverride={false} />)
     await userEvent.selectOptions(screen.getByRole("combobox"), "Necessary")
 
     expect(await screen.findByRole("alert")).toBeInTheDocument()
+    // Optimistic change is rolled back, so the dropdown still shows the persisted type.
+    expect(screen.getByRole("combobox")).toHaveValue("Fixed")
   })
 })

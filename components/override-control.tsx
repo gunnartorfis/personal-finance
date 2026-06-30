@@ -28,7 +28,9 @@ export function OverrideControl({
   transactionId: string
   value: ExpenseType
   hasOverride: boolean
-  onChanged?: (next: { expenseType: ExpenseType; hasOverride: boolean }) => void
+  // After a clear the effective type reverts to the classified type, which this control doesn't
+  // know — so `expenseType` is null there and the parent should refetch.
+  onChanged?: (next: { expenseType: ExpenseType | null; hasOverride: boolean }) => void
   className?: string
 }) {
   const [selected, setSelected] = useState<ExpenseType>(value)
@@ -39,7 +41,8 @@ export function OverrideControl({
   const endpoint = `/api/transactions/${transactionId}/override`
 
   async function setOverride(expenseType: ExpenseType) {
-    setSelected(expenseType)
+    const previous = selected
+    setSelected(expenseType) // optimistic
     setSaving(true)
     setErrored(false)
     try {
@@ -52,6 +55,7 @@ export function OverrideControl({
       setHasOverride(true)
       onChanged?.({ expenseType, hasOverride: true })
     } catch {
+      setSelected(previous) // roll back so the dropdown reflects persisted state
       setErrored(true)
     } finally {
       setSaving(false)
@@ -65,7 +69,7 @@ export function OverrideControl({
       const res = await fetch(endpoint, { method: "DELETE" })
       if (!res.ok) throw new Error(`override ${res.status}`)
       setHasOverride(false)
-      onChanged?.({ expenseType: selected, hasOverride: false })
+      onChanged?.({ expenseType: null, hasOverride: false })
     } catch {
       setErrored(true)
     } finally {
