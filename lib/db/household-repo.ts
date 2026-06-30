@@ -160,6 +160,7 @@ export function householdRepo(db: Db, householdId: string) {
             date: transactions.date,
             merchant: transactions.merchant,
             amount: transactions.amount,
+            classificationStatus: transactions.classificationStatus,
             classifiedType: transactions.expenseType,
             overrideType: overrides.expenseType,
           })

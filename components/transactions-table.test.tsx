@@ -14,6 +14,7 @@ const ROWS: TransactionRow[] = [
     amount: -1990,
     classifiedType: "Fixed",
     overrideType: null,
+    classificationStatus: "classified",
   },
   {
     id: "t2",
@@ -22,6 +23,7 @@ const ROWS: TransactionRow[] = [
     amount: 500000,
     classifiedType: "Necessary",
     overrideType: "Nice to have", // override wins
+    classificationStatus: "classified",
   },
 ]
 
@@ -55,6 +57,35 @@ describe("TransactionsTable", () => {
       expect.objectContaining({ method: "PUT" }),
     )
     expect(await within(row).findByRole("button", { name: /reset/i })).toBeInTheDocument()
+  })
+
+  it("flags rows still awaiting classification distinctly from a real split/none", () => {
+    const rows: TransactionRow[] = [
+      {
+        id: "p1",
+        date: "2026-03-12",
+        merchant: "PENDING CO",
+        amount: -100,
+        classifiedType: null,
+        overrideType: null,
+        classificationStatus: "pending",
+      },
+      {
+        id: "s1",
+        date: "2026-03-11",
+        merchant: "SPLIT CO",
+        amount: -200,
+        classifiedType: "",
+        overrideType: null,
+        classificationStatus: "classified",
+      },
+    ]
+    render(<TransactionsTable rows={rows} currency="ISK" />)
+
+    const pending = screen.getByRole("row", { name: /PENDING CO/ })
+    expect(within(pending).getByText(/awaiting classification/i)).toBeInTheDocument()
+    const split = screen.getByRole("row", { name: /SPLIT CO/ })
+    expect(within(split).queryByText(/awaiting classification/i)).not.toBeInTheDocument()
   })
 
   it("renders an empty state when there are no transactions", () => {

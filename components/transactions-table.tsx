@@ -14,6 +14,7 @@ export interface TransactionRow {
   amount: number
   classifiedType: ExpenseType | null
   overrideType: ExpenseType | null
+  classificationStatus: "pending" | "classified" | "failed"
 }
 
 /**
@@ -62,18 +63,30 @@ export function TransactionsTable({
       <tbody>
         {rows.map((row) => {
           const effective: ExpenseType = row.overrideType ?? row.classifiedType ?? ""
+          // An unclassified row's effective "" would read as a real "Split / none" — label it so a
+          // pending/failed row is distinguishable until it's classified or manually overridden.
+          const unclassified = row.classificationStatus !== "classified" && row.overrideType === null
           return (
             <tr key={row.id} className="border-t border-border">
               <td className="py-2 tabular-nums">{row.date}</td>
               <td className="py-2">{row.merchant}</td>
               <td className="py-2 text-right tabular-nums">{fmt(row.amount)}</td>
               <td className="py-2">
-                <OverrideControl
-                  transactionId={row.id}
-                  value={effective}
-                  hasOverride={row.overrideType !== null}
-                  onChanged={(next) => handleChanged(row.id, next)}
-                />
+                <div className="flex flex-col gap-1">
+                  {unclassified && (
+                    <span className="text-xs text-muted-foreground">
+                      {row.classificationStatus === "failed"
+                        ? "Classification failed"
+                        : "Awaiting classification"}
+                    </span>
+                  )}
+                  <OverrideControl
+                    transactionId={row.id}
+                    value={effective}
+                    hasOverride={row.overrideType !== null}
+                    onChanged={(next) => handleChanged(row.id, next)}
+                  />
+                </div>
               </td>
             </tr>
           )
