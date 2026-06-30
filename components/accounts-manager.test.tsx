@@ -56,4 +56,30 @@ describe("AccountsManager", () => {
 
     expect(await screen.findByRole("alert")).toBeInTheDocument()
   })
+
+  it("surfaces an error when the network throws during creation", async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "GET") return { ok: true, json: async () => [] }
+      throw new Error("network down")
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    render(<AccountsManager />)
+    await screen.findByText(/no accounts yet/i)
+
+    await userEvent.type(screen.getByLabelText("Name"), "X")
+    await userEvent.click(screen.getByRole("button", { name: /add account/i }))
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument()
+  })
+
+  it("shows a load error instead of the empty state when the initial fetch fails", async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new Error("network down")
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    render(<AccountsManager />)
+
+    expect(await screen.findByText(/load accounts/i)).toBeInTheDocument()
+    expect(screen.queryByText(/no accounts yet/i)).not.toBeInTheDocument()
+  })
 })

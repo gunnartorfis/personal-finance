@@ -16,6 +16,7 @@ interface Account {
 export function AccountsManager({ className }: { className?: string }) {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [name, setName] = useState("")
   const [busy, setBusy] = useState(false)
   const [errored, setErrored] = useState(false)
@@ -42,7 +43,7 @@ export function AccountsManager({ className }: { className?: string }) {
         const data = await fetchAccounts()
         if (!ignore) setAccounts(data)
       } catch {
-        // empty state renders
+        if (!ignore) setLoadError(true)
       } finally {
         if (!ignore) setLoading(false)
       }
@@ -69,6 +70,8 @@ export function AccountsManager({ className }: { className?: string }) {
       }
       setName("")
       await refresh()
+    } catch {
+      setErrored(true)
     } finally {
       setBusy(false)
     }
@@ -108,6 +111,10 @@ export function AccountsManager({ className }: { className?: string }) {
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : loadError ? (
+        <p role="alert" className="text-sm text-destructive">
+          Couldn’t load accounts. Please refresh.
+        </p>
       ) : accounts.length === 0 ? (
         <p className="text-sm text-muted-foreground">No accounts yet.</p>
       ) : (
