@@ -69,14 +69,20 @@ export function ClassifyTrigger({
   }, [])
 
   // Requeue prior failures, then drain them. The reset POST is quick (a status flip, no model
-  // calls); the subsequent classify() owns the busy/totals/error state for the drain itself.
+  // calls). It gets its own AbortController via abortRef — same as the drain — so an unmount during
+  // the reset window cancels it; the subsequent classify() then owns busy/totals/error for the drain.
   const retryFailed = useCallback(async () => {
+    abortRef.current?.abort() // cancel any prior run before starting a fresh one
+    const controller = new AbortController()
+    abortRef.current = controller
     setBusy(true)
     setErrored(false)
+    setTotals(null) // clear any prior run's totals so they don't linger during the reset POST
     try {
-      const res = await fetch("/api/classify/retry", { method: "POST" })
+      const res = await fetch("/api/classify/retry", { method: "POST", signal: controller.signal })
       if (!res.ok) throw new Error("retry failed")
     } catch {
+      if (controller.signal.aborted) return // intentional cancel, not a failure
       setErrored(true)
       setBusy(false)
       return
