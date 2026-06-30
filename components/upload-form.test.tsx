@@ -34,6 +34,10 @@ function stubApi(opts: { uploadStatus?: number; uploadBody?: unknown } = {}) {
         json: async () => ({ total: 3, pending: 0, classified: 3, failed: 0, done: true }),
       }
     }
+    if (url === "/api/classify" && method === "POST") {
+      // auto-kicked after a successful upload; report nothing pending so the drain loop ends
+      return { ok: true, json: async () => ({ classified: 0, failed: 0, capped: 0 }) }
+    }
     return { ok: false, status: 404, json: async () => ({}) }
   })
   vi.stubGlobal("fetch", fetchMock)

@@ -1,3 +1,4 @@
+import { ClassifyTrigger } from "@/components/classify-trigger"
 import { FreeCapStatusBanner } from "@/components/free-cap-status"
 import { NetSummaryCard } from "@/components/net-summary-card"
 import { freeCapStatus } from "@/lib/billing/free-cap-status"
@@ -27,6 +28,7 @@ export default async function DashboardPage() {
       <h1 className="text-2xl font-semibold">Dashboard</h1>
       <FreeCapStatusBanner status={capStatus} />
       <NetSummaryCard summary={summary} currency={billingCurrency} cycleLabel={cycleLabel(now)} />
+      <ClassifyTrigger />
     </main>
   )
 }
