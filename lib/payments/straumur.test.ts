@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  chargeStoredToken,
   createSession,
   getSessionStatus,
+  isAuthorised,
   normalizeStraumurField,
   toStraumurWireAmount,
   verifyStraumurHmac,
@@ -91,6 +93,74 @@ describe("createSession", () => {
     await expect(
       createSession({ amount: 1990, currency: "ISK", reference: "r", returnUrl: "https://a.b/c" }),
     ).rejects.toThrow(/STRAUMUR_API_KEY/);
+  });
+});
+
+describe("chargeStoredToken", () => {
+  it("posts the token-payment body and parses the result", async () => {
+    stubStraumurEnv();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        resultCode: "Authorised",
+        payfacReference: "PSP1",
+        checkoutReference: "chk",
+        reference: "sub_x",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await chargeStoredToken({
+      amount: 1990,
+      currency: "ISK",
+      reference: "sub_x",
+      tokenValue: "TOK",
+      recurringProcessingModel: "Subscription",
+      returnUrl: "https://app.example.com/dashboard",
+    });
+    expect(result).toEqual({
+      resultCode: "Authorised",
+      payfacReference: "PSP1",
+      checkoutReference: "chk",
+      reference: "sub_x",
+    });
+    expect(isAuthorised(result)).toBe(true);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://checkout-api.staging.straumur.is/api/v1/payment");
+    expect((init as RequestInit & { headers: Record<string, string> }).headers["X-API-Key"]).toBe(
+      "test-api-key",
+    );
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+      terminalIdentifier: "TERMINAL1234",
+      amount: 199000,
+      currency: "ISK",
+      reference: "sub_x",
+      channel: "Web",
+      origin: "https://app.example.com",
+      returnUrl: "https://app.example.com/dashboard",
+      tokenDetails: { tokenValue: "TOK", recurringProcessingModel: "Subscription" },
+    });
+  });
+
+  it("isAuthorised is false for a non-authorised result", () => {
+    expect(isAuthorised({ resultCode: "Refused" })).toBe(false);
+    expect(isAuthorised({ resultCode: "RedirectShopper" })).toBe(false);
+  });
+
+  it("throws on a non-ok response", async () => {
+    stubStraumurEnv();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500, text: async () => "err" }));
+    await expect(
+      chargeStoredToken({
+        amount: 1990,
+        currency: "ISK",
+        reference: "r",
+        tokenValue: "T",
+        recurringProcessingModel: "Subscription",
+        returnUrl: "https://a.b/c",
+      }),
+    ).rejects.toThrow(/500/);
   });
 });
 

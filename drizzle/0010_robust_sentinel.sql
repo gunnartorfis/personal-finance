@@ -1,0 +1,3 @@
+ALTER TABLE "households" ADD COLUMN "subscription_period" text;--> statement-breakpoint
+ALTER TABLE "households" ADD CONSTRAINT "households_free_has_no_period" CHECK ("households"."plan" <> 'Free' OR "households"."subscription_period" IS NULL);--> statement-breakpoint
+ALTER TABLE "households" ADD CONSTRAINT "households_subscription_period_valid" CHECK ("households"."subscription_period" IS NULL OR "households"."subscription_period" IN ('monthly', 'annual'));

@@ -71,6 +71,13 @@
       "when": 1782831568343,
       "tag": "0009_premium_exodus",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782833262395,
+      "tag": "0010_robust_sentinel",
+      "breakpoints": true
     }
   ]
 }
