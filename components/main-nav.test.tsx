@@ -16,6 +16,10 @@ describe("MainNav", () => {
     expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/dashboard")
     expect(screen.getByRole("link", { name: "Accounts" })).toHaveAttribute("href", "/accounts")
     expect(screen.getByRole("link", { name: "Upload" })).toHaveAttribute("href", "/upload")
+    expect(screen.getByRole("link", { name: "Transactions" })).toHaveAttribute(
+      "href",
+      "/transactions",
+    )
     expect(screen.getByRole("link", { name: "Billing" })).toHaveAttribute("href", "/billing")
   })
 

@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gte, lt } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, lt } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import type { ExpenseType } from "@/shared/types";
@@ -147,6 +147,38 @@ export function householdRepo(db: Db, householdId: string) {
               lt(transactions.date, range.to),
             ),
           ),
+      /**
+       * Rows for the transactions list over a half-open date range `[from, to)`: the display fields
+       * plus the classified `expenseType` and any manual `overrideType` (left-joined), newest first.
+       * The effective type is `overrideType ?? classifiedType`. Scoped to the household on both the
+       * transactions filter and the override join.
+       */
+      listWithOverrides: (range: { from: string; to: string }) =>
+        db
+          .select({
+            id: transactions.id,
+            date: transactions.date,
+            merchant: transactions.merchant,
+            amount: transactions.amount,
+            classifiedType: transactions.expenseType,
+            overrideType: overrides.expenseType,
+          })
+          .from(transactions)
+          .leftJoin(
+            overrides,
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactions.id),
+            ),
+          )
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              gte(transactions.date, range.from),
+              lt(transactions.date, range.to),
+            ),
+          )
+          .orderBy(desc(transactions.date), asc(transactions.id)),
       /** Count of classified transactions for the Household (lifetime) — used for the Free cap. */
       countClassified: async () => {
         const [row] = await db

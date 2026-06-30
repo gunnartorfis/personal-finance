@@ -128,7 +128,7 @@ own, dependency-ordered. Adyen client Drop-in (Premium upgrade) is deferred to a
   expose a manual "Classify pending" affordance), surfacing the returned counts. Acceptance:
   after an upload the user can trigger/observe classification without leaving the app. Blocked by:
   Upload flow page.
-- [ ] **Transactions list + inline overrides** — a transactions list (server-read via the
+- [x] **Transactions list + inline overrides** — a transactions list (server-read via the
   household repo, scoped to the current statement cycle) that mounts `<OverrideControl>` per row so
   a user can change an expense type. Acceptance: transactions render with merchant/amount/type and
   an override control that persists; nav link added. Blocked by: none (works on any data).
