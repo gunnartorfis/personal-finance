@@ -9,6 +9,13 @@ import { requireHousehold } from "@/lib/household/current";
 const BATCH = 25;
 
 /**
+ * A full batch is up to `BATCH` sequential Sonnet gateway calls, so raise the function timeout to
+ * the platform max (300s ≈ 12s/call of headroom) — without this an in-flight batch can hit the
+ * default timeout and return a 504 instead of the structured drain result the contract promises.
+ */
+export const maxDuration = 300;
+
+/**
  * POST /api/classify — drain a batch of the current Household's pending transactions through the
  * Sonnet 4.6 classifier (ADR-0005). Crash-safe and resumable via the idempotent status model, so
  * re-invoking (poll / cron) continues until the queue is empty. Returns the batch counts.
