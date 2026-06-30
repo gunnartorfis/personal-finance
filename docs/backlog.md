@@ -148,7 +148,7 @@ flow. This phase adds it. Premium activation itself stays webhook-driven (alread
   returned session + `clientKey` (environment derived from the key prefix). Acceptance: a Free user
   can pick a period, see the Drop-in, and a completed payment shows confirmation; checkout/SDK errors
   surface inline. Blocked by: none (server route + webhook activation already shipped).
-- [ ] **Post-payment activation confirmation** — after the Drop-in reports completion, confirm
+- [x] **Post-payment activation confirmation** — after the Drop-in reports completion, confirm
   Premium is active (poll `getSessionStatus` via a new status route and/or the household plan) so the
   UI reflects activation rather than assuming it. Acceptance: after paying, the user sees Premium
   active without a manual refresh. Blocked by: Premium upgrade via Adyen Drop-in.

@@ -23,11 +23,18 @@ const Dropin = vi.fn(function DropinMock() {
 })
 vi.mock("@adyen/adyen-web", () => ({ AdyenCheckout: (c: typeof lastConfig) => AdyenCheckout(c), Dropin }))
 
-function stubCheckout(clientKey = "test_ABC") {
+// Routes both endpoints the component calls: POST /api/billing/checkout (session) and
+// GET /api/billing/status (activation poll, returns `plan`).
+function stubCheckout(clientKey = "test_ABC", plan = "Premium") {
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-    expect(url).toBe("/api/billing/checkout")
-    expect(init?.method).toBe("POST")
-    return { ok: true, json: async () => ({ id: "sess-1", sessionData: "data-1", clientKey }) }
+    if (url === "/api/billing/checkout") {
+      expect(init?.method).toBe("POST")
+      return { ok: true, json: async () => ({ id: "sess-1", sessionData: "data-1", clientKey }) }
+    }
+    if (url === "/api/billing/status") {
+      return { ok: true, json: async () => ({ plan }) }
+    }
+    throw new Error(`unexpected fetch: ${url}`)
   })
   vi.stubGlobal("fetch", fetchMock)
   return fetchMock
@@ -67,15 +74,27 @@ describe("PremiumCheckout", () => {
     expect(lastConfig.environment).toBe("live")
   })
 
-  it("shows confirmation when the payment is authorised", async () => {
-    stubCheckout()
+  it("confirms activation by polling status before showing active", async () => {
+    const fetchMock = stubCheckout("test_ABC", "Premium")
     render(<PremiumCheckout />)
     await userEvent.click(screen.getByRole("button", { name: /upgrade to premium/i }))
 
     lastConfig.onPaymentCompleted({ resultCode: "Authorised" })
     expect(await screen.findByText(/premium is active/i)).toBeInTheDocument()
+    // Activation is confirmed against the household plan, not assumed from the Drop-in result.
+    expect(fetchMock).toHaveBeenCalledWith("/api/billing/status")
     // Drop-in torn down on the phase transition (its container leaves the DOM), not just on unmount.
     expect(unmount).toHaveBeenCalledTimes(1)
+  })
+
+  it("shows a confirming state while activation is still pending", async () => {
+    stubCheckout("test_ABC", "Free") // webhook hasn't flipped the plan yet
+    render(<PremiumCheckout />)
+    await userEvent.click(screen.getByRole("button", { name: /upgrade to premium/i }))
+
+    lastConfig.onPaymentCompleted({ resultCode: "Authorised" })
+    expect(await screen.findByText(/confirming/i)).toBeInTheDocument()
+    expect(screen.queryByText(/premium is active/i)).not.toBeInTheDocument()
   })
 
   it("shows a pending notice for a non-authorised completion (e.g. Pending)", async () => {
