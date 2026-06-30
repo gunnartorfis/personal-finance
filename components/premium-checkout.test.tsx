@@ -74,6 +74,8 @@ describe("PremiumCheckout", () => {
 
     lastConfig.onPaymentCompleted({ resultCode: "Authorised" })
     expect(await screen.findByText(/premium is active/i)).toBeInTheDocument()
+    // Drop-in torn down on the phase transition (its container leaves the DOM), not just on unmount.
+    expect(unmount).toHaveBeenCalledTimes(1)
   })
 
   it("shows a pending notice for a non-authorised completion (e.g. Pending)", async () => {

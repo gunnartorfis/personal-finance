@@ -52,8 +52,13 @@ export function PremiumCheckout({ className }: { className?: string }) {
       session: { id: session.id, sessionData: session.sessionData },
       // `onPaymentCompleted` fires for final-or-actionable codes, not only Authorised — async
       // methods (SEPA/iDEAL) return Pending/Received and clear later via the webhook, so only claim
-      // Premium is active for an outright Authorised.
-      onPaymentCompleted: (result) => setPhase(result.resultCode === "Authorised" ? "done" : "submitted"),
+      // Premium is active for an outright Authorised. Tear the Drop-in down first: the phase change
+      // removes its container from the DOM, so release Adyen's listeners/timers before that.
+      onPaymentCompleted: (result) => {
+        dropinRef.current?.unmount()
+        dropinRef.current = null
+        setPhase(result.resultCode === "Authorised" ? "done" : "submitted")
+      },
       onPaymentFailed: () => setError("Payment wasn’t completed. Please try again."),
       onError: () => setError("Something went wrong with the payment. Please try again."),
     })
