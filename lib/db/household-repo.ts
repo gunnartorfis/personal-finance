@@ -1,4 +1,4 @@
-import { and, asc, count, eq } from "drizzle-orm";
+import { and, asc, count, eq, gte, lt } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import type { ExpenseType } from "@/shared/types";
@@ -119,6 +119,34 @@ export function householdRepo(db: Db, householdId: string) {
         }
         return { total: counts.pending + counts.classified + counts.failed, ...counts };
       },
+      /**
+       * Rows needed to compute a net summary over a half-open date range `[from, to)`: the charged
+       * `amount`, the classified `expenseType`, and any manual `overrideType` (left-joined). The
+       * dashboard resolves the effective type as `overrideType ?? classifiedType`. Scoped to the
+       * household on both the transactions filter and the override join.
+       */
+      summaryRows: (range: { from: string; to: string }) =>
+        db
+          .select({
+            amount: transactions.amount,
+            classifiedType: transactions.expenseType,
+            overrideType: overrides.expenseType,
+          })
+          .from(transactions)
+          .leftJoin(
+            overrides,
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactions.id),
+            ),
+          )
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              gte(transactions.date, range.from),
+              lt(transactions.date, range.to),
+            ),
+          ),
       /** Count of classified transactions for the Household (lifetime) — used for the Free cap. */
       countClassified: async () => {
         const [row] = await db

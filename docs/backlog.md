@@ -77,7 +77,10 @@ the remainder as new unchecked items.
 
 ## Phase F — Dashboard & overrides — depends on D, E, and Phase A cycle/net
 
-- [ ] **Dashboard**: statement-cycle net profit/loss with a per-expense-type breakdown.
+- **Dashboard**: statement-cycle net profit/loss with a per-expense-type breakdown. Split:
+  - [x] **Net-summary aggregation** — household-scoped income/expense/net plus a per-expense-type
+    breakdown over a date range, with manual Overrides taking precedence over the classified type.
+  - [ ] **Dashboard UI** — page rendering the summary for the current statement cycle.
 - [ ] **Override UI**: a manual expense-type change that takes precedence over the classified type.
 - [ ] **Merchant-rule management UI**.
 
