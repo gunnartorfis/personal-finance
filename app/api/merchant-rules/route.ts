@@ -25,6 +25,7 @@ export async function POST(request: Request) {
   const { repo } = await requireHousehold()
   try {
     const [rule] = await repo.merchantRules.create(parsed.value)
+    if (!rule) throw new Error("merchant rule insert returned no rows")
     return NextResponse.json(rule, { status: 201 })
   } catch (error) {
     if (isUniqueViolation(error)) {

@@ -37,6 +37,34 @@ describe("POST /api/merchant-rules", () => {
     expect(create).toHaveBeenCalledWith({ merchant: "NETFLIX", flatType: "Fixed" })
   })
 
+  it("creates a split rule (normalized) and forwards all three fields", async () => {
+    const rule = {
+      id: "r2",
+      merchant: "WORLD CLASS",
+      threshold: 5000,
+      atOrAboveType: "Fixed",
+      belowType: "Nice to have",
+    }
+    const create = vi.fn().mockResolvedValue([rule])
+    requireHousehold.mockResolvedValue({ repo: { merchantRules: { create } } })
+
+    const res = await POST(
+      postReq({
+        merchant: "World Class",
+        threshold: 5000,
+        atOrAboveType: "Fixed",
+        belowType: "Nice to have",
+      }),
+    )
+    expect(res.status).toBe(201)
+    expect(create).toHaveBeenCalledWith({
+      merchant: "WORLD CLASS",
+      threshold: 5000,
+      atOrAboveType: "Fixed",
+      belowType: "Nice to have",
+    })
+  })
+
   it("409s a duplicate merchant", async () => {
     const create = vi.fn().mockRejectedValue({ code: "23505" })
     requireHousehold.mockResolvedValue({ repo: { merchantRules: { create } } })
