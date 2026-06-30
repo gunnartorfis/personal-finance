@@ -31,6 +31,7 @@ export function AccountsManager({ className }: { className?: string }) {
   async function refresh() {
     try {
       setAccounts(await fetchAccounts())
+      setLoadError(false)
     } catch {
       // keep the current list on a transient failure
     }

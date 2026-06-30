@@ -82,4 +82,31 @@ describe("AccountsManager", () => {
     expect(await screen.findByText(/load accounts/i)).toBeInTheDocument()
     expect(screen.queryByText(/no accounts yet/i)).not.toBeInTheDocument()
   })
+
+  it("clears the load error once a later add succeeds and refetches", async () => {
+    let accounts: { id: string; name: string }[] = []
+    let firstGet = true
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET"
+      if (url === "/api/accounts" && method === "GET") {
+        if (firstGet) {
+          firstGet = false
+          throw new Error("network down") // initial load fails
+        }
+        return { ok: true, json: async () => accounts }
+      }
+      // POST succeeds
+      accounts = [...accounts, { id: "new", name: JSON.parse(init!.body as string).name }]
+      return { ok: true, status: 201, json: async () => accounts[accounts.length - 1] }
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    render(<AccountsManager />)
+    await screen.findByText(/load accounts/i)
+
+    await userEvent.type(screen.getByLabelText("Name"), "Visa")
+    await userEvent.click(screen.getByRole("button", { name: /add account/i }))
+
+    expect(await screen.findByText("Visa")).toBeInTheDocument()
+    expect(screen.queryByText(/load accounts/i)).not.toBeInTheDocument()
+  })
 })
