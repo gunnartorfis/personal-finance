@@ -5,6 +5,7 @@ import {
   createSession,
   getSessionStatus,
   isAuthorised,
+  isPending,
   normalizeStraumurField,
   toStraumurWireAmount,
   verifyStraumurHmac,
@@ -143,9 +144,32 @@ describe("chargeStoredToken", () => {
     });
   });
 
-  it("isAuthorised is false for a non-authorised result", () => {
+  it("sends an Idempotency-Key header when provided", async () => {
+    stubStraumurEnv();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ resultCode: "Authorised" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await chargeStoredToken({
+      amount: 1990,
+      currency: "ISK",
+      reference: "r",
+      tokenValue: "T",
+      recurringProcessingModel: "Subscription",
+      returnUrl: "https://a.b/c",
+      idempotencyKey: "renew-h1-2026-04",
+    });
+    const headers = (fetchMock.mock.calls[0][1] as RequestInit & { headers: Record<string, string> })
+      .headers;
+    expect(headers["Idempotency-Key"]).toBe("renew-h1-2026-04");
+  });
+
+  it("isAuthorised is false for a non-authorised result; isPending flags async states", () => {
     expect(isAuthorised({ resultCode: "Refused" })).toBe(false);
     expect(isAuthorised({ resultCode: "RedirectShopper" })).toBe(false);
+    expect(isPending({ resultCode: "Pending" })).toBe(true);
+    expect(isPending({ resultCode: "Received" })).toBe(true);
+    expect(isPending({ resultCode: "Authorised" })).toBe(false);
+    expect(isPending({ resultCode: "Refused" })).toBe(false);
   });
 
   it("throws on a non-ok response", async () => {

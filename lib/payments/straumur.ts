@@ -151,6 +151,12 @@ export interface ChargeStoredTokenRequest {
   recurringProcessingModel: RecurringProcessingModel;
   /** Required by the API though no shopper is redirected for a merchant-initiated charge. */
   returnUrl: string;
+  /**
+   * Optional idempotency key, sent as the `Idempotency-Key` header. Adyen-based gateways don't
+   * dedupe on `reference`, so a retried charge after a network timeout could double-charge — pass a
+   * stable key per renewal cycle so the gateway collapses retries.
+   */
+  idempotencyKey?: string;
 }
 
 export interface ChargeResult {
@@ -163,6 +169,15 @@ export interface ChargeResult {
 /** Whether a {@link ChargeResult} is a successful authorisation. */
 export function isAuthorised(result: ChargeResult): boolean {
   return result.resultCode === "Authorised";
+}
+
+/**
+ * Whether a charge is still being processed asynchronously (neither a success nor a definitive
+ * failure). The renewal caller should NOT start dunning on these — the eventual outcome arrives via
+ * the Authorization webhook.
+ */
+export function isPending(result: ChargeResult): boolean {
+  return result.resultCode === "Pending" || result.resultCode === "Received";
 }
 
 /**
@@ -189,9 +204,17 @@ export async function chargeStoredToken(request: ChargeStoredTokenRequest): Prom
     },
   };
 
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "X-API-Key": config.apiKey,
+  };
+  if (request.idempotencyKey) {
+    headers["Idempotency-Key"] = request.idempotencyKey;
+  }
+
   const response = await fetch(`${config.apiBaseUrl}/api/v1/payment`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-API-Key": config.apiKey },
+    headers,
     body: JSON.stringify(body),
   });
   if (!response.ok) {

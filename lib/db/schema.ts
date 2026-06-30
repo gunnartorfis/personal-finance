@@ -49,7 +49,9 @@ export const households = pgTable(
   (t) => [
     // A Free household never carries a renewal date (prevents stray charges / dunning on Free).
     check("households_free_has_no_renewal", sql`${t.plan} <> 'Free' OR ${t.planRenewsAt} IS NULL`),
-    // Likewise a Free household carries no subscription period.
+    // Likewise a Free household carries no subscription period. NOTE: any downgrade to Free (cancel
+    // / dunning) MUST null subscriptionPeriod (and planRenewsAt) in the same UPDATE, or this CHECK
+    // rejects it — the symmetry of activation, which sets both together.
     check("households_free_has_no_period", sql`${t.plan} <> 'Free' OR ${t.subscriptionPeriod} IS NULL`),
     // The subscription period, when set, is one of the known billing periods.
     check(
