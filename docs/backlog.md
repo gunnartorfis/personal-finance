@@ -109,3 +109,29 @@ the remainder as new unchecked items.
     due households, run on a daily cron.
   - [x] **Dunning** — retry window on a failed charge, then downgrade to Free.
 - [x] **In-app manage / cancel** subscription screen.
+
+## Phase H — UI surfaces for existing APIs (gap-analysis follow-up) — tracer-bullet vertical slices
+
+The loop (Phases A–G) shipped backend + components but left several APIs with no UI, and three
+components unmounted. Each slice below is a thin end-to-end path (API→UI→tests), demoable on its
+own, dependency-ordered. Adyen client Drop-in (Premium upgrade) is deferred to a later phase.
+
+- [x] **Accounts API + management UI** — `GET`/`POST /api/accounts` (household-scoped, reusing
+  `householdRepo.accounts`) and an `/accounts` page to list and add accounts, linked from the nav.
+  Acceptance: a signed-in user can create an account and see it listed; duplicate-safe; tests cover
+  the route (list/create/validation) and the page/form. Blocked by: none.
+- [ ] **Upload flow page** — an `/upload` page with an account selector + CSV file picker that posts
+  to `POST /api/uploads` (multipart) and renders the existing `<UploadProgress>` for the created
+  upload. Acceptance: a user picks an account + file, uploads, and sees progress; 4xx errors
+  surface inline. Blocked by: Accounts API + management UI.
+- [ ] **Run classification from the UI** — kick `POST /api/classify` after a successful upload (and
+  expose a manual "Classify pending" affordance), surfacing the returned counts. Acceptance:
+  after an upload the user can trigger/observe classification without leaving the app. Blocked by:
+  Upload flow page.
+- [ ] **Transactions list + inline overrides** — a transactions list (server-read via the
+  household repo, scoped to the current statement cycle) that mounts `<OverrideControl>` per row so
+  a user can change an expense type. Acceptance: transactions render with merchant/amount/type and
+  an override control that persists; nav link added. Blocked by: none (works on any data).
+- [ ] **Merchant-rules management page** — a `/rules` page that mounts the existing
+  `<MerchantRulesManager>`, linked from the nav. Acceptance: a user can view, add, and delete
+  merchant rules from a real page. Blocked by: none.
