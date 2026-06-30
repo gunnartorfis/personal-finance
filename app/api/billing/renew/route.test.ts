@@ -68,10 +68,11 @@ describe("GET /api/billing/renew", () => {
 
     const db = holder.db as ReturnType<typeof drizzle>
     const [row] = await db.select().from(households).where(eq(households.id, h.id))
-    expect(row.planRenewsAt!.getTime()).toBeGreaterThan(PAST.getTime()) // advanced
-    // Charge used a deterministic per-cycle reference + idempotency key.
+    // Anchored on the existing cycle date (2026-01-01 + 1 month), not the cron wall-clock.
+    expect(row.planRenewsAt!.toISOString()).toBe("2026-02-01T00:00:00.000Z")
+    // Charge used a deterministic per-cycle reference (renew_ prefix) + idempotency key.
     const arg = (chargeMock.fn as ReturnType<typeof vi.fn>).mock.calls[0][0]
-    expect(arg.reference).toBe(`sub_${h.id}_monthly_2026-01-01`)
+    expect(arg.reference).toBe(`renew_${h.id}_monthly_2026-01-01`)
     expect(arg.idempotencyKey).toBe(`renew-${h.id}-2026-01-01`)
     expect(arg.amount).toBe(1990)
   })
