@@ -40,11 +40,22 @@ describe("UploadProgress", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/uploads/u2/progress")
   })
 
-  it("surfaces a retrying state when the endpoint errors", async () => {
+  it("retries on a transient (5xx) error", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }))
 
     render(<UploadProgress uploadId="u3" />)
 
     expect(await screen.findByText(/retrying/i)).toBeInTheDocument()
+  })
+
+  it("stops polling on a permanent (4xx) error", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 404 })
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<UploadProgress uploadId="gone" />)
+
+    // Permanent failure shows a terminal message (no "retrying") and must not re-poll.
+    expect(await screen.findByText(/couldn.t load progress$/i)).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })

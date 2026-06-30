@@ -29,7 +29,8 @@ export function UploadProgress({
   className?: string
 }) {
   const [data, setData] = useState<UploadProgressData | null>(null)
-  const [errored, setErrored] = useState(false)
+  const [retrying, setRetrying] = useState(false)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -38,15 +39,26 @@ export function UploadProgress({
     async function poll() {
       try {
         const res = await fetch(`/api/uploads/${uploadId}/progress`)
-        if (!res.ok) throw new Error(`progress ${res.status}`)
+        if (!res.ok) {
+          // A 4xx (malformed or unknown/other-tenant id) is permanent — retrying never recovers, so
+          // stop. Only a 5xx or network failure is transient and worth re-polling.
+          if (res.status >= 400 && res.status < 500) {
+            if (active) {
+              setFailed(true)
+              setRetrying(false)
+            }
+            return
+          }
+          throw new Error(`progress ${res.status}`)
+        }
         const next = (await res.json()) as UploadProgressData
         if (!active) return
         setData(next)
-        setErrored(false)
+        setRetrying(false)
         if (!next.done) timer = setTimeout(poll, POLL_MS)
       } catch {
         if (!active) return
-        setErrored(true)
+        setRetrying(true)
         timer = setTimeout(poll, POLL_MS)
       }
     }
@@ -62,11 +74,13 @@ export function UploadProgress({
   const settled = data ? data.classified + data.failed : 0
   const percent = total === 0 ? 0 : Math.round((settled / total) * 100)
 
-  const label = errored
-    ? "Couldn’t load progress — retrying…"
-    : data?.done
-      ? "Classification complete"
-      : "Classifying…"
+  const label = failed
+    ? "Couldn’t load progress"
+    : retrying
+      ? "Couldn’t load progress — retrying…"
+      : data?.done
+        ? "Classification complete"
+        : "Classifying…"
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
