@@ -3,7 +3,7 @@
 import { type FormEvent, useEffect, useState } from "react"
 
 import { cn } from "@/lib/utils"
-import { EXPENSE_TYPES, type ExpenseType } from "@/shared/types"
+import { TYPES, type ExpenseType, type RealType } from "@/shared/types"
 
 /** A merchant rule as returned by `GET /api/merchant-rules`. */
 interface MerchantRule {
@@ -37,7 +37,8 @@ export function MerchantRulesManager({ className }: { className?: string }) {
   const [rules, setRules] = useState<MerchantRule[]>([])
   const [loading, setLoading] = useState(true)
   const [merchant, setMerchant] = useState("")
-  const [flatType, setFlatType] = useState<ExpenseType>("Fixed")
+  // A flat rule only offers the actionable types — never `""` (the not-bucketed / split type).
+  const [flatType, setFlatType] = useState<RealType>("Fixed")
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -133,10 +134,10 @@ export function MerchantRulesManager({ className }: { className?: string }) {
           <select
             id="rule-type"
             value={flatType}
-            onChange={(event) => setFlatType(event.target.value as ExpenseType)}
+            onChange={(event) => setFlatType(event.target.value as RealType)}
             className="rounded-md border border-border bg-transparent px-2 py-1 text-sm"
           >
-            {EXPENSE_TYPES.map((type) => (
+            {TYPES.map((type) => (
               <option key={type} value={type}>
                 {LABELS[type]}
               </option>

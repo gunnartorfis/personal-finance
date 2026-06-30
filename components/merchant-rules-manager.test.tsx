@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -66,6 +66,18 @@ describe("MerchantRulesManager", () => {
     const item = screen.getByRole("listitem")
     expect(item).toHaveTextContent("NETFLIX")
     expect(item).toHaveTextContent("Fixed")
+  })
+
+  it("offers only the actionable flat types (no split/none) in the add form", async () => {
+    stubApi([])
+    render(<MerchantRulesManager />)
+    await screen.findByText(/no rules yet/i)
+
+    const select = screen.getByLabelText("Type")
+    const options = within(select)
+      .getAllByRole("option")
+      .map((option) => option.textContent)
+    expect(options).toEqual(["Fixed", "Necessary", "Nice to have"])
   })
 
   it("adds a flat rule and shows it after the refetch", async () => {
