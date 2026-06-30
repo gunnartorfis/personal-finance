@@ -28,6 +28,7 @@ export function ManageSubscription({
   className?: string
 }) {
   const [cancelled, setCancelled] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [errored, setErrored] = useState(false)
 
@@ -57,14 +58,36 @@ export function ManageSubscription({
             Premium{period ? ` (${period})` : ""}
             {planRenewsAt ? ` — renews ${formatRenewal(planRenewsAt)}` : ""}.
           </p>
-          <button
-            type="button"
-            onClick={() => void cancel()}
-            disabled={busy}
-            className="self-start rounded-md border border-border px-3 py-1 text-sm font-medium"
-          >
-            Cancel subscription
-          </button>
+          {confirming ? (
+            // Two-step confirm: cancelling is destructive, so the POST only fires on explicit confirm.
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm">Cancel your Premium subscription?</span>
+              <button
+                type="button"
+                onClick={() => void cancel()}
+                disabled={busy}
+                className="rounded-md border border-destructive px-3 py-1 text-sm font-medium text-destructive"
+              >
+                Yes, cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                disabled={busy}
+                className="rounded-md border border-border px-3 py-1 text-sm font-medium"
+              >
+                Keep it
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              className="self-start rounded-md border border-border px-3 py-1 text-sm font-medium"
+            >
+              Cancel subscription
+            </button>
+          )}
         </>
       ) : (
         <p className="text-sm text-muted-foreground">
