@@ -77,4 +77,13 @@ describe("applyRulesFirst", () => {
     const result = await applyRulesFirst(repo);
     expect(result).toEqual({ classified: 0, remaining: 1 });
   });
+
+  it("leaves a credit (positive amount) pending even if a merchant rule matches", async () => {
+    const { repo, addTxn } = await setup();
+    await repo.merchantRules.create({ merchant: "NETFLIX", flatType: "Fixed" });
+    await addTxn("NETFLIX", 1990, 0); // a refund — credits are not bucketed by rules
+    const result = await applyRulesFirst(repo);
+    expect(result.classified).toBe(0);
+    expect(await repo.transactions.listPending()).toHaveLength(1);
+  });
 });

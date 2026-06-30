@@ -38,14 +38,15 @@ export async function applyRulesFirst(repo: HouseholdRepo): Promise<RulesFirstRe
   let classified = 0;
   for (const txn of pending) {
     const match = applyMerchantRules(rules, { merchant: txn.merchant, amount: txn.amount });
-    if (match.matched) {
-      await repo.transactions.classify(txn.id, {
-        expenseType: match.type,
-        confidence: 1,
-        reasoning: "merchant rule",
-      });
-      classified += 1;
-    }
+    if (!match.matched) continue;
+    // Count only rows this pass actually classified — classify() is a no-op (returns []) if the
+    // row was already classified (e.g. a concurrent worker), so don't overcount.
+    const updated = await repo.transactions.classify(txn.id, {
+      expenseType: match.type,
+      confidence: 1,
+      reasoning: "merchant rule",
+    });
+    if (updated.length > 0) classified += 1;
   }
   return { classified, remaining: pending.length - classified };
 }
