@@ -88,7 +88,7 @@ the remainder as new unchecked items.
 - **Merchant-rule management**. Split:
   - [x] **List/create/delete endpoint** — `GET`/`POST /api/merchant-rules` (flat or split, validated)
     + `DELETE /api/merchant-rules/:id`, household-scoped (`merchantRules.remove`).
-  - [ ] **Management UI** — list rules with delete + an add form, calling the endpoints.
+  - [x] **Management UI** — list rules with delete + an add form, calling the endpoints.
 
 ## Phase G — Billing (ADR-0006) — depends on C and Phase A Free-cap counting
 
