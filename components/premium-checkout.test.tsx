@@ -97,6 +97,19 @@ describe("PremiumCheckout", () => {
     expect(await screen.findByRole("alert")).toBeInTheDocument()
   })
 
+  it("clears a prior failure when a retry succeeds", async () => {
+    stubCheckout()
+    render(<PremiumCheckout />)
+    await userEvent.click(screen.getByRole("button", { name: /upgrade to premium/i }))
+
+    lastConfig.onPaymentFailed({}) // first attempt refused — Drop-in stays active for retry
+    expect(await screen.findByRole("alert")).toBeInTheDocument()
+
+    lastConfig.onPaymentCompleted({ resultCode: "Authorised" }) // retry succeeds
+    expect(await screen.findByText(/premium is active/i)).toBeInTheDocument()
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
+
   it("tears down the Drop-in when the component unmounts", async () => {
     stubCheckout()
     const { unmount: unmountComponent } = render(<PremiumCheckout />)

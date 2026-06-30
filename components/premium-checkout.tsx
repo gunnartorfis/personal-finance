@@ -57,6 +57,7 @@ export function PremiumCheckout({ className }: { className?: string }) {
       onPaymentCompleted: (result) => {
         dropinRef.current?.unmount()
         dropinRef.current = null
+        setError(null) // clear any prior failure so a successful retry doesn't show a stale alert
         setPhase(result.resultCode === "Authorised" ? "done" : "submitted")
       },
       onPaymentFailed: () => setError("Payment wasn’t completed. Please try again."),
