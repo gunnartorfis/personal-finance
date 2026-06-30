@@ -84,7 +84,7 @@ the remainder as new unchecked items.
 - **Override**: a manual expense-type change that takes precedence over the classified type. Split:
   - [x] **Set/clear endpoint** — `overrides.upsert`/`remove` repo methods + `PUT`/`DELETE
     /api/transactions/:id/override`, household-scoped.
-  - [ ] **Override UI** — an expense-type control on a transaction that calls the endpoint.
+  - [x] **Override UI** — an expense-type control on a transaction that calls the endpoint.
 - [ ] **Merchant-rule management UI**.
 
 ## Phase G — Billing (ADR-0006) — depends on C and Phase A Free-cap counting
