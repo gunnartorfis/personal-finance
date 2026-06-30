@@ -1,4 +1,4 @@
-import type { ExpenseType, Plan } from "./types.ts";
+import type { ExpenseType, Plan } from "./types";
 
 /**
  * Expense-type model + Free-cap counting (ADR-0002, `CONTEXT.md`).
