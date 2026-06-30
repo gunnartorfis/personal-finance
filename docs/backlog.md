@@ -92,7 +92,7 @@ the remainder as new unchecked items.
 
 ## Phase G — Billing (ADR-0006) — depends on C and Phase A Free-cap counting
 
-- [ ] **Plan on Household** + Free-cap enforcement: reaching 50 pauses AI classification only;
+- [x] **Plan on Household** + Free-cap enforcement: reaching 50 pauses AI classification only;
   Uploads, dashboard, Overrides, and net tracking stay usable.
 - [ ] **Straumur / Adyen**: tokenized card + initial charge (1990 ISK/month, or annually at −30%).
 - [ ] **Renewal cron** + dunning / retry driven by payment webhooks.
