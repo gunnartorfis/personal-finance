@@ -147,6 +147,25 @@ describe("householdRepo", () => {
     expect(await b.transactions.listWithOverrides(range)).toHaveLength(0);
   });
 
+  it("lists distinct cycle months that have data, newest first and scoped", async () => {
+    const { a, b } = await twoHouseholds();
+    const [account] = await a.accounts.create({ name: "Visa" });
+    const [upload] = await a.uploads.create({
+      accountId: account.id,
+      fileName: "c.csv",
+      fileHash: "cyc",
+    });
+    const base = { accountId: account.id, uploadId: upload.id, rawCategory: "x" };
+    // Two rows in March, one in January — January and March are the distinct months.
+    await a.transactions.create({ ...base, date: "2026-03-15", amount: -10, merchant: "M1", sourceRow: 0 });
+    await a.transactions.create({ ...base, date: "2026-03-02", amount: -20, merchant: "M2", sourceRow: 1 });
+    await a.transactions.create({ ...base, date: "2026-01-09", amount: -30, merchant: "M3", sourceRow: 2 });
+
+    expect(await a.transactions.cycleMonths()).toEqual(["2026-03", "2026-01"]);
+    // Another household sees none of A's months.
+    expect(await b.transactions.cycleMonths()).toEqual([]);
+  });
+
   it("findById returns a row in the household but not one from another", async () => {
     const { a, b } = await twoHouseholds();
     const [account] = await a.accounts.create({ name: "Visa" });
