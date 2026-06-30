@@ -28,6 +28,8 @@ export async function householdContext(db: Db, authUserId: string) {
     householdId,
     memberId,
     plan: household.plan,
+    planRenewsAt: household.planRenewsAt,
+    subscriptionPeriod: household.subscriptionPeriod,
     billingCurrency: household.billingCurrency,
     repo: householdRepo(db, householdId),
   };
