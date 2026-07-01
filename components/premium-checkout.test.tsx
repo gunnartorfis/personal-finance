@@ -29,6 +29,10 @@ vi.mock("@adyen/adyen-web", () => ({
   Card,
 }))
 
+// useRouter is a static import (resolved at module load), so hoist the spy above the mock factory.
+const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }))
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }))
+
 // Routes both endpoints the component calls: POST /api/billing/checkout (session) and
 // GET /api/billing/status (activation poll, returns `plan`).
 function stubCheckout(clientKey = "test_ABC", plan = "Premium") {
@@ -51,6 +55,7 @@ beforeEach(() => {
   Dropin.mockClear()
   mount.mockClear()
   unmount.mockClear()
+  refresh.mockClear()
 })
 afterEach(() => vi.unstubAllGlobals())
 
@@ -93,6 +98,8 @@ describe("PremiumCheckout", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/billing/status")
     // Drop-in torn down on the phase transition (its container leaves the DOM), not just on unmount.
     expect(unmount).toHaveBeenCalledTimes(1)
+    // Re-fetch the server-rendered plan so the surrounding Free UI swaps to Premium without a reload.
+    expect(refresh).toHaveBeenCalled()
   })
 
   it("shows a confirming state, then a submitted notice if activation never confirms", async () => {

@@ -1,6 +1,7 @@
 "use client"
 
 import { CircleAlert, Loader2, Sparkles } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 
 import "@adyen/adyen-web/styles/adyen.css"
@@ -47,6 +48,7 @@ export function PremiumCheckout({
   pollIntervalMs?: number
   maxPolls?: number
 }) {
+  const router = useRouter()
   const [period, setPeriod] = useState<BillingPeriod>("monthly")
   const [phase, setPhase] = useState<Phase>("choose")
   const [busy, setBusy] = useState(false)
@@ -78,7 +80,12 @@ export function PremiumCheckout({
         if (res.ok) {
           const { plan } = (await res.json()) as { plan: string }
           if (plan === "Premium") {
-            if (!cancelledRef.current) setPhase("done")
+            if (!cancelledRef.current) {
+              setPhase("done")
+              // The surrounding plan UI (ManageSubscription) was server-rendered as Free; re-fetch it
+              // so it swaps to the Premium view without the user having to reload the page.
+              router.refresh()
+            }
             return
           }
         }
