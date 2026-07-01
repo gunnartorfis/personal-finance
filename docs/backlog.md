@@ -242,7 +242,7 @@ Pure domain + data first (test-first via the `tdd` skill), then UI. Each item is
 - [x] **K11 — 12-mo spending trend** (`/design`): spending bars + money-in overlay; tap month →
   `/transactions?cycle=`; <3-month placeholder. Lightweight SVG/CSS unless `/design` opts for shadcn
   charts.
-- [ ] **K12 — Category mix + trend module** (`/design`): current-period `SpendingByType` + stacked
+- [x] **K12 — Category mix + trend module** (`/design`): current-period `SpendingByType` + stacked
   month-over-month; "classify to unlock" nudge when mostly unclassified.
 - [ ] **K13 — Top merchants module** (`/design`).
 - [ ] **K14 — Biggest movers module** (`/design`).

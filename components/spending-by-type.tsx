@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
  * and its legend dot. The three real expense types get distinct hues; the unbucketed (`""`) and
  * not-yet-classified totals share a neutral so the eye reads them as "no category".
  */
-const CATEGORIES = [
+export const CATEGORIES = [
   { key: "Fixed", label: "Fixed", swatch: "bg-emerald-500" },
   { key: "Necessary", label: "Necessary", swatch: "bg-amber-500" },
   { key: "Nice to have", label: "Nice to have", swatch: "bg-rose-500" },
