@@ -246,7 +246,7 @@ Pure domain + data first (test-first via the `tdd` skill), then UI. Each item is
   month-over-month; "classify to unlock" nudge when mostly unclassified.
 - [x] **K13 — Top merchants module** (`/design`).
 - [x] **K14 — Biggest movers module** (`/design`).
-- [ ] **K15 — Account breakdown module** (`/design`): render only when >1 Account.
+- [x] **K15 — Account breakdown module** (`/design`): render only when >1 Account.
 - [ ] **K16 — Dashboard page assembly** (`/design`): rewrite `app/(app)/dashboard/page.tsx` to load
   the view-model and render the modules in order with progressive thin-data gating (keeping a slot
   for the savings progress card).
