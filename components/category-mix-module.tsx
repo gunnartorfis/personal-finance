@@ -3,7 +3,7 @@ import Link from "next/link"
 import { CATEGORIES, SpendingByType } from "@/components/spending-by-type"
 import type { CategoryTrendPoint } from "@/lib/dashboard/category-trend"
 import type { CycleKey } from "@/lib/dashboard/cycle"
-import { shortCycleLabel } from "@/lib/dashboard/cycle"
+import { cycleKeyLabel, shortCycleLabel } from "@/lib/dashboard/cycle"
 import type { NetSummary } from "@/lib/dashboard/net-summary"
 import { cn } from "@/lib/utils"
 
@@ -38,8 +38,22 @@ function segmentsFor(point: CategoryTrendPoint) {
         : category.key === "Unclassified"
           ? point.unclassified
           : point.byExpenseType[category.key]
-    return { key: category.key, swatch: category.swatch, magnitude }
+    return { key: category.key, label: category.label, swatch: category.swatch, magnitude }
   })
+}
+
+/** Accessible description of one month's mix, e.g. "March 2026 spending mix: Fixed 60%, Nice to have 40%". */
+function mixLabel(
+  month: CycleKey,
+  segments: ReadonlyArray<{ label: string; magnitude: number }>,
+  total: number,
+): string {
+  const label = cycleKeyLabel(month)
+  if (total === 0) return `${label}: no spending recorded`
+  const parts = segments
+    .filter((segment) => segment.magnitude > 0)
+    .map((segment) => `${segment.label} ${Math.round((segment.magnitude / total) * 100)}%`)
+  return `${label} spending mix: ${parts.join(", ")}`
 }
 
 /**
@@ -91,7 +105,8 @@ export function CategoryMixModule({
             return (
               <div key={point.month} className="flex min-w-6 flex-1 flex-col items-center gap-1.5">
                 <div
-                  aria-hidden="true"
+                  role="img"
+                  aria-label={mixLabel(point.month, segments, total)}
                   className="flex h-24 w-full flex-col-reverse overflow-hidden rounded-sm bg-muted"
                 >
                   {total > 0 &&

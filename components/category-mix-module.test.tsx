@@ -40,6 +40,21 @@ describe("CategoryMixModule", () => {
     expect(screen.getByText("Mar")).toBeInTheDocument()
   })
 
+  it("exposes each month's mix to assistive tech via a role=img composition label", () => {
+    render(
+      <CategoryMixModule
+        categoryTrend={TREND}
+        currentMonth="2026-03"
+        mostlyUnclassified={false}
+        currency="ISK"
+      />,
+    )
+    // 2026-03: Fixed 60000 + Nice to have 40000 -> Fixed 60%, Nice to have 40%.
+    const march = screen.getByRole("img", { name: /March 2026 spending mix/i })
+    expect(march).toHaveAccessibleName(/Fixed 60%/)
+    expect(march).toHaveAccessibleName(/Nice to have 40%/)
+  })
+
   it("shows a classify-to-unlock nudge when spending is mostly unclassified", () => {
     render(
       <CategoryMixModule
