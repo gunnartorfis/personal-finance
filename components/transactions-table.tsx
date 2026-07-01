@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 import { OverrideControl } from "@/components/override-control"
@@ -42,6 +43,7 @@ export function TransactionsTable({
   backlogElsewhere?: number
 }) {
   const [rows, setRows] = useState(initial)
+  const router = useRouter()
 
   const fmtAmount = (amount: number) =>
     new Intl.NumberFormat("en-US", {
@@ -68,6 +70,10 @@ export function TransactionsTable({
           : row
       )
     )
+    // The local update gives this row instant feedback, but the net summary and the whole-household
+    // Rapid review badge are server-derived — settling (or clearing) a row here changes the backlog,
+    // so refresh to recount them, exactly as closing the rapid-review overlay does.
+    router.refresh()
   }
 
   if (rows.length === 0) {
