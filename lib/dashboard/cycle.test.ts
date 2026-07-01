@@ -9,6 +9,7 @@ import {
   isValidCycleKey,
   nextCycleKey,
   previousCycleKey,
+  recentCycleKeys,
 } from "./cycle";
 
 describe("cycleRange", () => {
@@ -86,5 +87,33 @@ describe("previousCycleKey / nextCycleKey", () => {
   it("rolls across year boundaries", () => {
     expect(previousCycleKey("2026-01")).toBe("2025-12");
     expect(nextCycleKey("2026-12")).toBe("2027-01");
+  });
+});
+
+describe("recentCycleKeys", () => {
+  it("returns `count` keys ending at the month containing now, oldest first", () => {
+    expect(recentCycleKeys(new Date("2026-03-15T12:00:00Z"), 3)).toEqual([
+      "2026-01",
+      "2026-02",
+      "2026-03",
+    ]);
+  });
+
+  it("rolls back across year boundaries", () => {
+    expect(recentCycleKeys(new Date("2026-02-01T00:00:00Z"), 4)).toEqual([
+      "2025-11",
+      "2025-12",
+      "2026-01",
+      "2026-02",
+    ]);
+  });
+
+  it("returns just the current month for a count of 1", () => {
+    expect(recentCycleKeys(new Date("2026-07-09T00:00:00Z"), 1)).toEqual(["2026-07"]);
+  });
+
+  it("returns an empty list for a non-positive count", () => {
+    expect(recentCycleKeys(new Date("2026-07-09T00:00:00Z"), 0)).toEqual([]);
+    expect(recentCycleKeys(new Date("2026-07-09T00:00:00Z"), -2)).toEqual([]);
   });
 });

@@ -64,6 +64,19 @@ export function nextCycleKey(key: CycleKey): CycleKey {
   return month === 12 ? `${year + 1}-01` : `${year}-${pad(month + 1)}`;
 }
 
+/**
+ * The `count` most recent cycle keys ending at the month containing `now`, oldest first — the
+ * dashboard's rolling look-back window (e.g. 12 months). A non-positive `count` yields `[]`.
+ */
+export function recentCycleKeys(now: Date, count: number): CycleKey[] {
+  if (count <= 0) return [];
+  const keys: CycleKey[] = [currentCycleKey(now)];
+  while (keys.length < count) {
+    keys.push(previousCycleKey(keys[keys.length - 1]));
+  }
+  return keys.reverse();
+}
+
 /** The `[from, to)` ISO date range (`YYYY-MM-DD`) of the calendar month containing `now`. */
 export function cycleRange(now: Date): { from: string; to: string } {
   return cycleKeyRange(currentCycleKey(now));
