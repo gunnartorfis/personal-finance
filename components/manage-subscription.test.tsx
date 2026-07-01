@@ -4,6 +4,11 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ManageSubscription } from "@/components/manage-subscription"
 
+// The Free/cancelled branch renders <PremiumCheckout>, which calls useRouter at render; stub it so the
+// component tree mounts outside an app-router context (rather than depending on another test file's
+// mock leaking in). Mirrors the mock in premium-checkout.test.tsx.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }))
+
 afterEach(() => vi.unstubAllGlobals())
 
 describe("ManageSubscription", () => {
