@@ -1,8 +1,10 @@
 "use client"
 
+import { CircleAlert, Loader2 } from "lucide-react"
 import { useState } from "react"
 
 import { PremiumCheckout } from "@/components/premium-checkout"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 function formatRenewal(iso: string): string {
@@ -50,61 +52,87 @@ export function ManageSubscription({
   const isPremium = plan === "Premium" && !cancelled
 
   return (
-    <section className={cn("flex flex-col gap-3 rounded-xl border border-border p-6", className)}>
-      <h2 className="text-lg font-medium">Subscription</h2>
+    <section
+      aria-labelledby="subscription-heading"
+      className={cn("flex flex-col gap-4 rounded-xl border border-border bg-card p-6", className)}
+    >
+      <h2 id="subscription-heading" className="text-base font-medium">
+        Subscription
+      </h2>
 
       {isPremium ? (
         <>
-          <p className="text-sm text-muted-foreground">
-            Premium{period ? ` (${period})` : ""}
-            {planRenewsAt ? ` — renews ${formatRenewal(planRenewsAt)}` : ""}.
-          </p>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-semibold">Premium</span>
+              {period && (
+                <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground capitalize">
+                  {period}
+                </span>
+              )}
+            </div>
+            {planRenewsAt && (
+              <p className="text-sm text-muted-foreground">Renews {formatRenewal(planRenewsAt)}.</p>
+            )}
+          </div>
+
           {confirming ? (
             // Two-step confirm: cancelling is destructive, so the POST only fires on explicit confirm.
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm">Cancel your Premium subscription?</span>
-              <button
+              <Button
                 type="button"
+                variant="destructive"
+                size="sm"
                 onClick={() => void cancel()}
                 disabled={busy}
-                className="rounded-md border border-destructive px-3 py-1 text-sm font-medium text-destructive"
               >
+                {busy && <Loader2 className="animate-spin" />}
                 Yes, cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setConfirming(false)}
                 disabled={busy}
-                className="rounded-md border border-border px-3 py-1 text-sm font-medium"
               >
                 Keep it
-              </button>
+              </Button>
             </div>
           ) : (
-            <button
+            <Button
               type="button"
+              variant="outline"
+              className="self-start"
               onClick={() => setConfirming(true)}
-              className="self-start rounded-md border border-border px-3 py-1 text-sm font-medium"
             >
               Cancel subscription
-            </button>
+            </Button>
           )}
         </>
       ) : (
         <>
-          <p className="text-sm text-muted-foreground">
-            {cancelled
-              ? "Your subscription is cancelled — you’re on the Free plan."
-              : "You’re on the Free plan."}
-          </p>
+          <div className="flex flex-col gap-1">
+            <span className="text-lg font-semibold">Free</span>
+            <p className="text-sm text-muted-foreground">
+              {cancelled
+                ? "Your subscription is cancelled — you’re on the Free plan."
+                : "You’re on the Free plan."}
+            </p>
+          </div>
           <PremiumCheckout />
         </>
       )}
 
       {errored && (
-        <p role="alert" className="text-sm text-destructive">
-          Couldn’t cancel — please try again.
-        </p>
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <p>Couldn’t cancel — please try again.</p>
+        </div>
       )}
     </section>
   )
