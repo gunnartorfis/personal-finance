@@ -44,6 +44,12 @@ describe("ThisMonthHero", () => {
     expect(screen.getByText(/-8% vs your average/i)).toBeInTheDocument()
   })
 
+  it("shows a flat 0% delta without a plus prefix", () => {
+    render(<ThisMonthHero hero={{ ...HERO, vsAveragePct: 0 }} currency="ISK" />)
+    expect(screen.getByText(/ran 0% vs your average/i)).toBeInTheDocument()
+    expect(screen.queryByText(/\+0%/)).not.toBeInTheDocument()
+  })
+
   it("omits the projection and info lines when their data is absent", () => {
     render(
       <ThisMonthHero

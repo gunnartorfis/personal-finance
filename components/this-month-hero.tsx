@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowUpRight } from "lucide-react"
+import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react"
 
 import { cycleKeyLabel } from "@/lib/dashboard/cycle"
 import type { DashboardHero } from "@/lib/dashboard/dashboard-view"
@@ -20,16 +20,19 @@ export function ThisMonthHero({
   currency: string
   className?: string
 }) {
-  const fmt = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount)
+  // One formatter instance, reused across the card (not re-created per value).
+  const money = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  })
+  const fmt = (amount: number) => money.format(amount)
 
   const { month, spentSoFar, projected, moneyIn, difference, vsAveragePct, trailingAverage, largestCharge } =
     hero
   const hasInfo = vsAveragePct !== null || largestCharge !== null
+  // Direction cue: up only when above average, down when below, flat at exactly the average.
+  const TrendIcon = vsAveragePct === null || vsAveragePct === 0 ? Minus : vsAveragePct > 0 ? ArrowUpRight : ArrowDownRight
 
   return (
     <section className={cn("@container flex flex-col gap-6 rounded-xl border border-border bg-card p-6", className)}>
@@ -50,13 +53,9 @@ export function ThisMonthHero({
         <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
           {vsAveragePct !== null && (
             <p className="flex items-center gap-1.5">
-              {vsAveragePct >= 0 ? (
-                <ArrowUpRight aria-hidden="true" className="size-4 shrink-0" />
-              ) : (
-                <ArrowDownRight aria-hidden="true" className="size-4 shrink-0" />
-              )}
+              <TrendIcon aria-hidden="true" className="size-4 shrink-0" />
               <span>
-                Last full month ran {vsAveragePct >= 0 ? "+" : ""}
+                Last full month ran {vsAveragePct > 0 ? "+" : ""}
                 {vsAveragePct}% vs your average
                 {trailingAverage !== null ? ` of ${fmt(trailingAverage)}` : ""}.
               </span>
