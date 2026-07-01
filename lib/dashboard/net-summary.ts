@@ -29,7 +29,8 @@ export interface NetSummaryRow {
   effectiveType: ExpenseType | null;
 }
 
-function emptyByExpenseType(): Record<ExpenseType, number> {
+/** A zeroed bucket record for every {@link ExpenseType} — the starting point for expense folds. */
+export function emptyByExpenseType(): Record<ExpenseType, number> {
   return { Fixed: 0, Necessary: 0, "Nice to have": 0, "": 0 };
 }
 

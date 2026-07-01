@@ -303,6 +303,46 @@ export function householdRepo(db: Db, householdId: string) {
         return rows.map((row) => ({ merchant: row.merchant, spending: Number(row.spending) }));
       },
       /**
+       * Per-calendar-month, per-effective-expense-type debit magnitude over a half-open range
+       * `[from, to)` — the stacked category-mix trend. The effective type is
+       * `coalesce(override, classified)` (so a manual Override wins, matching the dashboard); a null
+       * result (pending/failed) is returned as-is and folded into "unclassified" by the pure builder.
+       * Credits (`amount >= 0`) and out-of-range rows are excluded. Scoped to the household on both
+       * the transactions filter and the override join; `sum(...)` is coerced from the driver string.
+       */
+      monthlyCategorySpend: async (range: { from: string; to: string }) => {
+        const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`;
+        const effectiveType = sql<
+          string | null
+        >`coalesce(${overrides.expenseType}, ${transactions.expenseType})`;
+        const spending = sql<string>`sum(-${transactions.amount})`;
+        const rows = await db
+          .select({ month, effectiveType, spending })
+          .from(transactions)
+          .leftJoin(
+            overrides,
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactions.id)
+            )
+          )
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              lt(transactions.amount, 0),
+              gte(transactions.date, range.from),
+              lt(transactions.date, range.to)
+            )
+          )
+          .groupBy(month, effectiveType)
+          .orderBy(asc(month));
+        return rows.map((row) => ({
+          month: row.month,
+          effectiveType: row.effectiveType,
+          spending: Number(row.spending),
+        }));
+      },
+      /**
        * The distinct statement cycles (calendar months as `"YYYY-MM"`) that have at least one
        * transaction for this Household, newest first. Drives the period selector on the transactions
        * view. The month is derived in SQL from the date-only `date` column so it lines up exactly
