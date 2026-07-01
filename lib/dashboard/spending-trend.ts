@@ -49,18 +49,18 @@ export interface TrailingOptions {
 /** Defaults from the dashboard design: need ≥3 completed months; average over up to 12. */
 export const DEFAULT_TRAILING: Required<TrailingOptions> = { minMonths: 3, maxMonths: 12 };
 
-/** Linear month-end projection for an in-progress month, from spend-so-far over elapsed UTC days. */
-export function projectMonth(
-  point: { month: CycleKey; spending: number },
-  now: Date,
-): MonthProjection {
+/**
+ * Linear month-end projection for the in-progress month containing `now`, from `spentSoFar` over the
+ * elapsed UTC days. Month, length, and elapsed days are all derived from `now`, so they can never
+ * disagree — the caller only supplies the amount spent so far this month.
+ */
+export function projectMonth(spentSoFar: number, now: Date): MonthProjection {
   const year = now.getUTCFullYear();
   const monthIndex = now.getUTCMonth(); // 0-based
   const daysInMonth = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
   const daysElapsed = now.getUTCDate();
-  const spentSoFar = point.spending;
   return {
-    month: point.month,
+    month: currentCycleKey(now),
     spentSoFar,
     daysElapsed,
     daysInMonth,
@@ -77,8 +77,10 @@ export function computeSpendingTrendStats(
   const { minMonths, maxMonths } = { ...DEFAULT_TRAILING, ...options };
   const currentKey = currentCycleKey(now);
 
-  // Month keys sort lexicographically the same as chronologically, so a string compare is safe.
-  const completed = series.filter((p) => p.month < currentKey && p.spending > 0);
+  // Sort a copy oldest-first so callers need not guarantee order; month keys sort lexicographically
+  // the same as chronologically, so a plain string compare is safe.
+  const ordered = [...series].sort((a, b) => a.month.localeCompare(b.month));
+  const completed = ordered.filter((p) => p.month < currentKey && p.spending > 0);
   const completedMonths = completed.length;
   const hasEnoughHistory = completedMonths >= minMonths;
 
@@ -93,8 +95,8 @@ export function computeSpendingTrendStats(
       ? Math.round(((lastCompleted.spending - trailingAverage) / trailingAverage) * 100)
       : null;
 
-  const currentPoint = series.find((p) => p.month === currentKey) ?? null;
-  const projection = currentPoint ? projectMonth(currentPoint, now) : null;
+  const currentPoint = ordered.find((p) => p.month === currentKey) ?? null;
+  const projection = currentPoint ? projectMonth(currentPoint.spending, now) : null;
 
   return {
     completedMonths,

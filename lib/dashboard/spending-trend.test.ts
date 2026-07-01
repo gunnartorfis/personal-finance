@@ -10,8 +10,8 @@ function pt(month: string, spending: number, moneyIn = 0): MonthlySpendPoint {
 
 describe("projectMonth", () => {
   it("projects linearly from spend-so-far over elapsed days to the full month (UTC)", () => {
-    // Day 10 of March (31 days): 100000 / 10 * 31 = 310000.
-    expect(projectMonth(pt("2026-03", 100000), new Date("2026-03-10T12:00:00Z"))).toEqual({
+    // Day 10 of March (31 days): 100000 / 10 * 31 = 310000. Month/length derive from `now`.
+    expect(projectMonth(100000, new Date("2026-03-10T12:00:00Z"))).toEqual({
       month: "2026-03",
       spentSoFar: 100000,
       daysElapsed: 10,
@@ -22,7 +22,7 @@ describe("projectMonth", () => {
 
   it("rounds the projection and knows February length in a non-leap year", () => {
     // Day 3 of Feb 2026 (28 days): 100 / 3 * 28 = 933.33 -> 933.
-    expect(projectMonth(pt("2026-02", 100), new Date("2026-02-03T00:00:00Z"))).toEqual({
+    expect(projectMonth(100, new Date("2026-02-03T00:00:00Z"))).toEqual({
       month: "2026-02",
       spentSoFar: 100,
       daysElapsed: 3,
@@ -85,6 +85,21 @@ describe("computeSpendingTrendStats", () => {
     expect(stats.completedMonths).toBe(13);
     expect(stats.trailingAverage).toBe(100000); // last 12 only -> the 999999 outlier excluded
     expect(stats.vsAveragePct).toBe(0); // last completed 100000 == average
+  });
+
+  it("sorts defensively, so an unordered series still yields the right last month and average", () => {
+    const series = [
+      pt("2026-02", 350000),
+      pt("2025-11", 200000),
+      pt("2026-01", 300000),
+      pt("2026-03", 100000), // current
+      pt("2025-12", 400000),
+    ];
+    const stats = computeSpendingTrendStats(series, NOW);
+    expect(stats.trailingAverage).toBe(312500);
+    expect(stats.lastCompleted).toEqual(pt("2026-02", 350000));
+    expect(stats.vsAveragePct).toBe(12);
+    expect(stats.projection?.projected).toBe(310000);
   });
 
   it("has no projection when the series has no current-month point", () => {
