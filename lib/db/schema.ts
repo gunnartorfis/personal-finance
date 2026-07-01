@@ -320,3 +320,116 @@ export const straumurPayments = pgTable("straumur_payments", {
   receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---------------------------------------------------------------------------
+// Savings goals (ADR-0007): a Household tracks progress toward a target amount by a target date,
+// with progress INFERRED from spend (never an entered balance). These tables hold the goal, the
+// Household's configured Monthly income + Off-card fixed costs, and the frozen per-cycle Check-in
+// snapshots. Every row is keyed by household_id (cascade); none reference another tenant-scoped
+// table, so a plain household FK is sufficient (no composite same-household FK needed here).
+// ---------------------------------------------------------------------------
+
+/** A Household's Savings goal (ADR-0007). One active goal per Household in v1. */
+export const savingsGoals = pgTable(
+  "savings_goals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    /** Amount to accumulate by the target date, in whole billing-currency units. */
+    target: integer("target").notNull(),
+    /** The date the amount must be reached by. */
+    targetDate: date("target_date").notNull(),
+    /** Amount already saved at the start cycle (0 when starting from scratch). */
+    startingSaved: integer("starting_saved").notNull().default(0),
+    /** Statement-cycle key (`YYYY-MM`) the goal starts counting from. */
+    startCycle: text("start_cycle").notNull(),
+    /** ISO 4217 goal currency (the Household's billing currency; no FX in v1). */
+    currency: text("currency").notNull().default("ISK"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // One active Savings goal per Household (v1).
+    unique("savings_goals_household_id_key").on(t.householdId),
+    check("savings_goals_target_positive", sql`${t.target} > 0`),
+    check("savings_goals_starting_saved_nonneg", sql`${t.startingSaved} >= 0`),
+    // Start cycle is a well-formed Statement-cycle key: YYYY-MM, month 01–12.
+    check("savings_goals_start_cycle_format", sql`${t.startCycle} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
+    check("savings_goals_currency_iso4217", sql`${t.currency} ~ '^[A-Z]{3}$'`),
+  ],
+);
+
+/** A recurring monthly income source for a Household's savings math (e.g. a salary, rental income). */
+export const savingsIncomeSources = pgTable(
+  "savings_income_sources",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** Monthly amount in whole billing-currency units. */
+    amount: integer("amount").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check("savings_income_sources_amount_nonneg", sql`${t.amount} >= 0`)],
+);
+
+/** A recurring monthly Off-card fixed cost (rent, loan) not present on the uploaded cards (ADR-0007). */
+export const savingsOffcardCosts = pgTable(
+  "savings_offcard_costs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** Monthly amount in whole billing-currency units. */
+    monthlyAmount: integer("monthly_amount").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check("savings_offcard_costs_monthly_amount_nonneg", sql`${t.monthlyAmount} >= 0`)],
+);
+
+/**
+ * A frozen Check-in snapshot for one Statement cycle (ADR-0007): the cycle's inputs and the
+ * resulting Inferred saving, captured at check-in so later config edits never rewrite history.
+ * One Check-in per (Household, cycle).
+ */
+export const savingsCheckins = pgTable(
+  "savings_checkins",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    /** Statement-cycle key (`YYYY-MM`) this snapshot covers. */
+    cycleKey: text("cycle_key").notNull(),
+    /** Frozen recurring Monthly income for the cycle. */
+    monthlyIncome: integer("monthly_income").notNull(),
+    /** Frozen one-off extra income for the cycle (bonus, gift); 0 when none. */
+    cycleExtra: integer("cycle_extra").notNull().default(0),
+    /** Frozen Off-card fixed costs for the cycle. */
+    offCardFixed: integer("off_card_fixed").notNull(),
+    /** Frozen card debits (magnitude; positive card lines excluded, ADR-0007). */
+    cardDebits: integer("card_debits").notNull(),
+    /** Frozen Inferred saving; may be negative on a losing cycle. */
+    inferredSaving: integer("inferred_saving").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // One Check-in per Household per cycle (re-checking a cycle upserts this row).
+    unique("savings_checkins_household_id_cycle_key").on(t.householdId, t.cycleKey),
+    check("savings_checkins_cycle_key_format", sql`${t.cycleKey} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
+    check("savings_checkins_monthly_income_nonneg", sql`${t.monthlyIncome} >= 0`),
+    check("savings_checkins_cycle_extra_nonneg", sql`${t.cycleExtra} >= 0`),
+    check("savings_checkins_off_card_fixed_nonneg", sql`${t.offCardFixed} >= 0`),
+    check("savings_checkins_card_debits_nonneg", sql`${t.cardDebits} >= 0`),
+    // Defence in depth: the frozen Inferred saving reconciles with its inputs (ADR-0007 formula).
+    check(
+      "savings_checkins_inferred_reconciles",
+      sql`${t.inferredSaving} = ${t.monthlyIncome} + ${t.cycleExtra} - ${t.offCardFixed} - ${t.cardDebits}`,
+    ),
+  ],
+);

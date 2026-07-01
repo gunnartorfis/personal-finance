@@ -166,7 +166,7 @@ each item one small PR; earliest are pure `shared/` domain logic (test-first).
   totalCycles`; corrective pace `(target−cumulative) / cyclesRemaining`; `allowedNiceToHave =
   income − offCardFixed − correctivePace − expectedFixed − expectedNecessary`. Guard zero/negative
   cycles remaining. No infrastructure. Blocked by: none.
-- [ ] **Schema: goal + config + check-ins** (ADR-0007, ADR-0002): `savings_goals` (target,
+- [x] **Schema: goal + config + check-ins** (ADR-0007, ADR-0002): `savings_goals` (target,
   targetDate, startingSaved, startCycle, currency; one active per Household), `savings_income_sources`
   (`{name, amount}`), `savings_offcard_costs` (`{name, monthlyAmount}`), `savings_checkins` (cycleKey
   + frozen income/offcard/cardDebits/inferredSaving + optional cycleExtra; unique(household, cycle)).
