@@ -54,6 +54,28 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
+  migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Detect conflicting/duplicate migration files (e.g. two branches generated the same index).
+      - run: pnpm db:check
+      # Detect schema drift: schema.ts changed without a generated migration. `db:generate` is
+      # offline (no DATABASE_URL); any new file under drizzle/ means a migration is missing.
+      - run: pnpm db:generate
+      - run: |
+          if [ -n "$(git status --porcelain drizzle)" ]; then
+            echo "::error::Schema changed but no migration committed. Run 'pnpm db:generate' and commit the result."
+            git status --porcelain drizzle
+            exit 1
+          fi
+
   react-doctor:
     # PR-only: --scope changed reports just the issues this PR introduces.
     if: github.event_name == 'pull_request'
