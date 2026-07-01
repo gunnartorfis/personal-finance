@@ -38,10 +38,12 @@ describe("ActionBand", () => {
     expect(screen.getByRole("link", { name: /1 expense needs review/i })).toBeInTheDocument()
   })
 
-  it("surfaces failed classifications with a retry affordance", () => {
+  it("surfaces failed classifications with a retry-only affordance", () => {
     render(<ActionBand actionBand={band({ failedCount: 3 })} />)
     expect(screen.getByText(/3 classifications failed/i)).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /retry 3 failed/i })).toBeInTheDocument()
+    // The failed card is retry-focused — no general "Classify pending" button here.
+    expect(screen.queryByRole("button", { name: /classify pending/i })).not.toBeInTheDocument()
   })
 
   it("shows the Free-cap paused alert (reusing FreeCapStatusBanner)", () => {

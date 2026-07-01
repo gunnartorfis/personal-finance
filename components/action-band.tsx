@@ -23,7 +23,10 @@ export function ActionBand({
   const { reviewBacklog, failedCount, freeCap, allClear } = actionBand
 
   return (
-    <section aria-label="Needs attention" className={cn("flex flex-col gap-3", className)}>
+    <section
+      aria-label={allClear ? "All caught up" : "Needs attention"}
+      className={cn("flex flex-col gap-3", className)}
+    >
       <FreeCapStatusBanner status={freeCap} />
 
       {reviewBacklog > 0 && (
@@ -62,7 +65,7 @@ export function ActionBand({
               <span className="text-muted-foreground"> — retry to finish bucketing them.</span>
             </p>
           </div>
-          <ClassifyTrigger failedCount={failedCount} />
+          <ClassifyTrigger failedCount={failedCount} retryOnly />
         </div>
       )}
 

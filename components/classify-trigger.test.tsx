@@ -35,6 +35,12 @@ describe("ClassifyTrigger", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
+  it("hides the Classify-pending button in retryOnly mode, keeping only retry", () => {
+    render(<ClassifyTrigger failedCount={2} retryOnly />)
+    expect(screen.queryByRole("button", { name: /classify pending/i })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /retry 2 failed/i })).toBeInTheDocument()
+  })
+
   it("runs once automatically when autoRun is set", async () => {
     stubClassify([
       { classified: 2, failed: 0, capped: 0 },
