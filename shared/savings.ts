@@ -54,8 +54,11 @@ export function cumulativeSaved(startingSaved: number, cycleSavings: readonly nu
  * The linear on-track reference: how much should be saved by `elapsedCycles`, spreading the amount
  * still to save (`target − startingSaved`) evenly across `totalCycles`. This is the FIXED baseline
  * used to judge on-track/behind; the forward corrective pace ({@link correctivePerCycle}) recomputes
- * separately. `elapsedCycles` is clamped into `[0, totalCycles]`. Throws {@link RangeError} if the
- * goal spans no cycles.
+ * separately. `elapsedCycles` is clamped into `[0, totalCycles]`. Returns an EXACT, possibly
+ * fractional value — it is an internal reference for the on-track comparison, deliberately not
+ * rounded (rounding the baseline would distort {@link isOnTrack}); callers round only for display.
+ *
+ * @throws {RangeError} if the goal spans no cycles (`totalCycles <= 0`).
  */
 export function requiredCumulativeByCycle(goal: SavingsGoal, elapsedCycles: number): number {
   if (goal.totalCycles <= 0) {
@@ -66,7 +69,11 @@ export function requiredCumulativeByCycle(goal: SavingsGoal, elapsedCycles: numb
   return goal.startingSaved + perCycle * elapsed;
 }
 
-/** Whether cumulative saving meets or beats the linear requirement for `elapsedCycles`. */
+/**
+ * Whether cumulative saving meets or beats the linear requirement for `elapsedCycles`.
+ *
+ * @throws {RangeError} if the goal spans no cycles — delegated from {@link requiredCumulativeByCycle}.
+ */
 export function isOnTrack(goal: SavingsGoal, elapsedCycles: number, cumulative: number): boolean {
   return cumulative >= requiredCumulativeByCycle(goal, elapsedCycles);
 }
@@ -74,7 +81,9 @@ export function isOnTrack(goal: SavingsGoal, elapsedCycles: number, cumulative: 
 /**
  * The Required saving for the coming cycle: the amount still to save spread over the cycles that
  * remain, so it RISES when the Household is behind (fewer cycles, same shortfall). Never negative —
- * 0 once the target is met. When no cycles remain, the whole remaining amount is due at once.
+ * 0 once the target is met. When no cycles remain, the whole remaining amount is due at once. The
+ * result is rounded UP to whole units (ISK has no sub-units), so following it can only ever meet or
+ * exceed the target, never leave a fractional shortfall.
  */
 export function correctivePerCycle(
   goal: SavingsGoal,
@@ -83,7 +92,7 @@ export function correctivePerCycle(
 ): number {
   const remaining = Math.max(0, goal.target - cumulative);
   if (cyclesRemaining <= 0) return remaining;
-  return remaining / cyclesRemaining;
+  return Math.ceil(remaining / cyclesRemaining);
 }
 
 /**

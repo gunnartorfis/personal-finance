@@ -72,6 +72,14 @@ describe("requiredCumulativeByCycle", () => {
     expect(requiredCumulativeByCycle(goal, 12)).toBe(5_000_000);
   });
 
+  it("returns an exact, possibly fractional reference value (callers round for display)", () => {
+    // 0 + (1,000,000 / 3) * 1 — an exact reference, deliberately not rounded
+    expect(requiredCumulativeByCycle({ target: 1_000_000, startingSaved: 0, totalCycles: 3 }, 1)).toBeCloseTo(
+      333_333.33,
+      2,
+    );
+  });
+
   it("throws when the goal spans no cycles", () => {
     expect(() => requiredCumulativeByCycle({ ...goal, totalCycles: 0 }, 0)).toThrow(RangeError);
   });
@@ -88,6 +96,10 @@ describe("isOnTrack", () => {
 
   it("is true when ahead of the requirement", () => {
     expect(isOnTrack(goal, 5, 3_500_000)).toBe(true);
+  });
+
+  it("propagates the RangeError from a zero-cycle goal", () => {
+    expect(() => isOnTrack({ ...goal, totalCycles: 0 }, 0, 0)).toThrow(RangeError);
   });
 });
 
@@ -113,6 +125,13 @@ describe("correctivePerCycle", () => {
 
   it("never goes negative when already over-saved", () => {
     expect(correctivePerCycle(goal, 6_000_000, 5)).toBe(0);
+  });
+
+  it("rounds the required saving UP to whole units so following it never under-saves", () => {
+    // remaining 4,000,001 over 3 cycles = 1,333,333.67 → ceil 1,333,334
+    expect(correctivePerCycle({ target: 5_000_001, startingSaved: 1_000_000, totalCycles: 10 }, 1_000_000, 3)).toBe(
+      1_333_334,
+    );
   });
 });
 
