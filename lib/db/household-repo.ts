@@ -266,6 +266,81 @@ export function householdRepo(db: Db, householdId: string) {
           .orderBy(desc(month))
         return rows.map((row) => row.month)
       },
+      /**
+       * The household-wide rapid-review backlog broken down by statement cycle: each calendar month
+       * (`"YYYY-MM"`) that still has at least one expense (`amount < 0`) without a manual override,
+       * with how many, newest-first. Drives where the transactions view lands by default (the newest
+       * month that still has work) and the Rapid review badge total (the sum of the counts). Anti-join
+       * on `overrides` (`isNull(overrides.id)`) so a settled row never counts — mirroring the queue
+       * itself, so the badge total equals the number of cards {@link reviewQueue} will present.
+       */
+      reviewQueueMonths: async () => {
+        const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`
+        const rows = await db
+          .select({ month, value: count() })
+          .from(transactions)
+          .leftJoin(
+            overrides,
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactions.id)
+            )
+          )
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              lt(transactions.amount, 0),
+              isNull(overrides.id)
+            )
+          )
+          .groupBy(month)
+          .orderBy(desc(month))
+        return rows.map((row) => ({ month: row.month, count: row.value }))
+      },
+      /**
+       * The whole-household rapid-review queue: every expense (`amount < 0`) with no manual override,
+       * across all statement cycles, in the same row shape as {@link listWithOverrides} so
+       * `<ReviewMode>` consumes it directly. Newest-first (the overlay re-sorts least-confident-first).
+       * Unlike the per-period list this spans every month, so the overlay can drain the whole backlog
+       * regardless of which period the user is viewing. `overrideType` is always `null` here (the
+       * anti-join keeps overridden rows out) but is selected to keep the shape identical.
+       *
+       * `limit` bounds the batch in SQL so a large backlog never ships as one unbounded payload; the
+       * newest rows come first, and because reviewing a row writes an override that drops it from this
+       * query, closing and reopening the overlay fetches the next batch — the queue drains across
+       * sessions rather than materialising all at once.
+       */
+      reviewQueue: (limit?: number) => {
+        const q = db
+          .select({
+            id: transactions.id,
+            date: transactions.date,
+            merchant: transactions.merchant,
+            amount: transactions.amount,
+            classificationStatus: transactions.classificationStatus,
+            classifiedType: transactions.expenseType,
+            confidence: transactions.confidence,
+            reasoning: transactions.reasoning,
+            overrideType: overrides.expenseType,
+          })
+          .from(transactions)
+          .leftJoin(
+            overrides,
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactions.id)
+            )
+          )
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              lt(transactions.amount, 0),
+              isNull(overrides.id)
+            )
+          )
+          .orderBy(desc(transactions.date), asc(transactions.id))
+        return limit === undefined ? q : q.limit(limit)
+      },
       /** Count of classified transactions for the Household (lifetime) — used for the Free cap. */
       countClassified: async () => {
         const [row] = await db

@@ -7,6 +7,10 @@ import {
   type TransactionRow,
 } from "@/components/transactions-table"
 
+// The table calls router.refresh() after an inline override settles (to recount the server-derived
+// net summary + Rapid review badge); stub it so the component renders outside an app-router context.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }))
+
 afterEach(() => vi.unstubAllGlobals())
 
 const ROWS: TransactionRow[] = [
