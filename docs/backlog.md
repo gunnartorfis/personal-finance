@@ -227,7 +227,7 @@ Pure domain + data first (test-first via the `tdd` skill), then UI. Each item is
   trailing 3 months, top 6) + pure share-of-spend. Tests.
 - [x] **K5 — Category mix trend**: pure per-month per-`ExpenseType` debit totals over 12 months
   (effective type = override > classified), for the stacked module. Tests.
-- [ ] **K6 — Biggest movers**: pure — last completed month vs trailing average, per merchant AND per
+- [x] **K6 — Biggest movers**: pure — last completed month vs trailing average, per merchant AND per
   category, top 3 risers, plus the largest single charge in the current cycle (hero info line). Tests.
 - [ ] **K7 — Account breakdown**: repo `spendByAccount({from,to})` (Σ debits by account + name);
   consumed only when the household has >1 Account. Tests.

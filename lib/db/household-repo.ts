@@ -343,6 +343,54 @@ export function householdRepo(db: Db, householdId: string) {
         }));
       },
       /**
+       * Per-calendar-month, per-raw-merchant debit magnitude over a half-open range `[from, to)` —
+       * the input to the "biggest movers" (merchant) computation. Credits and out-of-range rows are
+       * excluded; the pure layer normalises + re-aggregates. Scoped to the household.
+       */
+      monthlyMerchantSpend: async (range: { from: string; to: string }) => {
+        const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`;
+        const spending = sql<string>`sum(-${transactions.amount})`;
+        const rows = await db
+          .select({ month, merchant: transactions.merchant, spending })
+          .from(transactions)
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              lt(transactions.amount, 0),
+              gte(transactions.date, range.from),
+              lt(transactions.date, range.to)
+            )
+          )
+          .groupBy(month, transactions.merchant)
+          .orderBy(asc(month));
+        return rows.map((row) => ({
+          month: row.month,
+          merchant: row.merchant,
+          spending: Number(row.spending),
+        }));
+      },
+      /**
+       * The single largest charge (most-negative debit) over a half-open range `[from, to)` — the
+       * dashboard hero's "largest charge this cycle" info line. Returns the merchant plus the charge
+       * magnitude (positive), or `undefined` when the range has no debits. Scoped to the household.
+       */
+      largestCharge: async (range: { from: string; to: string }) => {
+        const [row] = await db
+          .select({ merchant: transactions.merchant, amount: transactions.amount })
+          .from(transactions)
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              lt(transactions.amount, 0),
+              gte(transactions.date, range.from),
+              lt(transactions.date, range.to)
+            )
+          )
+          .orderBy(asc(transactions.amount))
+          .limit(1);
+        return row ? { merchant: row.merchant, amount: -row.amount } : undefined;
+      },
+      /**
        * The distinct statement cycles (calendar months as `"YYYY-MM"`) that have at least one
        * transaction for this Household, newest first. Drives the period selector on the transactions
        * view. The month is derived in SQL from the date-only `date` column so it lines up exactly
