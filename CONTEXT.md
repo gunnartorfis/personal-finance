@@ -1,7 +1,8 @@
 # Finance
 
 A hosted product where a household uploads their credit-card statements, has each
-transaction classified by spending type, and tracks combined net profit/loss.
+transaction classified by spending type, and tracks combined household spending
+(money-in vs money-out) over time.
 
 ## Language
 
@@ -31,6 +32,18 @@ _Avoid_: Base currency, Display currency
 **Original amount**:
 The pre-conversion foreign amount on a Transaction (e.g. `-10,21 USD`), shown for context only — never summed into net.
 
+**Spending**:
+A period's total expenses (debits, `amount < 0`), shown as a positive magnitude — the dashboard's hero metric and primary signal.
+_Avoid_: Expenses (as a headline), Costs
+
+**Money in**:
+A period's total card credits (`amount > 0`) — the honest label for what code once called "income". NOT true household income: it is mostly refunds, card-bill payments, and inter-account transfers. Distinct from the savings anchor **Monthly income** (off-card, configured); never sum the two.
+_Avoid_: Income, Revenue, Earnings
+
+**Difference**:
+`Money in − Spending` for a period — the honest replacement for "net profit/loss" on the dashboard. Not true P&L; the dashboard intentionally does NOT (yet) net against configured **Monthly income** (ADR-0008).
+_Avoid_: Net profit, Net loss, Net (unqualified), Cash flow
+
 **Expense type**:
 The spending bucket assigned to a Transaction — `Fixed`, `Necessary`, `Nice to have`, or `""` (not bucketed: credits and shared/split payments).
 _Avoid_: Category (reserved for the merchant-supplied category on the raw row)
@@ -45,8 +58,8 @@ A Member's manual change to a single Transaction's Expense type; takes precedenc
 A household-level mapping from a (normalized) merchant to an Expense type, applied deterministically before AI classification. Flat (`merchant → type`) or split by an optional amount threshold (`merchant, ≥ X → type A, else → type B`, e.g. gym membership vs incidental). Matching is normalized (uppercase, trimmed, store-number/location stripped).
 
 **Statement cycle**:
-The dashboard's time bucket — a window defined by the Household's configurable cutoff day (default 1 = calendar month; e.g. 27 → 27th–26th), applied uniformly to every Account by transaction date.
-_Avoid_: Billing cycle, Billing period, Month
+The dashboard's and transactions view's time bucket — **one calendar month**, identified by its `YYYY-MM` key, bucketing every Account by transaction date. (A configurable per-Household cutoff day — e.g. 27th–26th — is a deferred aspiration, not yet built; `lib/dashboard/cycle.ts` assumes the 1st.)
+_Avoid_: Billing cycle, Billing period, Month (informally)
 
 **Plan**:
 A Household's subscription level: `Free` (first 50 distinct classified Transactions, lifetime) or `Premium` (classification up to ~25k/month fair-use). 1990 ISK/month, or annually at 30% off, via Straumur/Adyen.
@@ -102,5 +115,5 @@ Cumulative Inferred saving to date ≥ cumulative Required saving to date.
 
 - "billing" is overloaded: **Statement cycle** (credit-card statement window, the dashboard time axis) vs. subscription/payment billing (the free/premium plan). Use "Statement cycle" for the former; reserve "billing" for payments. The existing `shared/billing.ts` computes the **Statement cycle** despite its name.
 - "category" vs **Expense type**: the raw row's merchant category (`Tegund`) is an input hint; the assigned bucket is the **Expense type**. Don't conflate.
-- "income" is two things: the dashboard's card-credit income (refunds) vs configured **Monthly income** (the savings anchor). Never sum them. Resolution: **Inferred saving** counts only card DEBITS (negative amounts) as spend and ignores all positive card lines — so a bank-account **Account** with salary credits cannot double-count with **Monthly income** (refunds are also ignored; accepted v1 simplification).
+- "income" is two things: the dashboard's **Money in** (card credits — refunds, card-bill payments, transfers) vs configured **Monthly income** (the off-card savings anchor). Never sum them. Resolution: **Inferred saving** counts only card DEBITS (negative amounts) as spend and ignores all positive card lines — so a bank-account **Account** with salary credits cannot double-count with **Monthly income** (refunds are also ignored; accepted v1 simplification). The dashboard leads with **Spending** and shows **Money in** / **Difference** honestly; wiring **Difference** to **Monthly income** for a true net is deferred (ADR-0008).
 - "savings" is **Inferred saving** (computed from spend), never an entered balance — chosen over a tracked-balance model.
