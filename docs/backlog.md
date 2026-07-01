@@ -217,15 +217,15 @@ Pure domain + data first (test-first via the `tdd` skill), then UI. Each item is
 
 - [x] **K1 — Design docs** (this PR): `CONTEXT.md` terms (Spending / Money in / Difference) +
   calendar-month Statement cycle fix, ADR-0008, this Phase K plan, Deferred P&L. Docs only.
-- [ ] **K2 — Monthly spend series**: repo `monthlySpendSeries({from,to})` (SQL `GROUP BY
+- [x] **K2 — Monthly spend series**: repo `monthlySpendSeries({from,to})` (SQL `GROUP BY
   to_char(date,'YYYY-MM')`: Σ debits = spending, Σ credits = moneyIn) + a pure builder that fills
   missing months across the 12-mo window → `[{month, spending, moneyIn, difference}]`. Tests.
-- [ ] **K3 — Trailing average + projection**: pure `trailingAverage(series,{minMonths:3,maxMonths:12})`
+- [x] **K3 — Trailing average + projection**: pure `trailingAverage(series,{minMonths:3,maxMonths:12})`
   over completed months only, current-month linear projection, `deltaPct` vs average; "not enough
   history" flag under 3 completed months. Tests.
-- [ ] **K4 — Top merchants**: repo `topMerchants({from,to},limit)` (Σ debits by normalized merchant,
+- [x] **K4 — Top merchants**: repo `topMerchants({from,to},limit)` (Σ debits by normalized merchant,
   trailing 3 months, top 6) + pure share-of-spend. Tests.
-- [ ] **K5 — Category mix trend**: pure per-month per-`ExpenseType` debit totals over 12 months
+- [x] **K5 — Category mix trend**: pure per-month per-`ExpenseType` debit totals over 12 months
   (effective type = override > classified), for the stacked module. Tests.
 - [ ] **K6 — Biggest movers**: pure — last completed month vs trailing average, per merchant AND per
   category, top 3 risers, plus the largest single charge in the current cycle (hero info line). Tests.
