@@ -42,7 +42,9 @@ export function buildTopMerchants(
       spending,
       share: total > 0 ? spending / total : 0,
     }))
-    .sort((a, b) => b.spending - a.spending || a.merchant.localeCompare(b.merchant))
+    // Tie-break by a deterministic code-unit comparison (not localeCompare, which varies with the
+    // runtime locale for Icelandic letters like Þ/Ð/Á) so the order is identical everywhere.
+    .sort((a, b) => b.spending - a.spending || (a.merchant < b.merchant ? -1 : a.merchant > b.merchant ? 1 : 0))
     .slice(0, limit);
 }
 
