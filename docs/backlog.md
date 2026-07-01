@@ -188,7 +188,7 @@ each item one small PR; earliest are pure `shared/` domain logic (test-first).
 - [ ] **Dashboard progress card**: a compact wedding-fund progress card on the Dashboard linking to
   `/savings`. Blocked by: Savings page + nav.
 
-## Phase J — Insightful dashboard (ADR-0008) — depends on F (net-summary), H (cycle helpers)
+## Phase K — Insightful dashboard (ADR-0008) — depends on F (net-summary), H (cycle helpers)
 
 Turns the dashboard from a single current-cycle card into an at-a-glance household-finance
 overview. Design decisions (grill session, `CONTEXT.md`, ADR-0008):
@@ -215,39 +215,39 @@ overview. Design decisions (grill session, `CONTEXT.md`, ADR-0008):
 
 Pure domain + data first (test-first via the `tdd` skill), then UI. Each item is one small PR.
 
-- [ ] **J1 — Design docs** (this PR): `CONTEXT.md` terms (Spending / Money in / Difference) +
-  calendar-month Statement cycle fix, ADR-0008, this Phase J plan, Deferred P&L. Docs only.
-- [ ] **J2 — Monthly spend series**: repo `monthlySpendSeries({from,to})` (SQL `GROUP BY
+- [x] **K1 — Design docs** (this PR): `CONTEXT.md` terms (Spending / Money in / Difference) +
+  calendar-month Statement cycle fix, ADR-0008, this Phase K plan, Deferred P&L. Docs only.
+- [ ] **K2 — Monthly spend series**: repo `monthlySpendSeries({from,to})` (SQL `GROUP BY
   to_char(date,'YYYY-MM')`: Σ debits = spending, Σ credits = moneyIn) + a pure builder that fills
   missing months across the 12-mo window → `[{month, spending, moneyIn, difference}]`. Tests.
-- [ ] **J3 — Trailing average + projection**: pure `trailingAverage(series,{minMonths:3,maxMonths:12})`
+- [ ] **K3 — Trailing average + projection**: pure `trailingAverage(series,{minMonths:3,maxMonths:12})`
   over completed months only, current-month linear projection, `deltaPct` vs average; "not enough
   history" flag under 3 completed months. Tests.
-- [ ] **J4 — Top merchants**: repo `topMerchants({from,to},limit)` (Σ debits by normalized merchant,
+- [ ] **K4 — Top merchants**: repo `topMerchants({from,to},limit)` (Σ debits by normalized merchant,
   trailing 3 months, top 6) + pure share-of-spend. Tests.
-- [ ] **J5 — Category mix trend**: pure per-month per-`ExpenseType` debit totals over 12 months
+- [ ] **K5 — Category mix trend**: pure per-month per-`ExpenseType` debit totals over 12 months
   (effective type = override > classified), for the stacked module. Tests.
-- [ ] **J6 — Biggest movers**: pure — last completed month vs trailing average, per merchant AND per
+- [ ] **K6 — Biggest movers**: pure — last completed month vs trailing average, per merchant AND per
   category, top 3 risers, plus the largest single charge in the current cycle (hero info line). Tests.
-- [ ] **J7 — Account breakdown**: repo `spendByAccount({from,to})` (Σ debits by account + name);
+- [ ] **K7 — Account breakdown**: repo `spendByAccount({from,to})` (Σ debits by account + name);
   consumed only when the household has >1 Account. Tests.
-- [ ] **J8 — Dashboard view-model**: pure assembly of J2–J7 into a typed `DashboardView` (hero
+- [ ] **K8 — Dashboard view-model**: pure assembly of K2–K7 into a typed `DashboardView` (hero
   numbers, series, category trend, merchants, movers, optional accounts, per-module thin-data flags,
   action-band inputs). Tests.
-- [ ] **J9 — Action band** (`/design`): review backlog (reviewQueueMonths total → link), free-cap
+- [ ] **K9 — Action band** (`/design`): review backlog (reviewQueueMonths total → link), free-cap
   (reuse `FreeCapStatusBanner`), failed (reuse `ClassifyTrigger`), all-clear state; each shows only
   when firing.
-- [ ] **J10 — This-month hero** (`/design`): Spending hero + projection + neutral info lines
+- [ ] **K10 — This-month hero** (`/design`): Spending hero + projection + neutral info lines
   (vs-avg %, largest charge) + Money in / Difference secondary.
-- [ ] **J11 — 12-mo spending trend** (`/design`): spending bars + money-in overlay; tap month →
+- [ ] **K11 — 12-mo spending trend** (`/design`): spending bars + money-in overlay; tap month →
   `/transactions?cycle=`; <3-month placeholder. Lightweight SVG/CSS unless `/design` opts for shadcn
   charts.
-- [ ] **J12 — Category mix + trend module** (`/design`): current-period `SpendingByType` + stacked
+- [ ] **K12 — Category mix + trend module** (`/design`): current-period `SpendingByType` + stacked
   month-over-month; "classify to unlock" nudge when mostly unclassified.
-- [ ] **J13 — Top merchants module** (`/design`).
-- [ ] **J14 — Biggest movers module** (`/design`).
-- [ ] **J15 — Account breakdown module** (`/design`): render only when >1 Account.
-- [ ] **J16 — Dashboard page assembly** (`/design`): rewrite `app/(app)/dashboard/page.tsx` to load
+- [ ] **K13 — Top merchants module** (`/design`).
+- [ ] **K14 — Biggest movers module** (`/design`).
+- [ ] **K15 — Account breakdown module** (`/design`): render only when >1 Account.
+- [ ] **K16 — Dashboard page assembly** (`/design`): rewrite `app/(app)/dashboard/page.tsx` to load
   the view-model and render the modules in order with progressive thin-data gating (keeping a slot
   for the savings progress card).
 
