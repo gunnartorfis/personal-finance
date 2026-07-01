@@ -280,6 +280,29 @@ export function householdRepo(db: Db, householdId: string) {
         }));
       },
       /**
+       * Total debit magnitude per raw merchant over a half-open range `[from, to)` — credits
+       * (`amount >= 0`) and out-of-range rows excluded. Grouped by the raw merchant string only; the
+       * pure `buildTopMerchants` then normalises (store-number stripping etc.) and re-aggregates, so
+       * merging and the top-N limit happen after normalisation rather than in SQL. Scoped to the
+       * household. `sum(...)` comes back as a string from the driver, so it is coerced to a number.
+       */
+      topMerchants: async (range: { from: string; to: string }) => {
+        const spending = sql<string>`sum(-${transactions.amount})`;
+        const rows = await db
+          .select({ merchant: transactions.merchant, spending })
+          .from(transactions)
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              lt(transactions.amount, 0),
+              gte(transactions.date, range.from),
+              lt(transactions.date, range.to)
+            )
+          )
+          .groupBy(transactions.merchant);
+        return rows.map((row) => ({ merchant: row.merchant, spending: Number(row.spending) }));
+      },
+      /**
        * The distinct statement cycles (calendar months as `"YYYY-MM"`) that have at least one
        * transaction for this Household, newest first. Drives the period selector on the transactions
        * view. The month is derived in SQL from the date-only `date` column so it lines up exactly
