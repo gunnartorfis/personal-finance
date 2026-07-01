@@ -5,6 +5,15 @@ import type { MonthlySpendPoint } from "@/lib/dashboard/monthly-series"
 import { DEFAULT_TRAILING } from "@/lib/dashboard/spending-trend"
 import { cn } from "@/lib/utils"
 
+/**
+ * Bottom offset for the money-in marker. Clamped so the 2px line stays inside the overflow-hidden
+ * track even when money in is the chart's ceiling — a bare `100%` would push it entirely above the
+ * top edge and clip it to nothing.
+ */
+export function moneyInLineBottom(moneyPct: number): string {
+  return `min(${moneyPct}%, calc(100% - 2px))`
+}
+
 /** Short month label for a `YYYY-MM` key, e.g. "Mar". */
 function shortMonth(key: string): string {
   const [year, month] = key.split("-").map(Number)
@@ -85,7 +94,7 @@ export function SpendingTrendChart({
                   {point.moneyIn > 0 && (
                     <span
                       className="absolute inset-x-0 h-0.5 bg-emerald-500"
-                      style={{ bottom: `${moneyPct}%` }}
+                      style={{ bottom: moneyInLineBottom(moneyPct) }}
                     />
                   )}
                 </span>
