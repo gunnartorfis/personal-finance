@@ -391,6 +391,39 @@ export function householdRepo(db: Db, householdId: string) {
         return row ? { merchant: row.merchant, amount: -row.amount } : undefined;
       },
       /**
+       * Total debit magnitude per Account (with its name) over a half-open range `[from, to)` — the
+       * account-breakdown module. Inner-joins `accounts` (household-scoped on both sides), excludes
+       * credits and out-of-range rows, and groups by account. Accounts with no debits in the range
+       * simply don't appear. `sum(...)` is coerced from the driver string. Scoped to the household.
+       */
+      spendByAccount: async (range: { from: string; to: string }) => {
+        const spending = sql<string>`sum(-${transactions.amount})`;
+        const rows = await db
+          .select({ accountId: accounts.id, name: accounts.name, spending })
+          .from(transactions)
+          .innerJoin(
+            accounts,
+            and(
+              eq(accounts.householdId, householdId),
+              eq(accounts.id, transactions.accountId)
+            )
+          )
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              lt(transactions.amount, 0),
+              gte(transactions.date, range.from),
+              lt(transactions.date, range.to)
+            )
+          )
+          .groupBy(accounts.id, accounts.name);
+        return rows.map((row) => ({
+          accountId: row.accountId,
+          name: row.name,
+          spending: Number(row.spending),
+        }));
+      },
+      /**
        * The distinct statement cycles (calendar months as `"YYYY-MM"`) that have at least one
        * transaction for this Household, newest first. Drives the period selector on the transactions
        * view. The month is derived in SQL from the date-only `date` column so it lines up exactly
