@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 /**
- * DEVELOPER TOOL (staging only): a "Danger zone" that wipes the current Household's financial data
- * via `POST /api/dev/reset`. Only mounted when `isDevResetEnabled()` is true on the server, so it is
- * never present in production. Uses a two-step confirm (the destructive button reveals an explicit
- * confirm/cancel) rather than a native prompt, and hard-reloads to the dashboard on success so every
- * cached view reflects the empty state.
+ * Destructive "Danger zone" that wipes the current Household's financial data via
+ * `POST /api/household/reset`. Only mounted when `isHouseholdResetEnabled()` is true on the server,
+ * so it is absent wherever `ENABLE_HOUSEHOLD_RESET` is unset. Uses a two-step confirm (the
+ * destructive button reveals an explicit confirm/cancel) rather than a native prompt, and
+ * hard-reloads to the dashboard on success so every cached view reflects the empty state.
  */
-export function DevReset({ className }: { className?: string }) {
+export function HouseholdReset({ className }: { className?: string }) {
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [errored, setErrored] = useState(false)
@@ -22,7 +22,7 @@ export function DevReset({ className }: { className?: string }) {
     setBusy(true)
     setErrored(false)
     try {
-      const res = await fetch("/api/dev/reset", { method: "POST" })
+      const res = await fetch("/api/household/reset", { method: "POST" })
       if (!res.ok) {
         setErrored(true)
         setBusy(false)
@@ -46,7 +46,7 @@ export function DevReset({ className }: { className?: string }) {
       )}
     >
       <div className="flex flex-col gap-1">
-        <h2 className="text-sm font-semibold text-destructive">Danger zone (staging)</h2>
+        <h2 className="text-sm font-semibold text-destructive">Danger zone</h2>
         <p className="text-sm text-pretty text-muted-foreground">
           Delete <strong>all</strong> uploads, transactions, overrides, accounts, and merchant rules
           for your household. Your account and plan are kept. This cannot be undone.
