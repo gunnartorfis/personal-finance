@@ -1,11 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useState } from "react"
 
 import { OverrideControl } from "@/components/override-control"
-import { ReviewMode } from "@/components/review-mode"
-import { Button } from "@/components/ui/button"
-import { clearOverride, putOverride } from "@/lib/overrides/client"
 import { cn } from "@/lib/utils"
 import type { ExpenseType } from "@/shared/types"
 
@@ -36,48 +33,15 @@ export function TransactionsTable({
   rows: initial,
   currency,
   className,
+  backlogElsewhere = 0,
 }: {
   rows: TransactionRow[]
   currency: string
   className?: string
+  /** Whole-household expenses still needing review — used only to explain an empty period. */
+  backlogElsewhere?: number
 }) {
   const [rows, setRows] = useState(initial)
-  const [reviewOpen, setReviewOpen] = useState(false)
-
-  // Mirror the latest rows so an override handler can read the pre-change value (to revert on a
-  // failed write) without re-creating the callback on every row update.
-  const rowsRef = useRef(rows)
-  useEffect(() => {
-    rowsRef.current = rows
-  }, [rows])
-
-  // Persist a review decision and optimistically update the row so the table reflects it on close;
-  // revert on failure. `null` clears the override (DELETE); any type — incl. `""` — sets one (PUT).
-  const handleReviewOverride = useCallback(
-    (id: string, type: ExpenseType | null) => {
-      const prevType =
-        rowsRef.current.find((row) => row.id === id)?.overrideType ?? null
-      setRows((current) =>
-        current.map((row) =>
-          row.id === id ? { ...row, overrideType: type } : row
-        )
-      )
-      const persist = type === null ? clearOverride(id) : putOverride(id, type)
-      persist.catch(() => {
-        setRows((current) =>
-          current.map((row) =>
-            row.id === id ? { ...row, overrideType: prevType } : row
-          )
-        )
-      })
-    },
-    []
-  )
-
-  // Expenses without a manual override yet — the rapid-review queue (and its badge count).
-  const needsAttention = rows.filter(
-    (row) => row.amount < 0 && row.overrideType === null
-  ).length
 
   const fmtAmount = (amount: number) =>
     new Intl.NumberFormat("en-US", {
@@ -115,8 +79,10 @@ export function TransactionsTable({
         )}
       >
         <p className="text-sm font-medium">No transactions in this period</p>
-        <p className="text-sm text-muted-foreground">
-          Pick another period or upload a statement.
+        <p className="text-sm text-pretty text-muted-foreground">
+          {backlogElsewhere > 0
+            ? `${backlogElsewhere} transaction${backlogElsewhere === 1 ? "" : "s"} in other periods still need review — use Rapid review above, or pick another period.`
+            : "Pick another period or upload a statement."}
         </p>
       </div>
     )
@@ -124,17 +90,6 @@ export function TransactionsTable({
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
-      {needsAttention > 0 && (
-        <div className="flex justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setReviewOpen(true)}
-          >
-            ⚡ Rapid review ({needsAttention})
-          </Button>
-        </div>
-      )}
       <div className="-mx-6 -my-2 overflow-x-auto whitespace-nowrap">
         <div className="inline-block min-w-full px-6 py-2 align-middle">
           <table className="w-full border-collapse text-sm">
@@ -203,14 +158,6 @@ export function TransactionsTable({
           </table>
         </div>
       </div>
-      {reviewOpen && (
-        <ReviewMode
-          rows={rows}
-          currency={currency}
-          onOverride={handleReviewOverride}
-          onClose={() => setReviewOpen(false)}
-        />
-      )}
     </div>
   )
 }

@@ -166,6 +166,75 @@ describe("householdRepo", () => {
     expect(await b.transactions.cycleMonths()).toEqual([]);
   });
 
+  describe("review queue", () => {
+    /** Seed one expense in household `a` on `date`; optionally override it (settling it). */
+    async function seedExpense(
+      a: Awaited<ReturnType<typeof twoHouseholds>>["a"],
+      opts: { date: string; amount?: number; sourceRow: number; override?: boolean },
+    ) {
+      const [account] = await a.accounts.create({ name: `Visa-${opts.sourceRow}` });
+      const [upload] = await a.uploads.create({
+        accountId: account.id,
+        fileName: "q.csv",
+        fileHash: `q-${opts.sourceRow}`,
+      });
+      const [txn] = await a.transactions.create({
+        accountId: account.id,
+        uploadId: upload.id,
+        date: opts.date,
+        amount: opts.amount ?? -1000,
+        merchant: `M${opts.sourceRow}`,
+        rawCategory: "",
+        sourceRow: opts.sourceRow,
+      });
+      if (opts.override) {
+        await a.overrides.upsert({ transactionId: txn.id, expenseType: "Necessary" });
+      }
+      return txn;
+    }
+
+    it("groups unreviewed expenses by month, newest-first, scoped to the household", async () => {
+      const { a, b } = await twoHouseholds();
+      // March: one open expense + one already overridden (settled — must not count).
+      await seedExpense(a, { date: "2026-03-15", sourceRow: 0 });
+      await seedExpense(a, { date: "2026-03-20", sourceRow: 1, override: true });
+      // January: two open expenses.
+      await seedExpense(a, { date: "2026-01-05", sourceRow: 2 });
+      await seedExpense(a, { date: "2026-01-09", sourceRow: 3 });
+      // A credit is not an expense — excluded.
+      await seedExpense(a, { date: "2026-03-01", amount: 5000, sourceRow: 4 });
+      // Another household's open expense must not leak.
+      await seedExpense(b, { date: "2026-03-15", sourceRow: 0 });
+
+      expect(await a.transactions.reviewQueueMonths()).toEqual([
+        { month: "2026-03", count: 1 },
+        { month: "2026-01", count: 2 },
+      ]);
+    });
+
+    it("returns the full unreviewed-expense rows across all months, newest-first", async () => {
+      const { a } = await twoHouseholds();
+      await seedExpense(a, { date: "2026-03-15", sourceRow: 0 });
+      await seedExpense(a, { date: "2026-01-09", sourceRow: 1 });
+      const settled = await seedExpense(a, { date: "2026-02-01", sourceRow: 2, override: true });
+      await seedExpense(a, { date: "2026-03-02", amount: 5000, sourceRow: 3 }); // credit
+
+      const queue = await a.transactions.reviewQueue();
+      expect(queue.map((r) => r.merchant)).toEqual(["M0", "M1"]); // newest-first, no credit
+      expect(queue.every((r) => r.overrideType === null)).toBe(true);
+      expect(queue.some((r) => r.id === settled.id)).toBe(false);
+    });
+
+    it("excludes an expense once it is overridden", async () => {
+      const { a } = await twoHouseholds();
+      const txn = await seedExpense(a, { date: "2026-03-15", sourceRow: 0 });
+      expect(await a.transactions.reviewQueueMonths()).toEqual([{ month: "2026-03", count: 1 }]);
+      await a.overrides.upsert({ transactionId: txn.id, expenseType: "Fixed" });
+      expect(await a.transactions.reviewQueueMonths()).toEqual([]);
+      expect(await a.transactions.reviewQueue()).toHaveLength(0);
+    });
+  });
+
   it("findById returns a row in the household but not one from another", async () => {
     const { a, b } = await twoHouseholds();
     const [account] = await a.accounts.create({ name: "Visa" });

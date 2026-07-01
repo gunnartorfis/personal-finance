@@ -59,12 +59,13 @@ function Kbd({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Keyboard-first rapid-review overlay, ported from the legacy tool. Presents the period's
- * needs-attention expenses one at a time, least-confident-first, so the user can blitz the AI's
- * shakiest guesses. `1`/`2`/`3` set Fixed/Necessary/Nice-to-have (and advance), `0` sets split/none,
+ * Keyboard-first rapid-review overlay, ported from the legacy tool. Presents the needs-attention
+ * expenses (the whole-household backlog across every period) one at a time, least-confident-first, so
+ * the user can blitz the AI's shakiest guesses. `1`/`2`/`3` set Fixed/Necessary/Nice-to-have (and
+ * advance), `0` sets split/none,
  * `Space` accepts the AI's guess as-is, `J`/`K` (or arrows) navigate, `U` undoes, `Esc` closes.
  *
- * Each decision persists through `onOverride` (the table updates its row optimistically) and the
+ * Each decision persists through `onOverride` (the caller writes it and reconciles on close) and the
  * queue is a one-time snapshot, so settling a row never reshuffles the cards mid-session.
  */
 export function ReviewMode({
@@ -253,7 +254,7 @@ export function ReviewMode({
             </p>
             <p className="text-sm text-muted-foreground">
               {total === 0
-                ? "Every expense in this period is already settled."
+                ? "Every expense is already settled."
                 : `Reviewed ${reviewedCount} transaction${reviewedCount === 1 ? "" : "s"}.`}
             </p>
             <Button
