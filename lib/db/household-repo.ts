@@ -251,6 +251,35 @@ export function householdRepo(db: Db, householdId: string) {
           )
           .orderBy(desc(transactions.date), asc(transactions.id)),
       /**
+       * Per-calendar-month spend series over a half-open date range `[from, to)`: for each month
+       * with at least one transaction, the total `spending` (magnitude of debits, `amount < 0`) and
+       * `moneyIn` (sum of credits, `amount > 0`). Drives the dashboard's rolling 12-month trend.
+       * Months with no rows are simply absent — the pure builder fills the gaps. `sum(...)` comes back
+       * as a string from the driver, so both totals are coerced to numbers. Scoped to the household.
+       */
+      monthlySpendSeries: async (range: { from: string; to: string }) => {
+        const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`;
+        const spending = sql<string>`coalesce(sum(case when ${transactions.amount} < 0 then -${transactions.amount} else 0 end), 0)`;
+        const moneyIn = sql<string>`coalesce(sum(case when ${transactions.amount} > 0 then ${transactions.amount} else 0 end), 0)`;
+        const rows = await db
+          .select({ month, spending, moneyIn })
+          .from(transactions)
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              gte(transactions.date, range.from),
+              lt(transactions.date, range.to)
+            )
+          )
+          .groupBy(month)
+          .orderBy(asc(month));
+        return rows.map((row) => ({
+          month: row.month,
+          spending: Number(row.spending),
+          moneyIn: Number(row.moneyIn),
+        }));
+      },
+      /**
        * The distinct statement cycles (calendar months as `"YYYY-MM"`) that have at least one
        * transaction for this Household, newest first. Drives the period selector on the transactions
        * view. The month is derived in SQL from the date-only `date` column so it lines up exactly
