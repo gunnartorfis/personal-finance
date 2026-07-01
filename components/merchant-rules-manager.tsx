@@ -43,7 +43,11 @@ export function MerchantRulesManager({ className }: { className?: string }) {
   // A flat rule only offers the actionable types — never `""` (the not-bucketed / split type).
   const [flatType, setFlatType] = useState<RealType>("Fixed")
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  // Track the two mutations separately so each spinner reflects its own action; a derived `busy`
+  // still locks everything to one mutation at a time.
+  const [adding, setAdding] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const busy = adding || deletingId !== null
 
   // Pure fetch (no setState) so the effect and the event handlers can both reuse it without
   // tripping the "setState synchronously in an effect" rule.
@@ -81,7 +85,7 @@ export function MerchantRulesManager({ className }: { className?: string }) {
 
   async function addRule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setBusy(true)
+    setAdding(true)
     setError(null)
     try {
       const res = await fetch("/api/merchant-rules", {
@@ -97,19 +101,19 @@ export function MerchantRulesManager({ className }: { className?: string }) {
       setMerchant("")
       await refresh()
     } finally {
-      setBusy(false)
+      setAdding(false)
     }
   }
 
   async function deleteRule(id: string) {
-    setBusy(true)
+    setDeletingId(id)
     setError(null)
     try {
       const res = await fetch(`/api/merchant-rules/${id}`, { method: "DELETE" })
       if (res.ok) await refresh()
       else setError("Couldn’t delete the rule")
     } finally {
-      setBusy(false)
+      setDeletingId(null)
     }
   }
 
@@ -163,7 +167,7 @@ export function MerchantRulesManager({ className }: { className?: string }) {
           </div>
         </div>
         <Button type="submit" disabled={busy}>
-          {busy ? <Loader2 className="animate-spin" /> : <Plus />}
+          {adding ? <Loader2 className="animate-spin" /> : <Plus />}
           Add
         </Button>
       </form>
@@ -202,10 +206,11 @@ export function MerchantRulesManager({ className }: { className?: string }) {
                 type="button"
                 variant="ghost"
                 size="sm"
+                aria-label={`Delete rule for ${rule.merchant}`}
                 onClick={() => void deleteRule(rule.id)}
                 disabled={busy}
               >
-                <Trash2 />
+                {deletingId === rule.id ? <Loader2 className="animate-spin" /> : <Trash2 />}
                 Delete
               </Button>
             </li>

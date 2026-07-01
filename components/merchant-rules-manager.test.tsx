@@ -106,7 +106,7 @@ describe("MerchantRulesManager", () => {
     render(<MerchantRulesManager />)
     await screen.findByText("NETFLIX")
 
-    await userEvent.click(screen.getByRole("button", { name: "Delete" }))
+    await userEvent.click(screen.getByRole("button", { name: /delete rule for netflix/i }))
     await waitFor(() => expect(screen.queryByText("NETFLIX")).not.toBeInTheDocument())
   })
 
