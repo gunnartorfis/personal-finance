@@ -49,8 +49,12 @@ export default async function DashboardPage() {
         mostlyUnclassified={view.modules.categoryMostlyUnclassified}
         currency={billingCurrency}
       />
-      <TopMerchants merchants={view.modules.topMerchants} currency={billingCurrency} />
-      <BiggestMovers movers={view.modules.movers} currency={billingCurrency} />
+      {/* The two compact list modules sit side by side on wider screens to break up the stack;
+          same gap as the outer column so their edges line up with the full-width modules. */}
+      <div className="grid items-start gap-6 sm:grid-cols-2">
+        <TopMerchants merchants={view.modules.topMerchants} currency={billingCurrency} />
+        <BiggestMovers movers={view.modules.movers} currency={billingCurrency} />
+      </div>
       <AccountBreakdown accounts={view.modules.accounts} currency={billingCurrency} />
     </div>
   )
