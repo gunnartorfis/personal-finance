@@ -1,10 +1,27 @@
-import { and, asc, count, desc, eq, getTableColumns, gte, isNull, lt, sql } from "drizzle-orm";
-import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  getTableColumns,
+  gte,
+  isNull,
+  lt,
+  sql,
+} from "drizzle-orm"
+import type { NodePgDatabase } from "drizzle-orm/node-postgres"
 
-import type { ExpenseType } from "@/shared/types";
+import type { ExpenseType } from "@/shared/types"
 
-import { accounts, merchantRules, overrides, transactions, uploads } from "./schema";
-import type * as schema from "./schema";
+import {
+  accounts,
+  merchantRules,
+  overrides,
+  transactions,
+  uploads,
+} from "./schema"
+import type * as schema from "./schema"
 
 /**
  * Household-scoped data access (ADR-0002).
@@ -20,59 +37,93 @@ import type * as schema from "./schema";
 
 // The application database, bound to this schema. Tests pass a pglite-backed database cast to
 // this type — the query surface used here (select/insert) is identical across drivers.
-type Db = NodePgDatabase<typeof schema>;
+type Db = NodePgDatabase<typeof schema>
 
 /** Build a data-access surface scoped to a single Household. */
 export function householdRepo(db: Db, householdId: string) {
   return {
     accounts: {
-      list: () => db.select().from(accounts).where(eq(accounts.householdId, householdId)),
+      list: () =>
+        db.select().from(accounts).where(eq(accounts.householdId, householdId)),
       findById: async (id: string) => {
         const [row] = await db
           .select()
           .from(accounts)
-          .where(and(eq(accounts.id, id), eq(accounts.householdId, householdId)));
-        return row;
+          .where(
+            and(eq(accounts.id, id), eq(accounts.householdId, householdId))
+          )
+        return row
       },
       create: (value: Omit<typeof accounts.$inferInsert, "householdId">) =>
-        db.insert(accounts).values({ ...value, householdId }).returning(),
+        db
+          .insert(accounts)
+          .values({ ...value, householdId })
+          .returning(),
     },
     uploads: {
-      list: () => db.select().from(uploads).where(eq(uploads.householdId, householdId)),
+      list: () =>
+        db.select().from(uploads).where(eq(uploads.householdId, householdId)),
       findById: async (id: string) => {
         const [row] = await db
           .select()
           .from(uploads)
-          .where(and(eq(uploads.id, id), eq(uploads.householdId, householdId)));
-        return row;
+          .where(and(eq(uploads.id, id), eq(uploads.householdId, householdId)))
+        return row
       },
       findByFileHash: async (fileHash: string) => {
         const [row] = await db
           .select()
           .from(uploads)
-          .where(and(eq(uploads.householdId, householdId), eq(uploads.fileHash, fileHash)));
-        return row;
+          .where(
+            and(
+              eq(uploads.householdId, householdId),
+              eq(uploads.fileHash, fileHash)
+            )
+          )
+        return row
       },
       create: (value: Omit<typeof uploads.$inferInsert, "householdId">) =>
-        db.insert(uploads).values({ ...value, householdId }).returning(),
+        db
+          .insert(uploads)
+          .values({ ...value, householdId })
+          .returning(),
     },
     transactions: {
-      list: () => db.select().from(transactions).where(eq(transactions.householdId, householdId)),
+      list: () =>
+        db
+          .select()
+          .from(transactions)
+          .where(eq(transactions.householdId, householdId)),
       listByAccount: (accountId: string) =>
         db
           .select()
           .from(transactions)
-          .where(and(eq(transactions.householdId, householdId), eq(transactions.accountId, accountId))),
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              eq(transactions.accountId, accountId)
+            )
+          ),
       findById: async (id: string) => {
         const [row] = await db
           .select()
           .from(transactions)
-          .where(and(eq(transactions.id, id), eq(transactions.householdId, householdId)));
-        return row;
+          .where(
+            and(
+              eq(transactions.id, id),
+              eq(transactions.householdId, householdId)
+            )
+          )
+        return row
       },
       create: (value: Omit<typeof transactions.$inferInsert, "householdId">) =>
-        db.insert(transactions).values({ ...value, householdId }).returning(),
-      createMany: (values: Array<Omit<typeof transactions.$inferInsert, "householdId">>) =>
+        db
+          .insert(transactions)
+          .values({ ...value, householdId })
+          .returning(),
+      createMany: (
+        values: Array<Omit<typeof transactions.$inferInsert, "householdId">>
+      ) =>
         values.length === 0
           ? Promise.resolve([])
           : db
@@ -98,18 +149,18 @@ export function householdRepo(db: Db, householdId: string) {
             overrides,
             and(
               eq(overrides.householdId, householdId),
-              eq(overrides.transactionId, transactions.id),
-            ),
+              eq(overrides.transactionId, transactions.id)
+            )
           )
           .where(
             and(
               eq(transactions.householdId, householdId),
               eq(transactions.classificationStatus, "pending"),
-              isNull(overrides.id),
-            ),
+              isNull(overrides.id)
+            )
           )
-          .orderBy(asc(transactions.createdAt), asc(transactions.id));
-        return limit === undefined ? q : q.limit(limit);
+          .orderBy(asc(transactions.createdAt), asc(transactions.id))
+        return limit === undefined ? q : q.limit(limit)
       },
       /**
        * Classification progress for one upload: how many of its transactions are still pending vs
@@ -123,15 +174,18 @@ export function householdRepo(db: Db, householdId: string) {
           .where(
             and(
               eq(transactions.householdId, householdId),
-              eq(transactions.uploadId, uploadId),
-            ),
+              eq(transactions.uploadId, uploadId)
+            )
           )
-          .groupBy(transactions.classificationStatus);
-        const counts = { pending: 0, classified: 0, failed: 0 };
+          .groupBy(transactions.classificationStatus)
+        const counts = { pending: 0, classified: 0, failed: 0 }
         for (const row of rows) {
-          counts[row.status] = row.value;
+          counts[row.status] = row.value
         }
-        return { total: counts.pending + counts.classified + counts.failed, ...counts };
+        return {
+          total: counts.pending + counts.classified + counts.failed,
+          ...counts,
+        }
       },
       /**
        * Rows needed to compute a net summary over a half-open date range `[from, to)`: the charged
@@ -151,15 +205,15 @@ export function householdRepo(db: Db, householdId: string) {
             overrides,
             and(
               eq(overrides.householdId, householdId),
-              eq(overrides.transactionId, transactions.id),
-            ),
+              eq(overrides.transactionId, transactions.id)
+            )
           )
           .where(
             and(
               eq(transactions.householdId, householdId),
               gte(transactions.date, range.from),
-              lt(transactions.date, range.to),
-            ),
+              lt(transactions.date, range.to)
+            )
           ),
       /**
        * Rows for the transactions list over a half-open date range `[from, to)`: the display fields
@@ -176,6 +230,8 @@ export function householdRepo(db: Db, householdId: string) {
             amount: transactions.amount,
             classificationStatus: transactions.classificationStatus,
             classifiedType: transactions.expenseType,
+            confidence: transactions.confidence,
+            reasoning: transactions.reasoning,
             overrideType: overrides.expenseType,
           })
           .from(transactions)
@@ -183,15 +239,15 @@ export function householdRepo(db: Db, householdId: string) {
             overrides,
             and(
               eq(overrides.householdId, householdId),
-              eq(overrides.transactionId, transactions.id),
-            ),
+              eq(overrides.transactionId, transactions.id)
+            )
           )
           .where(
             and(
               eq(transactions.householdId, householdId),
               gte(transactions.date, range.from),
-              lt(transactions.date, range.to),
-            ),
+              lt(transactions.date, range.to)
+            )
           )
           .orderBy(desc(transactions.date), asc(transactions.id)),
       /**
@@ -201,14 +257,14 @@ export function householdRepo(db: Db, householdId: string) {
        * with the `[from, to)` cycle ranges used to list and summarise a period.
        */
       cycleMonths: async () => {
-        const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`;
+        const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`
         const rows = await db
           .select({ month })
           .from(transactions)
           .where(eq(transactions.householdId, householdId))
           .groupBy(month)
-          .orderBy(desc(month));
-        return rows.map((row) => row.month);
+          .orderBy(desc(month))
+        return rows.map((row) => row.month)
       },
       /** Count of classified transactions for the Household (lifetime) — used for the Free cap. */
       countClassified: async () => {
@@ -218,10 +274,10 @@ export function householdRepo(db: Db, householdId: string) {
           .where(
             and(
               eq(transactions.householdId, householdId),
-              eq(transactions.classificationStatus, "classified"),
-            ),
-          );
-        return row?.value ?? 0;
+              eq(transactions.classificationStatus, "classified")
+            )
+          )
+        return row?.value ?? 0
       },
       /** Count of transactions left in `failed` state — drives the "Retry failed" affordance. */
       countFailed: async () => {
@@ -231,10 +287,10 @@ export function householdRepo(db: Db, householdId: string) {
           .where(
             and(
               eq(transactions.householdId, householdId),
-              eq(transactions.classificationStatus, "failed"),
-            ),
-          );
-        return row?.value ?? 0;
+              eq(transactions.classificationStatus, "failed")
+            )
+          )
+        return row?.value ?? 0
       },
       /**
        * Record a classification result. Only updates a still-`pending` row, so re-running
@@ -242,7 +298,11 @@ export function householdRepo(db: Db, householdId: string) {
        */
       classify: (
         id: string,
-        result: { expenseType: ExpenseType; confidence?: number; reasoning?: string },
+        result: {
+          expenseType: ExpenseType
+          confidence?: number
+          reasoning?: string
+        }
       ) =>
         db
           .update(transactions)
@@ -256,8 +316,8 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.id, id),
               eq(transactions.householdId, householdId),
-              eq(transactions.classificationStatus, "pending"),
-            ),
+              eq(transactions.classificationStatus, "pending")
+            )
           )
           .returning(),
       /** Mark a pending transaction as failed (e.g. the model errored); leaves it unbucketed. */
@@ -269,8 +329,8 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.id, id),
               eq(transactions.householdId, householdId),
-              eq(transactions.classificationStatus, "pending"),
-            ),
+              eq(transactions.classificationStatus, "pending")
+            )
           )
           .returning(),
       /**
@@ -287,49 +347,78 @@ export function householdRepo(db: Db, householdId: string) {
           .where(
             and(
               eq(transactions.householdId, householdId),
-              eq(transactions.classificationStatus, "failed"),
-            ),
+              eq(transactions.classificationStatus, "failed")
+            )
           )
           .returning(),
     },
     merchantRules: {
-      list: () => db.select().from(merchantRules).where(eq(merchantRules.householdId, householdId)),
+      list: () =>
+        db
+          .select()
+          .from(merchantRules)
+          .where(eq(merchantRules.householdId, householdId)),
       findById: async (id: string) => {
         const [row] = await db
           .select()
           .from(merchantRules)
-          .where(and(eq(merchantRules.id, id), eq(merchantRules.householdId, householdId)));
-        return row;
+          .where(
+            and(
+              eq(merchantRules.id, id),
+              eq(merchantRules.householdId, householdId)
+            )
+          )
+        return row
       },
       create: (value: Omit<typeof merchantRules.$inferInsert, "householdId">) =>
-        db.insert(merchantRules).values({ ...value, householdId }).returning(),
+        db
+          .insert(merchantRules)
+          .values({ ...value, householdId })
+          .returning(),
       /** Delete a merchant rule. Returns the removed rows (empty if not in this household). */
       remove: (id: string) =>
         db
           .delete(merchantRules)
-          .where(and(eq(merchantRules.id, id), eq(merchantRules.householdId, householdId)))
+          .where(
+            and(
+              eq(merchantRules.id, id),
+              eq(merchantRules.householdId, householdId)
+            )
+          )
           .returning(),
     },
     overrides: {
-      list: () => db.select().from(overrides).where(eq(overrides.householdId, householdId)),
+      list: () =>
+        db
+          .select()
+          .from(overrides)
+          .where(eq(overrides.householdId, householdId)),
       findById: async (id: string) => {
         const [row] = await db
           .select()
           .from(overrides)
-          .where(and(eq(overrides.id, id), eq(overrides.householdId, householdId)));
-        return row;
+          .where(
+            and(eq(overrides.id, id), eq(overrides.householdId, householdId))
+          )
+        return row
       },
       create: (value: Omit<typeof overrides.$inferInsert, "householdId">) =>
-        db.insert(overrides).values({ ...value, householdId }).returning(),
+        db
+          .insert(overrides)
+          .values({ ...value, householdId })
+          .returning(),
       /** The override for a transaction, if one exists (one per transaction). */
       findByTransactionId: async (transactionId: string) => {
         const [row] = await db
           .select()
           .from(overrides)
           .where(
-            and(eq(overrides.householdId, householdId), eq(overrides.transactionId, transactionId)),
-          );
-        return row;
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactionId)
+            )
+          )
+        return row
       },
       /**
        * Set (or change) the manual Expense-type override for a transaction. One override per
@@ -337,7 +426,11 @@ export function householdRepo(db: Db, householdId: string) {
        * inserting a duplicate. The caller must have verified the transaction is in this household —
        * the composite FK rejects a cross-household `transactionId` regardless.
        */
-      upsert: (value: { transactionId: string; expenseType: ExpenseType; memberId?: string | null }) =>
+      upsert: (value: {
+        transactionId: string
+        expenseType: ExpenseType
+        memberId?: string | null
+      }) =>
         db
           .insert(overrides)
           .values({
@@ -348,7 +441,10 @@ export function householdRepo(db: Db, householdId: string) {
           })
           .onConflictDoUpdate({
             target: overrides.transactionId,
-            set: { expenseType: value.expenseType, memberId: value.memberId ?? null },
+            set: {
+              expenseType: value.expenseType,
+              memberId: value.memberId ?? null,
+            },
             // Defence in depth: the composite FK already makes a cross-household conflict impossible,
             // but scoping the update keeps the tenant invariant explicit at the SQL layer too.
             where: eq(overrides.householdId, householdId),
@@ -359,11 +455,14 @@ export function householdRepo(db: Db, householdId: string) {
         db
           .delete(overrides)
           .where(
-            and(eq(overrides.householdId, householdId), eq(overrides.transactionId, transactionId)),
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactionId)
+            )
           )
           .returning(),
     },
-  };
+  }
 }
 
-export type HouseholdRepo = ReturnType<typeof householdRepo>;
+export type HouseholdRepo = ReturnType<typeof householdRepo>

@@ -2,7 +2,10 @@ import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { TransactionsTable, type TransactionRow } from "@/components/transactions-table"
+import {
+  TransactionsTable,
+  type TransactionRow,
+} from "@/components/transactions-table"
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -13,6 +16,8 @@ const ROWS: TransactionRow[] = [
     merchant: "NETFLIX",
     amount: -1990,
     classifiedType: "Fixed",
+    confidence: 0.9,
+    reasoning: "Recurring subscription",
     overrideType: null,
     classificationStatus: "classified",
   },
@@ -22,6 +27,8 @@ const ROWS: TransactionRow[] = [
     merchant: "SALARY",
     amount: 500000,
     classifiedType: "Necessary",
+    confidence: null,
+    reasoning: null,
     overrideType: "Nice to have", // override wins
     classificationStatus: "classified",
   },
@@ -41,7 +48,9 @@ describe("TransactionsTable", () => {
     const overridden = screen.getByRole("row", { name: /SALARY/ })
     expect(within(overridden).getByRole("combobox")).toHaveValue("Nice to have")
     // overridden row exposes a Reset affordance
-    expect(within(overridden).getByRole("button", { name: /reset/i })).toBeInTheDocument()
+    expect(
+      within(overridden).getByRole("button", { name: /reset/i })
+    ).toBeInTheDocument()
   })
 
   it("persists an override change and reflects it on the row", async () => {
@@ -50,13 +59,18 @@ describe("TransactionsTable", () => {
     render(<TransactionsTable rows={ROWS} currency="ISK" />)
 
     const row = screen.getByRole("row", { name: /NETFLIX/ })
-    await userEvent.selectOptions(within(row).getByRole("combobox"), "Necessary")
+    await userEvent.selectOptions(
+      within(row).getByRole("combobox"),
+      "Necessary"
+    )
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/transactions/t1/override",
-      expect.objectContaining({ method: "PUT" }),
+      expect.objectContaining({ method: "PUT" })
     )
-    expect(await within(row).findByRole("button", { name: /reset/i })).toBeInTheDocument()
+    expect(
+      await within(row).findByRole("button", { name: /reset/i })
+    ).toBeInTheDocument()
   })
 
   it("flags rows still awaiting classification distinctly from a real split/none", () => {
@@ -67,6 +81,8 @@ describe("TransactionsTable", () => {
         merchant: "PENDING CO",
         amount: -100,
         classifiedType: null,
+        confidence: null,
+        reasoning: null,
         overrideType: null,
         classificationStatus: "pending",
       },
@@ -76,6 +92,8 @@ describe("TransactionsTable", () => {
         merchant: "SPLIT CO",
         amount: -200,
         classifiedType: "",
+        confidence: 0.5,
+        reasoning: null,
         overrideType: null,
         classificationStatus: "classified",
       },
@@ -83,9 +101,13 @@ describe("TransactionsTable", () => {
     render(<TransactionsTable rows={rows} currency="ISK" />)
 
     const pending = screen.getByRole("row", { name: /PENDING CO/ })
-    expect(within(pending).getByText(/awaiting classification/i)).toBeInTheDocument()
+    expect(
+      within(pending).getByText(/awaiting classification/i)
+    ).toBeInTheDocument()
     const split = screen.getByRole("row", { name: /SPLIT CO/ })
-    expect(within(split).queryByText(/awaiting classification/i)).not.toBeInTheDocument()
+    expect(
+      within(split).queryByText(/awaiting classification/i)
+    ).not.toBeInTheDocument()
   })
 
   it("renders an empty state when there are no transactions", () => {
