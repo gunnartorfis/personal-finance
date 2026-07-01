@@ -5,14 +5,15 @@ import { accounts, merchantRules, overrides, transactions, uploads } from "@/lib
 import type * as schema from "@/lib/db/schema";
 
 /**
- * DEVELOPER TOOL (staging only): wipe a Household's entire financial dataset.
+ * Wipe a Household's entire financial dataset.
  *
  * Deletes every uploaded statement, transaction, manual override, account, and merchant rule for
  * `householdId`, returning it to the just-provisioned state. The Household itself, its members, and
  * its plan/billing are intentionally kept — this resets the *data*, not the tenant.
  *
- * Access is gated by `isDevResetEnabled()` (see `lib/dev/reset.ts`); this function performs no
- * authorization of its own, so callers MUST scope `householdId` to the current tenant.
+ * Access is gated by `isHouseholdResetEnabled()` (see `lib/household/reset-availability.ts`); this
+ * function performs no authorization of its own, so callers MUST scope `householdId` to the current
+ * tenant.
  *
  * Runs in a single transaction so a reset is all-or-nothing. Rows are deleted child-first; the
  * schema's `ON DELETE CASCADE` foreign keys would also propagate these deletes, but doing it
