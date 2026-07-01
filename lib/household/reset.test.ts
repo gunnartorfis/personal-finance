@@ -84,13 +84,21 @@ describe("resetHouseholdFinancialData", () => {
 
     await resetHouseholdFinancialData(asDb(db), householdId);
 
+    // A reset returns the household to its just-provisioned state: data gone, but the single
+    // default account restored so the household never exists without one.
     expect(await counts(householdId)).toEqual({
-      accounts: 0,
+      accounts: 1,
       uploads: 0,
       transactions: 0,
       overrides: 0,
       merchantRules: 0,
     });
+    const remaining = await db
+      .select()
+      .from(accounts)
+      .where(eq(accounts.householdId, householdId));
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].isDefault).toBe(true);
     // The tenant survives the data wipe.
     expect(
       await db.select().from(households).where(eq(households.id, householdId)),

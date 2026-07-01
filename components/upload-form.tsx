@@ -12,6 +12,12 @@ import { cn } from "@/lib/utils"
 interface Account {
   id: string
   name: string
+  isDefault: boolean
+}
+
+/** The account to pre-select: the household's default, falling back to the first (or none). */
+function defaultAccountId(list: Account[]): string {
+  return (list.find((a) => a.isDefault) ?? list[0])?.id ?? ""
 }
 
 /** Shape of the relevant `POST /api/uploads` JSON (subset we act on). */
@@ -54,7 +60,11 @@ export function UploadForm({ className }: { className?: string }) {
         const res = await fetch("/api/accounts")
         if (!res.ok) throw new Error("could not load accounts")
         const data = (await res.json()) as Account[]
-        if (!ignore) setAccounts(data)
+        if (!ignore) {
+          setAccounts(data)
+          // Pre-select the default so a single-account household can upload without a picker.
+          setAccountId(defaultAccountId(data))
+        }
       } catch {
         if (!ignore) setAccountsError(true)
       } finally {
@@ -86,8 +96,10 @@ export function UploadForm({ className }: { className?: string }) {
       if (data?.status === "created" && data.upload) {
         setUploadId(data.upload.id)
         // Clear the form so a stray second click can't re-post the same file (→ 409 duplicate).
+        // Reset the account back to the default rather than blank so the picker-less single-account
+        // flow stays submittable.
         setFile(null)
-        setAccountId("")
+        setAccountId(defaultAccountId(accounts))
         setFileInputKey((key) => key + 1)
       } else {
         setError(uploadErrorMessage(res.status, data))
@@ -105,48 +117,51 @@ export function UploadForm({ className }: { className?: string }) {
         onSubmit={submit}
         className="flex flex-col gap-5 rounded-xl border border-border bg-card p-6"
       >
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="upload-account" className="text-sm font-medium">
-            Account
-          </label>
-          <div className="grid grid-cols-[1fr_--spacing(7)] items-center rounded-md border border-input bg-input/20 transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30 dark:bg-input/30">
-            <select
-              id="upload-account"
-              name="accountId"
-              value={accountId}
-              onChange={(event) => setAccountId(event.target.value)}
-              required
-              className="col-span-full row-start-1 h-7 appearance-none bg-transparent py-0.5 pr-7 pl-2 text-sm outline-none"
-            >
-              <option value="" disabled>
-                Select an account…
-              </option>
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.name}
-                </option>
-              ))}
-            </select>
-            <svg
-              viewBox="0 0 8 5"
-              width="8"
-              height="5"
-              fill="none"
-              aria-hidden="true"
-              className="pointer-events-none col-start-2 row-start-1 place-self-center text-muted-foreground"
-            >
-              <path d="M.5.5 4 4 7.5.5" stroke="currentColor" />
-            </svg>
+        {/* The account picker only appears when there's a genuine choice. A household always has a
+            default account, so a single-account household uploads straight to it — no picker. */}
+        {loadingAccounts ? (
+          <p className="text-sm text-muted-foreground">Loading accounts…</p>
+        ) : accountsError ? (
+          <p role="alert" className="text-sm text-destructive">
+            Couldn’t load accounts — try refreshing.
+          </p>
+        ) : accounts.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No account found — add one on the Accounts page first.
+          </p>
+        ) : accounts.length > 1 ? (
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="upload-account" className="text-sm font-medium">
+              Account
+            </label>
+            <div className="grid grid-cols-[1fr_--spacing(7)] items-center rounded-md border border-input bg-input/20 transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30 dark:bg-input/30">
+              <select
+                id="upload-account"
+                name="accountId"
+                value={accountId}
+                onChange={(event) => setAccountId(event.target.value)}
+                required
+                className="col-span-full row-start-1 h-7 appearance-none bg-transparent py-0.5 pr-7 pl-2 text-sm outline-none"
+              >
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+              </select>
+              <svg
+                viewBox="0 0 8 5"
+                width="8"
+                height="5"
+                fill="none"
+                aria-hidden="true"
+                className="pointer-events-none col-start-2 row-start-1 place-self-center text-muted-foreground"
+              >
+                <path d="M.5.5 4 4 7.5.5" stroke="currentColor" />
+              </svg>
+            </div>
           </div>
-          {loadingAccounts && (
-            <p className="text-sm text-muted-foreground">Loading accounts…</p>
-          )}
-          {accountsError && (
-            <p role="alert" className="text-sm text-destructive">
-              Couldn’t load accounts — try refreshing.
-            </p>
-          )}
-        </div>
+        ) : null}
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="upload-file" className="text-sm font-medium">

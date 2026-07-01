@@ -2,8 +2,10 @@ import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import { isUniqueViolation } from "@/lib/db/errors";
-import { households, members } from "@/lib/db/schema";
+import { accounts, households, members } from "@/lib/db/schema";
 import type * as schema from "@/lib/db/schema";
+
+import { DEFAULT_ACCOUNT_NAME } from "./default-account";
 
 /**
  * Household provisioning (ADR-0002): one Household per user in v1.
@@ -40,6 +42,10 @@ export async function ensureHouseholdForUser(db: Db, authUserId: string): Promis
         .values({ householdId: household.id, authUserId })
         .returning();
       if (!member) throw new Error("member insert returned no row");
+      // Every Household starts with one default account (ADR-0004) — the pre-selected upload target.
+      await tx
+        .insert(accounts)
+        .values({ householdId: household.id, name: DEFAULT_ACCOUNT_NAME, isDefault: true });
       return { householdId: household.id, memberId: member.id };
     });
   } catch (err) {
