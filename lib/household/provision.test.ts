@@ -4,8 +4,9 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { households, members } from "@/lib/db/schema";
+import { accounts, households, members } from "@/lib/db/schema";
 
+import { DEFAULT_ACCOUNT_NAME } from "./default-account";
 import { ensureHouseholdForUser } from "./provision";
 
 let db: ReturnType<typeof drizzle>;
@@ -23,6 +24,17 @@ describe("ensureHouseholdForUser", () => {
     const [member] = await db.select().from(members).where(eq(members.id, memberId));
     expect(member.authUserId).toBe("stack_user_1");
     expect(member.householdId).toBe(householdId);
+  });
+
+  it("seeds exactly one default account for a new household", async () => {
+    const { householdId } = await ensureHouseholdForUser(asDb(db), "stack_user_default");
+    const seeded = await db
+      .select()
+      .from(accounts)
+      .where(eq(accounts.householdId, householdId));
+    expect(seeded).toHaveLength(1);
+    expect(seeded[0].isDefault).toBe(true);
+    expect(seeded[0].name).toBe(DEFAULT_ACCOUNT_NAME);
   });
 
   it("is idempotent — the same user always maps to the same household", async () => {

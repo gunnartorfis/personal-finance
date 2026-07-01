@@ -14,18 +14,27 @@ beforeAll(async () => {
 });
 
 describe("householdContext", () => {
-  it("provisions a household and returns a repo scoped to it", async () => {
+  it("provisions a household with a default account and a repo scoped to it", async () => {
     const ctx = await householdContext(asDb(db), "ctx_user_1");
+    // Provisioning seeds exactly one default account.
+    const seeded = await ctx.repo.accounts.list();
+    expect(seeded).toHaveLength(1);
+    expect(seeded[0].isDefault).toBe(true);
+
     const [account] = await ctx.repo.accounts.create({ name: "Visa" });
     expect(account.householdId).toBe(ctx.householdId);
-    expect(await ctx.repo.accounts.list()).toHaveLength(1);
+    expect(account.isDefault).toBe(false);
+    expect(await ctx.repo.accounts.list()).toHaveLength(2);
   });
 
   it("isolates one user's data from another's", async () => {
     const a = await householdContext(asDb(db), "ctx_user_2");
     const b = await householdContext(asDb(db), "ctx_user_3");
     await a.repo.accounts.create({ name: "A-only" });
-    expect(await b.repo.accounts.list()).toHaveLength(0);
+    // b only ever sees its own default account, never a's.
+    const bAccounts = await b.repo.accounts.list();
+    expect(bAccounts).toHaveLength(1);
+    expect(bAccounts.some((acc) => acc.name === "A-only")).toBe(false);
   });
 
   it("returns the same household for the same user across requests", async () => {

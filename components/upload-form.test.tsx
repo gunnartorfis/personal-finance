@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -7,8 +7,8 @@ import { UploadForm } from "@/components/upload-form"
 afterEach(() => vi.unstubAllGlobals())
 
 const ACCOUNTS = [
-  { id: "11111111-1111-1111-1111-111111111111", name: "Visa" },
-  { id: "22222222-2222-2222-2222-222222222222", name: "Landsbankinn" },
+  { id: "11111111-1111-1111-1111-111111111111", name: "Visa", isDefault: true },
+  { id: "22222222-2222-2222-2222-222222222222", name: "Landsbankinn", isDefault: false },
 ]
 
 /** Stateful fetch double: GET /api/accounts, POST /api/uploads, and the progress poll. */
@@ -111,10 +111,49 @@ describe("UploadForm", () => {
     await userEvent.click(screen.getByRole("button", { name: /upload/i }))
 
     await screen.findByRole("progressbar")
-    // fields cleared → button disabled again, no second submit possible
+    // file cleared → button disabled again, no second submit possible
     expect(screen.getByRole("button", { name: /upload/i })).toBeDisabled()
     expect((screen.getByLabelText(/csv file/i) as HTMLInputElement).value).toBe("")
-    expect((screen.getByLabelText(/account/i) as HTMLSelectElement).value).toBe("")
+    // account resets to the default (not blank) so the picker-less flow stays submittable
+    expect((screen.getByLabelText(/account/i) as HTMLSelectElement).value).toBe(ACCOUNTS[0].id)
+  })
+
+  it("hides the picker and uploads to the default when it's the only account", async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET"
+      if (url === "/api/accounts" && method === "GET") {
+        return { ok: true, json: async () => [ACCOUNTS[0]] }
+      }
+      if (url === "/api/uploads" && method === "POST") {
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({ status: "created", upload: { id: "upload-1" } }),
+        }
+      }
+      if (url.startsWith("/api/uploads/") && url.endsWith("/progress")) {
+        return {
+          ok: true,
+          json: async () => ({ total: 1, pending: 0, classified: 1, failed: 0, done: true }),
+        }
+      }
+      if (url === "/api/classify" && method === "POST") {
+        return { ok: true, json: async () => ({ classified: 0, failed: 0, capped: 0 }) }
+      }
+      return { ok: false, status: 404, json: async () => ({}) }
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    render(<UploadForm />)
+
+    await userEvent.upload(screen.getByLabelText(/csv file/i), csvFile())
+    // Once accounts load, the default is auto-selected → button enables with no picker shown.
+    await waitFor(() => expect(screen.getByRole("button", { name: /upload/i })).toBeEnabled())
+    expect(screen.queryByLabelText(/account/i)).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole("button", { name: /upload/i }))
+    const post = fetchMock.mock.calls.find((c) => (c[1] as RequestInit)?.method === "POST")!
+    const body = (post[1] as RequestInit).body as FormData
+    expect(body.get("accountId")).toBe(ACCOUNTS[0].id)
   })
 
   it("reports an already-imported file as a duplicate", async () => {

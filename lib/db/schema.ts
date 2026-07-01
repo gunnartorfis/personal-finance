@@ -12,6 +12,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -84,6 +85,11 @@ export const members = pgTable(
 /**
  * A card or bank account within a Household; the provenance of every Transaction (ADR-0004).
  * Its billing currency is the Household's (one per Household in v1), so it is not stored here.
+ *
+ * Every Household is provisioned with exactly one `isDefault` account (see
+ * `lib/household/default-account.ts`); it is the pre-selected pick in the upload flow and the only
+ * account when a Household hasn't added its own. The partial unique index enforces at-most-one
+ * default per Household.
  */
 export const accounts = pgTable(
   "accounts",
@@ -93,10 +99,17 @@ export const accounts = pgTable(
       .notNull()
       .references(() => households.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    isDefault: boolean("is_default").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  // Target for composite same-household foreign keys from uploads/transactions.
-  (t) => [unique("accounts_household_id_id_key").on(t.householdId, t.id)],
+  (t) => [
+    // Target for composite same-household foreign keys from uploads/transactions.
+    unique("accounts_household_id_id_key").on(t.householdId, t.id),
+    // At most one default account per Household.
+    uniqueIndex("accounts_one_default_per_household")
+      .on(t.householdId)
+      .where(sql`${t.isDefault}`),
+  ],
 );
 
 /** The lifecycle of a Transaction's classification (ADR-0005). */
