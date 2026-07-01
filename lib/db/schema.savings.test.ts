@@ -69,6 +69,15 @@ describe("savings schema (ADR-0007)", () => {
       ).rejects.toThrow();
     });
 
+    it("rejects a target date that precedes the start cycle (already expired)", async () => {
+      const householdId = await newHousehold(db);
+      await expect(
+        db
+          .insert(savingsGoals)
+          .values({ householdId, target: 5_000_000, targetDate: "2020-01-01", startCycle: "2026-07" }),
+      ).rejects.toThrow();
+    });
+
     it("rejects a goal for a household that does not exist (FK)", async () => {
       await expect(
         db
@@ -146,6 +155,21 @@ describe("savings schema (ADR-0007)", () => {
           offCardFixed: 250_000,
           cardDebits: 520_000,
           inferredSaving: 999_999, // wrong: should be 130,000
+        }),
+      ).rejects.toThrow();
+    });
+
+    it("rejects a negative cycle extra", async () => {
+      const householdId = await newHousehold(db);
+      await expect(
+        db.insert(savingsCheckins).values({
+          householdId,
+          cycleKey: "2026-11",
+          monthlyIncome: 900_000,
+          cycleExtra: -1,
+          offCardFixed: 250_000,
+          cardDebits: 520_000,
+          inferredSaving: 129_999, // reconciles, so only the cycle_extra CHECK can fail
         }),
       ).rejects.toThrow();
     });

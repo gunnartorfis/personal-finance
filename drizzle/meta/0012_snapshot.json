@@ -1,5 +1,5 @@
 {
-  "id": "1d190934-74bc-40dd-acea-bff684ce053f",
+  "id": "89114ce3-1ee7-49c6-bd9d-7ab317ae64fd",
   "prevId": "a4ab17aa-5532-4a8b-959f-2ca51a8a5c75",
   "version": "7",
   "dialect": "postgresql",
@@ -644,6 +644,10 @@
         "savings_goals_currency_iso4217": {
           "name": "savings_goals_currency_iso4217",
           "value": "\"savings_goals\".\"currency\" ~ '^[A-Z]{3}$'"
+        },
+        "savings_goals_target_after_start_cycle": {
+          "name": "savings_goals_target_after_start_cycle",
+          "value": "\"savings_goals\".\"target_date\" > to_date(\"savings_goals\".\"start_cycle\" || '-01', 'YYYY-MM-DD')"
         }
       },
       "isRLSEnabled": false

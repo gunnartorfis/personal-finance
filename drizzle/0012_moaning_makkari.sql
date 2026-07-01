@@ -30,7 +30,8 @@ CREATE TABLE "savings_goals" (
 	CONSTRAINT "savings_goals_target_positive" CHECK ("savings_goals"."target" > 0),
 	CONSTRAINT "savings_goals_starting_saved_nonneg" CHECK ("savings_goals"."starting_saved" >= 0),
 	CONSTRAINT "savings_goals_start_cycle_format" CHECK ("savings_goals"."start_cycle" ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'),
-	CONSTRAINT "savings_goals_currency_iso4217" CHECK ("savings_goals"."currency" ~ '^[A-Z]{3}$')
+	CONSTRAINT "savings_goals_currency_iso4217" CHECK ("savings_goals"."currency" ~ '^[A-Z]{3}$'),
+	CONSTRAINT "savings_goals_target_after_start_cycle" CHECK ("savings_goals"."target_date" > to_date("savings_goals"."start_cycle" || '-01', 'YYYY-MM-DD'))
 );
 --> statement-breakpoint
 CREATE TABLE "savings_income_sources" (

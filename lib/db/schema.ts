@@ -357,6 +357,12 @@ export const savingsGoals = pgTable(
     // Start cycle is a well-formed Statement-cycle key: YYYY-MM, month 01–12.
     check("savings_goals_start_cycle_format", sql`${t.startCycle} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
     check("savings_goals_currency_iso4217", sql`${t.currency} ~ '^[A-Z]{3}$'`),
+    // The target date must fall after the start cycle begins — a goal cannot be already expired at
+    // creation, which would drive cyclesRemaining <= 0 in the downstream savings math.
+    check(
+      "savings_goals_target_after_start_cycle",
+      sql`${t.targetDate} > to_date(${t.startCycle} || '-01', 'YYYY-MM-DD')`,
+    ),
   ],
 );
 
