@@ -94,6 +94,45 @@ function originFromUrl(returnUrl: string): string {
 }
 
 /**
+ * Build a descriptive error from a failed Straumur response. Straumur returns a JSON body with
+ * `errorCode`/`errorMessage`/`responseIdentifier` on validation failures (e.g. 2024 origin, 2026
+ * amount) but an *empty* body on a 401 — so a bare status is uninformative. We surface the parsed
+ * fields, the target host (to spot a staging/prod base-URL vs key mismatch at a glance), and, for
+ * 401s, an explicit hint that the `X-API-Key` was rejected. `responseIdentifier` is the id Straumur
+ * support asks for. The API key is never logged.
+ */
+async function straumurError(context: string, baseUrl: string, response: Response): Promise<Error> {
+  const raw = (await response.text().catch(() => "")).trim();
+  let detail = raw ? raw : "<empty body>";
+  try {
+    const parsed = JSON.parse(raw) as {
+      errorCode?: string;
+      errorMessage?: string;
+      responseIdentifier?: string;
+    };
+    const parts = [
+      parsed.errorCode && `errorCode=${parsed.errorCode}`,
+      parsed.errorMessage && `errorMessage=${parsed.errorMessage}`,
+      parsed.responseIdentifier && `responseIdentifier=${parsed.responseIdentifier}`,
+    ].filter(Boolean);
+    if (parts.length) detail = parts.join(" ");
+  } catch {
+    // Non-JSON (or empty) body — keep the raw text / <empty body>.
+  }
+  let host = baseUrl;
+  try {
+    host = new URL(baseUrl).host;
+  } catch {
+    // Malformed base URL — keep the raw value so it's still visible in the log.
+  }
+  const hint =
+    response.status === 401
+      ? " — X-API-Key rejected; verify STRAUMUR_API_KEY matches the environment of STRAUMUR_API_BASE_URL (staging vs prod)"
+      : "";
+  return new Error(`${context}: ${response.status} [host=${host}] ${detail}${hint}`);
+}
+
+/**
  * Create an Adyen Components checkout session via Straumur's wrapper. The terminal id and amount
  * normalisation are injected server-side. Passing `recurringProcessingModel` tokenizes the card for
  * later merchant-initiated charges. Straumur rejects unknown fields (errorCode 1006), so only the
@@ -125,7 +164,7 @@ export async function createSession(request: CreateSessionRequest): Promise<Crea
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    throw new Error(`Failed to create Straumur session: ${response.status} ${await response.text()}`);
+    throw await straumurError("Failed to create Straumur session", config.apiBaseUrl, response);
   }
 
   const json = (await response.json()) as {
@@ -218,7 +257,7 @@ export async function chargeStoredToken(request: ChargeStoredTokenRequest): Prom
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    throw new Error(`Failed to charge Straumur token: ${response.status} ${await response.text()}`);
+    throw await straumurError("Failed to charge Straumur token", config.apiBaseUrl, response);
   }
 
   const json = (await response.json()) as {
@@ -251,9 +290,7 @@ export async function getSessionStatus(
     headers: { "X-API-Key": config.apiKey },
   });
   if (!response.ok) {
-    throw new Error(
-      `Failed to get Straumur session status: ${response.status} ${await response.text()}`,
-    );
+    throw await straumurError("Failed to get Straumur session status", config.apiBaseUrl, response);
   }
   return (await response.json()) as SessionStatusResponse;
 }
