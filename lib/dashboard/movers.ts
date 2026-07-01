@@ -94,12 +94,14 @@ export function categoryEntityRows(
 /**
  * Load the top-3 merchant and top-3 category movers for the Household over the `count`-month window
  * ending at `now`. Completed months are trimmed to start at the first month with any spend, so a new
- * Household's leading empty months don't dilute the baseline.
+ * Household's leading empty months don't dilute the baseline. Pass `categoryTrend` when the caller
+ * has already loaded it (e.g. the dashboard view-model) to avoid re-querying it.
  */
 export async function loadBiggestMovers(
   repo: HouseholdRepo,
   now: Date,
   count = 12,
+  categoryTrend?: CategoryTrendPoint[],
 ): Promise<{ merchants: Mover[]; categories: Mover[] }> {
   const keys = recentCycleKeys(now, count);
   if (keys.length === 0) return { merchants: [], categories: [] };
@@ -111,7 +113,7 @@ export async function loadBiggestMovers(
 
   const [merchantRows, trend] = await Promise.all([
     repo.transactions.monthlyMerchantSpend(range),
-    loadCategoryTrend(repo, now, count),
+    categoryTrend ? Promise.resolve(categoryTrend) : loadCategoryTrend(repo, now, count),
   ]);
 
   const firstActive = merchantRows.reduce<string | null>(

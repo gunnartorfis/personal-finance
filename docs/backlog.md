@@ -231,7 +231,7 @@ Pure domain + data first (test-first via the `tdd` skill), then UI. Each item is
   category, top 3 risers, plus the largest single charge in the current cycle (hero info line). Tests.
 - [x] **K7 — Account breakdown**: repo `spendByAccount({from,to})` (Σ debits by account + name);
   consumed only when the household has >1 Account. Tests.
-- [ ] **K8 — Dashboard view-model**: pure assembly of K2–K7 into a typed `DashboardView` (hero
+- [x] **K8 — Dashboard view-model**: pure assembly of K2–K7 into a typed `DashboardView` (hero
   numbers, series, category trend, merchants, movers, optional accounts, per-module thin-data flags,
   action-band inputs). Tests.
 - [ ] **K9 — Action band** (`/design`): review backlog (reviewQueueMonths total → link), free-cap
