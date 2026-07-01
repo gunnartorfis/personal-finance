@@ -118,4 +118,36 @@ describe("ReviewMode", () => {
     )
     expect(screen.getByText(/nothing to review/i)).toBeInTheDocument()
   })
+
+  it("ignores assignment keys on the completion screen (no re-persist)", () => {
+    const onOverride = vi.fn()
+    render(
+      <ReviewMode
+        rows={[row({ id: "only", confidence: 0.2 })]}
+        currency="ISK"
+        onOverride={onOverride}
+        onClose={vi.fn()}
+      />
+    )
+
+    fireEvent.keyDown(window, { key: "1" }) // settles the only card -> done screen
+    expect(onOverride).toHaveBeenCalledTimes(1)
+    expect(screen.getByText(/all caught up/i)).toBeInTheDocument()
+
+    fireEvent.keyDown(window, { key: "2" }) // reflexive keypress on the done screen: ignored
+    expect(onOverride).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not crash on a classified split/none expense", () => {
+    render(
+      <ReviewMode
+        rows={[row({ id: "split", confidence: 0.5, classifiedType: "" })]}
+        currency="ISK"
+        onOverride={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    // No AI-suggestion pill is rendered for `""`; it must not throw on a TYPE_META[""] lookup.
+    expect(screen.queryByText(/AI suggests/i)).not.toBeInTheDocument()
+  })
 })

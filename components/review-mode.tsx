@@ -101,6 +101,12 @@ export function ReviewMode({
         (target.tagName === "INPUT" || target.tagName === "TEXTAREA")
       )
         return
+      // On the completion screen no card is shown, so assign/accept keys would silently re-persist
+      // the last transaction — ignore them (navigation, undo and close stay live).
+      if (done && ["1", "2", "3", "0", " "].includes(event.key)) {
+        event.preventDefault()
+        return
+      }
       const handlers: Record<string, () => void> = {
         "1": () => assign("Fixed"),
         "2": () => assign("Necessary"),
@@ -125,7 +131,7 @@ export function ReviewMode({
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [assign, accept, next, prev, undo, onClose])
+  }, [assign, accept, next, prev, undo, onClose, done])
 
   // Lock body scroll while the overlay is up.
   useEffect(() => {
@@ -150,8 +156,12 @@ export function ReviewMode({
     }).format(new Date(date))
 
   const progress = total === 0 ? 1 : reviewedCount / total
+  // Also exclude `""` (split/none): it's a valid classified value but has no TYPE_META pill, so
+  // treating it as "suggested" would crash TypePill on a `TYPE_META[""]` lookup.
   const isClassified =
-    cur?.classificationStatus === "classified" && cur.classifiedType !== null
+    cur?.classificationStatus === "classified" &&
+    cur.classifiedType !== null &&
+    cur.classifiedType !== ""
 
   return (
     <div
