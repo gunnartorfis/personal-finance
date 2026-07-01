@@ -3,7 +3,7 @@ import type { ExpenseType } from "@/shared/types";
 
 import type { CycleKey } from "./cycle";
 import { cycleKeyRange, recentCycleKeys } from "./cycle";
-import { toEffectiveType } from "./net-summary";
+import { emptyByExpenseType, toEffectiveType } from "./net-summary";
 
 /**
  * One month in the stacked category-mix trend (Phase K, ADR-0008). `byExpenseType` holds the debit
@@ -22,10 +22,6 @@ export interface CategoryTrendRow {
   month: string;
   effectiveType: string | null;
   spending: number;
-}
-
-function emptyByExpenseType(): Record<ExpenseType, number> {
-  return { Fixed: 0, Necessary: 0, "Nice to have": 0, "": 0 };
 }
 
 /**

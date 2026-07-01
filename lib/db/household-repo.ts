@@ -334,7 +334,8 @@ export function householdRepo(db: Db, householdId: string) {
               lt(transactions.date, range.to)
             )
           )
-          .groupBy(month, effectiveType);
+          .groupBy(month, effectiveType)
+          .orderBy(asc(month));
         return rows.map((row) => ({
           month: row.month,
           effectiveType: row.effectiveType,
