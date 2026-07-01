@@ -1,6 +1,6 @@
 import Link from "next/link"
 
-import { cycleKeyLabel } from "@/lib/dashboard/cycle"
+import { cycleKeyLabel, shortCycleLabel } from "@/lib/dashboard/cycle"
 import type { MonthlySpendPoint } from "@/lib/dashboard/monthly-series"
 import { DEFAULT_TRAILING } from "@/lib/dashboard/spending-trend"
 import { cn } from "@/lib/utils"
@@ -12,14 +12,6 @@ import { cn } from "@/lib/utils"
  */
 export function moneyInLineBottom(moneyPct: number): string {
   return `min(${moneyPct}%, calc(100% - 2px))`
-}
-
-/** Short month label for a `YYYY-MM` key, e.g. "Mar". */
-function shortMonth(key: string): string {
-  const [year, month] = key.split("-").map(Number)
-  return new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(
-    new Date(Date.UTC(year, month - 1, 1)),
-  )
 }
 
 /**
@@ -99,7 +91,7 @@ export function SpendingTrendChart({
                   )}
                 </span>
                 <span aria-hidden="true" className="text-[10px] tabular-nums text-muted-foreground">
-                  {shortMonth(point.month)}
+                  {shortCycleLabel(point.month)}
                 </span>
               </Link>
             )

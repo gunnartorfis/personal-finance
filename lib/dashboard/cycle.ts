@@ -52,6 +52,15 @@ export function cycleKeyLabel(key: CycleKey): string {
   }).format(new Date(Date.UTC(year, month - 1, 1)));
 }
 
+/** A short month label for a cycle, e.g. `"Mar"` — the x-axis tick for the dashboard trend charts. */
+export function shortCycleLabel(key: CycleKey): string {
+  const { year, month } = parseKey(key);
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
 /** The key of the calendar month before `key`. */
 export function previousCycleKey(key: CycleKey): CycleKey {
   const { year, month } = parseKey(key);

@@ -10,6 +10,7 @@ import {
   nextCycleKey,
   previousCycleKey,
   recentCycleKeys,
+  shortCycleLabel,
 } from "./cycle";
 
 describe("cycleRange", () => {
@@ -75,6 +76,13 @@ describe("cycleKeyLabel", () => {
   it("formats a key as month and year", () => {
     expect(cycleKeyLabel("2026-03")).toBe("March 2026");
     expect(cycleKeyLabel("2025-01")).toBe("January 2025");
+  });
+});
+
+describe("shortCycleLabel", () => {
+  it("formats a key as a short month", () => {
+    expect(shortCycleLabel("2026-03")).toBe("Mar");
+    expect(shortCycleLabel("2025-01")).toBe("Jan");
   });
 });
 
