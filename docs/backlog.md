@@ -187,3 +187,79 @@ each item one small PR; earliest are pure `shared/` domain logic (test-first).
   nav item. Blocked by: Check-in API.
 - [ ] **Dashboard progress card**: a compact wedding-fund progress card on the Dashboard linking to
   `/savings`. Blocked by: Savings page + nav.
+
+## Phase J — Insightful dashboard (ADR-0008) — depends on F (net-summary), H (cycle helpers)
+
+Turns the dashboard from a single current-cycle card into an at-a-glance household-finance
+overview. Design decisions (grill session, `CONTEXT.md`, ADR-0008):
+
+- **Hero = Spending**; card credits shown as **Money in**, **Difference** (`Money in − Spending`) as
+  a secondary line (kept). NOT netted against savings **Monthly income** — decoupled; true P&L
+  deferred (below).
+- **Calendar months**, **rolling 12-month** look-back. Household-wide, **at-a-glance** — the only
+  drill is tap-a-month-in-the-trend → `/transactions?cycle=YYYY-MM` (already supported).
+- Spending observations are **neutral info, never warnings**, and compare **completed months only**
+  (the in-progress month shows spent-so-far + a **linear projection**:
+  `spendSoFar ÷ daysElapsed × daysInMonth`, UTC).
+- **vs-average baseline**: trailing **completed** months, up to 12, **min 3** to show.
+- **Top merchants**: trailing **3 months**, **top 6**, with share-of-spend.
+- **Biggest movers**: last completed month vs trailing average, **both merchant and category**,
+  **top 3 risers**.
+- **Progressive per-module** thin-data: raw-data modules (spending, merchants, accounts) always
+  render; trend/movers/vs-average gate on ≥3 months; classification-dependent modules show a
+  "classify to unlock" nudge (Free-plan upgrade prompt).
+- **Order**: action band → this-month hero → 12-mo trend → category mix+trend → top merchants →
+  biggest movers → account split (only when >1 Account). (Coordinate with the savings **Dashboard
+  progress card** above — leave it a slot; both edit `app/(app)/dashboard/page.tsx`.)
+- **No recurrence detection** anywhere. **All UI items use the `/design` skill.**
+
+Pure domain + data first (test-first via the `tdd` skill), then UI. Each item is one small PR.
+
+- [ ] **J1 — Design docs** (this PR): `CONTEXT.md` terms (Spending / Money in / Difference) +
+  calendar-month Statement cycle fix, ADR-0008, this Phase J plan, Deferred P&L. Docs only.
+- [ ] **J2 — Monthly spend series**: repo `monthlySpendSeries({from,to})` (SQL `GROUP BY
+  to_char(date,'YYYY-MM')`: Σ debits = spending, Σ credits = moneyIn) + a pure builder that fills
+  missing months across the 12-mo window → `[{month, spending, moneyIn, difference}]`. Tests.
+- [ ] **J3 — Trailing average + projection**: pure `trailingAverage(series,{minMonths:3,maxMonths:12})`
+  over completed months only, current-month linear projection, `deltaPct` vs average; "not enough
+  history" flag under 3 completed months. Tests.
+- [ ] **J4 — Top merchants**: repo `topMerchants({from,to},limit)` (Σ debits by normalized merchant,
+  trailing 3 months, top 6) + pure share-of-spend. Tests.
+- [ ] **J5 — Category mix trend**: pure per-month per-`ExpenseType` debit totals over 12 months
+  (effective type = override > classified), for the stacked module. Tests.
+- [ ] **J6 — Biggest movers**: pure — last completed month vs trailing average, per merchant AND per
+  category, top 3 risers, plus the largest single charge in the current cycle (hero info line). Tests.
+- [ ] **J7 — Account breakdown**: repo `spendByAccount({from,to})` (Σ debits by account + name);
+  consumed only when the household has >1 Account. Tests.
+- [ ] **J8 — Dashboard view-model**: pure assembly of J2–J7 into a typed `DashboardView` (hero
+  numbers, series, category trend, merchants, movers, optional accounts, per-module thin-data flags,
+  action-band inputs). Tests.
+- [ ] **J9 — Action band** (`/design`): review backlog (reviewQueueMonths total → link), free-cap
+  (reuse `FreeCapStatusBanner`), failed (reuse `ClassifyTrigger`), all-clear state; each shows only
+  when firing.
+- [ ] **J10 — This-month hero** (`/design`): Spending hero + projection + neutral info lines
+  (vs-avg %, largest charge) + Money in / Difference secondary.
+- [ ] **J11 — 12-mo spending trend** (`/design`): spending bars + money-in overlay; tap month →
+  `/transactions?cycle=`; <3-month placeholder. Lightweight SVG/CSS unless `/design` opts for shadcn
+  charts.
+- [ ] **J12 — Category mix + trend module** (`/design`): current-period `SpendingByType` + stacked
+  month-over-month; "classify to unlock" nudge when mostly unclassified.
+- [ ] **J13 — Top merchants module** (`/design`).
+- [ ] **J14 — Biggest movers module** (`/design`).
+- [ ] **J15 — Account breakdown module** (`/design`): render only when >1 Account.
+- [ ] **J16 — Dashboard page assembly** (`/design`): rewrite `app/(app)/dashboard/page.tsx` to load
+  the view-model and render the modules in order with progressive thin-data gating (keeping a slot
+  for the savings progress card).
+
+## Deferred — true P&L (real income + transfers)
+
+Surfaced during the insightful-dashboard design (see `CONTEXT.md` "income vs Money in", ADR-0008).
+The dashboard leads with **Spending** and labels credits honestly as **Money in** precisely because
+a true net is not yet safe to compute on the dashboard.
+
+- [ ] **Wire Difference to real income** — once the savings **Monthly income** schema lands, offer a
+  true dashboard net (Monthly income − Spending) instead of Money in − Spending. Needs transfer
+  handling to avoid double-counting salary-bearing bank Accounts.
+- [ ] **Transfer detection** — recognise inter-account transfers and card-bill payments (a debit in
+  the funding Account matched to a credit on the card) and exclude them from Money in, Spending,
+  category totals, and anomaly baselines. New Transfer concept (type/flag) + matching logic.
