@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 
+import { clearOverride, putOverride } from "@/lib/overrides/client"
 import { cn } from "@/lib/utils"
 import { EXPENSE_TYPES, type ExpenseType } from "@/shared/types"
 
@@ -33,24 +34,20 @@ export function OverrideControl({
   transactionId: string
   value: ExpenseType
   hasOverride: boolean
-  onChanged?: (next: { expenseType: ExpenseType | null; hasOverride: boolean }) => void
+  onChanged?: (next: {
+    expenseType: ExpenseType | null
+    hasOverride: boolean
+  }) => void
   className?: string
 }) {
   const [saving, setSaving] = useState(false)
   const [errored, setErrored] = useState(false)
 
-  const endpoint = `/api/transactions/${transactionId}/override`
-
   async function setOverride(expenseType: ExpenseType) {
     setSaving(true)
     setErrored(false)
     try {
-      const res = await fetch(endpoint, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expenseType }),
-      })
-      if (!res.ok) throw new Error(`override ${res.status}`)
+      await putOverride(transactionId, expenseType)
       onChanged?.({ expenseType, hasOverride: true })
     } catch {
       setErrored(true)
@@ -59,12 +56,11 @@ export function OverrideControl({
     }
   }
 
-  async function clearOverride() {
+  async function resetOverride() {
     setSaving(true)
     setErrored(false)
     try {
-      const res = await fetch(endpoint, { method: "DELETE" })
-      if (!res.ok) throw new Error(`override ${res.status}`)
+      await clearOverride(transactionId)
       onChanged?.({ expenseType: null, hasOverride: false })
     } catch {
       setErrored(true)
@@ -82,7 +78,9 @@ export function OverrideControl({
         id={`override-${transactionId}`}
         value={value}
         disabled={saving}
-        onChange={(event) => void setOverride(event.target.value as ExpenseType)}
+        onChange={(event) =>
+          void setOverride(event.target.value as ExpenseType)
+        }
         className="rounded-md border border-border bg-transparent px-2 py-1 text-sm"
       >
         {EXPENSE_TYPES.map((type) => (
@@ -94,7 +92,7 @@ export function OverrideControl({
       {hasOverride && (
         <button
           type="button"
-          onClick={() => void clearOverride()}
+          onClick={() => void resetOverride()}
           disabled={saving}
           className="text-sm text-muted-foreground underline underline-offset-2"
         >
