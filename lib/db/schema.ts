@@ -289,8 +289,8 @@ export const transactions = pgTable(
     // external id and no Upload.
     check(
       "transactions_source_provenance",
-      sql`(${t.source} = 'csv' AND ${t.uploadId} IS NOT NULL AND ${t.externalId} IS NULL)
-        OR (${t.source} = 'bank_sync' AND ${t.uploadId} IS NULL AND ${t.externalId} IS NOT NULL)`,
+      sql`(${t.source} = 'csv' AND ${t.uploadId} IS NOT NULL AND ${t.externalId} IS NULL AND ${t.sourceRow} IS NOT NULL)
+        OR (${t.source} = 'bank_sync' AND ${t.uploadId} IS NULL AND ${t.externalId} IS NOT NULL AND ${t.sourceRow} IS NULL)`,
     ),
     // Idempotent dedup for synced rows: one row per (household, account, provider transaction id).
     // Partial so CSV rows (external id null) are unconstrained.

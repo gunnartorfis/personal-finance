@@ -26,5 +26,5 @@ ALTER TABLE "transactions" ADD COLUMN "external_id" text;--> statement-breakpoin
 ALTER TABLE "bank_connections" ADD CONSTRAINT "bank_connections_household_id_households_id_fk" FOREIGN KEY ("household_id") REFERENCES "public"."households"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_connection_household_fk" FOREIGN KEY ("household_id","connection_id") REFERENCES "public"."bank_connections"("household_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "transactions_household_account_external_key" ON "transactions" USING btree ("household_id","account_id","external_id") WHERE "transactions"."external_id" IS NOT NULL;--> statement-breakpoint
-ALTER TABLE "transactions" ADD CONSTRAINT "transactions_source_provenance" CHECK (("transactions"."source" = 'csv' AND "transactions"."upload_id" IS NOT NULL AND "transactions"."external_id" IS NULL)
-        OR ("transactions"."source" = 'bank_sync' AND "transactions"."upload_id" IS NULL AND "transactions"."external_id" IS NOT NULL));
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_source_provenance" CHECK (("transactions"."source" = 'csv' AND "transactions"."upload_id" IS NOT NULL AND "transactions"."external_id" IS NULL AND "transactions"."source_row" IS NOT NULL)
+        OR ("transactions"."source" = 'bank_sync' AND "transactions"."upload_id" IS NULL AND "transactions"."external_id" IS NOT NULL AND "transactions"."source_row" IS NULL));

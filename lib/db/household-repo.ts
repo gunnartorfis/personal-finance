@@ -79,27 +79,29 @@ export function householdRepo(db: Db, householdId: string) {
           )
         return row
       },
-      create: (value: Omit<typeof bankConnections.$inferInsert, "householdId">) =>
+      // Tokens (accessToken/refreshToken) are intentionally NOT settable here: they must be written
+      // only as ciphertext via the encrypted write path introduced with the connect flow (#113), so
+      // this slice exposes no way to persist a raw bearer token.
+      create: (
+        value: Omit<
+          typeof bankConnections.$inferInsert,
+          "householdId" | "accessToken" | "refreshToken"
+        >
+      ) =>
         db
           .insert(bankConnections)
           .values({ ...value, householdId })
           .returning(),
       /**
-       * Patch a connection's mutable fields (sync/consent lifecycle). Scoped to the household, so a
-       * foreign connection id updates nothing. Returns the updated row(s).
+       * Patch a connection's mutable lifecycle fields. Scoped to the household, so a foreign
+       * connection id updates nothing. Returns the updated row(s). Tokens are excluded (see above).
        */
       update: (
         id: string,
         patch: Partial<
           Pick<
             typeof bankConnections.$inferInsert,
-            | "status"
-            | "consentExpiresAt"
-            | "accessToken"
-            | "refreshToken"
-            | "lastSyncedAt"
-            | "institutionId"
-            | "institutionName"
+            "status" | "consentExpiresAt" | "lastSyncedAt" | "institutionId" | "institutionName"
           >
         >
       ) =>

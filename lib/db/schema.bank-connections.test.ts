@@ -115,6 +115,32 @@ describe("bank connections & ingestion-source schema (open-banking)", () => {
     ).rejects.toThrow();
   });
 
+  it("rejects a synced transaction that carries a source row (must be null)", async () => {
+    await expect(
+      db.insert(transactions).values({ ...syncedTxn(), externalId: "tx_sr", sourceRow: 5 }),
+    ).rejects.toThrow();
+  });
+
+  it("rejects a csv transaction without a source row (traceability CHECK)", async () => {
+    const [u] = await db
+      .insert(uploads)
+      .values({ householdId, accountId, fileName: "nr.csv", fileHash: "no-row" })
+      .returning();
+    await expect(
+      db.insert(transactions).values({
+        householdId,
+        accountId,
+        uploadId: u.id,
+        source: "csv",
+        date: "2026-03-01",
+        amount: -10,
+        merchant: "X",
+        rawCategory: "",
+        // sourceRow omitted -> null -> rejected by the provenance CHECK
+      }),
+    ).rejects.toThrow();
+  });
+
   it("dedups synced rows on (household, account, external id) but not csv rows", async () => {
     await db.insert(transactions).values({ ...syncedTxn(), externalId: "tx_dupe" });
     await expect(

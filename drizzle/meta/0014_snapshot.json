@@ -1,5 +1,5 @@
 {
-  "id": "9d0ce0d1-8940-454f-a218-fbc8113fdf30",
+  "id": "ae301ef4-3aae-4c59-b326-68b26ba220c0",
   "prevId": "b5bb8645-21e5-46ca-a5a6-866a681790f1",
   "version": "7",
   "dialect": "postgresql",
@@ -1281,7 +1281,7 @@
         },
         "transactions_source_provenance": {
           "name": "transactions_source_provenance",
-          "value": "(\"transactions\".\"source\" = 'csv' AND \"transactions\".\"upload_id\" IS NOT NULL AND \"transactions\".\"external_id\" IS NULL)\n        OR (\"transactions\".\"source\" = 'bank_sync' AND \"transactions\".\"upload_id\" IS NULL AND \"transactions\".\"external_id\" IS NOT NULL)"
+          "value": "(\"transactions\".\"source\" = 'csv' AND \"transactions\".\"upload_id\" IS NOT NULL AND \"transactions\".\"external_id\" IS NULL AND \"transactions\".\"source_row\" IS NOT NULL)\n        OR (\"transactions\".\"source\" = 'bank_sync' AND \"transactions\".\"upload_id\" IS NULL AND \"transactions\".\"external_id\" IS NOT NULL AND \"transactions\".\"source_row\" IS NULL)"
         }
       },
       "isRLSEnabled": false
