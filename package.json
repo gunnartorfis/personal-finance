@@ -15,7 +15,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/migrate-on-vercel.mjs && next build",
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
@@ -24,6 +24,7 @@
     "test:run": "vitest run",
     "db:generate": "node --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs generate",
     "db:migrate": "node --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs migrate",
+    "db:check": "node node_modules/drizzle-kit/bin.cjs check",
     "doctor": "pnpm dlx react-doctor@latest"
   },
   "dependencies": {
