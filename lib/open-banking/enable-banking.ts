@@ -13,6 +13,8 @@ import type {
 const DEFAULT_BASE_URL = "https://api.enablebanking.com";
 /** JWT lifetime; Enable Banking caps app JWTs at 24h, this is comfortably short. */
 const JWT_TTL_SECONDS = 3600;
+/** Safety cap on transaction pagination to bound memory/latency on an anomalous response. */
+const MAX_TRANSACTION_PAGES = 100;
 
 /** Config for {@link EnableBankingClient}. `privateKey` is the app's RSA private key (PEM). */
 export interface EnableBankingConfig {
@@ -49,7 +51,7 @@ interface EbTransaction {
   value_date?: string;
   transaction_date?: string;
   transaction_amount: { amount: string; currency: string };
-  credit_debit_indicator: "CRDT" | "DBTN";
+  credit_debit_indicator: "CRDT" | "DBIT";
   creditor?: { name?: string };
   debtor?: { name?: string };
   remittance_information?: string[];
@@ -171,7 +173,13 @@ export class EnableBankingClient implements IngestionProvider {
   ): Promise<ProviderTransaction[]> {
     const out: ProviderTransaction[] = [];
     let continuationKey: string | undefined;
+    let pages = 0;
     do {
+      if (pages >= MAX_TRANSACTION_PAGES) {
+        throw new Error(
+          `Enable Banking transactions exceeded ${MAX_TRANSACTION_PAGES} pages for account ${accountUid}`,
+        );
+      }
       const data = await this.request<{
         transactions: EbTransaction[];
         continuation_key?: string;
@@ -180,6 +188,7 @@ export class EnableBankingClient implements IngestionProvider {
       });
       out.push(...data.transactions.map(toProviderTransaction));
       continuationKey = data.continuation_key;
+      pages += 1;
     } while (continuationKey);
     return out;
   }
@@ -197,9 +206,9 @@ function toProviderAccount(a: EbAccount): ProviderAccount {
 
 function toProviderTransaction(t: EbTransaction): ProviderTransaction {
   const magnitude = Number.parseFloat(t.transaction_amount.amount);
-  const amount = t.credit_debit_indicator === "DBTN" ? -magnitude : magnitude;
+  const amount = t.credit_debit_indicator === "DBIT" ? -magnitude : magnitude;
   const counterparty =
-    t.credit_debit_indicator === "DBTN" ? t.creditor?.name : t.debtor?.name;
+    t.credit_debit_indicator === "DBIT" ? t.creditor?.name : t.debtor?.name;
   const remittance = t.remittance_information ?? [];
   return {
     externalId: t.transaction_id,

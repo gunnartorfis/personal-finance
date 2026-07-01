@@ -111,7 +111,7 @@ describe("EnableBankingClient", () => {
           transaction_id: "t1",
           booking_date: "2026-03-01",
           transaction_amount: { amount: "1990.00", currency: "ISK" },
-          credit_debit_indicator: "DBTN",
+          credit_debit_indicator: "DBIT",
           creditor: { name: "NETFLIX" },
           remittance_information: ["Netflix"],
         },
