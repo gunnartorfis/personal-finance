@@ -25,13 +25,14 @@ export function DevReset({ className }: { className?: string }) {
       const res = await fetch("/api/dev/reset", { method: "POST" })
       if (!res.ok) {
         setErrored(true)
+        setBusy(false)
         return
       }
-      // Full reload so server components re-fetch the now-empty dataset.
+      // Full reload so server components re-fetch the now-empty dataset. Keep the spinner up —
+      // the page is navigating away, so clearing `busy` here would only flash the button back.
       window.location.assign("/")
     } catch {
       setErrored(true)
-    } finally {
       setBusy(false)
     }
   }
@@ -71,7 +72,10 @@ export function DevReset({ className }: { className?: string }) {
           </Button>
           <Button
             variant="outline"
-            onClick={() => setConfirming(false)}
+            onClick={() => {
+              setConfirming(false)
+              setErrored(false)
+            }}
             disabled={busy}
           >
             Cancel
