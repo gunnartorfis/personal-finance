@@ -225,6 +225,18 @@ describe("householdRepo", () => {
       expect(queue.some((r) => r.id === settled.id)).toBe(false);
     });
 
+    it("caps the queue to the requested limit, keeping the newest rows", async () => {
+      const { a } = await twoHouseholds();
+      await seedExpense(a, { date: "2026-03-15", sourceRow: 0 });
+      await seedExpense(a, { date: "2026-02-15", sourceRow: 1 });
+      await seedExpense(a, { date: "2026-01-15", sourceRow: 2 });
+
+      const capped = await a.transactions.reviewQueue(2);
+      expect(capped.map((r) => r.merchant)).toEqual(["M0", "M1"]); // newest two
+      // No limit still returns everything.
+      expect(await a.transactions.reviewQueue()).toHaveLength(3);
+    });
+
     it("excludes an expense once it is overridden", async () => {
       const { a } = await twoHouseholds();
       const txn = await seedExpense(a, { date: "2026-03-15", sourceRow: 0 });

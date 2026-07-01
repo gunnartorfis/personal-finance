@@ -30,9 +30,11 @@ export function RapidReviewLauncher({
   const [open, setOpen] = useState(false)
   const [rows, setRows] = useState<TransactionRow[] | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
 
   const openReview = useCallback(async () => {
     setLoading(true)
+    setError(false)
     try {
       const res = await fetch("/api/transactions/review-queue")
       if (!res.ok) throw new Error(`review queue ${res.status}`)
@@ -41,7 +43,8 @@ export function RapidReviewLauncher({
       setRows(data.rows)
       setOpen(true)
     } catch {
-      // Leave the button ready to retry rather than opening an empty overlay.
+      // Surface the failure and leave the button ready to retry rather than opening an empty overlay.
+      setError(true)
     } finally {
       setLoading(false)
     }
@@ -64,14 +67,21 @@ export function RapidReviewLauncher({
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={openReview}
-        disabled={loading}
-      >
-        ⚡ Rapid review ({count})
-      </Button>
+      <div className="flex flex-col items-end gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={openReview}
+          disabled={loading}
+        >
+          ⚡ Rapid review ({count})
+        </Button>
+        {error && (
+          <span role="alert" className="text-sm text-destructive">
+            Couldn&apos;t load the review queue. Try again.
+          </span>
+        )}
+      </div>
       {open && rows && (
         <ReviewMode
           rows={rows}

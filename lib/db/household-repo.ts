@@ -304,9 +304,14 @@ export function householdRepo(db: Db, householdId: string) {
        * Unlike the per-period list this spans every month, so the overlay can drain the whole backlog
        * regardless of which period the user is viewing. `overrideType` is always `null` here (the
        * anti-join keeps overridden rows out) but is selected to keep the shape identical.
+       *
+       * `limit` bounds the batch in SQL so a large backlog never ships as one unbounded payload; the
+       * newest rows come first, and because reviewing a row writes an override that drops it from this
+       * query, closing and reopening the overlay fetches the next batch — the queue drains across
+       * sessions rather than materialising all at once.
        */
-      reviewQueue: () =>
-        db
+      reviewQueue: (limit?: number) => {
+        const q = db
           .select({
             id: transactions.id,
             date: transactions.date,
@@ -333,7 +338,9 @@ export function householdRepo(db: Db, householdId: string) {
               isNull(overrides.id)
             )
           )
-          .orderBy(desc(transactions.date), asc(transactions.id)),
+          .orderBy(desc(transactions.date), asc(transactions.id))
+        return limit === undefined ? q : q.limit(limit)
+      },
       /** Count of classified transactions for the Household (lifetime) — used for the Free cap. */
       countClassified: async () => {
         const [row] = await db
