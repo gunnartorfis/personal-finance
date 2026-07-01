@@ -1,9 +1,11 @@
 "use client"
 
+import { CircleAlert, Loader2, Sparkles } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import "@adyen/adyen-web/styles/adyen.css"
 
+import { Button } from "@/components/ui/button"
 import { type BillingPeriod, subscriptionPriceISK } from "@/lib/billing/pricing"
 import { cn } from "@/lib/utils"
 
@@ -149,7 +151,7 @@ export function PremiumCheckout({
   return (
     <section className={cn("flex flex-col gap-3", className)}>
       {phase === "done" ? (
-        <p className="text-sm font-medium text-emerald-600">
+        <p className="text-sm font-medium text-emerald-600 dark:text-emerald-500">
           Premium is active — thanks for subscribing!
         </p>
       ) : phase === "confirming" ? (
@@ -161,32 +163,40 @@ export function PremiumCheckout({
       ) : (
         <>
           {phase === "choose" && (
-            <div className="flex flex-wrap items-end gap-2">
-              <div className="flex flex-col gap-1">
-                <label htmlFor="billing-period" className="text-sm text-muted-foreground">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex flex-1 flex-col gap-1.5">
+                <label htmlFor="billing-period" className="text-sm font-medium">
                   Billing period
                 </label>
-                <select
-                  id="billing-period"
-                  value={period}
-                  onChange={(event) => setPeriod(event.target.value as BillingPeriod)}
-                  className="rounded-md border border-border bg-transparent px-2 py-1 text-sm"
-                >
-                  {(Object.keys(PERIOD_LABELS) as BillingPeriod[]).map((value) => (
-                    <option key={value} value={value}>
-                      {PERIOD_LABELS[value]} — {priceLabel(value)}
-                    </option>
-                  ))}
-                </select>
+                <div className="grid grid-cols-[1fr_--spacing(7)] items-center rounded-md border border-input bg-input/20 transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30 dark:bg-input/30">
+                  <select
+                    id="billing-period"
+                    value={period}
+                    onChange={(event) => setPeriod(event.target.value as BillingPeriod)}
+                    className="col-span-full row-start-1 h-7 appearance-none bg-transparent py-0.5 pr-7 pl-2 text-sm outline-none"
+                  >
+                    {(Object.keys(PERIOD_LABELS) as BillingPeriod[]).map((value) => (
+                      <option key={value} value={value}>
+                        {PERIOD_LABELS[value]} — {priceLabel(value)}
+                      </option>
+                    ))}
+                  </select>
+                  <svg
+                    viewBox="0 0 8 5"
+                    width="8"
+                    height="5"
+                    fill="none"
+                    aria-hidden="true"
+                    className="pointer-events-none col-start-2 row-start-1 place-self-center text-muted-foreground"
+                  >
+                    <path d="M.5.5 4 4 7.5.5" stroke="currentColor" />
+                  </svg>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => void startCheckout()}
-                disabled={busy}
-                className="rounded-md border border-border px-3 py-1 text-sm font-medium disabled:opacity-50"
-              >
+              <Button type="button" onClick={() => void startCheckout()} disabled={busy}>
+                {busy ? <Loader2 className="animate-spin" /> : <Sparkles />}
                 {busy ? "Starting…" : "Upgrade to Premium"}
-              </button>
+              </Button>
             </div>
           )}
           {/* Always in the DOM so the ref is available to mount the Drop-in into; shown once paying. */}
@@ -195,9 +205,13 @@ export function PremiumCheckout({
       )}
 
       {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <p>{error}</p>
+        </div>
       )}
     </section>
   )
