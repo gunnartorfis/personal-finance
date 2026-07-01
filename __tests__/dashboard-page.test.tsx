@@ -82,4 +82,24 @@ describe("DashboardPage", () => {
 
     expect(loadDashboardView).toHaveBeenCalledWith({}, expect.any(Date), { plan: "Premium" })
   })
+
+  it("shows the account split and the review-backlog action for a multi-account household with work to do", async () => {
+    loadDashboardView.mockResolvedValue({
+      ...VIEW,
+      modules: {
+        ...VIEW.modules,
+        accounts: [
+          { accountId: "a1", name: "Visa", spending: 600, share: 0.6 },
+          { accountId: "a2", name: "Mastercard", spending: 400, share: 0.4 },
+        ],
+      },
+      actionBand: { ...VIEW.actionBand, reviewBacklog: 3, allClear: false },
+    })
+
+    render(await DashboardPage())
+
+    expect(screen.getByText("Spending by account")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: /3 expenses need review/i })).toBeInTheDocument()
+    expect(screen.queryByText(/all caught up/i)).not.toBeInTheDocument()
+  })
 })
