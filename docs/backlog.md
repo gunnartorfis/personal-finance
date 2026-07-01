@@ -160,7 +160,7 @@ uploading a cycle's Transactions, to see if it is on track and how much `Nice to
 afford. Progress is *inferred* from spend, never an entered balance (ADR-0007). Dependency-ordered,
 each item one small PR; earliest are pure `shared/` domain logic (test-first).
 
-- [ ] **Savings math** (`shared/savings.ts`, ADR-0007): pure + test-first. `inferredSaving =
+- [x] **Savings math** (`shared/savings.ts`, ADR-0007): pure + test-first. `inferredSaving =
   monthlyIncome − offCardFixed − cardDebits` (debits = −Σ negative amounts; positive card lines
   ignored); cumulative = startingSaved + Σ snapshots; on-track baseline `(target−startingSaved) /
   totalCycles`; corrective pace `(target−cumulative) / cyclesRemaining`; `allowedNiceToHave =
