@@ -152,3 +152,38 @@ flow. This phase adds it. Premium activation itself stays webhook-driven (alread
   Premium is active (poll `getSessionStatus` via a new status route and/or the household plan) so the
   UI reflects activation rather than assuming it. Acceptance: after paying, the user sees Premium
   active without a manual refresh. Blocked by: Premium upgrade via Adyen Drop-in.
+
+## Phase J — Savings goals (ADR-0007) — depends on Phase A net + Phase F statement-cycle/net-summary
+
+A Household sets a **Savings goal** (target amount by a target date) and checks in ~monthly, after
+uploading a cycle's Transactions, to see if it is on track and how much `Nice to have` it can still
+afford. Progress is *inferred* from spend, never an entered balance (ADR-0007). Dependency-ordered,
+each item one small PR; earliest are pure `shared/` domain logic (test-first).
+
+- [ ] **Savings math** (`shared/savings.ts`, ADR-0007): pure + test-first. `inferredSaving =
+  monthlyIncome − offCardFixed − cardDebits` (debits = −Σ negative amounts; positive card lines
+  ignored); cumulative = startingSaved + Σ snapshots; on-track baseline `(target−startingSaved) /
+  totalCycles`; corrective pace `(target−cumulative) / cyclesRemaining`; `allowedNiceToHave =
+  income − offCardFixed − correctivePace − expectedFixed − expectedNecessary`. Guard zero/negative
+  cycles remaining. No infrastructure. Blocked by: none.
+- [ ] **Schema: goal + config + check-ins** (ADR-0007, ADR-0002): `savings_goals` (target,
+  targetDate, startingSaved, startCycle, currency; one active per Household), `savings_income_sources`
+  (`{name, amount}`), `savings_offcard_costs` (`{name, monthlyAmount}`), `savings_checkins` (cycleKey
+  + frozen income/offcard/cardDebits/inferredSaving + optional cycleExtra; unique(household, cycle)).
+  Household-scoped, CHECK-constrained, composite same-household FKs. Blocked by: none.
+- [ ] **Data-access** for the new tables: household-scoped repo methods — goal get/upsert, income
+  sources + off-card costs list/replace, check-ins list + upsert-by-cycle. Blocked by: Schema.
+- [ ] **Trailing-average estimator**: expected `Fixed`/`Necessary` from the last ~3 completed cycles'
+  net summaries, with a manual fallback when history is thin. Pure logic + repo read. Blocked by:
+  Data-access.
+- [ ] **Goal + config API**: `GET`/`PUT /api/savings/goal` and `GET`/`PUT /api/savings/config`
+  (income + off-card), household-scoped, validated. Blocked by: Data-access.
+- [ ] **Check-in API**: `GET /api/savings/checkins` + `POST /api/savings/checkins` — freeze the
+  current cycle from `loadNetSummary` + config and upsert by cycle; mark the Nice-to-have breakdown
+  provisional when pending/failed rows exist. Blocked by: Savings math, Trailing-average estimator,
+  Goal + config API.
+- [ ] **Savings page + nav**: `/savings` — goal + config forms, current-cycle check-in view
+  (on-track banner, Allowed nice-to-have, prescribe-when-behind), and check-in history; "Savings"
+  nav item. Blocked by: Check-in API.
+- [ ] **Dashboard progress card**: a compact wedding-fund progress card on the Dashboard linking to
+  `/savings`. Blocked by: Savings page + nav.
