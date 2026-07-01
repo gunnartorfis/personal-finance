@@ -229,7 +229,7 @@ Pure domain + data first (test-first via the `tdd` skill), then UI. Each item is
   (effective type = override > classified), for the stacked module. Tests.
 - [x] **K6 — Biggest movers**: pure — last completed month vs trailing average, per merchant AND per
   category, top 3 risers, plus the largest single charge in the current cycle (hero info line). Tests.
-- [ ] **K7 — Account breakdown**: repo `spendByAccount({from,to})` (Σ debits by account + name);
+- [x] **K7 — Account breakdown**: repo `spendByAccount({from,to})` (Σ debits by account + name);
   consumed only when the household has >1 Account. Tests.
 - [ ] **K8 — Dashboard view-model**: pure assembly of K2–K7 into a typed `DashboardView` (hero
   numbers, series, category trend, merchants, movers, optional accounts, per-module thin-data flags,
