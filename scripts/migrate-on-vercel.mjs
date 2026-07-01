@@ -16,4 +16,8 @@ const result = spawnSync(
   ["node_modules/drizzle-kit/bin.cjs", "migrate"],
   { stdio: "inherit" },
 );
+// status is null when the process failed to start (missing node_modules, bad path)
+// or was signal-killed; surface why so the failed build is debuggable from Vercel logs.
+if (result.error) console.error("Failed to run drizzle-kit:", result.error);
+if (result.signal) console.error(`drizzle-kit killed by signal ${result.signal}`);
 process.exit(result.status ?? 1);
