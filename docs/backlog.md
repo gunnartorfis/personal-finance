@@ -234,7 +234,7 @@ Pure domain + data first (test-first via the `tdd` skill), then UI. Each item is
 - [x] **K8 — Dashboard view-model**: pure assembly of K2–K7 into a typed `DashboardView` (hero
   numbers, series, category trend, merchants, movers, optional accounts, per-module thin-data flags,
   action-band inputs). Tests.
-- [ ] **K9 — Action band** (`/design`): review backlog (reviewQueueMonths total → link), free-cap
+- [x] **K9 — Action band** (`/design`): review backlog (reviewQueueMonths total → link), free-cap
   (reuse `FreeCapStatusBanner`), failed (reuse `ClassifyTrigger`), all-clear state; each shows only
   when firing.
 - [ ] **K10 — This-month hero** (`/design`): Spending hero + projection + neutral info lines

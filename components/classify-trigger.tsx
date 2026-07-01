@@ -29,10 +29,13 @@ const MAX_BATCHES = 1000
 export function ClassifyTrigger({
   autoRun = false,
   failedCount = 0,
+  retryOnly = false,
   className,
 }: {
   autoRun?: boolean
   failedCount?: number
+  /** Hide the "Classify pending" button and show only the "Retry failed" affordance. */
+  retryOnly?: boolean
   className?: string
 }) {
   const [busy, setBusy] = useState(false)
@@ -104,10 +107,12 @@ export function ClassifyTrigger({
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" onClick={() => void classify()} disabled={busy}>
-          {busy ? <Loader2 className="animate-spin" /> : <Sparkles />}
-          {busy ? "Classifying…" : "Classify pending"}
-        </Button>
+        {!retryOnly && (
+          <Button type="button" onClick={() => void classify()} disabled={busy}>
+            {busy ? <Loader2 className="animate-spin" /> : <Sparkles />}
+            {busy ? "Classifying…" : "Classify pending"}
+          </Button>
+        )}
 
         {failedCount > 0 && (
           <Button
