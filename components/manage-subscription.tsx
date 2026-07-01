@@ -53,10 +53,12 @@ export function ManageSubscription({
 
   return (
     <section
-      aria-label="Subscription"
+      aria-labelledby="subscription-heading"
       className={cn("flex flex-col gap-4 rounded-xl border border-border bg-card p-6", className)}
     >
-      <h2 className="text-base font-medium">Subscription</h2>
+      <h2 id="subscription-heading" className="text-base font-medium">
+        Subscription
+      </h2>
 
       {isPremium ? (
         <>
