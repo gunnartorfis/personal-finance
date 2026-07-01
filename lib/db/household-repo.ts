@@ -16,6 +16,7 @@ import type { ExpenseType } from "@/shared/types"
 
 import {
   accounts,
+  bankConnections,
   merchantRules,
   overrides,
   transactions,
@@ -58,6 +59,61 @@ export function householdRepo(db: Db, householdId: string) {
         db
           .insert(accounts)
           .values({ ...value, householdId })
+          .returning(),
+    },
+    bankConnections: {
+      list: () =>
+        db
+          .select()
+          .from(bankConnections)
+          .where(eq(bankConnections.householdId, householdId)),
+      findById: async (id: string) => {
+        const [row] = await db
+          .select()
+          .from(bankConnections)
+          .where(
+            and(
+              eq(bankConnections.id, id),
+              eq(bankConnections.householdId, householdId)
+            )
+          )
+        return row
+      },
+      // Tokens (accessToken/refreshToken) are intentionally NOT settable here: they must be written
+      // only as ciphertext via the encrypted write path introduced with the connect flow (#113), so
+      // this slice exposes no way to persist a raw bearer token.
+      create: (
+        value: Omit<
+          typeof bankConnections.$inferInsert,
+          "householdId" | "accessToken" | "refreshToken"
+        >
+      ) =>
+        db
+          .insert(bankConnections)
+          .values({ ...value, householdId })
+          .returning(),
+      /**
+       * Patch a connection's mutable lifecycle fields. Scoped to the household, so a foreign
+       * connection id updates nothing. Returns the updated row(s). Tokens are excluded (see above).
+       */
+      update: (
+        id: string,
+        patch: Partial<
+          Pick<
+            typeof bankConnections.$inferInsert,
+            "status" | "consentExpiresAt" | "lastSyncedAt" | "institutionId" | "institutionName"
+          >
+        >
+      ) =>
+        db
+          .update(bankConnections)
+          .set(patch)
+          .where(
+            and(
+              eq(bankConnections.id, id),
+              eq(bankConnections.householdId, householdId)
+            )
+          )
           .returning(),
     },
     uploads: {

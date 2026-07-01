@@ -82,6 +82,55 @@ export const members = pgTable(
   (t) => [unique("members_household_id_id_key").on(t.householdId, t.id)],
 );
 
+/** The lifecycle/health of a Bank connection's PSD2 consent (open-banking auto-sync). */
+export const bankConnectionStatusEnum = pgEnum("bank_connection_status", [
+  "active",
+  "expiring",
+  "expired",
+  "error",
+  "revoked",
+]);
+
+/**
+ * A Household's authorized link to one bank via an open-banking aggregator (Enable Banking). Holds
+ * the PSD2 consent (which expires — SCA re-consent ~every 90 days) and the aggregator tokens
+ * (encrypted at rest by the app layer). One connection exposes one or more {@link accounts}.
+ */
+export const bankConnections = pgTable(
+  "bank_connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    /** The aggregator, e.g. "enable_banking". */
+    provider: text("provider").notNull(),
+    /** The aggregator's consent/session id for this connection. */
+    providerConnectionId: text("provider_connection_id").notNull(),
+    /** Bank identifier + display name from the aggregator (e.g. "LANDSBANKINN"). */
+    institutionId: text("institution_id"),
+    institutionName: text("institution_name"),
+    status: bankConnectionStatusEnum("status").notNull().default("active"),
+    /** When the PSD2 consent expires and SCA re-consent is required. */
+    consentExpiresAt: timestamp("consent_expires_at", { withTimezone: true }),
+    /** Aggregator access/refresh tokens; ciphertext (encrypted at rest by the app layer). */
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Target for the composite same-household FK from accounts.
+    unique("bank_connections_household_id_id_key").on(t.householdId, t.id),
+    // One connection per (provider, consent) within a Household.
+    unique("bank_connections_household_provider_conn_key").on(
+      t.householdId,
+      t.provider,
+      t.providerConnectionId,
+    ),
+  ],
+);
+
 /**
  * A card or bank account within a Household; the provenance of every Transaction (ADR-0004).
  * Its billing currency is the Household's (one per Household in v1), so it is not stored here.
@@ -100,6 +149,10 @@ export const accounts = pgTable(
       .references(() => households.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     isDefault: boolean("is_default").notNull().default(false),
+    /** The Bank connection this account was discovered through; null for manual/CSV accounts. */
+    connectionId: uuid("connection_id"),
+    /** The aggregator's account id, for synced accounts; null for manual/CSV. */
+    externalAccountId: text("external_account_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -109,6 +162,13 @@ export const accounts = pgTable(
     uniqueIndex("accounts_one_default_per_household")
       .on(t.householdId)
       .where(sql`${t.isDefault}`),
+    // A synced Account's Bank connection must belong to the same Household (NO ACTION: the app
+    // nulls connectionId / revokes rather than deleting a connection, so historical rows survive).
+    foreignKey({
+      columns: [t.householdId, t.connectionId],
+      foreignColumns: [bankConnections.householdId, bankConnections.id],
+      name: "accounts_connection_household_fk",
+    }),
   ],
 );
 
@@ -118,6 +178,9 @@ export const classificationStatusEnum = pgEnum("classification_status", [
   "classified",
   "failed",
 ]);
+
+/** Where a Transaction came from: a CSV {@link uploads} import, or an automatic bank sync. */
+export const ingestionSourceEnum = pgEnum("ingestion_source", ["csv", "bank_sync"]);
 
 /** One CSV import into a Household: the file, the Account its rows belong to, and the importer. */
 export const uploads = pgTable(
@@ -170,7 +233,12 @@ export const transactions = pgTable(
       .notNull()
       .references(() => households.id, { onDelete: "cascade" }),
     accountId: uuid("account_id").notNull(),
-    uploadId: uuid("upload_id").notNull(),
+    /** The CSV Upload this row came from; null for synced (bank_sync) rows. */
+    uploadId: uuid("upload_id"),
+    /** Ingestion provenance: a CSV Upload or an automatic bank sync. */
+    source: ingestionSourceEnum("source").notNull().default("csv"),
+    /** The aggregator's stable transaction id, for synced rows; null for CSV. The dedup key. */
+    externalId: text("external_id"),
     date: date("date").notNull(),
     /** Charged amount in the Household's billing currency; negative = expense. */
     amount: integer("amount").notNull(),
@@ -179,7 +247,8 @@ export const transactions = pgTable(
     originalCurrency: text("original_currency"),
     merchant: text("merchant").notNull(),
     rawCategory: text("raw_category").notNull(),
-    sourceRow: integer("source_row").notNull(),
+    /** CSV row index for traceability; null for synced rows (which use externalId instead). */
+    sourceRow: integer("source_row"),
     classificationStatus: classificationStatusEnum("classification_status")
       .notNull()
       .default("pending"),
@@ -216,6 +285,18 @@ export const transactions = pgTable(
       foreignColumns: [uploads.householdId, uploads.id],
       name: "transactions_upload_household_fk",
     }).onDelete("cascade"),
+    // Provenance integrity: a CSV row carries an Upload and no external id; a synced row carries an
+    // external id and no Upload.
+    check(
+      "transactions_source_provenance",
+      sql`(${t.source} = 'csv' AND ${t.uploadId} IS NOT NULL AND ${t.externalId} IS NULL AND ${t.sourceRow} IS NOT NULL)
+        OR (${t.source} = 'bank_sync' AND ${t.uploadId} IS NULL AND ${t.externalId} IS NOT NULL AND ${t.sourceRow} IS NULL)`,
+    ),
+    // Idempotent dedup for synced rows: one row per (household, account, provider transaction id).
+    // Partial so CSV rows (external id null) are unconstrained.
+    uniqueIndex("transactions_household_account_external_key")
+      .on(t.householdId, t.accountId, t.externalId)
+      .where(sql`${t.externalId} IS NOT NULL`),
     // Target for the composite same-household FK from overrides.
     unique("transactions_household_id_id_key").on(t.householdId, t.id),
   ],

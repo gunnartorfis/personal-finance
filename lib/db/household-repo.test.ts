@@ -451,4 +451,42 @@ describe("householdRepo", () => {
       expect(await b.transactions.progress(bUpload)).toMatchObject({ failed: 2, pending: 0 });
     });
   });
+
+  describe("bankConnections", () => {
+    const conn = (providerConnectionId: string) => ({
+      provider: "enable_banking",
+      providerConnectionId,
+    });
+
+    it("stamps the household and defaults to active on create", async () => {
+      const { a, aId } = await twoHouseholds();
+      const [c] = await a.bankConnections.create(conn("c1"));
+      expect(c.householdId).toBe(aId);
+      expect(c.status).toBe("active");
+    });
+
+    it("scopes list and findById to the bound household", async () => {
+      const { a, b } = await twoHouseholds();
+      const [ca] = await a.bankConnections.create(conn("a"));
+      await b.bankConnections.create(conn("b"));
+
+      expect(await a.bankConnections.list()).toHaveLength(1);
+      expect((await a.bankConnections.findById(ca.id))?.providerConnectionId).toBe("a");
+      // Another household's connection id is invisible.
+      expect(await b.bankConnections.findById(ca.id)).toBeUndefined();
+    });
+
+    it("updates mutable lifecycle fields, scoped to the household", async () => {
+      const { a, b } = await twoHouseholds();
+      const [ca] = await a.bankConnections.create(conn("upd"));
+      const [updated] = await a.bankConnections.update(ca.id, {
+        status: "expired",
+        institutionName: "Landsbankinn",
+      });
+      expect(updated.status).toBe("expired");
+      expect(updated.institutionName).toBe("Landsbankinn");
+      // B cannot touch A's connection.
+      expect(await b.bankConnections.update(ca.id, { status: "revoked" })).toHaveLength(0);
+    });
+  });
 });
