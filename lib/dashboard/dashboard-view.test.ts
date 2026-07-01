@@ -48,10 +48,12 @@ const SERIES: MonthlySpendPoint[] = [
 ];
 
 function baseInputs(overrides: Partial<DashboardInputs> = {}): DashboardInputs {
+  // Derive trend from the (possibly overridden) series so the two never drift apart in a test.
+  const series = overrides.series ?? SERIES;
   return {
     now: NOW,
-    series: SERIES,
-    trend: computeSpendingTrendStats(SERIES, NOW),
+    series,
+    trend: computeSpendingTrendStats(series, NOW),
     topMerchants: [{ merchant: "BONUS", spending: 100000, share: 1 }],
     categoryTrend: [cat("2026-03", { Fixed: 60000 }, 40000)],
     movers: { merchants: [], categories: [] },
@@ -114,7 +116,7 @@ describe("assembleDashboardView", () => {
 
   it("zero-fills the hero when the series has no current-cycle point", () => {
     const past = SERIES.slice(0, 3); // ends 2026-02, no 2026-03
-    const view = assembleDashboardView(baseInputs({ series: past, trend: computeSpendingTrendStats(past, NOW) }));
+    const view = assembleDashboardView(baseInputs({ series: past })); // trend auto-derives from series
     expect(view.hero.spentSoFar).toBe(0);
     expect(view.hero.moneyIn).toBe(0);
     expect(view.hero.difference).toBe(0);

@@ -151,7 +151,6 @@ export async function loadDashboardView(
     series,
     topMerchants,
     categoryTrend,
-    movers,
     largestCharge,
     accountBreakdown,
     accountList,
@@ -162,7 +161,6 @@ export async function loadDashboardView(
     loadMonthlySpendSeries(repo, now, count),
     loadTopMerchants(repo, recentRange, TOP_MERCHANTS),
     loadCategoryTrend(repo, now, count),
-    loadBiggestMovers(repo, now, count),
     loadLargestCharge(repo, now),
     loadAccountBreakdown(repo, recentRange),
     repo.accounts.list(),
@@ -171,6 +169,8 @@ export async function loadDashboardView(
     repo.transactions.countClassified(),
   ]);
 
+  // Reuse the already-loaded category trend for the category movers (avoids a second query).
+  const movers = await loadBiggestMovers(repo, now, count, categoryTrend);
   const trend = computeSpendingTrendStats(series, now);
   const reviewBacklog = reviewMonths.reduce((sum, month) => sum + month.count, 0);
   const freeCap = freeCapStatus({ plan, classifiedCount });
