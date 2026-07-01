@@ -27,4 +27,16 @@ describe("SpendShareList", () => {
     expect(screen.getByText("50%")).toBeInTheDocument()
     expect(screen.getByText("25%")).toBeInTheDocument()
   })
+
+  it("renders the heading at the requested level", () => {
+    render(
+      <SpendShareList
+        heading="Spending by account"
+        items={[{ key: "a", label: "Visa", spending: 100, share: 1 }]}
+        currency="ISK"
+        headingLevel={3}
+      />,
+    )
+    expect(screen.getByRole("heading", { level: 3, name: "Spending by account" })).toBeInTheDocument()
+  })
 })

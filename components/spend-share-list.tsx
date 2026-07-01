@@ -1,3 +1,4 @@
+import { currencyFormatter } from "@/lib/format/currency"
 import { cn } from "@/lib/utils"
 
 /** One ranked row: a label with its spend and share (0..1) of the period total. */
@@ -11,30 +12,30 @@ export interface SpendShareItem {
 /**
  * A ranked "where the money goes" list with a share-of-spend meter per row (Phase K) — shared by the
  * top-merchants (K13) and account-breakdown (K15) modules so they read identically. Pure and
- * prop-driven; renders nothing when there are no items.
+ * prop-driven; renders nothing when there are no items. `headingLevel` lets each caller slot the
+ * heading at the right depth in its surrounding document outline.
  */
 export function SpendShareList({
   heading,
   items,
   currency,
+  headingLevel = 2,
   className,
 }: {
   heading: string
   items: SpendShareItem[]
   currency: string
+  headingLevel?: 2 | 3
   className?: string
 }) {
   if (items.length === 0) return null
 
-  const money = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  })
+  const money = currencyFormatter(currency)
+  const Heading = headingLevel === 3 ? "h3" : "h2"
 
   return (
     <section className={cn("flex flex-col gap-4 rounded-xl border border-border bg-card p-6", className)}>
-      <h2 className="text-base font-medium">{heading}</h2>
+      <Heading className="text-base font-medium">{heading}</Heading>
       <ul role="list" className="flex flex-col gap-3">
         {items.map((item) => {
           const pct = Math.round(item.share * 100)
