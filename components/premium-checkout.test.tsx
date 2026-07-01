@@ -17,11 +17,17 @@ const AdyenCheckout = vi.fn(async (config: typeof lastConfig) => {
   lastConfig = config
   return { isCheckout: true }
 })
-// A regular (newable) function — the component calls `new Dropin(checkout)`; an arrow isn't a constructor.
+// A regular (newable) function — the component calls `new Dropin(checkout, opts)`; an arrow isn't a constructor.
 const Dropin = vi.fn(function DropinMock() {
   return dropinInstance
 })
-vi.mock("@adyen/adyen-web", () => ({ AdyenCheckout: (c: typeof lastConfig) => AdyenCheckout(c), Dropin }))
+// Sentinel for the Card component the Drop-in must register (v6 no longer auto-bundles methods).
+const Card = { isCard: true }
+vi.mock("@adyen/adyen-web", () => ({
+  AdyenCheckout: (c: typeof lastConfig) => AdyenCheckout(c),
+  Dropin,
+  Card,
+}))
 
 // Routes both endpoints the component calls: POST /api/billing/checkout (session) and
 // GET /api/billing/status (activation poll, returns `plan`).
@@ -65,6 +71,8 @@ describe("PremiumCheckout", () => {
     expect(lastConfig.clientKey).toBe("test_ABC")
     expect(lastConfig.environment).toBe("test")
     expect(mount).toHaveBeenCalledTimes(1)
+    // Regression guard: v6 renders an empty Drop-in unless the Card component is registered.
+    expect(Dropin).toHaveBeenCalledWith(expect.anything(), { paymentMethodComponents: [Card] })
   })
 
   it("derives the live environment from a live client key", async () => {

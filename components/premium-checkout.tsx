@@ -99,7 +99,7 @@ export function PremiumCheckout({
   async function mountDropin(session: CheckoutSession) {
     // Dynamically imported so the heavy SDK stays out of the initial bundle and never evaluates
     // during SSR (it touches `window` at module scope).
-    const { AdyenCheckout, Dropin } = await import("@adyen/adyen-web")
+    const { AdyenCheckout, Dropin, Card } = await import("@adyen/adyen-web")
     const checkout = await AdyenCheckout({
       environment: session.clientKey.startsWith("live") ? "live" : "test",
       clientKey: session.clientKey,
@@ -122,7 +122,12 @@ export function PremiumCheckout({
       onError: () => setError("Something went wrong with the payment. Please try again."),
     })
     if (containerRef.current) {
-      dropinRef.current = new Dropin(checkout).mount(containerRef.current)
+      // v6 no longer auto-bundles payment methods: each supported method must be registered via
+      // `paymentMethodComponents` or the Drop-in renders an empty list (silent, bar a console.warn).
+      // Card is the only method for this ISK subscription.
+      dropinRef.current = new Dropin(checkout, { paymentMethodComponents: [Card] }).mount(
+        containerRef.current,
+      )
     }
   }
 
