@@ -66,7 +66,13 @@ export function AppSidebar() {
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter>
-          <UserButton />
+          {/* Account menu is an identity control, not a primary action — render the trigger as a
+              neutral, full-width row matching the sidebar's menu items instead of the auth-ui
+              default (a solid `bg-primary` button). */}
+          <UserButton
+            size="default"
+            className="w-full justify-start bg-transparent text-sidebar-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          />
         </SidebarFooter>
       </Sidebar>
     </TooltipProvider>
