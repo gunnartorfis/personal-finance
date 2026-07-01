@@ -4,7 +4,9 @@ import { auth } from "@/lib/auth/server";
 
 /**
  * Route-protection middleware (ADR-0001/0002). Next 16 names the middleware entry `proxy.ts`.
- * Unauthenticated requests to matched routes are redirected to the sign-in page.
+ * Unauthenticated requests to matched routes are redirected to the sign-in page. The root `/` is
+ * intentionally left public so signed-out visitors get the marketing landing page; `app/page.tsx`
+ * sends signed-in members on to the dashboard.
  */
 const authMiddleware = auth.middleware({ loginUrl: "/auth/sign-in" });
 
@@ -17,6 +19,6 @@ export default function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Protect the dashboard root and account pages; the public auth pages stay open.
-  matcher: ["/", "/account/:path*"],
+  // Protect account pages; the root marketing page and the auth pages stay open.
+  matcher: ["/account/:path*"],
 };
