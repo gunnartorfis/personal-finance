@@ -20,6 +20,7 @@ import {
   bankConnections,
   merchantRules,
   overrides,
+  savingsGoals,
   transactions,
   uploads,
 } from "./schema"
@@ -768,6 +769,37 @@ export function householdRepo(db: Db, householdId: string) {
             )
           )
           .returning(),
+    },
+    savings: {
+      goal: {
+        /** The household's single Savings goal, or undefined when none is set. */
+        get: async () => {
+          const [row] = await db
+            .select()
+            .from(savingsGoals)
+            .where(eq(savingsGoals.householdId, householdId))
+          return row
+        },
+        /**
+         * Set (or change) the household's Savings goal. One goal per Household (unique
+         * `household_id`, v1), so a second call updates the existing row in place.
+         */
+        upsert: (value: Omit<typeof savingsGoals.$inferInsert, "householdId">) =>
+          db
+            .insert(savingsGoals)
+            .values({ ...value, householdId })
+            .onConflictDoUpdate({
+              target: savingsGoals.householdId,
+              set: {
+                target: value.target,
+                targetDate: value.targetDate,
+                startingSaved: value.startingSaved,
+                startCycle: value.startCycle,
+                currency: value.currency,
+              },
+            })
+            .returning(),
+      },
     },
     overrides: {
       list: () =>
