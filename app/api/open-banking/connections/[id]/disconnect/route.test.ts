@@ -83,4 +83,22 @@ describe("POST /api/open-banking/connections/[id]/disconnect", () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ id: VALID, status: "revoked" })
   })
+
+  it("still succeeds when the provider is unconfigured (getIngestionProvider throws)", async () => {
+    repo.bankConnections.findById.mockResolvedValue({
+      id: VALID,
+      status: "active",
+      providerConnectionId: "sess-42",
+    })
+    repo.bankConnections.update.mockResolvedValue([{ id: VALID, status: "revoked" }])
+    // No env creds → getIngestionProvider throws; the disconnect must still complete locally.
+    vi.mocked(getIngestionProvider).mockImplementation(() => {
+      throw new Error("Enable Banking is not configured")
+    })
+
+    const res = await post(VALID)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ id: VALID, status: "revoked" })
+    expect(deleteSession).not.toHaveBeenCalled()
+  })
 })
