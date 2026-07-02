@@ -7,13 +7,14 @@ export const dynamic = "force-dynamic"
 
 /**
  * Account security settings (ADR-0001), under the Settings hub at `/settings/security`: renders Neon
- * Auth's security view (sessions, passkeys, password). `requireUser()` enforces the signed-in guard.
+ * Auth's security view (sessions, passkeys, password). Nav comes from the shared settings layout, so
+ * the view's own tabs are hidden (`hideNav`). `requireUser()` enforces the signed-in guard.
  */
 export default async function SecuritySettingsPage() {
   await requireUser()
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
-      <AccountView path="security" />
+    <div className="flex flex-col gap-6">
+      <AccountView path="security" hideNav />
     </div>
   )
 }
