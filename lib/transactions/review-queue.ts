@@ -9,16 +9,19 @@ import type { ExpenseType } from "@/shared/types"
 export type OnOverride = (id: string, type: ExpenseType | null) => void
 
 /**
- * The transactions worth reviewing in the current period, ordered for triage. We review expenses
- * (`amount < 0`) that don't already carry a manual override — a settled row is skipped. Order is
- * least-confident-first so the AI's shakiest guesses surface immediately.
- *
- * Rows with no AI confidence (pending / failed — no suggestion to weigh in on) sink to the end; flip
- * the two `null` branches below to surface fully-unclassified rows first instead.
+ * The transactions worth reviewing, ordered for triage. We review only unclassified expenses
+ * (`amount < 0`): a row the AI already classified, or that carries a manual override, is settled and
+ * skipped. Order is least-confident-first (kept for safety — remaining rows normally have no
+ * confidence), then biggest expense first.
  */
 export function buildReviewQueue(rows: TransactionRow[]): TransactionRow[] {
   return rows
-    .filter((r) => r.amount < 0 && r.overrideType === null)
+    .filter(
+      (r) =>
+        r.amount < 0 &&
+        r.overrideType === null &&
+        r.classificationStatus !== "classified"
+    )
     .sort((a, b) => {
       const ca = a.confidence
       const cb = b.confidence
@@ -41,19 +44,16 @@ export interface ReviewApi {
   isReviewed: (id: string) => boolean
   /** Override the current transaction's type and advance to the next unreviewed one. */
   assign: (type: ExpenseType) => void
-  /** Accept the AI's classification as-is (no override written) and advance. */
-  accept: () => void
   next: () => void
   prev: () => void
   goto: (i: number) => void
-  /** Revert the last assign/accept, restoring the prior persisted state, and step back to it. */
+  /** Revert the last assign, restoring the prior persisted state, and step back to it. */
   undo: () => void
 }
 
 interface UndoEntry {
   id: string
   idx: number
-  kind: "assign" | "accept"
   prevType: ExpenseType | null
   prevHadOverride: boolean
 }
@@ -87,31 +87,24 @@ export function useReviewQueue(
     [queue]
   )
 
-  const settle = useCallback(
-    (kind: "assign" | "accept", type: ExpenseType | null) => {
+  const assign = useCallback(
+    (type: ExpenseType) => {
       const cur = queue[idx]
       if (!cur) return
       undoStack.push({
         id: cur.id,
         idx,
-        kind,
         prevType: cur.overrideType,
         prevHadOverride: cur.overrideType !== null,
       })
       setCanUndo(true)
-      if (kind === "assign") onOverride(cur.id, type)
+      onOverride(cur.id, type)
       const nextReviewed = new Set(reviewed).add(cur.id)
       setReviewed(nextReviewed)
       setIdx(findNextUnreviewed(idx + 1, nextReviewed))
     },
     [queue, idx, reviewed, onOverride, undoStack, findNextUnreviewed]
   )
-
-  const assign = useCallback(
-    (type: ExpenseType) => settle("assign", type),
-    [settle]
-  )
-  const accept = useCallback(() => settle("accept", null), [settle])
 
   const next = useCallback(
     () => setIdx((i) => Math.min(i + 1, Math.max(0, queue.length - 1))),
@@ -128,9 +121,7 @@ export function useReviewQueue(
     const last = undoStack.pop()
     setCanUndo(undoStack.length > 0)
     if (!last) return
-    if (last.kind === "assign") {
-      onOverride(last.id, last.prevHadOverride ? last.prevType : null)
-    }
+    onOverride(last.id, last.prevHadOverride ? last.prevType : null)
     setReviewed((prevSet) => {
       const nextSet = new Set(prevSet)
       nextSet.delete(last.id)
@@ -152,7 +143,6 @@ export function useReviewQueue(
     canUndo,
     isReviewed,
     assign,
-    accept,
     next,
     prev,
     goto,
