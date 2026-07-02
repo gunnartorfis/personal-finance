@@ -182,7 +182,7 @@ each item one small PR; earliest are pure `shared/` domain logic (test-first).
   current cycle from `loadNetSummary` + config and upsert by cycle; mark the Nice-to-have breakdown
   provisional when pending/failed rows exist. Blocked by: Savings math, Trailing-average estimator,
   Goal + config API.
-- [ ] **Savings page + nav**: `/savings` — goal + config forms, current-cycle check-in view
+- [x] **Savings page + nav**: `/savings` — goal + config forms, current-cycle check-in view
   (on-track banner, Allowed nice-to-have, prescribe-when-behind), and check-in history; "Savings"
   nav item. Blocked by: Check-in API.
 - [ ] **Dashboard progress card**: a compact wedding-fund progress card on the Dashboard linking to
