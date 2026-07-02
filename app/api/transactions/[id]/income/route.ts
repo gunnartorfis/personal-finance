@@ -29,6 +29,14 @@ async function setMarked(id: string, incomeMarked: boolean) {
       { status: 409 }
     )
   }
+  // Income and Excluded are mutually exclusive (ADR-0011); marking an excluded credit would trip the
+  // DB CHECK. Reject it cleanly with a 409 instead. Unmarking (incomeMarked=false) stays allowed.
+  if (incomeMarked && transaction.excluded) {
+    return NextResponse.json(
+      { error: "an excluded transaction can't be marked as income; include it first" },
+      { status: 409 }
+    )
+  }
 
   const [updated] = await repo.transactions.setIncomeMarked(id, incomeMarked)
   if (!updated) {

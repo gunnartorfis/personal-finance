@@ -45,6 +45,14 @@ describe("PUT /api/transactions/[id]/income", () => {
     expect(h.setIncomeMarked).not.toHaveBeenCalled()
   })
 
+  it("409s an excluded credit — income and excluded are mutually exclusive", async () => {
+    const h = householdWith({ id: ID, amount: 1000, excluded: true })
+    requireHousehold.mockResolvedValue(h)
+    const res = await PUT(req("PUT"), ctx(ID))
+    expect(res.status).toBe(409)
+    expect(h.setIncomeMarked).not.toHaveBeenCalled()
+  })
+
   it("404s when the row vanishes between the lookup and the guarded update", async () => {
     const h = householdWith({ id: ID, amount: 1000 })
     h.repo.transactions.setIncomeMarked.mockResolvedValue([])
