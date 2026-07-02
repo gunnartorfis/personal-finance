@@ -3,14 +3,12 @@ import { randomUUID } from "node:crypto"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
+import { getDb } from "@/lib/db"
 import { requireHousehold } from "@/lib/household/current"
+import { recordConnectIntent, STATE_COOKIE } from "@/lib/open-banking/connect-intent"
 import { getIngestionProvider } from "@/lib/open-banking/provider-factory"
 import { canUseBankSync } from "@/shared/bank-sync"
 
-/** Correlates the start request with its callback (CSRF guard); short-lived, httpOnly. */
-export const STATE_COOKIE = "ob_connect_state"
-/** Carries the chosen institution name to the callback so it can be persisted for reconnect (#116). */
-export const INSTITUTION_COOKIE = "ob_connect_institution"
 const CONSENT_DAYS = 90
 
 /**
@@ -32,7 +30,7 @@ export async function POST(request: Request) {
 
   // Bank auto-sync is Premium-only (#117); a Free household is told to upgrade before any provider
   // call. This is the real enforcement — the UI hides the entry, but the API is the trust boundary.
-  const { plan } = await requireHousehold()
+  const { plan, householdId } = await requireHousehold()
   if (!canUseBankSync(plan)) {
     return NextResponse.json({ error: "upgrade_required" }, { status: 403 })
   }
@@ -49,15 +47,17 @@ export async function POST(request: Request) {
     validUntil,
   })
 
-  const cookieOptions = {
+  // Persist the household + institution against this state so the cross-site callback can resolve
+  // them without the interactive session cookie (which isn't sent on the bank's redirect back).
+  await recordConnectIntent(getDb(), { state, householdId, institutionName })
+
+  // The state cookie is the CSRF guard: the callback matches it against the echoed `state`.
+  ;(await cookies()).set(STATE_COOKIE, state, {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
     path: "/",
     maxAge: 600,
-  } as const
-  const jar = await cookies()
-  jar.set(STATE_COOKIE, state, cookieOptions)
-  jar.set(INSTITUTION_COOKIE, institutionName, cookieOptions)
+  })
   return NextResponse.json({ url })
 }

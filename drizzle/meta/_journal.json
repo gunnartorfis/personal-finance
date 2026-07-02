@@ -127,6 +127,13 @@
       "when": 1782990196487,
       "tag": "0017_large_living_mummy",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1783007014985,
+      "tag": "0018_tidy_bloodscream",
+      "breakpoints": true
     }
   ]
 }

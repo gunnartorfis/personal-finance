@@ -1,10 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { requireHousehold } from "@/lib/household/current"
+import { recordConnectIntent } from "@/lib/open-banking/connect-intent"
 import { getIngestionProvider } from "@/lib/open-banking/provider-factory"
 
 vi.mock("@/lib/household/current", () => ({ requireHousehold: vi.fn() }))
 vi.mock("@/lib/open-banking/provider-factory", () => ({ getIngestionProvider: vi.fn() }))
+vi.mock("@/lib/db", () => ({ getDb: () => ({}) }))
+vi.mock("@/lib/open-banking/connect-intent", () => ({
+  recordConnectIntent: vi.fn(),
+  STATE_COOKIE: "ob_connect_state",
+}))
 vi.mock("next/headers", () => ({ cookies: async () => ({ set: vi.fn() }) }))
 
 import { POST } from "./route"
@@ -15,7 +21,10 @@ const post = (body: unknown) =>
 const validBody = { institutionName: "Landsbankinn", country: "IS" }
 
 const mockPlan = (plan: "Free" | "Premium") =>
-  vi.mocked(requireHousehold).mockResolvedValue({ plan } as Awaited<ReturnType<typeof requireHousehold>>)
+  vi.mocked(requireHousehold).mockResolvedValue({
+    plan,
+    householdId: "hh-1",
+  } as Awaited<ReturnType<typeof requireHousehold>>)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -39,10 +48,17 @@ describe("POST /api/open-banking/connect", () => {
     expect(await res.json()).toEqual({ error: "upgrade_required" })
   })
 
-  it("starts the consent flow for a Premium household", async () => {
+  it("starts the consent flow for a Premium household and records the connect intent", async () => {
     mockPlan("Premium")
     const res = await POST(post(validBody))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ url: "https://bank/redirect" })
+    // The household + institution are bound to the generated state so the callback can resolve them
+    // without the session cookie.
+    expect(recordConnectIntent).toHaveBeenCalledTimes(1)
+    const [, intent] = vi.mocked(recordConnectIntent).mock.calls[0]
+    expect(intent).toMatchObject({ householdId: "hh-1", institutionName: "Landsbankinn" })
+    expect(typeof intent.state).toBe("string")
+    expect(intent.state.length).toBeGreaterThan(0)
   })
 })
