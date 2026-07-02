@@ -125,4 +125,46 @@ describe("performCheckin", () => {
     const repo = await freshHousehold();
     expect(await performCheckin(repo, NOW, 0)).toEqual({ ok: false, error: "no-goal" });
   });
+
+  it("marks the assessment provisional while the cycle has unclassified expenses", async () => {
+    const repo = await freshHousehold();
+    await seedGoalAndConfig(repo);
+    const base = await seedAccount(repo, "ci-2");
+    await seedExpense(repo, base, "2026-07-05", -50_000, null, 0); // pending, never classified
+
+    const result = await performCheckin(repo, NOW, 0);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.assessment.provisional).toBe(true);
+    // The pending debit still counts as card spend — only its bucket is unknown.
+    expect(result.checkin.cardDebits).toBe(50_000);
+  });
+
+  it("adds one-off cycle extra income to the frozen inferred saving", async () => {
+    const repo = await freshHousehold();
+    await seedGoalAndConfig(repo);
+
+    const result = await performCheckin(repo, NOW, 120_000);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.checkin).toMatchObject({
+      cycleExtra: 120_000,
+      inferredSaving: 1_000_000 + 120_000 - 300_000, // no card debits this cycle
+    });
+  });
+
+  it("refuses to check in before the goal's start cycle", async () => {
+    const repo = await freshHousehold();
+    await repo.savings.goal.upsert({
+      target: 1_000_000,
+      targetDate: "2027-05-31",
+      startingSaved: 0,
+      startCycle: "2026-09",
+      currency: "ISK",
+    });
+    expect(await performCheckin(repo, NOW, 0)).toEqual({
+      ok: false,
+      error: "before-start-cycle",
+    });
+  });
 });
