@@ -145,6 +145,51 @@ describe("EnableBankingClient", () => {
     ]);
   });
 
+  it("falls back to entry_reference for the external id when transaction_id is absent", async () => {
+    // Mock ASPSP / export data carries entry_reference but no transaction_id.
+    const { fn } = stubFetch(() => ({
+      transactions: [
+        {
+          entry_reference: "er-9",
+          booking_date: "2026-03-03",
+          transaction_amount: { amount: "1200.00", currency: "ISK" },
+          credit_debit_indicator: "DBIT",
+          creditor: { name: "BONUS" },
+          remittance_information: [],
+        },
+      ],
+    }));
+    const [txn] = await client(fn).listTransactions("acc-uid-1", { from: "2026-01-01", to: "2026-03-31" });
+    expect(txn.externalId).toBe("er-9");
+  });
+
+  it("skips a transaction with neither transaction_id nor entry_reference (unusable dedup key)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { fn } = stubFetch(() => ({
+      transactions: [
+        {
+          booking_date: "2026-03-04",
+          transaction_amount: { amount: "10.00", currency: "ISK" },
+          credit_debit_indicator: "DBIT",
+          creditor: { name: "MYSTERY" },
+          remittance_information: [],
+        },
+        {
+          entry_reference: "er-ok",
+          booking_date: "2026-03-05",
+          transaction_amount: { amount: "20.00", currency: "ISK" },
+          credit_debit_indicator: "DBIT",
+          creditor: { name: "REAL" },
+          remittance_information: [],
+        },
+      ],
+    }));
+    const txns = await client(fn).listTransactions("acc-uid-1", { from: "2026-01-01", to: "2026-03-31" });
+    expect(txns.map((t) => t.externalId)).toEqual(["er-ok"]);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it("throws on a non-ok response", async () => {
     const { fn } = stubFetch(() => ({ error: "boom" }), false, 500);
     await expect(client(fn).listInstitutions("IS")).rejects.toThrow();
