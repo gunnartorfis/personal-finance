@@ -34,14 +34,14 @@ describe("computeNetSummary", () => {
     });
   });
 
-  it("sums income and expenses and buckets the expense side by effective type", () => {
+  it("sums marked income and expenses and buckets the expense side by effective type", () => {
     const summary = computeNetSummary([
-      { amount: 1000, effectiveType: "" },
-      { amount: -300, effectiveType: "Fixed" },
-      { amount: -200, effectiveType: "Necessary" },
-      { amount: -100, effectiveType: "Nice to have" },
-      { amount: -50, effectiveType: "" },
-      { amount: -40, effectiveType: null },
+      { amount: 1000, incomeMarked: true, effectiveType: "" },
+      { amount: -300, incomeMarked: false, effectiveType: "Fixed" },
+      { amount: -200, incomeMarked: false, effectiveType: "Necessary" },
+      { amount: -100, incomeMarked: false, effectiveType: "Nice to have" },
+      { amount: -50, incomeMarked: false, effectiveType: "" },
+      { amount: -40, incomeMarked: false, effectiveType: null },
     ]);
     expect(summary).toEqual({
       income: 1000,
@@ -52,9 +52,21 @@ describe("computeNetSummary", () => {
     });
   });
 
+  it("excludes unmarked credits from income, expenses, and net (ADR-0009)", () => {
+    const summary = computeNetSummary([
+      // e.g. a 100K transfer from a bank account onto the card — not revenue.
+      { amount: 100_000, incomeMarked: false, effectiveType: "" },
+      { amount: 500, incomeMarked: true, effectiveType: "" },
+      { amount: -300, incomeMarked: false, effectiveType: "Fixed" },
+    ]);
+    expect(summary.income).toBe(500);
+    expect(summary.expense).toBe(-300);
+    expect(summary.net).toBe(200);
+  });
+
   it("counts an unexpected effective type as unclassified rather than corrupting a bucket", () => {
     const summary = computeNetSummary([
-      { amount: -75, effectiveType: "Mystery" as ExpenseType },
+      { amount: -75, incomeMarked: false, effectiveType: "Mystery" as ExpenseType },
     ]);
     expect(summary.unclassified).toBe(-75);
     expect(summary.byExpenseType).toEqual({ Fixed: 0, Necessary: 0, "Nice to have": 0, "": 0 });
@@ -64,9 +76,9 @@ describe("computeNetSummary", () => {
 
   it("keeps the reconciliation invariants", () => {
     const summary = computeNetSummary([
-      { amount: 500, effectiveType: null },
-      { amount: -120, effectiveType: "Fixed" },
-      { amount: -80, effectiveType: null },
+      { amount: 500, incomeMarked: true, effectiveType: null },
+      { amount: -120, incomeMarked: false, effectiveType: "Fixed" },
+      { amount: -80, incomeMarked: false, effectiveType: null },
     ]);
     const bucketed = Object.values(summary.byExpenseType).reduce((a, b) => a + b, 0);
     expect(bucketed + summary.unclassified).toBe(summary.expense);
@@ -101,7 +113,7 @@ describe("loadNetSummary", () => {
     const base = { accountId: account.id, uploadId: upload.id, rawCategory: "" };
     // The 4th row (UNKNOWN) is intentionally left pending — never classified — so it lands in the
     // `unclassified` bucket; its binding is skipped.
-    const [credit, fixed, overridden, , beforeRange, onUpperBound] =
+    const [credit, fixed, overridden, , beforeRange, onUpperBound, transfer] =
       await repo.transactions.createMany([
         { ...base, date: "2026-03-05", amount: 1000, merchant: "SALARY", sourceRow: 0 },
         { ...base, date: "2026-03-10", amount: -300, merchant: "RENT", sourceRow: 1 },
@@ -109,9 +121,14 @@ describe("loadNetSummary", () => {
         { ...base, date: "2026-03-20", amount: -100, merchant: "UNKNOWN", sourceRow: 3 },
         { ...base, date: "2026-02-28", amount: -999, merchant: "OLD", sourceRow: 4 },
         { ...base, date: "2026-04-01", amount: -50, merchant: "NEXT CYCLE", sourceRow: 5 },
+        // An unmarked in-range credit (e.g. a card-bill payment) — must count for nothing.
+        { ...base, date: "2026-03-06", amount: 100_000, merchant: "TRANSFER", sourceRow: 6 },
       ]);
 
     await repo.transactions.classify(credit.id, { expenseType: "" });
+    await repo.transactions.classify(transfer.id, { expenseType: "" });
+    // Only the manually marked credit is income (ADR-0009).
+    await repo.transactions.setIncomeMarked(credit.id, true);
     await repo.transactions.classify(fixed.id, { expenseType: "Fixed" });
     await repo.transactions.classify(overridden.id, { expenseType: "Necessary" });
     await repo.transactions.classify(beforeRange.id, { expenseType: "Fixed" });

@@ -10,35 +10,35 @@ import { buildMonthlySpendSeries, loadMonthlySpendSeries } from "./monthly-serie
 
 describe("buildMonthlySpendSeries", () => {
   it("is empty when there are no month keys", () => {
-    expect(buildMonthlySpendSeries([{ month: "2026-03", spending: 1, moneyIn: 2 }], [])).toEqual([]);
+    expect(buildMonthlySpendSeries([{ month: "2026-03", spending: 1, income: 2 }], [])).toEqual([]);
   });
 
   it("fills missing months with zeros, keeps key order, and derives difference", () => {
     const series = buildMonthlySpendSeries(
       [
-        { month: "2026-01", spending: 300, moneyIn: 100 },
-        { month: "2026-03", spending: 0, moneyIn: 50 },
+        { month: "2026-01", spending: 300, income: 100 },
+        { month: "2026-03", spending: 0, income: 50 },
       ],
       ["2026-01", "2026-02", "2026-03"],
     );
     expect(series).toEqual([
-      { month: "2026-01", spending: 300, moneyIn: 100, difference: -200 },
-      { month: "2026-02", spending: 0, moneyIn: 0, difference: 0 },
-      { month: "2026-03", spending: 0, moneyIn: 50, difference: 50 },
+      { month: "2026-01", spending: 300, income: 100, difference: -200 },
+      { month: "2026-02", spending: 0, income: 0, difference: 0 },
+      { month: "2026-03", spending: 0, income: 50, difference: 50 },
     ]);
   });
 
   it("ignores rows for months outside the requested window", () => {
     const series = buildMonthlySpendSeries(
       [
-        { month: "2025-12", spending: 999, moneyIn: 999 },
-        { month: "2026-02", spending: 200, moneyIn: 0 },
+        { month: "2025-12", spending: 999, income: 999 },
+        { month: "2026-02", spending: 200, income: 0 },
       ],
       ["2026-01", "2026-02"],
     );
     expect(series).toEqual([
-      { month: "2026-01", spending: 0, moneyIn: 0, difference: 0 },
-      { month: "2026-02", spending: 200, moneyIn: 0, difference: -200 },
+      { month: "2026-01", spending: 0, income: 0, difference: 0 },
+      { month: "2026-02", spending: 200, income: 0, difference: -200 },
     ]);
   });
 });
@@ -59,7 +59,7 @@ describe("loadMonthlySpendSeries", () => {
 
   const NOW = new Date("2026-03-15T12:00:00Z");
 
-  it("splits debits (spending) from credits (money in) per calendar month over the window", async () => {
+  it("splits debits (spending) from marked-income credits per calendar month over the window", async () => {
     const repo = await freshHousehold();
     const [account] = await repo.accounts.create({ name: "Visa" });
     const [upload] = await repo.uploads.create({
@@ -68,23 +68,25 @@ describe("loadMonthlySpendSeries", () => {
       fileHash: "s",
     });
     const base = { accountId: account.id, uploadId: upload.id, rawCategory: "" };
-    await repo.transactions.createMany([
-      // January: two debits (spending 300) + one credit (money in 100)
+    const [, , salary] = await repo.transactions.createMany([
+      // January: two debits (spending 300) + one marked credit (income 100)
       { ...base, date: "2026-01-05", amount: -200, merchant: "RENT", sourceRow: 0 },
       { ...base, date: "2026-01-20", amount: -100, merchant: "FOOD", sourceRow: 1 },
-      { ...base, date: "2026-01-25", amount: 100, merchant: "REFUND", sourceRow: 2 },
+      { ...base, date: "2026-01-25", amount: 100, merchant: "SALARY", sourceRow: 2 },
       // February: nothing (must fill with zeros).
-      // March: one debit (spending 50).
+      // March: one debit (spending 50) + one UNMARKED credit (a transfer — counts for nothing).
       { ...base, date: "2026-03-02", amount: -50, merchant: "BUS", sourceRow: 3 },
+      { ...base, date: "2026-03-08", amount: 100_000, merchant: "TRANSFER", sourceRow: 5 },
       // Out of the 3-month window (older) — excluded.
       { ...base, date: "2025-12-31", amount: -777, merchant: "OLD", sourceRow: 4 },
     ]);
+    await repo.transactions.setIncomeMarked(salary.id, true);
 
     const series = await loadMonthlySpendSeries(repo, NOW, 3);
     expect(series).toEqual([
-      { month: "2026-01", spending: 300, moneyIn: 100, difference: -200 },
-      { month: "2026-02", spending: 0, moneyIn: 0, difference: 0 },
-      { month: "2026-03", spending: 50, moneyIn: 0, difference: -50 },
+      { month: "2026-01", spending: 300, income: 100, difference: -200 },
+      { month: "2026-02", spending: 0, income: 0, difference: 0 },
+      { month: "2026-03", spending: 50, income: 0, difference: -50 },
     ]);
   });
 
@@ -105,9 +107,9 @@ describe("loadMonthlySpendSeries", () => {
 
     const series = await loadMonthlySpendSeries(a, NOW, 3);
     expect(series).toEqual([
-      { month: "2026-01", spending: 0, moneyIn: 0, difference: 0 },
-      { month: "2026-02", spending: 0, moneyIn: 0, difference: 0 },
-      { month: "2026-03", spending: 0, moneyIn: 0, difference: 0 },
+      { month: "2026-01", spending: 0, income: 0, difference: 0 },
+      { month: "2026-02", spending: 0, income: 0, difference: 0 },
+      { month: "2026-03", spending: 0, income: 0, difference: 0 },
     ]);
   });
 });

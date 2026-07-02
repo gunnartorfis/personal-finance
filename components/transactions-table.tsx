@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
+import { IncomeToggle } from "@/components/income-toggle"
 import { OverrideControl } from "@/components/override-control"
 import { cn } from "@/lib/utils"
 import type { ExpenseType } from "@/shared/types"
@@ -13,6 +14,8 @@ export interface TransactionRow {
   date: string
   merchant: string
   amount: number
+  /** Manually marked as real income (credits only, ADR-0009); unmarked credits count for nothing. */
+  incomeMarked: boolean
   classifiedType: ExpenseType | null
   /** AI confidence 0..1; null for credits and not-yet-classified (pending/failed) rows. */
   confidence: number | null
@@ -73,6 +76,14 @@ export function TransactionsTable({
     // The local update gives this row instant feedback, but the net summary and the whole-household
     // Rapid review badge are server-derived — settling (or clearing) a row here changes the backlog,
     // so refresh to recount them, exactly as closing the rapid-review overlay does.
+    router.refresh()
+  }
+
+  function handleIncomeChanged(id: string, incomeMarked: boolean) {
+    setRows((current) =>
+      current.map((row) => (row.id === id ? { ...row, incomeMarked } : row))
+    )
+    // Marking changes the server-derived Income / Difference in the period summary above.
     router.refresh()
   }
 
@@ -141,21 +152,31 @@ export function TransactionsTable({
                       {fmtAmount(row.amount)}
                     </td>
                     <td className="py-3">
-                      <div className="flex flex-col gap-1">
-                        {unclassified && (
-                          <span className="text-muted-foreground">
-                            {row.classificationStatus === "failed"
-                              ? "Classification failed"
-                              : "Awaiting classification"}
-                          </span>
-                        )}
-                        <OverrideControl
+                      {isCredit ? (
+                        // A credit is never an expense: no type to pick. It counts as income only
+                        // when marked here (ADR-0009) — unmarked credits are excluded everywhere.
+                        <IncomeToggle
                           transactionId={row.id}
-                          value={effective}
-                          hasOverride={row.overrideType !== null}
-                          onChanged={(next) => handleChanged(row.id, next)}
+                          incomeMarked={row.incomeMarked}
+                          onChanged={(next) => handleIncomeChanged(row.id, next)}
                         />
-                      </div>
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          {unclassified && (
+                            <span className="text-muted-foreground">
+                              {row.classificationStatus === "failed"
+                                ? "Classification failed"
+                                : "Awaiting classification"}
+                            </span>
+                          )}
+                          <OverrideControl
+                            transactionId={row.id}
+                            value={effective}
+                            hasOverride={row.overrideType !== null}
+                            onChanged={(next) => handleChanged(row.id, next)}
+                          />
+                        </div>
+                      )}
                     </td>
                   </tr>
                 )

@@ -1,0 +1,2 @@
+ALTER TABLE "transactions" ADD COLUMN "income_marked" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_income_marked_credit_only" CHECK (NOT "transactions"."income_marked" OR "transactions"."amount" > 0);

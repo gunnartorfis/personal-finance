@@ -8,7 +8,7 @@ const HERO: DashboardHero = {
   month: "2026-03",
   spentSoFar: 100000,
   projected: 310000,
-  moneyIn: 20000,
+  income: 20000,
   difference: -80000,
   vsAveragePct: 12,
   trailingAverage: 312500,
@@ -23,10 +23,10 @@ describe("ThisMonthHero", () => {
     expect(screen.getByText(/100,000/)).toBeInTheDocument()
   })
 
-  it("shows the projection, Money in and Difference", () => {
+  it("shows the projection, Income and Difference", () => {
     render(<ThisMonthHero hero={HERO} currency="ISK" />)
     expect(screen.getByText(/Projected/i)).toHaveTextContent(/310,000/)
-    expect(screen.getByText("Money in")).toBeInTheDocument()
+    expect(screen.getByText("Income")).toBeInTheDocument()
     expect(screen.getByText(/20,000/)).toBeInTheDocument()
     expect(screen.getByText("Difference")).toBeInTheDocument()
     expect(screen.getByText(/80,000/)).toBeInTheDocument() // difference magnitude

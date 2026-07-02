@@ -19,6 +19,7 @@ const ROWS: TransactionRow[] = [
     date: "2026-03-15",
     merchant: "NETFLIX",
     amount: -1990,
+    incomeMarked: false,
     classifiedType: "Fixed",
     confidence: 0.9,
     reasoning: "Recurring subscription",
@@ -26,14 +27,27 @@ const ROWS: TransactionRow[] = [
     classificationStatus: "classified",
   },
   {
+    id: "t3",
+    date: "2026-03-12",
+    merchant: "GYM",
+    amount: -5000,
+    incomeMarked: false,
+    classifiedType: "Necessary",
+    confidence: 0.6,
+    reasoning: null,
+    overrideType: "Nice to have", // override wins
+    classificationStatus: "classified",
+  },
+  {
     id: "t2",
     date: "2026-03-10",
     merchant: "SALARY",
     amount: 500000,
-    classifiedType: "Necessary",
+    incomeMarked: false,
+    classifiedType: "",
     confidence: null,
     reasoning: null,
-    overrideType: "Nice to have", // override wins
+    overrideType: null,
     classificationStatus: "classified",
   },
 ]
@@ -49,12 +63,33 @@ describe("TransactionsTable", () => {
 
   it("shows the effective type, with the override winning over the classified type", () => {
     render(<TransactionsTable rows={ROWS} currency="ISK" />)
-    const overridden = screen.getByRole("row", { name: /SALARY/ })
+    const overridden = screen.getByRole("row", { name: /GYM/ })
     expect(within(overridden).getByRole("combobox")).toHaveValue("Nice to have")
     // overridden row exposes a Reset affordance
     expect(
       within(overridden).getByRole("button", { name: /reset/i })
     ).toBeInTheDocument()
+  })
+
+  it("gives a credit row an income toggle instead of an expense-type control (ADR-0009)", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }))
+    vi.stubGlobal("fetch", fetchMock)
+    render(<TransactionsTable rows={ROWS} currency="ISK" />)
+
+    const credit = screen.getByRole("row", { name: /SALARY/ })
+    expect(within(credit).queryByRole("combobox")).not.toBeInTheDocument()
+
+    const toggle = within(credit).getByRole("checkbox", { name: /income/i })
+    expect(toggle).not.toBeChecked()
+    await userEvent.click(toggle)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/transactions/t2/income",
+      expect.objectContaining({ method: "PUT" })
+    )
+    expect(
+      within(credit).getByRole("checkbox", { name: /income/i })
+    ).toBeChecked()
   })
 
   it("persists an override change and reflects it on the row", async () => {
@@ -84,6 +119,7 @@ describe("TransactionsTable", () => {
         date: "2026-03-12",
         merchant: "PENDING CO",
         amount: -100,
+        incomeMarked: false,
         classifiedType: null,
         confidence: null,
         reasoning: null,
@@ -95,6 +131,7 @@ describe("TransactionsTable", () => {
         date: "2026-03-11",
         merchant: "SPLIT CO",
         amount: -200,
+        incomeMarked: false,
         classifiedType: "",
         confidence: 0.5,
         reasoning: null,

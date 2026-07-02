@@ -41,10 +41,10 @@ const NOW = new Date("2026-03-15T12:00:00Z");
 
 // A 4-month series ending at the in-progress current cycle (2026-03), with 3 completed months.
 const SERIES: MonthlySpendPoint[] = [
-  { month: "2025-12", spending: 200000, moneyIn: 0, difference: -200000 },
-  { month: "2026-01", spending: 300000, moneyIn: 0, difference: -300000 },
-  { month: "2026-02", spending: 350000, moneyIn: 0, difference: -350000 },
-  { month: "2026-03", spending: 100000, moneyIn: 20000, difference: -80000 },
+  { month: "2025-12", spending: 200000, income: 0, difference: -200000 },
+  { month: "2026-01", spending: 300000, income: 0, difference: -300000 },
+  { month: "2026-02", spending: 350000, income: 0, difference: -350000 },
+  { month: "2026-03", spending: 100000, income: 20000, difference: -80000 },
 ];
 
 function baseInputs(overrides: Partial<DashboardInputs> = {}): DashboardInputs {
@@ -73,7 +73,7 @@ describe("assembleDashboardView", () => {
     const view = assembleDashboardView(baseInputs());
     expect(view.hero.month).toBe("2026-03");
     expect(view.hero.spentSoFar).toBe(100000);
-    expect(view.hero.moneyIn).toBe(20000);
+    expect(view.hero.income).toBe(20000);
     expect(view.hero.difference).toBe(-80000);
     expect(view.hero.projected).toBe(trend.projection?.projected ?? null);
     expect(view.hero.vsAveragePct).toBe(trend.vsAveragePct);
@@ -118,7 +118,7 @@ describe("assembleDashboardView", () => {
     const past = SERIES.slice(0, 3); // ends 2026-02, no 2026-03
     const view = assembleDashboardView(baseInputs({ series: past })); // trend auto-derives from series
     expect(view.hero.spentSoFar).toBe(0);
-    expect(view.hero.moneyIn).toBe(0);
+    expect(view.hero.income).toBe(0);
     expect(view.hero.difference).toBe(0);
     expect(view.hero.projected).toBeNull();
   });
@@ -143,16 +143,18 @@ describe("loadDashboardView", () => {
     const [account] = await repo.accounts.create({ name: "Visa" });
     const [upload] = await repo.uploads.create({ accountId: account.id, fileName: "d.csv", fileHash: "d" });
     const base = { accountId: account.id, uploadId: upload.id, rawCategory: "" };
-    const [mar] = await repo.transactions.createMany([
+    const [, salary] = await repo.transactions.createMany([
       { ...base, date: "2026-03-05", amount: -100000, merchant: "BIGSHOP", sourceRow: 0 },
-      { ...base, date: "2026-03-06", amount: 20000, merchant: "REFUND", sourceRow: 1 },
+      { ...base, date: "2026-03-06", amount: 20000, merchant: "SALARY", sourceRow: 1 },
+      // Unmarked credit (a transfer) — must not appear in income (ADR-0009).
+      { ...base, date: "2026-03-07", amount: 500000, merchant: "TRANSFER", sourceRow: 2 },
     ]);
-    void mar;
+    await repo.transactions.setIncomeMarked(salary.id, true);
 
     const view = await loadDashboardView(repo, NOW, { plan: "Premium", count: 12 });
     expect(view.hero.month).toBe("2026-03");
     expect(view.hero.spentSoFar).toBe(100000);
-    expect(view.hero.moneyIn).toBe(20000);
+    expect(view.hero.income).toBe(20000);
     expect(view.hero.largestCharge).toEqual({ merchant: "BIGSHOP", amount: 100000 });
     expect(view.modules.accounts).toBeNull(); // single account
     expect(view.modules.series).toHaveLength(12);

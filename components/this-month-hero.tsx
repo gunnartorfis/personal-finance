@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 /**
  * The dashboard's current-cycle headline (Phase K, K10). Spending is the hero (ADR-0008): the big
  * number is what's been spent so far this month, with a linear month-end projection beneath it.
- * Money in and Difference are secondary. Two neutral, never-alarming info lines add context — how the
+ * Income and Difference are secondary. Two neutral, never-alarming info lines add context — how the
  * last completed month compared to the trailing average, and the cycle's largest single charge. Pure
  * and prop-driven off the view-model's {@link DashboardHero}.
  */
@@ -28,7 +28,7 @@ export function ThisMonthHero({
   })
   const fmt = (amount: number) => money.format(amount)
 
-  const { month, spentSoFar, projected, moneyIn, difference, vsAveragePct, trailingAverage, largestCharge } =
+  const { month, spentSoFar, projected, income, difference, vsAveragePct, trailingAverage, largestCharge } =
     hero
   const hasInfo = vsAveragePct !== null || largestCharge !== null
   // Direction cue: up only when above average, down when below, flat at exactly the average.
@@ -71,8 +71,8 @@ export function ThisMonthHero({
 
       <dl className="grid grid-cols-1 divide-y divide-border @xs:grid-cols-2 @xs:divide-x @xs:divide-y-0">
         <div className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 @xs:px-4 @xs:py-0 @xs:first:pl-0 @xs:last:pr-0">
-          <dt className="truncate text-sm text-muted-foreground">Money in</dt>
-          <dd className="text-lg font-semibold tabular-nums">{fmt(moneyIn)}</dd>
+          <dt className="truncate text-sm text-muted-foreground">Income</dt>
+          <dd className="text-lg font-semibold tabular-nums">{fmt(income)}</dd>
         </div>
         <div className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 @xs:px-4 @xs:py-0 @xs:first:pl-0 @xs:last:pr-0">
           <dt className="truncate text-sm text-muted-foreground">Difference</dt>

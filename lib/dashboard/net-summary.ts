@@ -8,9 +8,12 @@ import type { ExpenseType } from "@/shared/types";
  * Amounts are in the Household's billing currency (ADR-0004), signed as stored: income is positive,
  * expenses negative. `byExpenseType` and `unclassified` partition the expense side, so
  * `sum(byExpenseType) + unclassified === expense` and `income + expense === net`.
+ *
+ * Credits count as income only when manually marked (ADR-0009); an unmarked credit — typically an
+ * inter-account transfer, card-bill payment, or refund — contributes to nothing here.
  */
 export interface NetSummary {
-  /** Sum of credits (amount > 0). */
+  /** Sum of credits manually marked as income (amount > 0 and incomeMarked). */
   income: number;
   /** Sum of expenses (amount <= 0); zero or negative. */
   expense: number;
@@ -25,6 +28,8 @@ export interface NetSummary {
 /** One row's contribution to the summary: its charged amount and resolved expense type. */
 export interface NetSummaryRow {
   amount: number;
+  /** Whether a Member manually marked this credit as real income (ADR-0009). */
+  incomeMarked: boolean;
   /** Override type if present, else the classified type, else null when not yet classified. */
   effectiveType: ExpenseType | null;
 }
@@ -46,8 +51,9 @@ export function toEffectiveType(value: string | null): ExpenseType | null {
 
 /**
  * Fold rows into a {@link NetSummary}. Pure and side-effect free so it can be unit-tested directly;
- * the database read lives in {@link loadNetSummary}. Credits add to income; everything else is an
- * expense, bucketed by its effective type (or `unclassified` when the type is unknown).
+ * the database read lives in {@link loadNetSummary}. Credits marked as income add to income;
+ * unmarked credits are excluded entirely (ADR-0009); everything else is an expense, bucketed by
+ * its effective type (or `unclassified` when the type is unknown).
  */
 export function computeNetSummary(rows: ReadonlyArray<NetSummaryRow>): NetSummary {
   const byExpenseType = emptyByExpenseType();
@@ -55,9 +61,9 @@ export function computeNetSummary(rows: ReadonlyArray<NetSummaryRow>): NetSummar
   let expense = 0;
   let unclassified = 0;
 
-  for (const { amount, effectiveType } of rows) {
+  for (const { amount, incomeMarked, effectiveType } of rows) {
     if (amount > 0) {
-      income += amount;
+      if (incomeMarked) income += amount;
       continue;
     }
     expense += amount;
@@ -85,6 +91,7 @@ export async function loadNetSummary(
   return computeNetSummary(
     rows.map((row) => ({
       amount: row.amount,
+      incomeMarked: row.incomeMarked,
       effectiveType: toEffectiveType(row.overrideType ?? row.classifiedType),
     })),
   );

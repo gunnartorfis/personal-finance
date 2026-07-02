@@ -38,12 +38,12 @@ export interface DashboardInputs {
   freeCap: FreeCapStatus;
 }
 
-/** The current-cycle headline (spending is the hero; Money in / Difference are secondary). */
+/** The current-cycle headline (spending is the hero; Income / Difference are secondary). */
 export interface DashboardHero {
   month: CycleKey;
   spentSoFar: number;
   projected: number | null;
-  moneyIn: number;
+  income: number;
   difference: number;
   vsAveragePct: number | null;
   trailingAverage: number | null;
@@ -99,15 +99,15 @@ export function assembleDashboardView(input: DashboardInputs): DashboardView {
   const currentKey = currentCycleKey(input.now);
   const current = input.series.find((point) => point.month === currentKey);
   const spentSoFar = current?.spending ?? 0;
-  const moneyIn = current?.moneyIn ?? 0;
+  const income = current?.income ?? 0;
 
   return {
     hero: {
       month: currentKey,
       spentSoFar,
       projected: input.trend.projection?.projected ?? null,
-      moneyIn,
-      difference: moneyIn - spentSoFar,
+      income,
+      difference: income - spentSoFar,
       vsAveragePct: input.trend.vsAveragePct,
       trailingAverage: input.trend.trailingAverage,
       largestCharge: input.largestCharge,
