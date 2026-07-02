@@ -255,6 +255,66 @@ describe("householdRepo", () => {
     expect(await b.accounts.findById(account.id)).toBeUndefined();
   });
 
+  describe("merchant/charge spend excludes split (override → \"\")", () => {
+    async function seed(a: Awaited<ReturnType<typeof twoHouseholds>>["a"]) {
+      const [account] = await a.accounts.create({ name: "Visa" });
+      const [upload] = await a.uploads.create({
+        accountId: account.id,
+        fileName: "s.csv",
+        fileHash: "split",
+      });
+      const base = { accountId: account.id, uploadId: upload.id, rawCategory: "x" };
+      // A big charge the user later splits (override → ""), plus an ordinary one.
+      const [split] = await a.transactions.create({
+        ...base,
+        date: "2026-03-10",
+        amount: -145_144,
+        merchant: "ORMSSON HF",
+        sourceRow: 0,
+      });
+      await a.transactions.create({
+        ...base,
+        date: "2026-03-11",
+        amount: -2000,
+        merchant: "NETTO",
+        sourceRow: 1,
+      });
+      await a.overrides.upsert({ transactionId: split.id, expenseType: "" });
+    }
+
+    const range = { from: "2026-03-01", to: "2026-04-01" };
+
+    it("monthlyMerchantSpend drops the split merchant", async () => {
+      const { a } = await twoHouseholds();
+      await seed(a);
+      const rows = await a.transactions.monthlyMerchantSpend(range);
+      expect(rows.map((r) => r.merchant)).toEqual(["NETTO"]);
+    });
+
+    it("topMerchants drops the split merchant", async () => {
+      const { a } = await twoHouseholds();
+      await seed(a);
+      const rows = await a.transactions.topMerchants(range);
+      expect(rows.map((r) => r.merchant)).toEqual(["NETTO"]);
+    });
+
+    it("largestCharge ignores the split charge", async () => {
+      const { a } = await twoHouseholds();
+      await seed(a);
+      const row = await a.transactions.largestCharge(range);
+      expect(row).toEqual({ merchant: "NETTO", amount: 2000 });
+    });
+
+    it("spendByAccount omits the split charge from the account total", async () => {
+      const { a } = await twoHouseholds();
+      await seed(a);
+      const rows = await a.transactions.spendByAccount(range);
+      // Single seeded account; only the non-split NETTO charge counts.
+      expect(rows).toHaveLength(1);
+      expect(rows[0].spending).toBe(2000);
+    });
+  });
+
   describe("overrides.upsert / remove", () => {
     async function seedTransaction(a: Awaited<ReturnType<typeof twoHouseholds>>["a"]) {
       const [account] = await a.accounts.create({ name: "Visa" });

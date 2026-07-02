@@ -448,20 +448,30 @@ export function householdRepo(db: Db, householdId: string) {
        * Total debit magnitude per raw merchant over a half-open range `[from, to)` — credits
        * (`amount >= 0`) and out-of-range rows excluded. Grouped by the raw merchant string only; the
        * pure `buildTopMerchants` then normalises (store-number stripping etc.) and re-aggregates, so
-       * merging and the top-N limit happen after normalisation rather than in SQL. Scoped to the
-       * household. `sum(...)` comes back as a string from the driver, so it is coerced to a number.
+       * merging and the top-N limit happen after normalisation rather than in SQL. Transactions whose
+       * effective type (`coalesce(override, classified)`) is "" — the not-bucketed / split type — are
+       * excluded. Scoped to the household. `sum(...)` comes back as a string from the driver, so it is
+       * coerced to a number.
        */
       topMerchants: async (range: { from: string; to: string }) => {
         const spending = sql<string>`sum(-${transactions.amount})`;
         const rows = await db
           .select({ merchant: transactions.merchant, spending })
           .from(transactions)
+          .leftJoin(
+            overrides,
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactions.id)
+            )
+          )
           .where(
             and(
               eq(transactions.householdId, householdId),
               lt(transactions.amount, 0),
               gte(transactions.date, range.from),
-              lt(transactions.date, range.to)
+              lt(transactions.date, range.to),
+              sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
             )
           )
           .groupBy(transactions.merchant);
@@ -510,7 +520,9 @@ export function householdRepo(db: Db, householdId: string) {
       /**
        * Per-calendar-month, per-raw-merchant debit magnitude over a half-open range `[from, to)` —
        * the input to the "biggest movers" (merchant) computation. Credits and out-of-range rows are
-       * excluded; the pure layer normalises + re-aggregates. Scoped to the household.
+       * excluded; the pure layer normalises + re-aggregates. Transactions whose effective type
+       * (`coalesce(override, classified)`) is "" — the not-bucketed / split type — are excluded, so a
+       * split-payment merchant never surfaces as a spend mover. Scoped to the household.
        */
       monthlyMerchantSpend: async (range: { from: string; to: string }) => {
         const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`;
@@ -518,12 +530,20 @@ export function householdRepo(db: Db, householdId: string) {
         const rows = await db
           .select({ month, merchant: transactions.merchant, spending })
           .from(transactions)
+          .leftJoin(
+            overrides,
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactions.id)
+            )
+          )
           .where(
             and(
               eq(transactions.householdId, householdId),
               lt(transactions.amount, 0),
               gte(transactions.date, range.from),
-              lt(transactions.date, range.to)
+              lt(transactions.date, range.to),
+              sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
             )
           )
           .groupBy(month, transactions.merchant)
@@ -537,18 +557,28 @@ export function householdRepo(db: Db, householdId: string) {
       /**
        * The single largest charge (most-negative debit) over a half-open range `[from, to)` — the
        * dashboard hero's "largest charge this cycle" info line. Returns the merchant plus the charge
-       * magnitude (positive), or `undefined` when the range has no debits. Scoped to the household.
+       * magnitude (positive), or `undefined` when the range has no debits. Transactions whose effective
+       * type (`coalesce(override, classified)`) is "" — the not-bucketed / split type — are excluded.
+       * Scoped to the household.
        */
       largestCharge: async (range: { from: string; to: string }) => {
         const [row] = await db
           .select({ merchant: transactions.merchant, amount: transactions.amount })
           .from(transactions)
+          .leftJoin(
+            overrides,
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactions.id)
+            )
+          )
           .where(
             and(
               eq(transactions.householdId, householdId),
               lt(transactions.amount, 0),
               gte(transactions.date, range.from),
-              lt(transactions.date, range.to)
+              lt(transactions.date, range.to),
+              sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
             )
           )
           .orderBy(asc(transactions.amount))
@@ -558,8 +588,10 @@ export function householdRepo(db: Db, householdId: string) {
       /**
        * Total debit magnitude per Account (with its name) over a half-open range `[from, to)` — the
        * account-breakdown module. Inner-joins `accounts` (household-scoped on both sides), excludes
-       * credits and out-of-range rows, and groups by account. Accounts with no debits in the range
-       * simply don't appear. `sum(...)` is coerced from the driver string. Scoped to the household.
+       * credits and out-of-range rows, and groups by account. Transactions whose effective type
+       * (`coalesce(override, classified)`) is "" — the not-bucketed / split type — are excluded, so a
+       * split charge never inflates an account total. Accounts with no debits in the range simply
+       * don't appear. `sum(...)` is coerced from the driver string. Scoped to the household.
        */
       spendByAccount: async (range: { from: string; to: string }) => {
         const spending = sql<string>`sum(-${transactions.amount})`;
@@ -573,12 +605,20 @@ export function householdRepo(db: Db, householdId: string) {
               eq(accounts.id, transactions.accountId)
             )
           )
+          .leftJoin(
+            overrides,
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactions.id)
+            )
+          )
           .where(
             and(
               eq(transactions.householdId, householdId),
               lt(transactions.amount, 0),
               gte(transactions.date, range.from),
-              lt(transactions.date, range.to)
+              lt(transactions.date, range.to),
+              sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
             )
           )
           .groupBy(accounts.id, accounts.name);
