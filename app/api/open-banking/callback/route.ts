@@ -30,11 +30,16 @@ export async function GET(request: Request) {
     return back("error")
   }
 
+  // requireHousehold stays outside the try: on an expired session it redirects to sign-in (a
+  // NEXT_REDIRECT the framework must handle), which a catch would swallow. Everything that can throw
+  // a genuine error — a missing/misconfigured provider, the code exchange, persistence — is caught
+  // and turned into a graceful bank=error redirect.
   const { repo } = await requireHousehold()
-  const provider = getIngestionProvider()
   try {
+    const provider = getIngestionProvider()
     await completeBankConnection({ repo, provider, code })
-  } catch {
+  } catch (err) {
+    console.error("open-banking callback failed", err)
     return back("error")
   }
   return back("connected")
