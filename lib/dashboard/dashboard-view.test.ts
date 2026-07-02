@@ -162,8 +162,8 @@ describe("loadDashboardView", () => {
     expect(view.modules.series).toHaveLength(12);
     // The BIGSHOP debit is an unreviewed expense, so it shows up in the review backlog.
     expect(view.actionBand.reviewBacklog).toBe(1);
-    // Both seeded rows (the debit and the credit) are still awaiting classification.
-    expect(view.actionBand.pendingCount).toBe(2);
+    // All three seeded rows (the debit and both credits) are still awaiting classification.
+    expect(view.actionBand.pendingCount).toBe(3);
     expect(view.actionBand.allClear).toBe(false);
   });
 });
