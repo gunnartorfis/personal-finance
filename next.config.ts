@@ -7,6 +7,15 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // The account/security views moved under the Settings hub; keep old bookmarks and any
+  // externally-linked account URLs working instead of 404ing.
+  async redirects() {
+    return [
+      { source: "/account/settings", destination: "/settings/account", permanent: true },
+      { source: "/account/security", destination: "/settings/security", permanent: true },
+      { source: "/account", destination: "/settings/account", permanent: true },
+    ]
+  },
 }
 
 export default nextConfig
