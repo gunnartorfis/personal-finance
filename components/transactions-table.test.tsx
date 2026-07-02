@@ -155,4 +155,58 @@ describe("TransactionsTable", () => {
     render(<TransactionsTable rows={[]} currency="ISK" />)
     expect(screen.getByText(/no transactions/i)).toBeInTheDocument()
   })
+
+  // Merchants of the data rows, top-to-bottom (the first row is the header).
+  const merchantOrder = () =>
+    screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => within(row).getAllByRole("cell")[1].textContent)
+
+  it("filters by merchant search", async () => {
+    render(<TransactionsTable rows={ROWS} currency="ISK" />)
+    await userEvent.type(
+      screen.getByRole("searchbox", { name: /search transactions/i }),
+      "net"
+    )
+    expect(screen.getByText("NETFLIX")).toBeInTheDocument()
+    expect(screen.queryByText("GYM")).not.toBeInTheDocument()
+    expect(screen.getByText(/1 of 3 transactions/i)).toBeInTheDocument()
+  })
+
+  it("filters by type bucket (credits vs expense types)", async () => {
+    render(<TransactionsTable rows={ROWS} currency="ISK" />)
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: /filter by type/i }),
+      "Credits"
+    )
+    expect(screen.getByText("SALARY")).toBeInTheDocument()
+    expect(screen.queryByText("NETFLIX")).not.toBeInTheDocument()
+    expect(screen.queryByText("GYM")).not.toBeInTheDocument()
+  })
+
+  it("sorts by amount when its header is clicked (largest first)", async () => {
+    render(<TransactionsTable rows={ROWS} currency="ISK" />)
+    // Default order is date-descending.
+    expect(merchantOrder()).toEqual(["NETFLIX", "GYM", "SALARY"])
+    await userEvent.click(screen.getByRole("button", { name: /amount/i }))
+    expect(merchantOrder()).toEqual(["SALARY", "NETFLIX", "GYM"])
+    // A second click flips the direction.
+    await userEvent.click(screen.getByRole("button", { name: /amount/i }))
+    expect(merchantOrder()).toEqual(["GYM", "NETFLIX", "SALARY"])
+  })
+
+  it("shows a no-match state that clears the active filters", async () => {
+    render(<TransactionsTable rows={ROWS} currency="ISK" />)
+    await userEvent.type(
+      screen.getByRole("searchbox", { name: /search transactions/i }),
+      "zzz"
+    )
+    expect(screen.getByText(/no matching transactions/i)).toBeInTheDocument()
+    await userEvent.click(
+      screen.getByRole("button", { name: /clear filters/i })
+    )
+    expect(screen.getByText("NETFLIX")).toBeInTheDocument()
+    expect(screen.getByText("SALARY")).toBeInTheDocument()
+  })
 })
