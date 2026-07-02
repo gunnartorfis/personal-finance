@@ -27,5 +27,5 @@ export async function excludeTransaction(
 /** Re-include a transaction (`DELETE`), returning it to the calculations. */
 export async function includeTransaction(transactionId: string): Promise<void> {
   const res = await fetch(endpoint(transactionId), { method: "DELETE" })
-  if (!res.ok) throw new Error(`exclude ${res.status}`)
+  if (!res.ok) throw new Error(`include ${res.status}`)
 }

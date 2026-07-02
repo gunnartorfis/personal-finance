@@ -372,6 +372,11 @@ export const transactions = pgTable(
       "transactions_exclusion_note_requires_excluded",
       sql`${t.exclusionNote} IS NULL OR ${t.excluded}`,
     ),
+    // Bound the note length at the DB too, so a direct insert / seed can't bypass the API's cap.
+    check(
+      "transactions_exclusion_note_length",
+      sql`${t.exclusionNote} IS NULL OR char_length(${t.exclusionNote}) <= 280`,
+    ),
     // A row has an Expense type iff it is classified ("" counts); pending/failed carry none.
     check(
       "transactions_classified_has_type",

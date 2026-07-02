@@ -1,5 +1,5 @@
 {
-  "id": "6decd043-5679-4dde-a7a0-bf69ed8f5c93",
+  "id": "a76f80ae-9503-4d33-911f-bf5d3d17e22f",
   "prevId": "cafab8dd-67df-457e-b000-916faee0f3fd",
   "version": "7",
   "dialect": "postgresql",
@@ -1534,6 +1534,10 @@
         "transactions_exclusion_note_requires_excluded": {
           "name": "transactions_exclusion_note_requires_excluded",
           "value": "\"transactions\".\"exclusion_note\" IS NULL OR \"transactions\".\"excluded\""
+        },
+        "transactions_exclusion_note_length": {
+          "name": "transactions_exclusion_note_length",
+          "value": "\"transactions\".\"exclusion_note\" IS NULL OR char_length(\"transactions\".\"exclusion_note\") <= 280"
         },
         "transactions_classified_has_type": {
           "name": "transactions_classified_has_type",

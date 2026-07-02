@@ -432,6 +432,29 @@ describe("householdRepo", () => {
       expect(excluded.incomeMarked).toBe(false);
     });
 
+    it("re-including a formerly income-marked credit does NOT restore the mark (fresh state)", async () => {
+      const { a } = await twoHouseholds();
+      const { accountId, uploadId } = await seed(a);
+      const [credit] = await a.transactions.create({
+        accountId,
+        uploadId,
+        date: "2026-03-12",
+        amount: 8000,
+        merchant: "REFUND",
+        rawCategory: "",
+        sourceRow: 1,
+        incomeMarked: true,
+        classificationStatus: "classified",
+        expenseType: "",
+      });
+      await a.transactions.setExcluded(credit.id, true);
+      // Re-including returns the row to the default credit state (unmarked), by design (ADR-0011):
+      // there is no stored prior state to restore, and re-inclusion is a fresh decision.
+      const [reincluded] = await a.transactions.setExcluded(credit.id, false);
+      expect(reincluded.excluded).toBe(false);
+      expect(reincluded.incomeMarked).toBe(false);
+    });
+
     it("scopes the update to the bound household", async () => {
       const { a, b } = await twoHouseholds();
       const { accountId, uploadId } = await seed(a);

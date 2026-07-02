@@ -138,6 +138,14 @@ describe("ingestion & classification schema", () => {
     ).rejects.toThrow();
   });
 
+  it("rejects an exclusion note longer than the 280-char cap", async () => {
+    await expect(
+      db
+        .insert(transactions)
+        .values({ ...baseTxn(), excluded: true, exclusionNote: "x".repeat(281) }),
+    ).rejects.toThrow();
+  });
+
   it("rejects an upload whose account belongs to another household (composite FK)", async () => {
     const [h2] = await db.insert(households).values({}).returning();
     const [a2] = await db.insert(accounts).values({ householdId: h2.id, name: "Other" }).returning();

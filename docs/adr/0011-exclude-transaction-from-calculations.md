@@ -40,3 +40,8 @@ Spending, counts as Income, or Excluded.
   counting are all preserved, so exclusion is cleanly reversible and cannot be used to
   reclaim Free-cap quota.
 - v1 is entirely manual — no auto-detection or suggestion.
+- Re-including is a fresh state, not an undo: excluding a credit clears its income mark, and
+  re-including returns the row to the default credit state (unmarked, counting for nothing) rather
+  than restoring a prior income mark. We store no prior state, a debit has no analogous mark to
+  restore, and for a credit the math outcome is identical either way (an unmarked credit already
+  counts for nothing). A Member who re-includes a credit they had marked as income must re-mark it.
