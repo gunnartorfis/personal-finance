@@ -160,22 +160,25 @@ export function ClassifyTrigger({
     await classify()
   }, [classify, resumable])
 
-  // Fire the drain once on mount when either (a) `autoRun` is set (post-upload), or (b) this is a
+  // Fire the drain once per mount when either (a) `autoRun` is set (post-upload), or (b) this is a
   // resumable control whose drain the user started earlier and a refresh interrupted — detected by
-  // the persisted flag plus remaining pending work. Both are ref-guarded so it never re-drives on
-  // re-render, and the abort-on-unmount is what lets a refresh hand the drain to the next mount.
-  const autoRan = useRef(false)
+  // the persisted flag plus remaining pending work. `pendingCount` is read from a ref, not a
+  // dependency, so a polling parent's prop churn can't re-run this and abort the live drain.
+  const driveStartedRef = useRef(false)
   useEffect(() => {
-    // Read the pending backlog from the ref, not a dependency: this must fire at most once (guarded by
-    // autoRan), so later prop churn from a polling parent must not re-run this effect — its cleanup
-    // aborts the live drain, which would otherwise leave the control stuck mid-run.
     const shouldResume =
       resumable && !retryOnly && (baselineSourceRef.current ?? 0) > 0 && isDrainActive()
-    if (!autoRan.current && (autoRun || shouldResume)) {
-      autoRan.current = true
+    if (!driveStartedRef.current && (autoRun || shouldResume)) {
+      driveStartedRef.current = true
       void classify()
     }
-    return () => abortRef.current?.abort()
+    return () => {
+      abortRef.current?.abort()
+      // Reset the guard so the *next* mount re-drives. This is what makes resume survive React
+      // Strict Mode's dev-only mount → cleanup → remount cycle: the cleanup aborts the first drain,
+      // and clearing the guard lets the remount start a fresh one instead of leaving it stuck.
+      driveStartedRef.current = false
+    }
   }, [autoRun, resumable, retryOnly, classify])
 
   // `settled` rows (classified or failed) leave the queue, so they fill the bar against the frozen

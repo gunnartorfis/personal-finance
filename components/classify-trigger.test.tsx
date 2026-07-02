@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { StrictMode } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ClassifyTrigger } from "@/components/classify-trigger"
@@ -119,6 +120,34 @@ describe("ClassifyTrigger", () => {
 
     expect(signal?.aborted).toBe(false)
     await vi.waitFor(() => expect(calls).toBeGreaterThan(before))
+  })
+
+  it("resumes under StrictMode's mount→cleanup→remount instead of getting stuck", async () => {
+    let calls = 0
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.signal?.aborted) throw new DOMException("aborted", "AbortError")
+        calls += 1
+        // First couple of batches make progress, then the queue reports empty so the drain finishes.
+        return {
+          ok: true,
+          json: async () =>
+            calls <= 2
+              ? { classified: 1, failed: 0, capped: 0 }
+              : { classified: 0, failed: 0, capped: 0 },
+        }
+      }),
+    )
+    window.localStorage.setItem(ACTIVE_KEY, "1")
+    render(
+      <StrictMode>
+        <ClassifyTrigger resumable pendingCount={50} />
+      </StrictMode>,
+    )
+    // With the old ref-guard, StrictMode aborted the first drain and never restarted it (stuck on
+    // "Classifying…"). The totals line only appears if the remount actually re-drove to completion.
+    expect(await screen.findByText(/classified\./i)).toBeInTheDocument()
   })
 
   it("does not auto-resume when the persisted flag is absent", async () => {
