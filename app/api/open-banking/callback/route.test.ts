@@ -6,7 +6,7 @@ const { getIngestionProvider, completeBankConnection, consumeConnectIntent, hous
     completeBankConnection: vi.fn(),
     consumeConnectIntent: vi.fn(),
     householdRepo: vi.fn(),
-    cookieStore: { get: vi.fn(), delete: vi.fn() },
+    cookieStore: { get: vi.fn(), delete: vi.fn(), getAll: vi.fn(() => []) },
   }))
 
 vi.mock("@/lib/db", () => ({ getDb: () => ({}) }))

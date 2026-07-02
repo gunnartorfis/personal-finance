@@ -61,6 +61,14 @@ export async function consumeConnectIntent(db: Db, state: string): Promise<Conne
     .delete(bankConnectionIntents)
     .where(eq(bankConnectionIntents.state, state))
     .returning();
-  if (!row || row.createdAt < cutoff) return null;
+  if (!row) {
+    // Diagnostic: distinguishes "row was never written / already consumed" from "expired" below.
+    console.warn("[ob:intent] no row for state (never recorded, or already consumed)");
+    return null;
+  }
+  if (row.createdAt < cutoff) {
+    console.warn("[ob:intent] row expired", { ageMs: Date.now() - row.createdAt.getTime() });
+    return null;
+  }
   return { householdId: row.householdId, institutionName: row.institutionName };
 }
