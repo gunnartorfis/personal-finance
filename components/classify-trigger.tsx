@@ -65,6 +65,10 @@ async function postWithRetry(
   interrupted: () => boolean,
 ): Promise<Response> {
   for (let attempt = 1; ; attempt++) {
+    // Re-check before every request, not just at the retry decision: if the page began unloading
+    // while backoff() was sleeping (its timer isn't tied to `signal`, which stays un-aborted on a
+    // refresh), the loop would otherwise dispatch one more POST into the dying page.
+    if (signal.aborted || interrupted()) throw new DOMException("aborted", "AbortError")
     let res: Response
     try {
       res = await fetch(url, { method: "POST", signal })

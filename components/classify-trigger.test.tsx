@@ -264,6 +264,32 @@ describe("ClassifyTrigger", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
   })
 
+  it("stops firing requests if the page unloads while a retry backoff is sleeping", async () => {
+    let calls = 0
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        calls += 1
+        // First POST 5xxs → schedules a backoff; the page unloads during that sleep.
+        return { ok: false, status: 500, json: async () => ({}) }
+      }),
+    )
+    window.localStorage.setItem(ACTIVE_KEY, "1")
+    render(<ClassifyTrigger resumable pendingCount={100} />)
+    await vi.waitFor(() => expect(calls).toBe(1))
+
+    // Refresh mid-backoff: the loop must bail before dispatching another POST into the dying page.
+    window.dispatchEvent(new Event("pagehide"))
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400))
+    })
+
+    expect(calls).toBe(1)
+    // Interrupted, not failed: flag kept for the next load, no error surfaced.
+    expect(window.localStorage.getItem(ACTIVE_KEY)).toBe("1")
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
+
   it("clears the resume flag on a genuine network failure so later loads don't error-loop", async () => {
     vi.stubGlobal(
       "fetch",
