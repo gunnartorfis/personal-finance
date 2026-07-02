@@ -50,6 +50,8 @@ export default async function JoinTokenPage({
 
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-md flex-col justify-center gap-4 px-6 py-12">
+      {/* The card's h2 is the visible headline; keep an sr-only h1 for the document outline. */}
+      <h1 className="sr-only">Join a household</h1>
       <InviteCard
         invitedEmail={preview.email}
         inviterName={details.inviterName}

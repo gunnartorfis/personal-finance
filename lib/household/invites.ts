@@ -226,22 +226,29 @@ export async function getInviteCardDetails(
   householdId: string,
   invitedByMemberId: string | null,
 ): Promise<InviteCardDetails> {
-  const memberCount = await countMembers(db, householdId);
-  if (!invitedByMemberId) return { inviterName: null, inviterEmail: null, memberCount };
-
-  try {
-    const result = await db.execute<{ name: string | null; email: string | null }>(sql`
-      select u.name, u.email
-      from members m
-      left join neon_auth.users_sync u on u.id = m.auth_user_id
-      where m.id = ${invitedByMemberId}
-      limit 1
-    `);
-    const row = result.rows[0];
-    return { inviterName: row?.name ?? null, inviterEmail: row?.email ?? null, memberCount };
-  } catch {
-    return { inviterName: null, inviterEmail: null, memberCount };
+  if (!invitedByMemberId) {
+    return { inviterName: null, inviterEmail: null, memberCount: await countMembers(db, householdId) };
   }
+
+  // The count and the identity join are independent — run them together. The identity join is the
+  // fragile one (a missing `users_sync` mirror throws), so it catches to a null identity rather than
+  // failing the whole card. `m.household_id` is asserted too, so the row is self-validating: an
+  // inviter who has since left this Household resolves to null, not a stale name.
+  const [memberCount, inviter] = await Promise.all([
+    countMembers(db, householdId),
+    db
+      .execute<{ name: string | null; email: string | null }>(sql`
+        select u.name, u.email
+        from members m
+        left join neon_auth.users_sync u on u.id = m.auth_user_id
+        where m.id = ${invitedByMemberId} and m.household_id = ${householdId}
+        limit 1
+      `)
+      .then((result) => result.rows[0] ?? null)
+      .catch(() => null),
+  ]);
+
+  return { inviterName: inviter?.name ?? null, inviterEmail: inviter?.email ?? null, memberCount };
 }
 
 export interface AcceptInviteInput {

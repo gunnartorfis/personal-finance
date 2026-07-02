@@ -40,13 +40,17 @@ export default async function JoinPage() {
 
   return (
     <JoinShell>
-      {cards.length > 1 && (
+      {cards.length > 1 ? (
         <div className="flex flex-col gap-1">
           <h1 className="text-xl font-semibold tracking-tight">Choose a household to join</h1>
           <p className="text-sm text-pretty text-muted-foreground">
             You have {cards.length} pending invitations. You can join one.
           </p>
         </div>
+      ) : (
+        // A single card carries its own visible headline (the card's h2); keep an sr-only h1 so the
+        // page still has a top-level heading for assistive tech and document outline.
+        <h1 className="sr-only">Join a household</h1>
       )}
       <ul role="list" className="flex flex-col gap-4">
         {cards.map(({ invite, details }) => (
