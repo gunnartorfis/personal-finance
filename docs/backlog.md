@@ -185,7 +185,7 @@ each item one small PR; earliest are pure `shared/` domain logic (test-first).
 - [x] **Savings page + nav**: `/savings` — goal + config forms, current-cycle check-in view
   (on-track banner, Allowed nice-to-have, prescribe-when-behind), and check-in history; "Savings"
   nav item. Blocked by: Check-in API.
-- [ ] **Dashboard progress card**: a compact wedding-fund progress card on the Dashboard linking to
+- [x] **Dashboard progress card**: a compact wedding-fund progress card on the Dashboard linking to
   `/savings`. Blocked by: Savings page + nav.
 
 ## Phase K — Insightful dashboard (ADR-0008) — depends on F (net-summary), H (cycle helpers)
