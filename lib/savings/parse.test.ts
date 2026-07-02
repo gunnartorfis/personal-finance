@@ -23,7 +23,7 @@ describe("parseSavingsGoalInput", () => {
   });
 
   it("defaults startingSaved to 0 when omitted", () => {
-    const { startingSaved: _omitted, ...rest } = valid;
+    const rest = { target: valid.target, targetDate: valid.targetDate, startCycle: valid.startCycle };
     expect(parseSavingsGoalInput(rest)).toMatchObject({
       ok: true,
       value: { startingSaved: 0 },

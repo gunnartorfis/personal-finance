@@ -176,7 +176,7 @@ each item one small PR; earliest are pure `shared/` domain logic (test-first).
 - [x] **Trailing-average estimator**: expected `Fixed`/`Necessary` from the last ~3 completed cycles'
   net summaries, with a manual fallback when history is thin. Pure logic + repo read. Blocked by:
   Data-access.
-- [ ] **Goal + config API**: `GET`/`PUT /api/savings/goal` and `GET`/`PUT /api/savings/config`
+- [x] **Goal + config API**: `GET`/`PUT /api/savings/goal` and `GET`/`PUT /api/savings/config`
   (income + off-card), household-scoped, validated. Blocked by: Data-access.
 - [ ] **Check-in API**: `GET /api/savings/checkins` + `POST /api/savings/checkins` — freeze the
   current cycle from `loadNetSummary` + config and upsert by cycle; mark the Nice-to-have breakdown
