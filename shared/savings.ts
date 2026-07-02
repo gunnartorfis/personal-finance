@@ -95,6 +95,57 @@ export function correctivePerCycle(
   return Math.ceil(remaining / cyclesRemaining);
 }
 
+/** One trailing cycle's classified card spend, signed as stored (`<= 0`, from a net summary). */
+export interface TrailingCycleSpend {
+  fixed: number;
+  necessary: number;
+}
+
+/** Expected `Fixed`/`Necessary` card spend for the coming cycle (positive magnitudes). */
+export interface ExpectedSpend {
+  expectedFixed: number;
+  expectedNecessary: number;
+  /** How many trailing cycles carried data and were averaged (0 for manual/none). */
+  cyclesUsed: number;
+  /** Where the estimate came from: trailing history, the manual fallback, or nothing. */
+  source: "history" | "manual" | "none";
+}
+
+/**
+ * Estimate the coming cycle's `Fixed` + `Necessary` card spend from trailing completed cycles'
+ * net-summary buckets (ADR-0007). Cycles with no classified spend at all (both buckets zero —
+ * months before the Household's history starts) are skipped rather than dragging the average
+ * down. Averages are rounded UP to whole units, so the estimate errs toward reserving more.
+ * With no usable history the manual `fallback` is used (`source: "manual"`); with neither,
+ * zeros with `source: "none"` — the caller should ask for manual values.
+ */
+export function estimateExpectedSpend(
+  cycles: readonly TrailingCycleSpend[],
+  fallback?: { expectedFixed: number; expectedNecessary: number },
+): ExpectedSpend {
+  let fixedTotal = 0;
+  let necessaryTotal = 0;
+  let cyclesUsed = 0;
+  for (const cycle of cycles) {
+    if (cycle.fixed === 0 && cycle.necessary === 0) continue;
+    fixedTotal -= cycle.fixed;
+    necessaryTotal -= cycle.necessary;
+    cyclesUsed += 1;
+  }
+  if (cyclesUsed > 0) {
+    return {
+      expectedFixed: Math.ceil(fixedTotal / cyclesUsed),
+      expectedNecessary: Math.ceil(necessaryTotal / cyclesUsed),
+      cyclesUsed,
+      source: "history",
+    };
+  }
+  if (fallback) {
+    return { ...fallback, cyclesUsed: 0, source: "manual" };
+  }
+  return { expectedFixed: 0, expectedNecessary: 0, cyclesUsed: 0, source: "none" };
+}
+
 /**
  * The Allowed nice-to-have budget for the coming cycle: what is left of income after off-card fixed
  * costs, the Required saving, and the expected `Fixed` + `Necessary` card spend. Negative when the
