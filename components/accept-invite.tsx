@@ -40,18 +40,6 @@ export function AcceptInvite({
   const locatorBody = token ? { token } : { inviteId }
   const isSwitch = consequence !== "none"
 
-  async function post(path: string, body: Record<string, unknown>): Promise<boolean> {
-    const res = await fetch(path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
-    if (res.ok) return true
-    const parsed = (await res.json().catch(() => null)) as { error?: string } | null
-    setError(ACCEPT_ERROR_COPY[parsed?.error ?? ""] ?? "Couldn’t accept the invite.")
-    return false
-  }
-
   async function accept() {
     // Deleting the current Household is irreversible — require a second, explicit click first.
     if (consequence === "delete" && !confirming) {
@@ -61,10 +49,27 @@ export function AcceptInvite({
     setBusy("accept")
     setError(null)
     try {
-      if (await post("/api/household/invites/accept", { ...locatorBody, confirmSwitch: isSwitch })) {
+      const res = await fetch("/api/household/invites/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...locatorBody,
+          confirmSwitch: isSwitch,
+          confirmDelete: consequence === "delete",
+        }),
+      })
+      if (res.ok) {
         window.location.assign("/dashboard")
         return
       }
+      const parsed = (await res.json().catch(() => null)) as { error?: string } | null
+      if (parsed?.error === "confirm_delete_required") {
+        // The current household changed since this page loaded (its other members left), so the
+        // switch would now delete it and its data. Reload to show the destructive warning + confirm.
+        window.location.reload()
+        return
+      }
+      setError(ACCEPT_ERROR_COPY[parsed?.error ?? ""] ?? "Couldn’t accept the invite.")
     } catch {
       setError("Couldn’t accept the invite.")
     }

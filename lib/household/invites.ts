@@ -7,6 +7,7 @@ import { householdInvites, members } from "@/lib/db/schema";
 import type * as schema from "@/lib/db/schema";
 import type { Plan } from "@/shared/types";
 
+import { getHouseholdActivity } from "./activity";
 import { switchOutOfHousehold } from "./membership";
 
 /**
@@ -41,7 +42,8 @@ export type InviteErrorCode =
   | "expired"
   | "email_mismatch"
   | "email_not_verified"
-  | "already_in_household";
+  | "already_in_household"
+  | "confirm_delete_required";
 
 /** A domain failure in the Invite flow; `code` drives the API status + message. */
 export class InviteError extends Error {
@@ -68,6 +70,7 @@ export function inviteErrorStatus(code: InviteErrorCode): number {
     case "not_pending":
     case "cap_reached":
     case "already_in_household":
+    case "confirm_delete_required":
       return 409;
     case "expired":
       return 410;
@@ -261,11 +264,19 @@ export interface AcceptInviteInput {
   email: string;
   emailVerified: boolean;
   /**
-   * The redeemer has explicitly confirmed switching out of their current Household (leaving it, or
-   * deleting it if they're the sole Member) in order to join this one. Without it, an accepter who
-   * already belongs to a *different* Household is rejected with `already_in_household`.
+   * The redeemer has explicitly confirmed switching out of their current Household in order to join
+   * this one. Without it, an accepter already in a *different* Household is rejected with
+   * `already_in_household`.
    */
   confirmSwitch?: boolean;
+  /**
+   * The redeemer has confirmed the *destructive* case: deleting their current Household (they're its
+   * sole Member) along with all of its data. Required whenever the switch would actually destroy a
+   * Household that holds data — a guard against a stale "leave" snapshot silently escalating to a
+   * delete if the other Members left between page render and submit. Not needed to drop a pristine,
+   * empty starter Household.
+   */
+  confirmDelete?: boolean;
   now: Date;
 }
 
@@ -320,9 +331,19 @@ export async function acceptInvite(input: AcceptInviteInput): Promise<{ househol
       throw new InviteError("cap_reached");
     }
 
-    // In a different Household already: only a confirmed switch clears it (delete if sole, else leave).
+    // In a different Household already: only a confirmed switch clears it (delete if sole, else
+    // leave). Re-derive the outcome from live state here, not from the client's page-render snapshot:
+    // if the switch would now DELETE a Household that holds data, it must carry an explicit
+    // `confirmDelete` — otherwise a "leave" the user saw (that became sole-Member since) could destroy
+    // their data without the destructive confirmation. Dropping an empty starter Household needs no
+    // such confirm (nothing is lost).
     if (existingMembership) {
       if (!input.confirmSwitch) throw new InviteError("already_in_household");
+      const { memberCount, hasActivity } = await getHouseholdActivity(tx, existingMembership.householdId);
+      const wouldDestroyData = memberCount <= 1 && hasActivity;
+      if (wouldDestroyData && !input.confirmDelete) {
+        throw new InviteError("confirm_delete_required");
+      }
       await switchOutOfHousehold(tx, existingMembership.householdId, existingMembership.memberId);
     }
 

@@ -32,6 +32,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "token_or_invite_id_required" }, { status: 400 })
   }
   const confirmSwitch = readBoolean(body, "confirmSwitch")
+  const confirmDelete = readBoolean(body, "confirmDelete")
 
   try {
     const { householdId } = await acceptInvite({
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
       email: user.email,
       emailVerified: user.emailVerified,
       confirmSwitch,
+      confirmDelete,
       now: new Date(),
     })
     return NextResponse.json({ ok: true, householdId })

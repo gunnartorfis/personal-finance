@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { households, householdInvites, members } from "@/lib/db/schema";
+import { accounts, households, householdInvites, members } from "@/lib/db/schema";
 
 import {
   acceptInvite,
@@ -216,6 +216,27 @@ describe("acceptInvite", () => {
     // Old household survives for the remaining member.
     const remaining = await db.select().from(members).where(eq(members.householdId, oldHh.id));
     expect(remaining.map((m) => m.authUserId)).toEqual(["roommate"]);
+  });
+
+  it("won't delete a sole-member household holding data without confirmDelete (stale leave→delete)", async () => {
+    const { householdId, rawToken, email } = await pendingInvite("stale@x.co");
+    const [oldHh] = await db.insert(households).values({}).returning();
+    await db.insert(members).values({ householdId: oldHh.id, authUserId: "stale-user" });
+    // A non-default account makes the household "active", so dropping it is destructive.
+    await db.insert(accounts).values({ householdId: oldHh.id, name: "Checking" });
+
+    // A bare confirmSwitch (what a stale "leave"/"discard" snapshot sends) must not destroy data.
+    await expect(
+      acceptInvite({ db: asDb(db), locator: { rawToken }, authUserId: "stale-user", email, emailVerified: true, confirmSwitch: true, now: NOW }),
+    ).rejects.toMatchObject({ code: "confirm_delete_required" });
+    expect(await db.select().from(households).where(eq(households.id, oldHh.id))).toHaveLength(1);
+
+    // With the explicit destructive confirmation, the switch goes through.
+    const res = await acceptInvite({
+      db: asDb(db), locator: { rawToken }, authUserId: "stale-user", email, emailVerified: true, confirmSwitch: true, confirmDelete: true, now: NOW,
+    });
+    expect(res.householdId).toBe(householdId);
+    expect(await db.select().from(households).where(eq(households.id, oldHh.id))).toHaveLength(0);
   });
 
   it("without confirmSwitch, a sole-member switch is still blocked (no accidental deletion)", async () => {

@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import {
@@ -51,7 +51,16 @@ export async function getHouseholdActivity(db: Db, householdId: string): Promise
       exists(accounts, and(eq(accounts.householdId, householdId), eq(accounts.isDefault, false))),
       exists(savingsGoals, eq(savingsGoals.householdId, householdId)),
       exists(merchantRules, eq(merchantRules.householdId, householdId)),
-      exists(householdInvites, and(eq(householdInvites.householdId, householdId), eq(householdInvites.status, "pending"))),
+      // Only a live (pending, unexpired) Invite counts — matches `findActiveInvitesByEmail`, so an
+      // expired-but-pending row doesn't inflate the activity signal into a false destructive warning.
+      exists(
+        householdInvites,
+        and(
+          eq(householdInvites.householdId, householdId),
+          eq(householdInvites.status, "pending"),
+          gt(householdInvites.expiresAt, sql`now()`),
+        ),
+      ),
     ]);
 
   return {
