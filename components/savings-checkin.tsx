@@ -74,6 +74,9 @@ export function SavingsCheckin({ className }: { className?: string }) {
   async function checkIn() {
     setBusy(true)
     setError("none")
+    // Clear the previous run's assessment so a failed retry never shows stale numbers next to
+    // the error.
+    setAssessment(null)
     try {
       const res = await fetch("/api/savings/checkins", {
         method: "POST",
@@ -87,11 +90,18 @@ export function SavingsCheckin({ className }: { className?: string }) {
       }
       const body = (await res.json()) as { assessment: Assessment }
       setAssessment(body.assessment)
-      setCheckins(await fetchCheckins())
     } catch {
       setError("failed")
+      return
     } finally {
       setBusy(false)
+    }
+    // The check-in itself succeeded; a failed history refetch just leaves the table stale — it
+    // must not raise the check-in error next to the fresh assessment.
+    try {
+      setCheckins(await fetchCheckins())
+    } catch {
+      // Stale history is acceptable; the next load or check-in refreshes it.
     }
   }
 

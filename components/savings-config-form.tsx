@@ -8,8 +8,16 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 
 interface EntryRow {
+  /** Stable client-side identity so React reconciles rows by entry, not by list position. */
+  key: number
   name: string
   amount: string
+}
+
+let nextRowKey = 0
+function newRow(name = "", amount = ""): EntryRow {
+  nextRowKey += 1
+  return { key: nextRowKey, name, amount }
 }
 
 /** One editable named-amount list (income sources or off-card costs). */
@@ -33,7 +41,7 @@ function EntryList({
         <p className="text-sm text-muted-foreground">None yet.</p>
       )}
       {rows.map((row, index) => (
-        <div key={index} className="flex items-end gap-3">
+        <div key={row.key} className="flex items-end gap-3">
           <div className="flex flex-1 flex-col gap-1.5">
             <label htmlFor={`${idPrefix}-name-${index}`} className="text-xs text-muted-foreground">
               Name
@@ -86,7 +94,7 @@ function EntryList({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => onChange([...rows, { name: "", amount: "" }])}
+          onClick={() => onChange([...rows, newRow()])}
         >
           <Plus />
           {addLabel}
@@ -120,12 +128,8 @@ export function SavingsConfigForm({ className }: { className?: string }) {
           offcardCosts: Array<{ name: string; monthlyAmount: number }>
         }
         if (ignore) return
-        setIncomeSources(
-          config.incomeSources.map((s) => ({ name: s.name, amount: String(s.amount) }))
-        )
-        setOffcardCosts(
-          config.offcardCosts.map((c) => ({ name: c.name, amount: String(c.monthlyAmount) }))
-        )
+        setIncomeSources(config.incomeSources.map((s) => newRow(s.name, String(s.amount))))
+        setOffcardCosts(config.offcardCosts.map((c) => newRow(c.name, String(c.monthlyAmount))))
       } finally {
         if (!ignore) setLoading(false)
       }

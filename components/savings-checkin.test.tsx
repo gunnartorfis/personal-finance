@@ -128,6 +128,69 @@ describe("SavingsCheckin", () => {
     expect(await screen.findByText(/provisional/i)).toBeInTheDocument()
   })
 
+  it("keeps a successful assessment without an error when only the history refetch fails", async () => {
+    let gets = 0
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET"
+      if (url === "/api/savings/checkins" && method === "GET") {
+        gets += 1
+        if (gets > 1) throw new Error("network blip")
+        return { ok: true, json: async () => [] }
+      }
+      if (url === "/api/savings/checkins" && method === "POST") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            checkin: { id: "c2", cycleKey: "2026-07" },
+            assessment: onTrackAssessment,
+          }),
+        }
+      }
+      return { ok: false, status: 404, json: async () => ({}) }
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<SavingsCheckin />)
+    await userEvent.click(await screen.findByRole("button", { name: /check in now/i }))
+
+    expect(await screen.findByRole("status")).toHaveTextContent(/on track/i)
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
+
+  it("clears the previous assessment when a repeat check-in fails", async () => {
+    let posts = 0
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET"
+      if (url === "/api/savings/checkins" && method === "GET") {
+        return { ok: true, json: async () => [] }
+      }
+      if (url === "/api/savings/checkins" && method === "POST") {
+        posts += 1
+        if (posts > 1) return { ok: false, status: 500, json: async () => ({}) }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            checkin: { id: "c2", cycleKey: "2026-07" },
+            assessment: onTrackAssessment,
+          }),
+        }
+      }
+      return { ok: false, status: 404, json: async () => ({}) }
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<SavingsCheckin />)
+    const button = await screen.findByRole("button", { name: /check in now/i })
+    await userEvent.click(button)
+    await screen.findByRole("status")
+    await userEvent.click(button)
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument()
+    expect(screen.queryByRole("status")).not.toBeInTheDocument()
+  })
+
   it("prompts to set a goal on a no-goal conflict", async () => {
     stubApi({ checkins: [], post: { status: 409, body: { error: "no-goal" } } })
     render(<SavingsCheckin />)
