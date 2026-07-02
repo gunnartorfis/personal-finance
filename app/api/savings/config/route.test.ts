@@ -37,17 +37,11 @@ describe("PUT /api/savings/config", () => {
     expect(requireHousehold).not.toHaveBeenCalled();
   });
 
-  it("replaces both lists and returns the saved config", async () => {
-    const replaceIncome = vi.fn().mockResolvedValue(sources);
-    const replaceCosts = vi.fn().mockResolvedValue(costs);
-    requireHousehold.mockResolvedValue({
-      repo: {
-        savings: {
-          incomeSources: { replace: replaceIncome },
-          offcardCosts: { replace: replaceCosts },
-        },
-      },
-    });
+  it("replaces both lists in one atomic call and returns the saved config", async () => {
+    const replaceConfig = vi
+      .fn()
+      .mockResolvedValue({ incomeSources: sources, offcardCosts: costs });
+    requireHousehold.mockResolvedValue({ repo: { savings: { replaceConfig } } });
 
     const res = await PUT(
       putReq({
@@ -56,8 +50,10 @@ describe("PUT /api/savings/config", () => {
       }),
     );
     expect(res.status).toBe(200);
-    expect(replaceIncome).toHaveBeenCalledWith([{ name: "Salary", amount: 700_000 }]);
-    expect(replaceCosts).toHaveBeenCalledWith([{ name: "Mortgage", monthlyAmount: 250_000 }]);
+    expect(replaceConfig).toHaveBeenCalledWith(
+      [{ name: "Salary", amount: 700_000 }],
+      [{ name: "Mortgage", monthlyAmount: 250_000 }],
+    );
     expect(await res.json()).toEqual({ incomeSources: sources, offcardCosts: costs });
   });
 });

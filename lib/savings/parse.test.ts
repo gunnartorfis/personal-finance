@@ -55,6 +55,15 @@ describe("parseSavingsGoalInput", () => {
     });
   });
 
+  it("rejects an impossible calendar date", () => {
+    expect(parseSavingsGoalInput({ ...valid, targetDate: "2027-02-31" })).toMatchObject({
+      ok: false,
+    });
+    expect(parseSavingsGoalInput({ ...valid, targetDate: "2027-04-31" })).toMatchObject({
+      ok: false,
+    });
+  });
+
   it("rejects a malformed startCycle key", () => {
     expect(parseSavingsGoalInput({ ...valid, startCycle: "2026-13" })).toMatchObject({ ok: false });
     expect(parseSavingsGoalInput({ ...valid, startCycle: "26-07" })).toMatchObject({ ok: false });

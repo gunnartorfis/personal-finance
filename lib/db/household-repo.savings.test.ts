@@ -103,6 +103,33 @@ describe("householdRepo savings", () => {
     expect((await b.savings.offcardCosts.list()).map((c) => c.name)).toEqual(["B rent"]);
   });
 
+  it("replaceConfig swaps both lists atomically", async () => {
+    const { a } = await twoHouseholds();
+    const { incomeSources, offcardCosts } = await a.savings.replaceConfig(
+      [{ name: "Salary", amount: 700_000 }],
+      [{ name: "Mortgage", monthlyAmount: 250_000 }],
+    );
+    expect(incomeSources.map((s) => s.name)).toEqual(["Salary"]);
+    expect(offcardCosts.map((c) => c.name)).toEqual(["Mortgage"]);
+  });
+
+  it("replaceConfig rolls back the income replace when the off-card write fails", async () => {
+    const { a } = await twoHouseholds();
+    await a.savings.replaceConfig(
+      [{ name: "Old salary", amount: 500_000 }],
+      [{ name: "Old rent", monthlyAmount: 200_000 }],
+    );
+    // Negative monthlyAmount violates the CHECK constraint mid-transaction.
+    await expect(
+      a.savings.replaceConfig(
+        [{ name: "New salary", amount: 800_000 }],
+        [{ name: "Bad", monthlyAmount: -1 }],
+      ),
+    ).rejects.toThrow();
+    expect((await a.savings.incomeSources.list()).map((s) => s.name)).toEqual(["Old salary"]);
+    expect((await a.savings.offcardCosts.list()).map((c) => c.name)).toEqual(["Old rent"]);
+  });
+
   it("upserting a check-in freezes the cycle snapshot, stamped with the bound householdId", async () => {
     const { a, aId } = await twoHouseholds();
     const [checkin] = await a.savings.checkins.upsertByCycle({

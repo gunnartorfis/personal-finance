@@ -25,7 +25,10 @@ export async function PUT(request: Request) {
   }
 
   const { repo } = await requireHousehold()
-  const incomeSources = await repo.savings.incomeSources.replace(parsed.value.incomeSources)
-  const offcardCosts = await repo.savings.offcardCosts.replace(parsed.value.offcardCosts)
-  return NextResponse.json({ incomeSources, offcardCosts })
+  // One transaction for both lists — the config can never commit half-updated.
+  const saved = await repo.savings.replaceConfig(
+    parsed.value.incomeSources,
+    parsed.value.offcardCosts
+  )
+  return NextResponse.json(saved)
 }

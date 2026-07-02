@@ -19,6 +19,12 @@ export type GoalParseResult = { ok: true; value: NewSavingsGoal } | { ok: false;
 const ISO_DATE_RE = /^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const CURRENCY_RE = /^[A-Z]{3}$/;
 
+/** Whether `value` (already `YYYY-MM-DD`-shaped) is a real calendar date — no Feb 31. */
+function isCalendarDate(value: string): boolean {
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
+}
+
 /**
  * Validate a Savings-goal PUT body (ADR-0007), mirroring the DB CHECK constraints so a bad
  * request is a clean 400 rather than a constraint violation: positive integer `target`,
@@ -45,7 +51,11 @@ export function parseSavingsGoalInput(body: unknown): GoalParseResult {
     return { ok: false, error: "startCycle must be a YYYY-MM cycle key" };
   }
 
-  if (typeof input.targetDate !== "string" || !ISO_DATE_RE.test(input.targetDate)) {
+  if (
+    typeof input.targetDate !== "string" ||
+    !ISO_DATE_RE.test(input.targetDate) ||
+    !isCalendarDate(input.targetDate)
+  ) {
     return { ok: false, error: "targetDate must be an ISO date (YYYY-MM-DD)" };
   }
   // Mirrors savings_goals_target_after_start_cycle: the goal must span at least part of a cycle.
