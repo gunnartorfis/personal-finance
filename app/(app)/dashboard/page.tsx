@@ -7,7 +7,7 @@ import { SpendingTrendChart } from "@/components/spending-trend-chart"
 import { ThisMonthHero } from "@/components/this-month-hero"
 import { TopMerchants } from "@/components/top-merchants"
 import { loadDashboardView } from "@/lib/dashboard/dashboard-view"
-import { buildSavingsProgress } from "@/lib/savings/progress"
+import { loadSavingsProgress } from "@/lib/savings/assessment"
 import { requireHousehold } from "@/lib/household/current"
 import { cn } from "@/lib/utils"
 
@@ -24,12 +24,11 @@ export const dynamic = "force-dynamic"
  */
 export default async function DashboardPage() {
   const { repo, plan, billingCurrency } = await requireHousehold()
-  const [view, goal, checkins] = await Promise.all([
-    loadDashboardView(repo, new Date(), { plan }),
-    repo.savings.goal.get(),
-    repo.savings.checkins.list(),
+  const now = new Date()
+  const [view, savingsProgress] = await Promise.all([
+    loadDashboardView(repo, now, { plan }),
+    loadSavingsProgress(repo, now),
   ])
-  const savingsProgress = buildSavingsProgress(goal, checkins)
 
   const hasMerchants = view.modules.topMerchants.length > 0
   const hasMovers =

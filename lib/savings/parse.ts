@@ -131,26 +131,3 @@ export function parseSavingsConfigInput(body: unknown): ConfigParseResult {
 
   return { ok: true, value: { incomeSources, offcardCosts } };
 }
-
-export type CheckinParseResult =
-  | { ok: true; value: { cycleExtra: number } }
-  | { ok: false; error: string };
-
-/**
- * Validate a Check-in POST body (ADR-0007): an optional one-off `cycleExtra` income (bonus,
- * gift) as a non-negative integer, defaulting to 0. An absent/empty body is a plain check-in.
- */
-export function parseCheckinInput(body: unknown): CheckinParseResult {
-  if (body === null || body === undefined) {
-    return { ok: true, value: { cycleExtra: 0 } };
-  }
-  if (typeof body !== "object" || Array.isArray(body)) {
-    return { ok: false, error: "expected a JSON object" };
-  }
-  const input = body as Record<string, unknown>;
-  const cycleExtra = input.cycleExtra === undefined ? 0 : input.cycleExtra;
-  if (typeof cycleExtra !== "number" || !Number.isInteger(cycleExtra) || cycleExtra < 0) {
-    return { ok: false, error: "cycleExtra must be a non-negative integer" };
-  }
-  return { ok: true, value: { cycleExtra } };
-}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseCheckinInput, parseSavingsConfigInput, parseSavingsGoalInput } from "./parse";
+import { parseSavingsConfigInput, parseSavingsGoalInput } from "./parse";
 
 const valid = {
   target: 3_000_000,
@@ -149,29 +149,5 @@ describe("parseSavingsConfigInput", () => {
         offcardCosts: [{ name: "Rent", monthlyAmount: 10.5 }],
       }),
     ).toMatchObject({ ok: false });
-  });
-});
-
-describe("parseCheckinInput", () => {
-  it("defaults cycleExtra to 0 for an empty or absent body", () => {
-    expect(parseCheckinInput(null)).toEqual({ ok: true, value: { cycleExtra: 0 } });
-    expect(parseCheckinInput({})).toEqual({ ok: true, value: { cycleExtra: 0 } });
-  });
-
-  it("accepts a non-negative integer cycleExtra", () => {
-    expect(parseCheckinInput({ cycleExtra: 120_000 })).toEqual({
-      ok: true,
-      value: { cycleExtra: 120_000 },
-    });
-  });
-
-  it("rejects an array body", () => {
-    expect(parseCheckinInput([1, 2, 3])).toMatchObject({ ok: false });
-  });
-
-  it("rejects a negative or non-integer cycleExtra", () => {
-    expect(parseCheckinInput({ cycleExtra: -1 })).toMatchObject({ ok: false });
-    expect(parseCheckinInput({ cycleExtra: 0.5 })).toMatchObject({ ok: false });
-    expect(parseCheckinInput({ cycleExtra: "100" })).toMatchObject({ ok: false });
   });
 });
