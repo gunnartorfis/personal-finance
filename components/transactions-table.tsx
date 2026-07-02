@@ -2,7 +2,7 @@
 
 import { ChevronDown, ChevronsUpDown, ChevronUp, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useMemo, useState } from "react"
+import { useId, useMemo, useState } from "react"
 
 import { IncomeToggle } from "@/components/income-toggle"
 import { OverrideControl } from "@/components/override-control"
@@ -80,6 +80,10 @@ export function TransactionsTable({
   const [sortKey, setSortKey] = useState<SortKey>("date")
   const [sortDir, setSortDir] = useState<SortDir>("desc")
   const router = useRouter()
+
+  // Unique per instance so IDs / label associations don't collide if two tables ever mount together.
+  const searchId = useId()
+  const typeFilterId = useId()
 
   // Derive the shown rows from the (stateful) period rows so inline override/income edits — which
   // mutate `rows` — re-filter and re-sort in place. Cheap: one cycle's rows are bounded.
@@ -195,11 +199,11 @@ export function TransactionsTable({
             className="pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden
           />
-          <label className="sr-only" htmlFor="txn-search">
+          <label className="sr-only" htmlFor={searchId}>
             Search transactions
           </label>
           <input
-            id="txn-search"
+            id={searchId}
             name="txn-search"
             type="search"
             value={query}
@@ -209,12 +213,12 @@ export function TransactionsTable({
           />
         </div>
 
-        <div className="relative inline-grid h-8 grid-cols-[1fr_--spacing(7)] items-center rounded-md border border-border">
-          <label className="sr-only" htmlFor="txn-type-filter">
+        <div className="relative inline-grid h-8 grid-cols-[1fr_1.75rem] items-center rounded-md border border-border">
+          <label className="sr-only" htmlFor={typeFilterId}>
             Filter by type
           </label>
           <select
-            id="txn-type-filter"
+            id={typeFilterId}
             name="txn-type-filter"
             value={typeFilter}
             onChange={(event) =>
