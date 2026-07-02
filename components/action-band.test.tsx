@@ -25,6 +25,7 @@ const FREE_PAUSED: FreeCapStatus = {
 function band(overrides: Partial<DashboardActionBand> = {}): DashboardActionBand {
   return {
     reviewBacklog: 0,
+    pendingCount: 0,
     failedCount: 0,
     freeCap: PREMIUM,
     reconnect: [],
@@ -43,6 +44,23 @@ describe("ActionBand", () => {
   it("uses singular copy for a single unreviewed expense", () => {
     render(<ActionBand actionBand={band({ reviewBacklog: 1 })} />)
     expect(screen.getByRole("link", { name: /1 expense needs review/i })).toBeInTheDocument()
+  })
+
+  it("surfaces pending transactions with a Classify pending affordance", () => {
+    render(<ActionBand actionBand={band({ pendingCount: 95 })} />)
+    expect(screen.getByText(/95 transactions awaiting classification/i)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /classify pending/i })).toBeInTheDocument()
+  })
+
+  it("uses singular copy for a single pending transaction", () => {
+    render(<ActionBand actionBand={band({ pendingCount: 1 })} />)
+    expect(screen.getByText(/1 transaction awaiting classification/i)).toBeInTheDocument()
+  })
+
+  it("hides the pending card while the Free cap is paused (banner carries the CTA)", () => {
+    render(<ActionBand actionBand={band({ pendingCount: 95, freeCap: FREE_PAUSED })} />)
+    expect(screen.getByText(/AI classification paused/i)).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /classify pending/i })).not.toBeInTheDocument()
   })
 
   it("surfaces failed classifications with a retry-only affordance", () => {

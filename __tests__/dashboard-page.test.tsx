@@ -19,7 +19,7 @@ const VIEW: DashboardView = {
     month: "2026-03",
     spentSoFar: 100000,
     projected: 310000,
-    moneyIn: 20000,
+    income: 20000,
     difference: -80000,
     vsAveragePct: 12,
     trailingAverage: 312500,
@@ -29,9 +29,9 @@ const VIEW: DashboardView = {
     hasEnoughHistory: true,
     completedMonths: 3,
     series: [
-      { month: "2026-01", spending: 300000, moneyIn: 0, difference: -300000 },
-      { month: "2026-02", spending: 350000, moneyIn: 0, difference: -350000 },
-      { month: "2026-03", spending: 100000, moneyIn: 20000, difference: -80000 },
+      { month: "2026-01", spending: 300000, income: 0, difference: -300000 },
+      { month: "2026-02", spending: 350000, income: 0, difference: -350000 },
+      { month: "2026-03", spending: 100000, income: 20000, difference: -80000 },
     ],
     categoryTrend: [
       {
@@ -50,6 +50,7 @@ const VIEW: DashboardView = {
   },
   actionBand: {
     reviewBacklog: 0,
+    pendingCount: 0,
     failedCount: 0,
     freeCap: { plan: "Premium", unlimited: true, cap: 50, used: 0, remaining: Infinity, paused: false },
     reconnect: [],

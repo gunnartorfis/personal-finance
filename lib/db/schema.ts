@@ -262,9 +262,20 @@ export const transactions = pgTable(
     expenseType: text("expense_type"),
     confidence: real("confidence"),
     reasoning: text("reasoning"),
+    /**
+     * A Member manually marked this credit as real income. Credits are excluded from every
+     * calculation unless this is set — most card credits are inter-account transfers, card-bill
+     * payments, or refunds, not revenue (ADR-0009).
+     */
+    incomeMarked: boolean("income_marked").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    // Only a credit (amount > 0) can be marked as income; debits are always spending.
+    check(
+      "transactions_income_marked_credit_only",
+      sql`NOT ${t.incomeMarked} OR ${t.amount} > 0`,
+    ),
     // A row has an Expense type iff it is classified ("" counts); pending/failed carry none.
     check(
       "transactions_classified_has_type",

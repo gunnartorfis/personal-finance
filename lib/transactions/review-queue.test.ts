@@ -14,6 +14,7 @@ function row(
     date: "2026-03-01",
     merchant: partial.id,
     amount: -100,
+    incomeMarked: false,
     classifiedType: null,
     confidence: null,
     reasoning: null,

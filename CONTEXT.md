@@ -36,12 +36,12 @@ The pre-conversion foreign amount on a Transaction (e.g. `-10,21 USD`), shown fo
 A period's total expenses (debits, `amount < 0`), shown as a positive magnitude — the dashboard's hero metric and primary signal.
 _Avoid_: Expenses (as a headline), Costs
 
-**Money in**:
-A period's total card credits (`amount > 0`) — the honest label for what code once called "income". NOT true household income: it is mostly refunds, card-bill payments, and inter-account transfers. Distinct from the savings anchor **Monthly income** (off-card, configured); never sum the two.
-_Avoid_: Income, Revenue, Earnings
+**Income (marked)**:
+A period's credits (`amount > 0`) that a Member manually marked as real income (ADR-0009). An UNMARKED credit — a refund, card-bill payment, or inter-account transfer — counts for nothing in any calculation. Replaces the former **Money in** (which summed ALL credits). Distinct from the savings anchor **Monthly income** (off-card, configured); never sum the two.
+_Avoid_: Money in (pre-ADR-0009 all-credits sum), Revenue, Earnings
 
 **Difference**:
-`Money in − Spending` for a period — the honest replacement for "net profit/loss" on the dashboard. Not true P&L; the dashboard intentionally does NOT (yet) net against configured **Monthly income** (ADR-0008).
+`Income (marked) − Spending` for a period. Not true P&L; the dashboard intentionally does NOT net against configured **Monthly income** (ADR-0008).
 _Avoid_: Net profit, Net loss, Net (unqualified), Cash flow
 
 **Expense type**:
@@ -115,5 +115,5 @@ Cumulative Inferred saving to date ≥ cumulative Required saving to date.
 
 - "billing" is overloaded: **Statement cycle** (credit-card statement window, the dashboard time axis) vs. subscription/payment billing (the free/premium plan). Use "Statement cycle" for the former; reserve "billing" for payments. The existing `shared/billing.ts` computes the **Statement cycle** despite its name.
 - "category" vs **Expense type**: the raw row's merchant category (`Tegund`) is an input hint; the assigned bucket is the **Expense type**. Don't conflate.
-- "income" is two things: the dashboard's **Money in** (card credits — refunds, card-bill payments, transfers) vs configured **Monthly income** (the off-card savings anchor). Never sum them. Resolution: **Inferred saving** counts only card DEBITS (negative amounts) as spend and ignores all positive card lines — so a bank-account **Account** with salary credits cannot double-count with **Monthly income** (refunds are also ignored; accepted v1 simplification). The dashboard leads with **Spending** and shows **Money in** / **Difference** honestly; wiring **Difference** to **Monthly income** for a true net is deferred (ADR-0008).
+- "income" is two things: the dashboard's **Income (marked)** (credits a Member marked as real income; all other credits count for nothing — ADR-0009) vs configured **Monthly income** (the off-card savings anchor). Never sum them. Resolution: **Inferred saving** counts only card DEBITS (negative amounts) as spend and ignores all positive card lines — so a bank-account **Account** with salary credits cannot double-count with **Monthly income** (refunds are also ignored; accepted v1 simplification). The dashboard leads with **Spending**; wiring **Difference** to **Monthly income** for a true net stays deferred (ADR-0008).
 - "savings" is **Inferred saving** (computed from spend), never an entered balance — chosen over a tracked-balance model.

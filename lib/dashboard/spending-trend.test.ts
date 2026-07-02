@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { MonthlySpendPoint } from "./monthly-series";
 import { computeSpendingTrendStats, projectMonth } from "./spending-trend";
 
-/** Build a series point; moneyIn defaults to 0 (irrelevant to the spending trend stats). */
-function pt(month: string, spending: number, moneyIn = 0): MonthlySpendPoint {
-  return { month, spending, moneyIn, difference: moneyIn - spending };
+/** Build a series point; income defaults to 0 (irrelevant to the spending trend stats). */
+function pt(month: string, spending: number, income = 0): MonthlySpendPoint {
+  return { month, spending, income, difference: income - spending };
 }
 
 describe("projectMonth", () => {

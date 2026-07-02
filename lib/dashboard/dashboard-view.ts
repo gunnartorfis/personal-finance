@@ -35,18 +35,19 @@ export interface DashboardInputs {
   /** The Household's total Account count — the account module is shown only when this is > 1. */
   accountCount: number;
   reviewBacklog: number;
+  pendingCount: number;
   failedCount: number;
   freeCap: FreeCapStatus;
   /** Bank connections needing re-consent (#116); empty for households with none. */
   reconnect: ReconnectPrompt[];
 }
 
-/** The current-cycle headline (spending is the hero; Money in / Difference are secondary). */
+/** The current-cycle headline (spending is the hero; Income / Difference are secondary). */
 export interface DashboardHero {
   month: CycleKey;
   spentSoFar: number;
   projected: number | null;
-  moneyIn: number;
+  income: number;
   difference: number;
   vsAveragePct: number | null;
   trailingAverage: number | null;
@@ -70,6 +71,8 @@ export interface DashboardModules {
 /** Operational alerts; each surfaces only when non-zero/paused, else the band is all-clear. */
 export interface DashboardActionBand {
   reviewBacklog: number;
+  /** Transactions still awaiting AI classification — drives the "Classify pending" affordance. */
+  pendingCount: number;
   failedCount: number;
   freeCap: FreeCapStatus;
   /** Bank connections needing re-consent (#116). */
@@ -104,15 +107,15 @@ export function assembleDashboardView(input: DashboardInputs): DashboardView {
   const currentKey = currentCycleKey(input.now);
   const current = input.series.find((point) => point.month === currentKey);
   const spentSoFar = current?.spending ?? 0;
-  const moneyIn = current?.moneyIn ?? 0;
+  const income = current?.income ?? 0;
 
   return {
     hero: {
       month: currentKey,
       spentSoFar,
       projected: input.trend.projection?.projected ?? null,
-      moneyIn,
-      difference: moneyIn - spentSoFar,
+      income,
+      difference: income - spentSoFar,
       vsAveragePct: input.trend.vsAveragePct,
       trailingAverage: input.trend.trailingAverage,
       largestCharge: input.largestCharge,
@@ -129,11 +132,13 @@ export function assembleDashboardView(input: DashboardInputs): DashboardView {
     },
     actionBand: {
       reviewBacklog: input.reviewBacklog,
+      pendingCount: input.pendingCount,
       failedCount: input.failedCount,
       freeCap: input.freeCap,
       reconnect: input.reconnect,
       allClear:
         input.reviewBacklog === 0 &&
+        input.pendingCount === 0 &&
         input.failedCount === 0 &&
         !input.freeCap.paused &&
         input.reconnect.length === 0,
@@ -165,6 +170,7 @@ export async function loadDashboardView(
     accountBreakdown,
     accountList,
     reviewMonths,
+    pendingCount,
     failedCount,
     classifiedCount,
     connections,
@@ -176,6 +182,7 @@ export async function loadDashboardView(
     loadAccountBreakdown(repo, recentRange),
     repo.accounts.list(),
     repo.transactions.reviewQueueMonths(),
+    repo.transactions.countPending(),
     repo.transactions.countFailed(),
     repo.transactions.countClassified(),
     repo.bankConnections.list(),
@@ -198,6 +205,7 @@ export async function loadDashboardView(
     accountBreakdown,
     accountCount: accountList.length,
     reviewBacklog,
+    pendingCount,
     failedCount,
     freeCap,
     reconnect: reconnectPrompts(connections, now),

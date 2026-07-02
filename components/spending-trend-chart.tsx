@@ -6,17 +6,17 @@ import { DEFAULT_TRAILING } from "@/lib/dashboard/spending-trend"
 import { cn } from "@/lib/utils"
 
 /**
- * Bottom offset for the money-in marker. Clamped so the 2px line stays inside the overflow-hidden
- * track even when money in is the chart's ceiling — a bare `100%` would push it entirely above the
+ * Bottom offset for the income marker. Clamped so the 2px line stays inside the overflow-hidden
+ * track even when income is the chart's ceiling — a bare `100%` would push it entirely above the
  * top edge and clip it to nothing.
  */
-export function moneyInLineBottom(moneyPct: number): string {
+export function incomeLineBottom(moneyPct: number): string {
   return `min(${moneyPct}%, calc(100% - 2px))`
 }
 
 /**
  * The rolling 12-month spending trend (Phase K, K11). Lightweight CSS/SVG-free bars — spending as the
- * bar height with a money-in overlay line — so it carries no chart dependency. Each bar links to that
+ * bar height with a income overlay line — so it carries no chart dependency. Each bar links to that
  * cycle on the transactions view. Below {@link DEFAULT_TRAILING.minMonths} months of history it shows
  * a keep-uploading placeholder instead of a near-empty chart (progressive thin-data). Prop-driven off
  * the view-model's `series` + history flags.
@@ -41,8 +41,8 @@ export function SpendingTrendChart({
   })
   const fmt = (amount: number) => money.format(amount)
 
-  // Scale to the largest single value (spending or money in) so both fit; floor at 1 to avoid /0.
-  const maxValue = Math.max(1, ...series.map((point) => Math.max(point.spending, point.moneyIn)))
+  // Scale to the largest single value (spending or income) so both fit; floor at 1 to avoid /0.
+  const maxValue = Math.max(1, ...series.map((point) => Math.max(point.spending, point.income)))
 
   return (
     <section className={cn("flex flex-col gap-4 rounded-xl border border-border bg-card p-6", className)}>
@@ -56,7 +56,7 @@ export function SpendingTrendChart({
             </span>
             <span className="flex items-center gap-1.5">
               <span aria-hidden="true" className="h-0.5 w-3 rounded-full bg-emerald-500" />
-              Money in
+              Income
             </span>
           </div>
         )}
@@ -66,12 +66,12 @@ export function SpendingTrendChart({
         <div className="flex items-end gap-1.5 overflow-x-auto">
           {series.map((point) => {
             const spendPct = (point.spending / maxValue) * 100
-            const moneyPct = (point.moneyIn / maxValue) * 100
+            const moneyPct = (point.income / maxValue) * 100
             return (
               <Link
                 key={point.month}
                 href={`/transactions?cycle=${point.month}`}
-                aria-label={`${cycleKeyLabel(point.month)} — spent ${fmt(point.spending)}, money in ${fmt(point.moneyIn)}`}
+                aria-label={`${cycleKeyLabel(point.month)} — spent ${fmt(point.spending)}, income ${fmt(point.income)}`}
                 title={`${cycleKeyLabel(point.month)}: ${fmt(point.spending)}`}
                 className="group flex min-w-8 flex-1 flex-col items-center gap-1.5"
               >
@@ -83,10 +83,10 @@ export function SpendingTrendChart({
                     className="absolute inset-x-0 bottom-0 rounded-sm bg-foreground/80 group-hover:bg-foreground"
                     style={{ height: `${spendPct}%` }}
                   />
-                  {point.moneyIn > 0 && (
+                  {point.income > 0 && (
                     <span
                       className="absolute inset-x-0 h-0.5 bg-emerald-500"
-                      style={{ bottom: moneyInLineBottom(moneyPct) }}
+                      style={{ bottom: incomeLineBottom(moneyPct) }}
                     />
                   )}
                 </span>
