@@ -21,6 +21,10 @@ import {
   bankConnections,
   merchantRules,
   overrides,
+  savingsCheckins,
+  savingsGoals,
+  savingsIncomeSources,
+  savingsOffcardCosts,
   transactions,
   uploads,
 } from "./schema"
@@ -843,6 +847,116 @@ export function householdRepo(db: Db, householdId: string) {
             )
           )
           .returning(),
+    },
+    savings: {
+      goal: {
+        /** The household's single Savings goal, or undefined when none is set. */
+        get: async () => {
+          const [row] = await db
+            .select()
+            .from(savingsGoals)
+            .where(eq(savingsGoals.householdId, householdId))
+          return row
+        },
+        /**
+         * Set (or change) the household's Savings goal. One goal per Household (unique
+         * `household_id`, v1), so a second call updates the existing row in place.
+         */
+        upsert: (value: Omit<typeof savingsGoals.$inferInsert, "householdId">) =>
+          db
+            .insert(savingsGoals)
+            .values({ ...value, householdId })
+            .onConflictDoUpdate({
+              target: savingsGoals.householdId,
+              set: {
+                target: value.target,
+                targetDate: value.targetDate,
+                startingSaved: value.startingSaved,
+                startCycle: value.startCycle,
+                currency: value.currency,
+              },
+            })
+            .returning(),
+      },
+      incomeSources: {
+        list: () =>
+          db
+            .select()
+            .from(savingsIncomeSources)
+            .where(eq(savingsIncomeSources.householdId, householdId))
+            .orderBy(asc(savingsIncomeSources.createdAt), asc(savingsIncomeSources.name)),
+        /**
+         * Replace the household's full set of Income sources with the given list (the config
+         * form saves the whole list at once). Delete + insert in one transaction, so a failed
+         * save never leaves the config half-written.
+         */
+        replace: (
+          values: Array<Omit<typeof savingsIncomeSources.$inferInsert, "householdId">>
+        ) =>
+          db.transaction(async (tx): Promise<Array<typeof savingsIncomeSources.$inferSelect>> => {
+            await tx
+              .delete(savingsIncomeSources)
+              .where(eq(savingsIncomeSources.householdId, householdId))
+            if (values.length === 0) return []
+            return tx
+              .insert(savingsIncomeSources)
+              .values(values.map((v) => ({ ...v, householdId })))
+              .returning()
+          }),
+      },
+      offcardCosts: {
+        list: () =>
+          db
+            .select()
+            .from(savingsOffcardCosts)
+            .where(eq(savingsOffcardCosts.householdId, householdId))
+            .orderBy(asc(savingsOffcardCosts.createdAt), asc(savingsOffcardCosts.name)),
+        /** Replace the household's full set of Off-card fixed costs; same shape as income sources. */
+        replace: (
+          values: Array<Omit<typeof savingsOffcardCosts.$inferInsert, "householdId">>
+        ) =>
+          db.transaction(async (tx): Promise<Array<typeof savingsOffcardCosts.$inferSelect>> => {
+            await tx
+              .delete(savingsOffcardCosts)
+              .where(eq(savingsOffcardCosts.householdId, householdId))
+            if (values.length === 0) return []
+            return tx
+              .insert(savingsOffcardCosts)
+              .values(values.map((v) => ({ ...v, householdId })))
+              .returning()
+          }),
+      },
+      checkins: {
+        /** The household's Check-in history, oldest cycle first (cumulative math reads in order). */
+        list: () =>
+          db
+            .select()
+            .from(savingsCheckins)
+            .where(eq(savingsCheckins.householdId, householdId))
+            .orderBy(asc(savingsCheckins.cycleKey)),
+        /**
+         * Freeze (or re-freeze) one Statement cycle's Check-in snapshot. One Check-in per
+         * (household, cycle), so re-checking a cycle updates the frozen row in place (ADR-0007:
+         * later config edits never rewrite history — only an explicit re-check does).
+         */
+        upsertByCycle: (
+          value: Omit<typeof savingsCheckins.$inferInsert, "householdId">
+        ) =>
+          db
+            .insert(savingsCheckins)
+            .values({ ...value, householdId })
+            .onConflictDoUpdate({
+              target: [savingsCheckins.householdId, savingsCheckins.cycleKey],
+              set: {
+                monthlyIncome: value.monthlyIncome,
+                cycleExtra: value.cycleExtra,
+                offCardFixed: value.offCardFixed,
+                cardDebits: value.cardDebits,
+                inferredSaving: value.inferredSaving,
+              },
+            })
+            .returning(),
+      },
     },
     overrides: {
       list: () =>
