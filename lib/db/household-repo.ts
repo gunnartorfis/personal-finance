@@ -866,7 +866,10 @@ export function householdRepo(db: Db, householdId: string) {
       /**
        * Mark (or unmark) a credit as real income (ADR-0009). Scoped to the household and to
        * credits (`amount > 0`) — a debit id updates nothing (returns []) rather than tripping the
-       * DB CHECK, so callers can 404/409 on an empty result.
+       * DB CHECK, so callers can 404/409 on an empty result. Also guards `excluded = false`: Income
+       * and Excluded are mutually exclusive (ADR-0011), so an excluded row updates nothing here too —
+       * closing the race where a concurrent exclude between the route's read and this write would
+       * otherwise trip the `NOT (excluded AND income_marked)` CHECK with an unhandled 500.
        */
       setIncomeMarked: (id: string, incomeMarked: boolean) =>
         db
@@ -876,7 +879,8 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.id, id),
               eq(transactions.householdId, householdId),
-              gt(transactions.amount, 0)
+              gt(transactions.amount, 0),
+              eq(transactions.excluded, false)
             )
           )
           .returning(),

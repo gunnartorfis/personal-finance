@@ -469,6 +469,24 @@ describe("householdRepo", () => {
       });
       expect(await b.transactions.setExcluded(txn.id, true)).toHaveLength(0);
     });
+
+    it("setIncomeMarked no-ops on an excluded credit (mutually exclusive, no CHECK trip)", async () => {
+      const { a } = await twoHouseholds();
+      const { accountId, uploadId } = await seed(a);
+      const [credit] = await a.transactions.create({
+        accountId,
+        uploadId,
+        date: "2026-03-12",
+        amount: 8000,
+        merchant: "REFUND",
+        rawCategory: "",
+        sourceRow: 1,
+        excluded: true,
+      });
+      // Marking an excluded credit as income would violate the CHECK; the WHERE guard makes it a
+      // no-op instead (empty result → the route 404s rather than 500ing on a concurrent exclude).
+      expect(await a.transactions.setIncomeMarked(credit.id, true)).toHaveLength(0);
+    });
   });
 
   describe("transactions.progress", () => {
