@@ -7,6 +7,7 @@ import {
   cumulativeSaved,
   inferredSaving,
   isOnTrack,
+  estimateExpectedSpend,
   requiredCumulativeByCycle,
   type SavingsGoal,
 } from "./savings.ts";
@@ -159,5 +160,72 @@ describe("allowedNiceToHave", () => {
         expectedNecessary: 205_000,
       }),
     ).toBe(-95_000);
+  });
+});
+
+describe("estimateExpectedSpend", () => {
+  it("averages Fixed and Necessary magnitudes across the trailing cycles", () => {
+    expect(
+      estimateExpectedSpend([
+        { fixed: -40_000, necessary: -180_000 },
+        { fixed: -44_000, necessary: -150_000 },
+        { fixed: -42_000, necessary: -210_000 },
+      ]),
+    ).toEqual({
+      expectedFixed: 42_000,
+      expectedNecessary: 180_000,
+      cyclesUsed: 3,
+      source: "history",
+    });
+  });
+});
+
+describe("estimateExpectedSpend edge cases", () => {
+  it("skips cycles with no classified spend instead of dragging the average down", () => {
+    expect(
+      estimateExpectedSpend([
+        { fixed: 0, necessary: 0 },
+        { fixed: -40_000, necessary: -180_000 },
+        { fixed: -44_000, necessary: -190_000 },
+      ]),
+    ).toEqual({
+      expectedFixed: 42_000,
+      expectedNecessary: 185_000,
+      cyclesUsed: 2,
+      source: "history",
+    });
+  });
+
+  it("rounds averaged magnitudes up to whole units", () => {
+    expect(
+      estimateExpectedSpend([
+        { fixed: -100, necessary: -200 },
+        { fixed: -101, necessary: -201 },
+        { fixed: -101, necessary: -201 },
+      ]),
+    ).toMatchObject({ expectedFixed: 101, expectedNecessary: 201 });
+  });
+
+  it("uses the manual fallback when no cycle carries data", () => {
+    expect(
+      estimateExpectedSpend([{ fixed: 0, necessary: 0 }], {
+        expectedFixed: 50_000,
+        expectedNecessary: 150_000,
+      }),
+    ).toEqual({
+      expectedFixed: 50_000,
+      expectedNecessary: 150_000,
+      cyclesUsed: 0,
+      source: "manual",
+    });
+  });
+
+  it("returns zeros with source none when history is empty and no fallback is given", () => {
+    expect(estimateExpectedSpend([])).toEqual({
+      expectedFixed: 0,
+      expectedNecessary: 0,
+      cyclesUsed: 0,
+      source: "none",
+    });
   });
 });

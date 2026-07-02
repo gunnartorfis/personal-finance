@@ -173,7 +173,7 @@ each item one small PR; earliest are pure `shared/` domain logic (test-first).
   Household-scoped, CHECK-constrained, composite same-household FKs. Blocked by: none.
 - [x] **Data-access** for the new tables: household-scoped repo methods — goal get/upsert, income
   sources + off-card costs list/replace, check-ins list + upsert-by-cycle. Blocked by: Schema.
-- [ ] **Trailing-average estimator**: expected `Fixed`/`Necessary` from the last ~3 completed cycles'
+- [x] **Trailing-average estimator**: expected `Fixed`/`Necessary` from the last ~3 completed cycles'
   net summaries, with a manual fallback when history is thin. Pure logic + repo read. Blocked by:
   Data-access.
 - [ ] **Goal + config API**: `GET`/`PUT /api/savings/goal` and `GET`/`PUT /api/savings/config`
