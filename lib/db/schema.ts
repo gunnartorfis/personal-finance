@@ -190,6 +190,23 @@ export const bankConnections = pgTable(
 );
 
 /**
+ * Short-lived binding created when a bank connection is started, so the OAuth callback can resolve
+ * which Household (and institution) the flow belongs to WITHOUT the interactive auth session — the
+ * bank redirects back cross-site and the session cookie isn't guaranteed to ride along. Keyed by the
+ * unguessable random `state` (also echoed in the CSRF cookie); consumed (deleted) on callback.
+ */
+export const bankConnectionIntents = pgTable("bank_connection_intents", {
+  /** The OAuth `state` — random, unguessable; the lookup key from the callback. */
+  state: text("state").primaryKey(),
+  householdId: uuid("household_id")
+    .notNull()
+    .references(() => households.id, { onDelete: "cascade" }),
+  /** The institution the user chose at start, carried through so reconnect/persist has the name. */
+  institutionName: text("institution_name"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
  * A card or bank account within a Household; the provenance of every Transaction (ADR-0004).
  * Its billing currency is the Household's (one per Household in v1), so it is not stored here.
  *
