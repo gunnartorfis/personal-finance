@@ -588,8 +588,10 @@ export function householdRepo(db: Db, householdId: string) {
       /**
        * Total debit magnitude per Account (with its name) over a half-open range `[from, to)` — the
        * account-breakdown module. Inner-joins `accounts` (household-scoped on both sides), excludes
-       * credits and out-of-range rows, and groups by account. Accounts with no debits in the range
-       * simply don't appear. `sum(...)` is coerced from the driver string. Scoped to the household.
+       * credits and out-of-range rows, and groups by account. Transactions whose effective type
+       * (`coalesce(override, classified)`) is "" — the not-bucketed / split type — are excluded, so a
+       * split charge never inflates an account total. Accounts with no debits in the range simply
+       * don't appear. `sum(...)` is coerced from the driver string. Scoped to the household.
        */
       spendByAccount: async (range: { from: string; to: string }) => {
         const spending = sql<string>`sum(-${transactions.amount})`;
@@ -603,12 +605,20 @@ export function householdRepo(db: Db, householdId: string) {
               eq(accounts.id, transactions.accountId)
             )
           )
+          .leftJoin(
+            overrides,
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactions.id)
+            )
+          )
           .where(
             and(
               eq(transactions.householdId, householdId),
               lt(transactions.amount, 0),
               gte(transactions.date, range.from),
-              lt(transactions.date, range.to)
+              lt(transactions.date, range.to),
+              sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
             )
           )
           .groupBy(accounts.id, accounts.name);

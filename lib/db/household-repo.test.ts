@@ -304,6 +304,15 @@ describe("householdRepo", () => {
       const row = await a.transactions.largestCharge(range);
       expect(row).toEqual({ merchant: "NETTO", amount: 2000 });
     });
+
+    it("spendByAccount omits the split charge from the account total", async () => {
+      const { a } = await twoHouseholds();
+      await seed(a);
+      const rows = await a.transactions.spendByAccount(range);
+      // Single seeded account; only the non-split NETTO charge counts.
+      expect(rows).toHaveLength(1);
+      expect(rows[0].spending).toBe(2000);
+    });
   });
 
   describe("overrides.upsert / remove", () => {
