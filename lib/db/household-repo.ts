@@ -9,6 +9,7 @@ import {
   gte,
   isNull,
   lt,
+  ne,
   sql,
 } from "drizzle-orm"
 import type { NodePgDatabase } from "drizzle-orm/node-postgres"
@@ -61,6 +62,31 @@ export function householdRepo(db: Db, householdId: string) {
           .insert(accounts)
           .values({ ...value, householdId })
           .returning(),
+      /**
+       * Find a synced Account by its Bank connection + aggregator account id — the key for idempotent
+       * account discovery on (re)connect, so re-running a sync never duplicates an account.
+       */
+      /** The synced Accounts belonging to one Bank connection (for sync). */
+      listByConnection: (connectionId: string) =>
+        db
+          .select()
+          .from(accounts)
+          .where(
+            and(eq(accounts.householdId, householdId), eq(accounts.connectionId, connectionId))
+          ),
+      bySyncKey: async (connectionId: string, externalAccountId: string) => {
+        const [row] = await db
+          .select()
+          .from(accounts)
+          .where(
+            and(
+              eq(accounts.householdId, householdId),
+              eq(accounts.connectionId, connectionId),
+              eq(accounts.externalAccountId, externalAccountId)
+            )
+          )
+        return row
+      },
     },
     bankConnections: {
       list: () =>
@@ -68,6 +94,17 @@ export function householdRepo(db: Db, householdId: string) {
           .select()
           .from(bankConnections)
           .where(eq(bankConnections.householdId, householdId)),
+      /** Connections currently syncable (status `active`) — the daily sync's work set. */
+      listActive: () =>
+        db
+          .select()
+          .from(bankConnections)
+          .where(
+            and(
+              eq(bankConnections.householdId, householdId),
+              eq(bankConnections.status, "active")
+            )
+          ),
       findById: async (id: string) => {
         const [row] = await db
           .select()
@@ -76,6 +113,20 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(bankConnections.id, id),
               eq(bankConnections.householdId, householdId)
+            )
+          )
+        return row
+      },
+      /** Find a connection by its aggregator (provider, consent) — for idempotent (re)connect. */
+      byProviderConnectionId: async (provider: string, providerConnectionId: string) => {
+        const [row] = await db
+          .select()
+          .from(bankConnections)
+          .where(
+            and(
+              eq(bankConnections.householdId, householdId),
+              eq(bankConnections.provider, provider),
+              eq(bankConnections.providerConnectionId, providerConnectionId)
             )
           )
         return row
@@ -186,6 +237,30 @@ export function householdRepo(db: Db, householdId: string) {
           : db
               .insert(transactions)
               .values(values.map((v) => ({ ...v, householdId })))
+              .returning(),
+      /**
+       * Insert synced (bank_sync) rows, skipping any that already exist by
+       * `(household, account, externalId)` — idempotent against the partial unique index, so a
+       * re-sync of an overlapping window never duplicates a transaction. Returns only the newly
+       * inserted rows (the count of genuinely new transactions).
+       */
+      createSyncedMany: (
+        values: Array<Omit<typeof transactions.$inferInsert, "householdId">>
+      ) =>
+        values.length === 0
+          ? Promise.resolve([])
+          : db
+              .insert(transactions)
+              .values(values.map((v) => ({ ...v, householdId })))
+              .onConflictDoNothing({
+                target: [
+                  transactions.householdId,
+                  transactions.accountId,
+                  transactions.externalId,
+                ],
+                // Match the partial unique index's predicate so Postgres infers it as the arbiter.
+                where: sql`${transactions.externalId} is not null`,
+              })
               .returning(),
       /**
        * The classification work queue: transactions still awaiting classification, in a stable
@@ -501,11 +576,11 @@ export function householdRepo(db: Db, householdId: string) {
       },
       /**
        * The household-wide rapid-review backlog broken down by statement cycle: each calendar month
-       * (`"YYYY-MM"`) that still has at least one expense (`amount < 0`) without a manual override,
-       * with how many, newest-first. Drives where the transactions view lands by default (the newest
-       * month that still has work) and the Rapid review badge total (the sum of the counts). Anti-join
-       * on `overrides` (`isNull(overrides.id)`) so a settled row never counts — mirroring the queue
-       * itself, so the badge total equals the number of cards {@link reviewQueue} will present.
+       * (`"YYYY-MM"`) that still has at least one unclassified expense (`amount < 0`, not AI-classified,
+       * no manual override), with how many, newest-first. Drives where the transactions view lands by
+       * default (the newest month that still has work) and the Rapid review badge total (the sum of the
+       * counts). Anti-join on `overrides` (`isNull(overrides.id)`) plus the status filter, mirroring the
+       * queue itself, so the badge total equals the number of cards {@link reviewQueue} will present.
        */
       reviewQueueMonths: async () => {
         const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`
@@ -523,6 +598,7 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.householdId, householdId),
               lt(transactions.amount, 0),
+              ne(transactions.classificationStatus, "classified"),
               isNull(overrides.id)
             )
           )
@@ -531,9 +607,10 @@ export function householdRepo(db: Db, householdId: string) {
         return rows.map((row) => ({ month: row.month, count: row.value }))
       },
       /**
-       * The whole-household rapid-review queue: every expense (`amount < 0`) with no manual override,
-       * across all statement cycles, in the same row shape as {@link listWithOverrides} so
-       * `<ReviewMode>` consumes it directly. Newest-first (the overlay re-sorts least-confident-first).
+       * The whole-household rapid-review queue: every unclassified expense (`amount < 0`, not yet
+       * AI-classified — pending/failed only — and with no manual override), across all statement
+       * cycles, in the same row shape as {@link listWithOverrides} so `<ReviewMode>` consumes it
+       * directly. Rows the AI already classified are settled and stay out of the queue. Newest-first.
        * Unlike the per-period list this spans every month, so the overlay can drain the whole backlog
        * regardless of which period the user is viewing. `overrideType` is always `null` here (the
        * anti-join keeps overridden rows out) but is selected to keep the shape identical.
@@ -571,6 +648,7 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.householdId, householdId),
               lt(transactions.amount, 0),
+              ne(transactions.classificationStatus, "classified"),
               isNull(overrides.id)
             )
           )
@@ -586,6 +664,31 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.householdId, householdId),
               eq(transactions.classificationStatus, "classified")
+            )
+          )
+        return row?.value ?? 0
+      },
+      /**
+       * Count of transactions still awaiting classification — same predicate as {@link listPending}
+       * (pending, manual overrides excluded), so it counts exactly what a drain would attempt.
+       * Drives the dashboard's "Classify pending" affordance.
+       */
+      countPending: async () => {
+        const [row] = await db
+          .select({ value: count() })
+          .from(transactions)
+          .leftJoin(
+            overrides,
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactions.id)
+            )
+          )
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              eq(transactions.classificationStatus, "pending"),
+              isNull(overrides.id)
             )
           )
         return row?.value ?? 0

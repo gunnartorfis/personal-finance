@@ -169,6 +169,12 @@ export const accounts = pgTable(
       foreignColumns: [bankConnections.householdId, bankConnections.id],
       name: "accounts_connection_household_fk",
     }),
+    // Idempotent synced-account discovery: at most one Account per (connection, aggregator account).
+    // Partial so manual/CSV accounts (connectionId null) are unconstrained. Backs the DB-level guard
+    // for the check-then-create in account discovery so concurrent callbacks can't duplicate a row.
+    uniqueIndex("accounts_synced_external_key")
+      .on(t.householdId, t.connectionId, t.externalAccountId)
+      .where(sql`${t.connectionId} IS NOT NULL`),
   ],
 );
 

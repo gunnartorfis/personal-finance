@@ -60,6 +60,23 @@ describe("bank connections & ingestion-source schema (open-banking)", () => {
     ).rejects.toThrow();
   });
 
+  it("rejects a duplicate synced account for the same (connection, external id)", async () => {
+    await db
+      .insert(accounts)
+      .values({ householdId, name: "Dup", connectionId, externalAccountId: "dup-ext" });
+    await expect(
+      db
+        .insert(accounts)
+        .values({ householdId, name: "Dup2", connectionId, externalAccountId: "dup-ext" }),
+    ).rejects.toThrow();
+  });
+
+  it("does not constrain manual accounts (null connectionId)", async () => {
+    // The partial unique index only covers synced accounts, so manual/CSV accounts are unaffected.
+    await db.insert(accounts).values({ householdId, name: "Manual 1" });
+    await db.insert(accounts).values({ householdId, name: "Manual 2" });
+  });
+
   const syncedTxn = () => ({
     householdId,
     accountId,

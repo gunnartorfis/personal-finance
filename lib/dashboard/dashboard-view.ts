@@ -34,6 +34,7 @@ export interface DashboardInputs {
   /** The Household's total Account count — the account module is shown only when this is > 1. */
   accountCount: number;
   reviewBacklog: number;
+  pendingCount: number;
   failedCount: number;
   freeCap: FreeCapStatus;
 }
@@ -67,6 +68,8 @@ export interface DashboardModules {
 /** Operational alerts; each surfaces only when non-zero/paused, else the band is all-clear. */
 export interface DashboardActionBand {
   reviewBacklog: number;
+  /** Transactions still awaiting AI classification — drives the "Classify pending" affordance. */
+  pendingCount: number;
   failedCount: number;
   freeCap: FreeCapStatus;
   allClear: boolean;
@@ -124,9 +127,14 @@ export function assembleDashboardView(input: DashboardInputs): DashboardView {
     },
     actionBand: {
       reviewBacklog: input.reviewBacklog,
+      pendingCount: input.pendingCount,
       failedCount: input.failedCount,
       freeCap: input.freeCap,
-      allClear: input.reviewBacklog === 0 && input.failedCount === 0 && !input.freeCap.paused,
+      allClear:
+        input.reviewBacklog === 0 &&
+        input.pendingCount === 0 &&
+        input.failedCount === 0 &&
+        !input.freeCap.paused,
     },
   };
 }
@@ -155,6 +163,7 @@ export async function loadDashboardView(
     accountBreakdown,
     accountList,
     reviewMonths,
+    pendingCount,
     failedCount,
     classifiedCount,
   ] = await Promise.all([
@@ -165,6 +174,7 @@ export async function loadDashboardView(
     loadAccountBreakdown(repo, recentRange),
     repo.accounts.list(),
     repo.transactions.reviewQueueMonths(),
+    repo.transactions.countPending(),
     repo.transactions.countFailed(),
     repo.transactions.countClassified(),
   ]);
@@ -186,6 +196,7 @@ export async function loadDashboardView(
     accountBreakdown,
     accountCount: accountList.length,
     reviewBacklog,
+    pendingCount,
     failedCount,
     freeCap,
   });

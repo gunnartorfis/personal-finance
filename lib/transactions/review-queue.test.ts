@@ -15,42 +15,40 @@ function row(
     merchant: partial.id,
     amount: -100,
     incomeMarked: false,
-    classifiedType: "Fixed",
+    classifiedType: null,
     confidence: null,
     reasoning: null,
     overrideType: null,
-    classificationStatus: "classified",
+    classificationStatus: "pending",
     ...partial,
   }
 }
 
 describe("buildReviewQueue", () => {
-  it("keeps only non-overridden expenses, least-confident first, unknown confidence last", () => {
+  it("keeps only unclassified, non-overridden expenses, biggest first", () => {
     const rows = [
       row({ id: "credit", amount: 500 }), // excluded: not an expense
       row({ id: "settled", overrideType: "Fixed" }), // excluded: already overridden
-      row({ id: "high", confidence: 0.9 }),
-      row({ id: "low", confidence: 0.2 }),
       row({
-        id: "pending",
-        confidence: null,
-        classifiedType: null,
-        classificationStatus: "pending",
-      }),
+        id: "classified",
+        classifiedType: "Fixed",
+        confidence: 0.9,
+        classificationStatus: "classified",
+      }), // excluded: AI already classified it
+      row({ id: "small", amount: -50 }),
+      row({ id: "big", amount: -900 }),
+      row({ id: "failed", classificationStatus: "failed" }),
     ]
     expect(buildReviewQueue(rows).map((r) => r.id)).toEqual([
-      "low",
-      "high",
-      "pending",
+      "big",
+      "failed",
+      "small",
     ])
   })
 })
 
 describe("useReviewQueue", () => {
-  const two = () => [
-    row({ id: "a", confidence: 0.1 }),
-    row({ id: "b", confidence: 0.2 }),
-  ]
+  const two = () => [row({ id: "a", amount: -200 }), row({ id: "b" })]
 
   it("assign persists the type, marks reviewed, and advances", () => {
     const onOverride = vi.fn()
@@ -60,17 +58,6 @@ describe("useReviewQueue", () => {
     act(() => result.current.assign("Necessary"))
 
     expect(onOverride).toHaveBeenCalledWith("a", "Necessary")
-    expect(result.current.cur?.id).toBe("b")
-    expect(result.current.reviewedCount).toBe(1)
-  })
-
-  it("accept advances without writing an override", () => {
-    const onOverride = vi.fn()
-    const { result } = renderHook(() => useReviewQueue(two(), onOverride))
-
-    act(() => result.current.accept())
-
-    expect(onOverride).not.toHaveBeenCalled()
     expect(result.current.cur?.id).toBe("b")
     expect(result.current.reviewedCount).toBe(1)
   })
@@ -90,7 +77,7 @@ describe("useReviewQueue", () => {
 
   it("is done once every queued row is reviewed", () => {
     const { result } = renderHook(() =>
-      useReviewQueue([row({ id: "a", confidence: 0.1 })], vi.fn())
+      useReviewQueue([row({ id: "a" })], vi.fn())
     )
 
     expect(result.current.done).toBe(false)

@@ -12,24 +12,19 @@ function row(
     merchant: partial.id,
     amount: -100,
     incomeMarked: false,
-    classifiedType: "Fixed",
+    classifiedType: null,
     confidence: null,
     reasoning: null,
     overrideType: null,
-    classificationStatus: "classified",
+    classificationStatus: "pending",
     ...partial,
   }
 }
 
-// Queue orders least-confident first, so "low" is the first card.
+// Queue orders biggest expense first, so "big" is the first card.
 const ROWS = [
-  row({ id: "high", confidence: 0.9, classifiedType: "Necessary" }),
-  row({
-    id: "low",
-    confidence: 0.2,
-    classifiedType: "Fixed",
-    reasoning: "Looks discretionary",
-  }),
+  row({ id: "small", amount: -50 }),
+  row({ id: "big", amount: -900, classificationStatus: "failed" }),
 ]
 
 describe("ReviewMode", () => {
@@ -45,7 +40,7 @@ describe("ReviewMode", () => {
     )
 
     fireEvent.keyDown(window, { key: "1" })
-    expect(onOverride).toHaveBeenCalledWith("low", "Fixed")
+    expect(onOverride).toHaveBeenCalledWith("big", "Fixed")
   })
 
   it("sets split/none on the 0 key", () => {
@@ -60,22 +55,7 @@ describe("ReviewMode", () => {
     )
 
     fireEvent.keyDown(window, { key: "0" })
-    expect(onOverride).toHaveBeenCalledWith("low", "")
-  })
-
-  it("accepts the AI guess on Space without writing an override", () => {
-    const onOverride = vi.fn()
-    render(
-      <ReviewMode
-        rows={ROWS}
-        currency="ISK"
-        onOverride={onOverride}
-        onClose={vi.fn()}
-      />
-    )
-
-    fireEvent.keyDown(window, { key: " " })
-    expect(onOverride).not.toHaveBeenCalled()
+    expect(onOverride).toHaveBeenCalledWith("big", "")
   })
 
   it("closes on Escape", () => {
@@ -93,7 +73,7 @@ describe("ReviewMode", () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it("shows the AI suggestion, confidence, and reasoning for the current card", () => {
+  it("shows the classification status for the current card", () => {
     render(
       <ReviewMode
         rows={ROWS}
@@ -103,9 +83,27 @@ describe("ReviewMode", () => {
       />
     )
 
-    expect(screen.getByText(/AI suggests/i)).toBeInTheDocument()
-    expect(screen.getByText(/confident/i)).toBeInTheDocument()
-    expect(screen.getByText(/looks discretionary/i)).toBeInTheDocument()
+    // First card is "big", which failed classification.
+    expect(screen.getByText(/classification failed/i)).toBeInTheDocument()
+  })
+
+  it("excludes AI-classified rows from the queue", () => {
+    render(
+      <ReviewMode
+        rows={[
+          row({
+            id: "done",
+            classifiedType: "Fixed",
+            confidence: 0.9,
+            classificationStatus: "classified",
+          }),
+        ]}
+        currency="ISK"
+        onOverride={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.getByText(/nothing to review/i)).toBeInTheDocument()
   })
 
   it("shows an empty state when nothing needs review", () => {
@@ -124,7 +122,7 @@ describe("ReviewMode", () => {
     const onOverride = vi.fn()
     render(
       <ReviewMode
-        rows={[row({ id: "only", confidence: 0.2 })]}
+        rows={[row({ id: "only" })]}
         currency="ISK"
         onOverride={onOverride}
         onClose={vi.fn()}
@@ -137,18 +135,5 @@ describe("ReviewMode", () => {
 
     fireEvent.keyDown(window, { key: "2" }) // reflexive keypress on the done screen: ignored
     expect(onOverride).toHaveBeenCalledTimes(1)
-  })
-
-  it("does not crash on a classified split/none expense", () => {
-    render(
-      <ReviewMode
-        rows={[row({ id: "split", confidence: 0.5, classifiedType: "" })]}
-        currency="ISK"
-        onOverride={vi.fn()}
-        onClose={vi.fn()}
-      />
-    )
-    // No AI-suggestion pill is rendered for `""`; it must not throw on a TYPE_META[""] lookup.
-    expect(screen.queryByText(/AI suggests/i)).not.toBeInTheDocument()
   })
 })

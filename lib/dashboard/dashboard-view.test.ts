@@ -61,6 +61,7 @@ function baseInputs(overrides: Partial<DashboardInputs> = {}): DashboardInputs {
     accountBreakdown: [{ accountId: "a1", name: "Visa", spending: 100000, share: 1 }],
     accountCount: 2,
     reviewBacklog: 5,
+    pendingCount: 0,
     failedCount: 0,
     freeCap: PREMIUM,
     ...overrides,
@@ -103,6 +104,7 @@ describe("assembleDashboardView", () => {
 
   it("action band is all-clear only when nothing needs attention", () => {
     expect(assembleDashboardView(baseInputs({ reviewBacklog: 5 })).actionBand.allClear).toBe(false);
+    expect(assembleDashboardView(baseInputs({ reviewBacklog: 0, pendingCount: 4 })).actionBand.allClear).toBe(false);
     expect(assembleDashboardView(baseInputs({ reviewBacklog: 0, failedCount: 2 })).actionBand.allClear).toBe(false);
     expect(
       assembleDashboardView(baseInputs({ reviewBacklog: 0, failedCount: 0, freeCap: FREE_PAUSED }))
@@ -160,6 +162,8 @@ describe("loadDashboardView", () => {
     expect(view.modules.series).toHaveLength(12);
     // The BIGSHOP debit is an unreviewed expense, so it shows up in the review backlog.
     expect(view.actionBand.reviewBacklog).toBe(1);
+    // Both seeded rows (the debit and the credit) are still awaiting classification.
+    expect(view.actionBand.pendingCount).toBe(2);
     expect(view.actionBand.allClear).toBe(false);
   });
 });

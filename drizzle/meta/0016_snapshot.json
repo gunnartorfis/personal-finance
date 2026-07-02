@@ -1,6 +1,6 @@
 {
-  "id": "0172ae29-e7ec-4516-9c76-7b63c6037285",
-  "prevId": "ae301ef4-3aae-4c59-b326-68b26ba220c0",
+  "id": "e3f7468a-b99f-4934-abef-b0d468e93809",
+  "prevId": "0172ae29-e7ec-4516-9c76-7b63c6037285",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1199,6 +1199,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "income_marked": {
+          "name": "income_marked",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1295,6 +1302,10 @@
       },
       "policies": {},
       "checkConstraints": {
+        "transactions_income_marked_credit_only": {
+          "name": "transactions_income_marked_credit_only",
+          "value": "NOT \"transactions\".\"income_marked\" OR \"transactions\".\"amount\" > 0"
+        },
         "transactions_classified_has_type": {
           "name": "transactions_classified_has_type",
           "value": "(\"transactions\".\"classification_status\" = 'classified') = (\"transactions\".\"expense_type\" IS NOT NULL)"
