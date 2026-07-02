@@ -1,5 +1,7 @@
 import { AccountsManager } from "@/components/accounts-manager"
 import { BankConnections } from "@/components/bank-connections"
+import { BankSyncGate } from "@/components/bank-sync-gate"
+import { ConnectBank } from "@/components/connect-bank"
 import { ConnectionAlerts } from "@/components/connection-alerts"
 import { requireHousehold } from "@/lib/household/current"
 import { buildConnectionViews } from "@/lib/open-banking/connections-view"
@@ -10,7 +12,7 @@ export const dynamic = "force-dynamic"
 
 /** Accounts management (Phase H): the card/bank accounts uploads attach to. */
 export default async function AccountsPage() {
-  const { repo } = await requireHousehold() // gate on auth; the manager fetches the list client-side
+  const { repo, plan } = await requireHousehold() // gate on auth; the manager fetches the list client-side
   const [connections, accounts] = await Promise.all([
     repo.bankConnections.list(),
     repo.accounts.list(),
@@ -26,6 +28,9 @@ export default async function AccountsPage() {
         </p>
       </header>
       <ConnectionAlerts prompts={reconnect} />
+      <BankSyncGate plan={plan}>
+        <ConnectBank />
+      </BankSyncGate>
       <BankConnections connections={connectionViews} />
       <AccountsManager />
     </div>
