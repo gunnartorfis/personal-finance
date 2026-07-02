@@ -44,6 +44,34 @@ async function drainHousehold(
 }
 
 /**
+ * Sync one household's active connections and drain its classification queue to completion — the unit
+ * of work shared by the daily cron (looped over every due household) and the on-link initial sync
+ * (#146, one household, session-authed). `syncActiveConnections` isolates per-connection failures
+ * internally and only classifies when it inserted rows; the trailing unconditional drain flushes rows
+ * a prior run inserted then crashed before classifying (a no-op on an empty queue). Not tenant-scoped
+ * itself — the caller passes a `householdId` it is authorized for.
+ */
+export async function syncHousehold(params: {
+  db: Db;
+  householdId: string;
+  plan: Plan;
+  provider: IngestionProvider;
+  now: Date;
+  classifier: Classifier;
+}): Promise<{ inserted: number; failed: number }> {
+  const { db, householdId, plan, provider, now, classifier } = params;
+  const repo = householdRepo(db, householdId);
+  const res = await syncActiveConnections({
+    repo,
+    provider,
+    now,
+    classify: () => drainHousehold(repo, classifier, plan),
+  });
+  await drainHousehold(repo, classifier, plan);
+  return { inserted: res.inserted, failed: res.failed };
+}
+
+/**
  * System-wide daily open-banking sync (#115). For every household with an active connection, pull
  * new transactions incrementally and drain classification. Household- and connection-level failures
  * are isolated (a broken consent flags that connection `error` and is counted) so one bad connection
@@ -68,23 +96,19 @@ export async function syncDueConnections(params: {
   let inserted = 0;
   let failed = 0;
   for (const household of due) {
-    const repo = householdRepo(db, household.id);
     try {
-      const res = await syncActiveConnections({
-        repo,
+      const res = await syncHousehold({
+        db,
+        householdId: household.id,
+        plan: household.plan,
         provider,
         now,
-        classify: () => drainHousehold(repo, classifier, household.plan),
+        classifier,
       });
       inserted += res.inserted;
       failed += res.failed;
-      // Drain unconditionally: a prior run may have inserted rows then crashed before classifying,
-      // leaving them pending on a day with no new transactions (where syncActiveConnections skips
-      // its inserted-gated classify). drainPending short-circuits on an empty queue, so the extra
-      // call is a no-op when everything is already classified.
-      await drainHousehold(repo, classifier, household.plan);
     } catch (err) {
-      // syncActiveConnections isolates per-connection internally, so this only fires on an
+      // syncHousehold isolates per-connection failures internally, so this only fires on an
       // unexpected household-level error; count it and keep the batch going.
       failed += 1;
       console.error(`[open-banking cron] household ${household.id} sync failed`, err);

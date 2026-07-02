@@ -8,7 +8,7 @@ import type { Classifier } from "@/lib/classification/worker";
 import { households } from "@/lib/db/schema";
 
 import type { IngestionProvider, ProviderTransaction } from "./provider";
-import { syncDueConnections } from "./cron-sync";
+import { syncDueConnections, syncHousehold } from "./cron-sync";
 
 let db: ReturnType<typeof drizzle>;
 const asRepoDb = (d: typeof db) => d as unknown as Parameters<typeof householdRepo>[0];
@@ -131,7 +131,7 @@ describe("syncDueConnections (daily cron core)", () => {
     expect(res.inserted).toBe(0);
   });
 
-  it("isolates a household whose provider fails and still syncs the rest", async () => {
+  it("isolates a household whose provider fails and still syncs the rest (via syncHousehold)", async () => {
     const ok = await premiumHousehold();
     const broken = await premiumHousehold();
     await activeConnectionWithAccount(ok.repo, "uid-ok");
@@ -148,5 +148,47 @@ describe("syncDueConnections (daily cron core)", () => {
     expect(res.households).toBe(2);
     expect(res.inserted).toBe(1);
     expect(res.failed).toBe(1);
+  });
+});
+
+describe("syncHousehold (single household, shared by cron + on-link initial sync #146)", () => {
+  it("syncs the household's active connections and drains its classification queue", async () => {
+    const h = await premiumHousehold();
+    await activeConnectionWithAccount(h.repo, "uid-x");
+    const provider = scriptedProvider({ "uid-x": [tx("x1", -1000), tx("x2", -250)] });
+
+    const res = await syncHousehold({
+      db: asCronDb(db),
+      householdId: h.id,
+      plan: "Premium",
+      provider,
+      now: NOW,
+      classifier: vi.fn(stubClassifier),
+    });
+
+    expect(res).toEqual({ inserted: 2, failed: 0 });
+    const pending = (await h.repo.transactions.list()).filter((t) => t.classificationStatus === "pending");
+    expect(pending).toHaveLength(0);
+  });
+
+  it("is idempotent — a second sync over an overlapping window inserts nothing new", async () => {
+    const h = await premiumHousehold();
+    await activeConnectionWithAccount(h.repo, "uid-y");
+    const provider = scriptedProvider({ "uid-y": [tx("y1", -800)] });
+    const base = {
+      db: asCronDb(db),
+      householdId: h.id,
+      plan: "Premium" as const,
+      provider,
+      classifier: vi.fn(stubClassifier),
+    };
+
+    const first = await syncHousehold({ ...base, now: NOW });
+    // A refresh (or the daily cron) re-fires the same connection a day later.
+    const second = await syncHousehold({ ...base, now: new Date(NOW.getTime() + 86_400_000) });
+
+    expect(first.inserted).toBe(1);
+    expect(second.inserted).toBe(0);
+    expect(await h.repo.transactions.list()).toHaveLength(1);
   });
 });
