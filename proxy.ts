@@ -23,7 +23,6 @@ export const config = {
   // The root marketing page (`/`), the auth pages (`/auth/*`), invite links (`/join/*`), and API
   // routes (which guard themselves) stay open. Keep in sync with the `app/(app)/*` route segments.
   matcher: [
-    "/account/:path*",
     "/accounts/:path*",
     "/dashboard/:path*",
     "/savings/:path*",

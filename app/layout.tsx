@@ -26,7 +26,15 @@ export default function RootLayout({
     >
       <body>
         <ThemeProvider>
-          <NeonAuthUIProvider authClient={authClient} emailOTP>
+          {/* Account-scoped views (profile, security) live under the app Settings hub rather than a
+              standalone /account tree: basePath "/settings" + the SETTINGS view path "account" put
+              them at /settings/account and /settings/security, and Neon Auth's own tab links resolve
+              there too. */}
+          <NeonAuthUIProvider
+            authClient={authClient}
+            emailOTP
+            account={{ basePath: "/settings", viewPaths: { SETTINGS: "account" } }}
+          >
             {children}
           </NeonAuthUIProvider>
         </ThemeProvider>

@@ -1,7 +1,7 @@
 "use client"
 
 import { UserButton } from "@neondatabase/auth-ui"
-import { PiggyBank } from "lucide-react"
+import { PiggyBank, Settings } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -68,10 +68,20 @@ export function AppSidebar() {
         <SidebarFooter>
           {/* Account menu is an identity control, not a primary action — render the trigger as a
               neutral, full-width row matching the sidebar's menu items instead of the auth-ui
-              default (a solid `bg-primary` button). */}
+              default (a solid `bg-primary` button). The default "Settings" link (which points at the
+              account view) is replaced with one to the Settings hub; account/security live inside it. */}
           <UserButton
             size="default"
             className="w-full justify-start bg-transparent text-sidebar-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            disableDefaultLinks
+            additionalLinks={[
+              {
+                href: "/settings",
+                icon: <Settings />,
+                label: "Settings",
+                signedIn: true,
+              },
+            ]}
           />
         </SidebarFooter>
       </Sidebar>
