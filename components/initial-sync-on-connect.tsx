@@ -25,25 +25,29 @@ export function InitialSyncOnConnect() {
   useEffect(() => {
     if (!justConnected || started.current) return
     started.current = true
-    let cancelled = false
+    const controller = new AbortController()
     async function run() {
       try {
-        const res = await fetch("/api/open-banking/sync", { method: "POST" })
+        const res = await fetch("/api/open-banking/sync", {
+          method: "POST",
+          signal: controller.signal,
+        })
         if (!res.ok) throw new Error("sync failed")
         const data = (await res.json()) as { inserted: number; failed: number }
-        if (cancelled) return
         setInserted(data.inserted)
         setStatus("done")
         // Drop the one-shot param and re-render the server component with the synced state.
         router.replace("/accounts", { scroll: false })
         router.refresh()
       } catch {
-        if (!cancelled) setStatus("error")
+        // Navigating away aborts the fetch — the sync is idempotent and the daily cron finishes any
+        // interrupted backfill, so a cancelled request needs no error surfaced.
+        if (!controller.signal.aborted) setStatus("error")
       }
     }
     void run()
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [justConnected, router])
 
