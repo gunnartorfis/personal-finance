@@ -18,6 +18,8 @@ type ResendState = "idle" | "sending" | "sent" | "error"
 export function VerifyEmailGate({ email }: { email: string }) {
   const [resend, setResend] = useState<ResendState>("idle")
   const [continuing, setContinuing] = useState(false)
+  const [switching, setSwitching] = useState(false)
+  const [switchFailed, setSwitchFailed] = useState(false)
 
   async function handleResend() {
     setResend("sending")
@@ -39,8 +41,21 @@ export function VerifyEmailGate({ email }: { email: string }) {
   }
 
   async function handleSwitchAccount() {
-    await authClient.signOut()
-    window.location.assign("/auth/sign-in")
+    if (switching) return
+    setSwitching(true)
+    setSwitchFailed(false)
+    try {
+      const { error } = await authClient.signOut()
+      if (error) {
+        setSwitchFailed(true)
+        setSwitching(false)
+        return
+      }
+      window.location.assign("/auth/sign-in")
+    } catch {
+      setSwitchFailed(true)
+      setSwitching(false)
+    }
   }
 
   return (
@@ -96,13 +111,21 @@ export function VerifyEmailGate({ email }: { email: string }) {
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={handleSwitchAccount}
-        className="self-start text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
-      >
-        Not you? Sign in with a different account
-      </button>
+      <div className="flex flex-col gap-1">
+        <button
+          type="button"
+          onClick={handleSwitchAccount}
+          disabled={switching}
+          className="self-start text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline disabled:pointer-events-none disabled:opacity-50"
+        >
+          {switching ? "Signing out…" : "Not you? Sign in with a different account"}
+        </button>
+        {switchFailed && (
+          <p role="alert" className="text-sm text-pretty text-destructive">
+            Couldn’t sign out. Please try again.
+          </p>
+        )}
+      </div>
     </main>
   )
 }
