@@ -60,6 +60,23 @@ export function householdRepo(db: Db, householdId: string) {
           .insert(accounts)
           .values({ ...value, householdId })
           .returning(),
+      /**
+       * Find a synced Account by its Bank connection + aggregator account id — the key for idempotent
+       * account discovery on (re)connect, so re-running a sync never duplicates an account.
+       */
+      bySyncKey: async (connectionId: string, externalAccountId: string) => {
+        const [row] = await db
+          .select()
+          .from(accounts)
+          .where(
+            and(
+              eq(accounts.householdId, householdId),
+              eq(accounts.connectionId, connectionId),
+              eq(accounts.externalAccountId, externalAccountId)
+            )
+          )
+        return row
+      },
     },
     bankConnections: {
       list: () =>
@@ -75,6 +92,20 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(bankConnections.id, id),
               eq(bankConnections.householdId, householdId)
+            )
+          )
+        return row
+      },
+      /** Find a connection by its aggregator (provider, consent) — for idempotent (re)connect. */
+      byProviderConnectionId: async (provider: string, providerConnectionId: string) => {
+        const [row] = await db
+          .select()
+          .from(bankConnections)
+          .where(
+            and(
+              eq(bankConnections.householdId, householdId),
+              eq(bankConnections.provider, provider),
+              eq(bankConnections.providerConnectionId, providerConnectionId)
             )
           )
         return row

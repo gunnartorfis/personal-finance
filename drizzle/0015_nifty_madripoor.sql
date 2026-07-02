@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "accounts_synced_external_key" ON "accounts" USING btree ("household_id","connection_id","external_account_id") WHERE "accounts"."connection_id" IS NOT NULL;
