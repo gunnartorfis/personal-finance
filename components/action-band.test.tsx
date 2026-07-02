@@ -23,7 +23,14 @@ const FREE_PAUSED: FreeCapStatus = {
 }
 
 function band(overrides: Partial<DashboardActionBand> = {}): DashboardActionBand {
-  return { reviewBacklog: 0, failedCount: 0, freeCap: PREMIUM, allClear: false, ...overrides }
+  return {
+    reviewBacklog: 0,
+    failedCount: 0,
+    freeCap: PREMIUM,
+    reconnect: [],
+    allClear: false,
+    ...overrides,
+  }
 }
 
 describe("ActionBand", () => {
@@ -49,6 +56,12 @@ describe("ActionBand", () => {
   it("shows the Free-cap paused alert (reusing FreeCapStatusBanner)", () => {
     render(<ActionBand actionBand={band({ freeCap: FREE_PAUSED })} />)
     expect(screen.getByText(/AI classification paused/i)).toBeInTheDocument()
+  })
+
+  it("surfaces a bank connection needing reconnect (reusing ConnectionAlerts)", () => {
+    render(<ActionBand actionBand={band({ reconnect: [{ id: "c1", institutionName: "Landsbankinn", reason: "expired" }] })} />)
+    expect(screen.getByText(/consent for Landsbankinn has expired/i)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /reconnect landsbankinn/i })).toBeInTheDocument()
   })
 
   it("shows an all-clear state and nothing else when nothing needs attention", () => {

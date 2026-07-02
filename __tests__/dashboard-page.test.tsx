@@ -52,6 +52,7 @@ const VIEW: DashboardView = {
     reviewBacklog: 0,
     failedCount: 0,
     freeCap: { plan: "Premium", unlimited: true, cap: 50, used: 0, remaining: Infinity, paused: false },
+    reconnect: [],
     allClear: true,
   },
 }

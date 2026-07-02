@@ -1,5 +1,6 @@
 import { freeCapStatus, type FreeCapStatus } from "@/lib/billing/free-cap-status";
 import type { HouseholdRepo } from "@/lib/db/household-repo";
+import { reconnectPrompts, type ReconnectPrompt } from "@/lib/open-banking/reconnect";
 import type { Plan } from "@/shared/types";
 
 import type { AccountSpend } from "./account-breakdown";
@@ -36,6 +37,8 @@ export interface DashboardInputs {
   reviewBacklog: number;
   failedCount: number;
   freeCap: FreeCapStatus;
+  /** Bank connections needing re-consent (#116); empty for households with none. */
+  reconnect: ReconnectPrompt[];
 }
 
 /** The current-cycle headline (spending is the hero; Money in / Difference are secondary). */
@@ -69,6 +72,8 @@ export interface DashboardActionBand {
   reviewBacklog: number;
   failedCount: number;
   freeCap: FreeCapStatus;
+  /** Bank connections needing re-consent (#116). */
+  reconnect: ReconnectPrompt[];
   allClear: boolean;
 }
 
@@ -126,7 +131,12 @@ export function assembleDashboardView(input: DashboardInputs): DashboardView {
       reviewBacklog: input.reviewBacklog,
       failedCount: input.failedCount,
       freeCap: input.freeCap,
-      allClear: input.reviewBacklog === 0 && input.failedCount === 0 && !input.freeCap.paused,
+      reconnect: input.reconnect,
+      allClear:
+        input.reviewBacklog === 0 &&
+        input.failedCount === 0 &&
+        !input.freeCap.paused &&
+        input.reconnect.length === 0,
     },
   };
 }
@@ -157,6 +167,7 @@ export async function loadDashboardView(
     reviewMonths,
     failedCount,
     classifiedCount,
+    connections,
   ] = await Promise.all([
     loadMonthlySpendSeries(repo, now, count),
     loadTopMerchants(repo, recentRange, TOP_MERCHANTS),
@@ -167,6 +178,7 @@ export async function loadDashboardView(
     repo.transactions.reviewQueueMonths(),
     repo.transactions.countFailed(),
     repo.transactions.countClassified(),
+    repo.bankConnections.list(),
   ]);
 
   // Reuse the already-loaded category trend for the category movers (avoids a second query).
@@ -188,5 +200,6 @@ export async function loadDashboardView(
     reviewBacklog,
     failedCount,
     freeCap,
+    reconnect: reconnectPrompts(connections, now),
   });
 }
