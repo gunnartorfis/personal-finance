@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { act, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { StrictMode } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
@@ -192,14 +192,89 @@ describe("ClassifyTrigger", () => {
     expect(await screen.findByText(/2 classified/i)).toBeInTheDocument()
   })
 
-  it("surfaces an error when a batch fails", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({ ok: false, status: 500, json: async () => ({}) })),
-    )
+  it("surfaces an error only after exhausting per-batch retries on a persistent 5xx", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: false, status: 500, json: async () => ({}) }))
+    vi.stubGlobal("fetch", fetchMock)
+    render(<ClassifyTrigger />)
+    await userEvent.click(screen.getByRole("button", { name: /classify pending/i }))
+    expect(await screen.findByRole("alert", {}, { timeout: 5000 })).toBeInTheDocument()
+    // 3 attempts (with backoff) before the drain gives up for real.
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it("does not retry a 4xx — deterministic failures error out immediately", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: false, status: 403, json: async () => ({}) }))
+    vi.stubGlobal("fetch", fetchMock)
     render(<ClassifyTrigger />)
     await userEvent.click(screen.getByRole("button", { name: /classify pending/i }))
     expect(await screen.findByRole("alert")).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("retries a transient 5xx mid-drain instead of killing the whole run", async () => {
+    const responses = [
+      { status: 200, body: { classified: 3, failed: 0, capped: 0 } },
+      { status: 500 }, // one flaky gateway hiccup partway through
+      { status: 200, body: { classified: 2, failed: 0, capped: 0 } },
+      { status: 200, body: { classified: 0, failed: 0, capped: 0 } },
+    ]
+    let i = 0
+    const fetchMock = vi.fn(async (url: string) => {
+      expect(url).toBe("/api/classify")
+      const next = responses[Math.min(i, responses.length - 1)]
+      i += 1
+      return { ok: next.status === 200, status: next.status, json: async () => next.body ?? {} }
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    window.localStorage.setItem(ACTIVE_KEY, "1")
+    render(<ClassifyTrigger resumable pendingCount={5} />)
+
+    expect(await screen.findByText(/5 classified/i, undefined, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    // Clean finish after surviving the hiccup: the resume flag is cleared as usual.
+    expect(window.localStorage.getItem(ACTIVE_KEY)).toBeNull()
+  })
+
+  it("keeps the resume flag when a refresh kills the in-flight fetch (no unmount, no abort)", async () => {
+    let rejectFetch: ((error: Error) => void) | undefined
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<never>((_resolve, reject) => {
+            rejectFetch = reject
+          }),
+      ),
+    )
+    window.localStorage.setItem(ACTIVE_KEY, "1")
+    render(<ClassifyTrigger resumable pendingCount={100} />)
+    await vi.waitFor(() => expect(rejectFetch).toBeDefined())
+
+    // A hard refresh fires pagehide on the old document, then the browser terminates the in-flight
+    // fetch with a plain network error — React never unmounts, so no cleanup/abort ever runs. This
+    // rejection must NOT be treated as a real failure (which would wipe the flag and break resume).
+    window.dispatchEvent(new Event("pagehide"))
+    await act(async () => {
+      rejectFetch!(new TypeError("Failed to fetch"))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(window.localStorage.getItem(ACTIVE_KEY)).toBe("1")
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
+
+  it("clears the resume flag on a genuine network failure so later loads don't error-loop", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("Failed to fetch")
+      }),
+    )
+    window.localStorage.setItem(ACTIVE_KEY, "1")
+    render(<ClassifyTrigger resumable pendingCount={10} />)
+    expect(await screen.findByRole("alert", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(window.localStorage.getItem(ACTIVE_KEY)).toBeNull()
   })
 
   it("aborts the in-flight drain when unmounted", async () => {

@@ -21,9 +21,65 @@ const MAX_BATCHES = 1000
  * loop is browser-driven, a refresh/navigation aborts it mid-run; the flag survives that, so a
  * `resumable` control re-mounting on the next page load can pick the drain back up (and show its
  * progress bar) instead of silently stalling. It's set when a drain starts and cleared only on a
- * clean finish or a real error — never on an abort — so it persists exactly across a refresh.
+ * clean finish or a genuine post-retry failure — never on an abort or a page teardown — so it
+ * persists exactly across a refresh.
  */
 const ACTIVE_KEY = "classify:active"
+
+/**
+ * Transient-failure policy for the drain's POSTs. A full drain is dozens of sequential requests
+ * over several minutes, so one flaky 5xx or dropped connection must not kill the whole run (and
+ * wipe the resume flag with it): each batch gets a few attempts with exponential backoff before
+ * the drain gives up for real.
+ */
+const BATCH_ATTEMPTS = 3
+const RETRY_BASE_DELAY_MS = 300
+
+/** Abort-aware backoff delay: settles early (rejecting) if the drain is cancelled mid-wait. */
+function backoff(attempt: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new DOMException("aborted", "AbortError"))
+      return
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort)
+      resolve()
+    }, RETRY_BASE_DELAY_MS * 2 ** (attempt - 1))
+    function onAbort() {
+      clearTimeout(timer)
+      reject(new DOMException("aborted", "AbortError"))
+    }
+    signal.addEventListener("abort", onAbort, { once: true })
+  })
+}
+
+/**
+ * `POST url`, retrying transient failures — network drops and 5xx responses — per the policy above.
+ * Gives up immediately when the drain was aborted or the page is unloading (retrying inside a dying
+ * page is pointless), and never retries a 4xx: those are deterministic, not transient.
+ */
+async function postWithRetry(
+  url: string,
+  signal: AbortSignal,
+  interrupted: () => boolean,
+): Promise<Response> {
+  for (let attempt = 1; ; attempt++) {
+    let res: Response
+    try {
+      res = await fetch(url, { method: "POST", signal })
+    } catch (error) {
+      if (attempt >= BATCH_ATTEMPTS || signal.aborted || interrupted()) throw error
+      await backoff(attempt, signal)
+      continue
+    }
+    if (res.ok) return res
+    if (res.status < 500 || attempt >= BATCH_ATTEMPTS || interrupted()) {
+      throw new Error(`classify failed (${res.status})`)
+    }
+    await backoff(attempt, signal)
+  }
+}
 
 function setDrainActive(active: boolean) {
   try {
@@ -89,6 +145,29 @@ export function ClassifyTrigger({
   // Aborts the in-flight drain so an unmount (navigation, or UploadForm dropping uploadId) stops
   // firing further LLM batches instead of running on in the background.
   const abortRef = useRef<AbortController | null>(null)
+  // True once the page starts tearing down (refresh / tab close / cross-document nav). React never
+  // unmounts on a hard refresh — no cleanup runs, so abortRef never fires — and the browser kills
+  // the in-flight classify fetch with a plain network error instead. Without this marker that
+  // rejection is indistinguishable from a real drain failure, so the catch below used to clear the
+  // resume flag milliseconds before the page died — which is why refresh-resume never fired.
+  // pageshow resets it so a bfcache restore doesn't leave the control permanently "unloading".
+  const unloadingRef = useRef(false)
+  useEffect(() => {
+    const mark = () => {
+      unloadingRef.current = true
+    }
+    const clear = () => {
+      unloadingRef.current = false
+    }
+    window.addEventListener("pagehide", mark)
+    window.addEventListener("beforeunload", mark)
+    window.addEventListener("pageshow", clear)
+    return () => {
+      window.removeEventListener("pagehide", mark)
+      window.removeEventListener("beforeunload", mark)
+      window.removeEventListener("pageshow", clear)
+    }
+  }, [])
   // Latest baseline source, tracked in a ref so a run can snapshot it without `pendingCount` being an
   // effect/callback dependency — otherwise a polling parent's prop churn would retrigger the mount
   // effect's cleanup and abort the very drain it's meant to keep alive. Synced in an effect (below)
@@ -113,8 +192,11 @@ export function ClassifyTrigger({
     const run: ClassifyTotals = { classified: 0, failed: 0, capped: 0 }
     try {
       for (let batch = 0; batch < MAX_BATCHES; batch++) {
-        const res = await fetch("/api/classify", { method: "POST", signal: controller.signal })
-        if (!res.ok) throw new Error("classify failed")
+        const res = await postWithRetry(
+          "/api/classify",
+          controller.signal,
+          () => unloadingRef.current,
+        )
         const result = (await res.json()) as ClassifyTotals
         run.classified += result.classified
         run.failed += result.failed
@@ -127,12 +209,16 @@ export function ClassifyTrigger({
       // nothing left to resume — clear the flag so a later page load doesn't re-drive on its own.
       if (resumable) setDrainActive(false)
     } catch {
-      if (controller.signal.aborted) return // intentional cancel (refresh/nav): keep the flag to resume
+      // Intentional interruptions keep the flag so the next page load resumes: an unmount abort
+      // (client-side nav), or the page unloading — a refresh kills the fetch with a plain network
+      // error and never unmounts, so only the pagehide/beforeunload marker identifies it.
+      if (controller.signal.aborted || unloadingRef.current) return
       setErrored(true)
-      // A real failure isn't worth auto-retrying on every subsequent load — clear and let the user retry.
+      // A drain still failing after per-batch retries isn't worth auto-retrying on every subsequent
+      // load — clear and let the user retry.
       if (resumable) setDrainActive(false)
     } finally {
-      if (!controller.signal.aborted) setBusy(false)
+      if (!controller.signal.aborted && !unloadingRef.current) setBusy(false)
     }
   }, [resumable])
 
@@ -151,7 +237,8 @@ export function ClassifyTrigger({
       const res = await fetch("/api/classify/retry", { method: "POST", signal: controller.signal })
       if (!res.ok) throw new Error("retry failed")
     } catch {
-      if (controller.signal.aborted) return // intentional cancel, not a failure
+      // Intentional interruption (unmount abort or page teardown), not a failure — see classify().
+      if (controller.signal.aborted || unloadingRef.current) return
       setErrored(true)
       setBusy(false)
       if (resumable) setDrainActive(false)
