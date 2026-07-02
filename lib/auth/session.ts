@@ -16,6 +16,11 @@ import { auth } from "@/lib/auth/server";
  * cookie was minted (e.g. the user just verified their email, possibly in another tab) reads stale.
  * Pass `{ fresh: true }` to bypass the cookie cache and re-read the session from source when an
  * authoritative `emailVerified` matters (the invite verify-gate and the accept endpoint).
+ *
+ * `disableCookieCache` MUST be the string `"true"`, not the boolean `true`: it rides through as a
+ * query param and Neon Auth's server wrapper gates the bypass on a strict string compare
+ * (`data?.query?.disableCookieCache === "true"`, and again `searchParams.get(...) === "true"` at the
+ * upstream endpoint). Passing boolean `true` fails both checks and silently leaves the cache on.
  */
 export async function getCurrentUser(opts?: { fresh?: boolean }) {
   const { data: session } = await auth.getSession(
