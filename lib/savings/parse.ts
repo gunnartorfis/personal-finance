@@ -1,6 +1,16 @@
 import { isValidCycleKey } from "@/lib/dashboard/cycle";
 import type { savingsGoals } from "@/lib/db/schema";
 
+/** The Savings config lists a household replaces in one save (ADR-0007). */
+export interface SavingsConfigInput {
+  incomeSources: Array<{ name: string; amount: number }>;
+  offcardCosts: Array<{ name: string; monthlyAmount: number }>;
+}
+
+export type ConfigParseResult =
+  | { ok: true; value: SavingsConfigInput }
+  | { ok: false; error: string };
+
 /** A Savings goal ready to upsert (the household is stamped by the repo). */
 export type NewSavingsGoal = Omit<typeof savingsGoals.$inferInsert, "householdId">;
 
@@ -58,4 +68,56 @@ export function parseSavingsGoalInput(body: unknown): GoalParseResult {
       currency,
     },
   };
+}
+
+/** Validate one named-amount entry; returns the trimmed name + integer amount, or an error. */
+function parseEntry(
+  entry: unknown,
+  amountKey: "amount" | "monthlyAmount",
+  label: string,
+): { ok: true; name: string; amount: number } | { ok: false; error: string } {
+  if (typeof entry !== "object" || entry === null) {
+    return { ok: false, error: `each ${label} must be an object` };
+  }
+  const record = entry as Record<string, unknown>;
+  const name = typeof record.name === "string" ? record.name.trim() : "";
+  if (name === "") {
+    return { ok: false, error: `each ${label} needs a non-empty name` };
+  }
+  const amount = record[amountKey];
+  if (typeof amount !== "number" || !Number.isInteger(amount) || amount < 0) {
+    return { ok: false, error: `${label} ${amountKey} must be a non-negative integer` };
+  }
+  return { ok: true, name, amount };
+}
+
+/**
+ * Validate a Savings-config PUT body (ADR-0007): the full income-source and off-card-cost lists,
+ * replaced together in one save. Mirrors the DB CHECK constraints (non-negative integer amounts);
+ * names are trimmed and must be non-empty. Empty lists are valid — they clear the config.
+ */
+export function parseSavingsConfigInput(body: unknown): ConfigParseResult {
+  if (typeof body !== "object" || body === null) {
+    return { ok: false, error: "expected a JSON object" };
+  }
+  const input = body as Record<string, unknown>;
+  if (!Array.isArray(input.incomeSources) || !Array.isArray(input.offcardCosts)) {
+    return { ok: false, error: "incomeSources and offcardCosts must both be arrays" };
+  }
+
+  const incomeSources = [];
+  for (const entry of input.incomeSources) {
+    const parsed = parseEntry(entry, "amount", "income source");
+    if (!parsed.ok) return parsed;
+    incomeSources.push({ name: parsed.name, amount: parsed.amount });
+  }
+
+  const offcardCosts = [];
+  for (const entry of input.offcardCosts) {
+    const parsed = parseEntry(entry, "monthlyAmount", "off-card cost");
+    if (!parsed.ok) return parsed;
+    offcardCosts.push({ name: parsed.name, monthlyAmount: parsed.amount });
+  }
+
+  return { ok: true, value: { incomeSources, offcardCosts } };
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseSavingsGoalInput } from "./parse";
+import { parseSavingsConfigInput, parseSavingsGoalInput } from "./parse";
 
 const valid = {
   target: 3_000_000,
@@ -72,5 +72,73 @@ describe("parseSavingsGoalInput", () => {
   it("rejects a non three-letter-uppercase currency", () => {
     expect(parseSavingsGoalInput({ ...valid, currency: "isk" })).toMatchObject({ ok: false });
     expect(parseSavingsGoalInput({ ...valid, currency: "KRÓNUR" })).toMatchObject({ ok: false });
+  });
+});
+
+describe("parseSavingsConfigInput", () => {
+  const validConfig = {
+    incomeSources: [
+      { name: "Salary A", amount: 700_000 },
+      { name: "Salary B", amount: 550_000 },
+    ],
+    offcardCosts: [{ name: "Mortgage", monthlyAmount: 250_000 }],
+  };
+
+  it("accepts valid income sources and off-card costs, trimming names", () => {
+    expect(
+      parseSavingsConfigInput({
+        incomeSources: [{ name: "  Salary A ", amount: 700_000 }],
+        offcardCosts: [{ name: " Mortgage ", monthlyAmount: 250_000 }],
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        incomeSources: [{ name: "Salary A", amount: 700_000 }],
+        offcardCosts: [{ name: "Mortgage", monthlyAmount: 250_000 }],
+      },
+    });
+  });
+
+  it("accepts empty lists (clearing the config)", () => {
+    expect(parseSavingsConfigInput({ incomeSources: [], offcardCosts: [] })).toEqual({
+      ok: true,
+      value: { incomeSources: [], offcardCosts: [] },
+    });
+  });
+
+  it("rejects a non-object body or missing lists", () => {
+    expect(parseSavingsConfigInput(null)).toMatchObject({ ok: false });
+    expect(parseSavingsConfigInput({ incomeSources: [] })).toMatchObject({ ok: false });
+    expect(parseSavingsConfigInput({ offcardCosts: [] })).toMatchObject({ ok: false });
+  });
+
+  it("rejects an empty or missing name", () => {
+    expect(
+      parseSavingsConfigInput({
+        ...validConfig,
+        incomeSources: [{ name: "   ", amount: 1 }],
+      }),
+    ).toMatchObject({ ok: false });
+    expect(
+      parseSavingsConfigInput({
+        ...validConfig,
+        offcardCosts: [{ monthlyAmount: 1 }],
+      }),
+    ).toMatchObject({ ok: false });
+  });
+
+  it("rejects negative or non-integer amounts", () => {
+    expect(
+      parseSavingsConfigInput({
+        ...validConfig,
+        incomeSources: [{ name: "Salary", amount: -1 }],
+      }),
+    ).toMatchObject({ ok: false });
+    expect(
+      parseSavingsConfigInput({
+        ...validConfig,
+        offcardCosts: [{ name: "Rent", monthlyAmount: 10.5 }],
+      }),
+    ).toMatchObject({ ok: false });
   });
 });
