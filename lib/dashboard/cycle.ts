@@ -61,6 +61,18 @@ export function shortCycleLabel(key: CycleKey): string {
   }).format(new Date(Date.UTC(year, month - 1, 1)));
 }
 
+/**
+ * Whole cycles from `startKey` through `endKey` INCLUSIVE — e.g. `2026-07` → `2027-06` is 12.
+ * Zero when `endKey` is the month before `startKey`; negative when it is earlier still. Savings
+ * goals use this for `totalCycles` (start cycle through the target date's month) and elapsed-cycle
+ * counts (ADR-0007).
+ */
+export function cyclesBetweenInclusive(startKey: CycleKey, endKey: CycleKey): number {
+  const start = parseKey(startKey);
+  const end = parseKey(endKey);
+  return (end.year - start.year) * 12 + (end.month - start.month) + 1;
+}
+
 /** The key of the calendar month before `key`. */
 export function previousCycleKey(key: CycleKey): CycleKey {
   const { year, month } = parseKey(key);

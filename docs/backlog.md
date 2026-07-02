@@ -178,7 +178,7 @@ each item one small PR; earliest are pure `shared/` domain logic (test-first).
   Data-access.
 - [x] **Goal + config API**: `GET`/`PUT /api/savings/goal` and `GET`/`PUT /api/savings/config`
   (income + off-card), household-scoped, validated. Blocked by: Data-access.
-- [ ] **Check-in API**: `GET /api/savings/checkins` + `POST /api/savings/checkins` — freeze the
+- [x] **Check-in API**: `GET /api/savings/checkins` + `POST /api/savings/checkins` — freeze the
   current cycle from `loadNetSummary` + config and upsert by cycle; mark the Nice-to-have breakdown
   provisional when pending/failed rows exist. Blocked by: Savings math, Trailing-average estimator,
   Goal + config API.
