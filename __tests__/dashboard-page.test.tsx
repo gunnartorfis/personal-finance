@@ -50,6 +50,7 @@ const VIEW: DashboardView = {
   },
   actionBand: {
     reviewBacklog: 0,
+    pendingCount: 0,
     failedCount: 0,
     freeCap: { plan: "Premium", unlimited: true, cap: 50, used: 0, remaining: Infinity, paused: false },
     allClear: true,

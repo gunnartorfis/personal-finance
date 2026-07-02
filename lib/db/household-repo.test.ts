@@ -384,7 +384,7 @@ describe("householdRepo", () => {
     });
   });
 
-  describe("transactions.resetFailed / countFailed", () => {
+  describe("transactions.resetFailed / countFailed / countPending", () => {
     /** Seed an upload in `repo` with the given per-status counts; returns the upload id. */
     async function seed(
       repo: Awaited<ReturnType<typeof twoHouseholds>>["a"],
@@ -437,6 +437,20 @@ describe("householdRepo", () => {
       const { a } = await twoHouseholds();
       await seed(a, { classified: 1, failed: 0, pending: 1 }, "none");
       expect(await a.transactions.resetFailed()).toHaveLength(0);
+    });
+
+    it("counts pending rows, excluding overridden ones, scoped to the household", async () => {
+      const { a, b } = await twoHouseholds();
+      await seed(a, { classified: 1, failed: 1, pending: 3 }, "pend-a");
+      await seed(b, { classified: 0, failed: 0, pending: 2 }, "pend-b");
+
+      expect(await a.transactions.countPending()).toBe(3);
+      expect(await b.transactions.countPending()).toBe(2);
+
+      // An overridden pending row leaves the work queue (mirrors listPending), so the count drops.
+      const [pendingRow] = await a.transactions.listPending(1);
+      await a.overrides.upsert({ transactionId: pendingRow.id, expenseType: "Fixed" });
+      expect(await a.transactions.countPending()).toBe(2);
     });
 
     it("counts failed rows and never touches or counts another household's", async () => {
