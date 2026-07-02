@@ -19,6 +19,18 @@ export default function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Protect account pages; the root marketing page and the auth pages stay open.
-  matcher: ["/account/:path*"],
+  // Protect the signed-in `(app)` routes at the edge (pages also self-guard via requireHousehold).
+  // The root marketing page (`/`), the auth pages (`/auth/*`), invite links (`/join/*`), and API
+  // routes (which guard themselves) stay open. Keep in sync with the `app/(app)/*` route segments.
+  matcher: [
+    "/account/:path*",
+    "/accounts/:path*",
+    "/billing/:path*",
+    "/dashboard/:path*",
+    "/household/:path*",
+    "/rules/:path*",
+    "/savings/:path*",
+    "/transactions/:path*",
+    "/upload/:path*",
+  ],
 };
