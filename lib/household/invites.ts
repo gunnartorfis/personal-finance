@@ -180,22 +180,68 @@ export type InviteLocator = { rawToken: string } | { inviteId: string };
 
 /**
  * Minimal, unauthenticated-safe view of an Invite for the `/join/[token]` screen: enough to tell
- * the user which email to sign in with and whether the link is still good. Returns `null` for an
- * unknown token. Possession of the (unguessable) token is the only gate to reading this.
+ * the user which email to sign in with, whether the link is still good, and (via
+ * {@link getInviteCardDetails}) who invited them. Returns `null` for an unknown token. Possession of
+ * the (unguessable) token is the only gate to reading this.
  */
 export async function getInvitePreviewByToken(
   db: Db,
   rawToken: string,
-): Promise<{ email: string; status: "pending" | "accepted" | "revoked"; expiresAt: Date } | null> {
+): Promise<{
+  email: string;
+  status: "pending" | "accepted" | "revoked";
+  expiresAt: Date;
+  householdId: string;
+  invitedByMemberId: string | null;
+} | null> {
   const [invite] = await db
     .select({
       email: householdInvites.email,
       status: householdInvites.status,
       expiresAt: householdInvites.expiresAt,
+      householdId: householdInvites.householdId,
+      invitedByMemberId: householdInvites.invitedByMemberId,
     })
     .from(householdInvites)
     .where(eq(householdInvites.tokenHash, hashInviteToken(rawToken)));
   return invite ?? null;
+}
+
+/** Human context for the invite-acceptance card: who invited you, and how many people you'd join. */
+export interface InviteCardDetails {
+  inviterName: string | null;
+  inviterEmail: string | null;
+  /** Current Members of the inviting Household (the invitee is not yet counted). */
+  memberCount: number;
+}
+
+/**
+ * Resolve the display context for an Invite: the inviter's identity and the Household's current
+ * size. Inviter name/email live in Neon Auth's `users_sync` mirror (not on `members`), so this joins
+ * there and degrades gracefully — a missing mirror or a since-departed inviter yields a null
+ * identity, and the card falls back to generic copy rather than failing.
+ */
+export async function getInviteCardDetails(
+  db: Db,
+  householdId: string,
+  invitedByMemberId: string | null,
+): Promise<InviteCardDetails> {
+  const memberCount = await countMembers(db, householdId);
+  if (!invitedByMemberId) return { inviterName: null, inviterEmail: null, memberCount };
+
+  try {
+    const result = await db.execute<{ name: string | null; email: string | null }>(sql`
+      select u.name, u.email
+      from members m
+      left join neon_auth.users_sync u on u.id = m.auth_user_id
+      where m.id = ${invitedByMemberId}
+      limit 1
+    `);
+    const row = result.rows[0];
+    return { inviterName: row?.name ?? null, inviterEmail: row?.email ?? null, memberCount };
+  } catch {
+    return { inviterName: null, inviterEmail: null, memberCount };
+  }
 }
 
 export interface AcceptInviteInput {
