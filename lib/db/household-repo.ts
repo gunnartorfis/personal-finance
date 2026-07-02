@@ -8,6 +8,7 @@ import {
   gte,
   isNull,
   lt,
+  ne,
   sql,
 } from "drizzle-orm"
 import type { NodePgDatabase } from "drizzle-orm/node-postgres"
@@ -497,11 +498,11 @@ export function householdRepo(db: Db, householdId: string) {
       },
       /**
        * The household-wide rapid-review backlog broken down by statement cycle: each calendar month
-       * (`"YYYY-MM"`) that still has at least one expense (`amount < 0`) without a manual override,
-       * with how many, newest-first. Drives where the transactions view lands by default (the newest
-       * month that still has work) and the Rapid review badge total (the sum of the counts). Anti-join
-       * on `overrides` (`isNull(overrides.id)`) so a settled row never counts — mirroring the queue
-       * itself, so the badge total equals the number of cards {@link reviewQueue} will present.
+       * (`"YYYY-MM"`) that still has at least one unclassified expense (`amount < 0`, not AI-classified,
+       * no manual override), with how many, newest-first. Drives where the transactions view lands by
+       * default (the newest month that still has work) and the Rapid review badge total (the sum of the
+       * counts). Anti-join on `overrides` (`isNull(overrides.id)`) plus the status filter, mirroring the
+       * queue itself, so the badge total equals the number of cards {@link reviewQueue} will present.
        */
       reviewQueueMonths: async () => {
         const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`
@@ -519,6 +520,7 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.householdId, householdId),
               lt(transactions.amount, 0),
+              ne(transactions.classificationStatus, "classified"),
               isNull(overrides.id)
             )
           )
@@ -527,9 +529,10 @@ export function householdRepo(db: Db, householdId: string) {
         return rows.map((row) => ({ month: row.month, count: row.value }))
       },
       /**
-       * The whole-household rapid-review queue: every expense (`amount < 0`) with no manual override,
-       * across all statement cycles, in the same row shape as {@link listWithOverrides} so
-       * `<ReviewMode>` consumes it directly. Newest-first (the overlay re-sorts least-confident-first).
+       * The whole-household rapid-review queue: every unclassified expense (`amount < 0`, not yet
+       * AI-classified — pending/failed only — and with no manual override), across all statement
+       * cycles, in the same row shape as {@link listWithOverrides} so `<ReviewMode>` consumes it
+       * directly. Rows the AI already classified are settled and stay out of the queue. Newest-first.
        * Unlike the per-period list this spans every month, so the overlay can drain the whole backlog
        * regardless of which period the user is viewing. `overrideType` is always `null` here (the
        * anti-join keeps overridden rows out) but is selected to keep the shape identical.
@@ -564,6 +567,7 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.householdId, householdId),
               lt(transactions.amount, 0),
+              ne(transactions.classificationStatus, "classified"),
               isNull(overrides.id)
             )
           )
