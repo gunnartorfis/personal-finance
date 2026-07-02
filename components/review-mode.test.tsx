@@ -12,6 +12,8 @@ function row(
     merchant: partial.id,
     amount: -100,
     incomeMarked: false,
+    excluded: false,
+    exclusionNote: null,
     classifiedType: null,
     confidence: null,
     reasoning: null,

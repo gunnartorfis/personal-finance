@@ -41,8 +41,12 @@ A period's total expenses (debits, `amount < 0`), shown as a positive magnitude 
 _Avoid_: Expenses (as a headline), Costs
 
 **Income (marked)**:
-A period's credits (`amount > 0`) that a Member manually marked as real income (ADR-0009). An UNMARKED credit — a refund, card-bill payment, or inter-account transfer — counts for nothing in any calculation. Replaces the former **Money in** (which summed ALL credits). Distinct from the savings anchor **Monthly income** (off-card, configured); never sum the two.
+A period's credits (`amount > 0`) that a Member manually marked as real income (ADR-0009). An UNMARKED credit — a refund, card-bill payment, or inter-account transfer — counts for nothing in any calculation. Replaces the former **Money in** (which summed ALL credits). Distinct from the savings anchor **Monthly income** (off-card, configured); never sum the two. Mutually exclusive with **Excluded** on the same row.
 _Avoid_: Money in (pre-ADR-0009 all-credits sum), Revenue, Earnings
+
+**Excluded**:
+A Transaction a Member manually dropped from every calculation — it is neither **Spending** nor **Income (marked)**, contributes nothing to net math, spend series, expense-type buckets, or savings. For a debit this is the only way out of **Spending** (debits otherwise always count); for a credit it is redundant with the ADR-0009 default but records the intent explicitly (e.g. flagging both legs of a reimbursement). A Member excludes a Transaction when it is not true household spending — reimbursed by someone else, a mistaken charge, or a cost fronted for another party (the "grandma's vacuum" case: buy a vacuum, she transfers the money back next day). Any Transaction regardless of sign can be Excluded; mutually exclusive with **Income (marked)** (a row is exactly one of: counts as Spending / counts as Income / Excluded).
+_Avoid_: Reconciled, Afstemt (imply matching/pairing — this is a per-Transaction flag, not a link), Voided (implies deletion/reversal — the row is kept, only dropped from math), Reimbursed (too narrow — only one reason among several)
 
 **Difference**:
 `Income (marked) − Spending` for a period. Not true P&L; the dashboard intentionally does NOT net against configured **Monthly income** (ADR-0008).
@@ -110,6 +114,7 @@ Cumulative Inferred saving to date ≥ cumulative Required saving to date.
 - A **Household** owns its **Transactions**, **Overrides**, and income/net config.
 - A **Member** uploads **Transactions** (recorded as provenance); visibility is household-wide.
 - A **Transaction**'s effective Expense type follows a precedence: manual **Override** > **Merchant rule** > AI **Classification**.
+- A **Transaction** is in exactly one net state: counts as **Spending** (a debit, default), counts as **Income (marked)** (a credit a Member marked), or **Excluded** (any Transaction a Member dropped from all math). **Excluded** and **Income (marked)** are mutually exclusive.
 - A **Household** has zero or more **Merchant rules**; adding one (re-)types all matching Transactions except those with a manual **Override**, and applies to future Uploads.
 - A **Household** has zero or one active **Savings goal** (v1), plus its **Monthly income** and **Off-card fixed cost** config.
 - **Inferred saving** for a **Statement cycle** = **Monthly income** − **Off-card fixed costs** − net card debits (the cycle's **Transactions** with a negative amount; positive lines ignored).
@@ -122,3 +127,4 @@ Cumulative Inferred saving to date ≥ cumulative Required saving to date.
 - "category" vs **Expense type**: the raw row's merchant category (`Tegund`) is an input hint; the assigned bucket is the **Expense type**. Don't conflate.
 - "income" is two things: the dashboard's **Income (marked)** (credits a Member marked as real income; all other credits count for nothing — ADR-0009) vs configured **Monthly income** (the off-card savings anchor). Never sum them. Resolution: **Inferred saving** counts only card DEBITS (negative amounts) as spend and ignores all positive card lines — so a bank-account **Account** with salary credits cannot double-count with **Monthly income** (refunds are also ignored; accepted v1 simplification). The dashboard leads with **Spending**; wiring **Difference** to **Monthly income** for a true net stays deferred (ADR-0008).
 - "savings" is **Inferred saving** (computed from spend), never an entered balance — chosen over a tracked-balance model.
+- "reconcile"/"afstemma" is NOT a domain term here: the user-facing gesture of cancelling out a reimbursed purchase is modelled as a per-Transaction **Excluded** flag, not a link between two rows. "reconciliation" already names an internal math invariant in `lib/dashboard/net-summary.ts` (`sum(byExpenseType) + unclassified === expense`); do not reuse it for the Excluded feature. Pairing/matching a debit to its funding credit stays deferred (transfer detection, issue #97).

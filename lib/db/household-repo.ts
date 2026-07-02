@@ -409,6 +409,8 @@ export function householdRepo(db: Db, householdId: string) {
           .where(
             and(
               eq(transactions.householdId, householdId),
+              // Excluded rows contribute to nothing (ADR-0011).
+              eq(transactions.excluded, false),
               gte(transactions.date, range.from),
               lt(transactions.date, range.to)
             )
@@ -427,6 +429,8 @@ export function householdRepo(db: Db, householdId: string) {
             merchant: transactions.merchant,
             amount: transactions.amount,
             incomeMarked: transactions.incomeMarked,
+            excluded: transactions.excluded,
+            exclusionNote: transactions.exclusionNote,
             classificationStatus: transactions.classificationStatus,
             classifiedType: transactions.expenseType,
             confidence: transactions.confidence,
@@ -467,6 +471,8 @@ export function householdRepo(db: Db, householdId: string) {
           .where(
             and(
               eq(transactions.householdId, householdId),
+              // Excluded rows contribute to neither spending nor income (ADR-0011).
+              eq(transactions.excluded, false),
               gte(transactions.date, range.from),
               lt(transactions.date, range.to)
             )
@@ -504,6 +510,8 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.householdId, householdId),
               lt(transactions.amount, 0),
+              // Excluded rows are not spending (ADR-0011).
+              eq(transactions.excluded, false),
               gte(transactions.date, range.from),
               lt(transactions.date, range.to),
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
@@ -540,6 +548,8 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.householdId, householdId),
               lt(transactions.amount, 0),
+              // Excluded rows are not spending (ADR-0011).
+              eq(transactions.excluded, false),
               gte(transactions.date, range.from),
               lt(transactions.date, range.to)
             )
@@ -576,6 +586,8 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.householdId, householdId),
               lt(transactions.amount, 0),
+              // Excluded rows are not spending (ADR-0011).
+              eq(transactions.excluded, false),
               gte(transactions.date, range.from),
               lt(transactions.date, range.to),
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
@@ -611,6 +623,8 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.householdId, householdId),
               lt(transactions.amount, 0),
+              // Excluded rows are not spending (ADR-0011).
+              eq(transactions.excluded, false),
               gte(transactions.date, range.from),
               lt(transactions.date, range.to),
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
@@ -651,6 +665,8 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.householdId, householdId),
               lt(transactions.amount, 0),
+              // Excluded rows are not spending (ADR-0011).
+              eq(transactions.excluded, false),
               gte(transactions.date, range.from),
               lt(transactions.date, range.to),
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
@@ -703,6 +719,8 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.householdId, householdId),
               lt(transactions.amount, 0),
+              // An Excluded row is settled: it counts for nothing, so it needs no review (ADR-0011).
+              eq(transactions.excluded, false),
               ne(transactions.classificationStatus, "classified"),
               isNull(overrides.id)
             )
@@ -735,6 +753,10 @@ export function householdRepo(db: Db, householdId: string) {
             // Always false here (the queue is debits only) but selected so the row shape stays
             // identical to listWithOverrides for <ReviewMode>.
             incomeMarked: transactions.incomeMarked,
+            // Always false / null here (excluded rows are filtered out below) but selected to keep
+            // the row shape identical to listWithOverrides for <ReviewMode>.
+            excluded: transactions.excluded,
+            exclusionNote: transactions.exclusionNote,
             classificationStatus: transactions.classificationStatus,
             classifiedType: transactions.expenseType,
             confidence: transactions.confidence,
@@ -753,6 +775,8 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.householdId, householdId),
               lt(transactions.amount, 0),
+              // An Excluded row is settled: it counts for nothing, so it needs no review (ADR-0011).
+              eq(transactions.excluded, false),
               ne(transactions.classificationStatus, "classified"),
               isNull(overrides.id)
             )
@@ -854,6 +878,24 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.householdId, householdId),
               gt(transactions.amount, 0)
             )
+          )
+          .returning(),
+      /**
+       * Exclude (or re-include) a Transaction from every calculation (ADR-0011). Scoped to the
+       * household. Any sign qualifies — unlike income marking. Excluding clears `incomeMarked` (the
+       * two states are mutually exclusive) and stores the optional `note`; re-including clears the
+       * note. A missing id updates nothing (returns []), so the caller can 404 on an empty result.
+       */
+      setExcluded: (id: string, excluded: boolean, note?: string | null) =>
+        db
+          .update(transactions)
+          .set(
+            excluded
+              ? { excluded: true, incomeMarked: false, exclusionNote: note ?? null }
+              : { excluded: false, exclusionNote: null }
+          )
+          .where(
+            and(eq(transactions.id, id), eq(transactions.householdId, householdId))
           )
           .returning(),
       /** Mark a pending transaction as failed (e.g. the model errored); leaves it unbucketed. */
