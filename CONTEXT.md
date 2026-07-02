@@ -65,7 +65,11 @@ The spending bucket assigned to a Transaction — `Fixed`, `Necessary`, `Nice to
 _Avoid_: Category (reserved for the merchant-supplied category on the raw row)
 
 **Classification**:
-Assigning an Expense type (+ confidence + reasoning) to a Transaction, done server-side by Claude.
+Assigning an Expense type (+ confidence + reasoning) to a Transaction, done server-side by Claude. A Classification may be produced by a fresh model call or **reused** from the Household's own prior Classifications of the same merchant (see **Classification reuse**) — either way the result is a Classification, at the same precedence level, and still counts against the **Free cap**.
+
+**Classification reuse**:
+Skipping the model by reusing the Expense type the Household's own prior Classifications gave the same merchant. Draws only on AI **Classification** results — never on **Overrides** or **Merchant rules** (those keep their own precedence; the intended way to propagate a correction across rows is still a **Merchant rule**). Because it is only ever another **Classification**, reuse never changes a Transaction's effective type precedence and cannot fill a merchant covered by a Merchant rule or an Override. Distinct from a **Merchant rule**: a rule is an explicit, user-authored, deterministic mapping; reuse is implicit and derived from what the model already decided.
+_Avoid_: Cache (as a user-facing term), Merchant rule (reuse is not user-authored)
 
 **Override**:
 A Member's manual change to a single Transaction's Expense type; takes precedence over the classified type.
