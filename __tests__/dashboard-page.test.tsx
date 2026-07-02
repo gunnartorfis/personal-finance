@@ -5,12 +5,14 @@ import type { DashboardView } from "@/lib/dashboard/dashboard-view"
 
 // Mock the tenant guard (keeps Neon Auth / next/headers out of jsdom) and the data loader, so the
 // page test exercises pure assembly of the already-tested modules.
-const { requireHousehold, loadDashboardView } = vi.hoisted(() => ({
+const { requireHousehold, loadDashboardView, loadSavingsProgress } = vi.hoisted(() => ({
   requireHousehold: vi.fn(),
   loadDashboardView: vi.fn(),
+  loadSavingsProgress: vi.fn(),
 }))
 vi.mock("@/lib/household/current", () => ({ requireHousehold }))
 vi.mock("@/lib/dashboard/dashboard-view", () => ({ loadDashboardView }))
+vi.mock("@/lib/savings/assessment", () => ({ loadSavingsProgress }))
 
 import DashboardPage from "@/app/(app)/dashboard/page"
 
@@ -58,26 +60,19 @@ const VIEW: DashboardView = {
   },
 }
 
-/** Repo double: no savings goal by default, so the progress card stays hidden. */
-function stubRepo(overrides: { goal?: unknown; checkins?: unknown[] } = {}) {
-  return {
-    savings: {
-      goal: { get: vi.fn().mockResolvedValue(overrides.goal) },
-      checkins: { list: vi.fn().mockResolvedValue(overrides.checkins ?? []) },
-    },
-  }
-}
-
 describe("DashboardPage", () => {
   beforeEach(() => {
     requireHousehold.mockReset()
     loadDashboardView.mockReset()
+    loadSavingsProgress.mockReset()
     requireHousehold.mockResolvedValue({
-      repo: stubRepo(),
+      repo: {},
       plan: "Premium",
       billingCurrency: "ISK",
     })
     loadDashboardView.mockResolvedValue(VIEW)
+    // No savings goal by default, so the progress card stays hidden.
+    loadSavingsProgress.mockResolvedValue(null)
   })
 
   it("assembles the action band, hero, and the over-time modules in order", async () => {
@@ -104,13 +99,11 @@ describe("DashboardPage", () => {
   })
 
   it("shows the savings progress card when a goal exists", async () => {
-    requireHousehold.mockResolvedValue({
-      repo: stubRepo({
-        goal: { target: 1_200_000, startingSaved: 100_000, startCycle: "2026-06", currency: "ISK" },
-        checkins: [{ cycleKey: "2026-06", inferredSaving: 400_000 }],
-      }),
-      plan: "Premium",
-      billingCurrency: "ISK",
+    loadSavingsProgress.mockResolvedValue({
+      target: 1_200_000,
+      saved: 500_000,
+      percent: 42,
+      currency: "ISK",
     })
 
     render(await DashboardPage())

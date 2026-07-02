@@ -1,0 +1,1 @@
+DROP TABLE "savings_checkins" CASCADE;

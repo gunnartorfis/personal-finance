@@ -5,7 +5,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import {
   households,
-  savingsCheckins,
   savingsGoals,
   savingsIncomeSources,
   savingsOffcardCosts,
@@ -15,7 +14,7 @@ const NONEXISTENT_ID = "00000000-0000-0000-0000-000000000000";
 
 function freshDb() {
   return drizzle(new PGlite(), {
-    schema: { households, savingsGoals, savingsIncomeSources, savingsOffcardCosts, savingsCheckins },
+    schema: { households, savingsGoals, savingsIncomeSources, savingsOffcardCosts },
   });
 }
 
@@ -109,82 +108,6 @@ describe("savings schema (ADR-0007)", () => {
       ).rejects.toThrow();
       await expect(
         db.insert(savingsOffcardCosts).values({ householdId, name: "Bad", monthlyAmount: -1 }),
-      ).rejects.toThrow();
-    });
-  });
-
-  describe("savings_checkins", () => {
-    it("stores a reconciling snapshot, including a negative (losing) inferred saving", async () => {
-      const householdId = await newHousehold(db);
-      const [checkin] = await db
-        .insert(savingsCheckins)
-        .values({
-          householdId,
-          cycleKey: "2026-07",
-          monthlyIncome: 300_000,
-          offCardFixed: 250_000,
-          cardDebits: 100_000,
-          inferredSaving: -50_000, // 300000 + 0 - 250000 - 100000
-        })
-        .returning();
-      expect(checkin.inferredSaving).toBe(-50_000);
-      expect(checkin.cycleExtra).toBe(0);
-    });
-
-    it("allows one check-in per household per cycle (unique)", async () => {
-      const householdId = await newHousehold(db);
-      const row = {
-        householdId,
-        cycleKey: "2026-08",
-        monthlyIncome: 900_000,
-        offCardFixed: 250_000,
-        cardDebits: 520_000,
-        inferredSaving: 130_000,
-      };
-      await db.insert(savingsCheckins).values(row);
-      await expect(db.insert(savingsCheckins).values(row)).rejects.toThrow();
-    });
-
-    it("rejects a snapshot whose inferred saving does not reconcile with its inputs", async () => {
-      const householdId = await newHousehold(db);
-      await expect(
-        db.insert(savingsCheckins).values({
-          householdId,
-          cycleKey: "2026-09",
-          monthlyIncome: 900_000,
-          offCardFixed: 250_000,
-          cardDebits: 520_000,
-          inferredSaving: 999_999, // wrong: should be 130,000
-        }),
-      ).rejects.toThrow();
-    });
-
-    it("rejects a negative cycle extra", async () => {
-      const householdId = await newHousehold(db);
-      await expect(
-        db.insert(savingsCheckins).values({
-          householdId,
-          cycleKey: "2026-11",
-          monthlyIncome: 900_000,
-          cycleExtra: -1,
-          offCardFixed: 250_000,
-          cardDebits: 520_000,
-          inferredSaving: 129_999, // reconciles, so only the cycle_extra CHECK can fail
-        }),
-      ).rejects.toThrow();
-    });
-
-    it("rejects negative card debits (positive lines are excluded, never negative debits)", async () => {
-      const householdId = await newHousehold(db);
-      await expect(
-        db.insert(savingsCheckins).values({
-          householdId,
-          cycleKey: "2026-10",
-          monthlyIncome: 900_000,
-          offCardFixed: 250_000,
-          cardDebits: -1,
-          inferredSaving: 900_000 - 250_000 - -1,
-        }),
       ).rejects.toThrow();
     });
   });
