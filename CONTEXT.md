@@ -27,7 +27,15 @@ One CSV import into a Household: the file, its column mapping, the importing Mem
 _Avoid_: Import, Batch, Statement
 
 **Transaction**:
-One line from an Upload: date, merchant, the charged amount (in the Account's billing currency), Account, optional source category, and optional original amount+currency.
+One financial line belonging to an Account: date, merchant, the charged amount (in the Account's billing currency), Account, optional source category, and optional original amount+currency. Enters the Household one of two ways — a CSV **Upload** or a bank **Sync** — the source is recorded but the shape is identical.
+
+**Bank connection**:
+A Household's authorized link to one bank (via the aggregator), from which its Accounts are discovered and their Transactions are Synced. Holds the consent and its expiry; can lapse (needing reconnect) without losing history. Premium-only.
+_Avoid_: Integration, Link (as a noun), Aggregator (that's the upstream provider, not the Household's link)
+
+**Sync**:
+Pulling a Bank connection's latest Transactions from the aggregator and dedup-inserting them. The **initial Sync** (right after linking, and on the first cron pass) backfills a long history window; every later Sync is **incremental** from the last sync point. Idempotent — an overlapping window never duplicates. Runs on a daily schedule and immediately on first linking.
+_Avoid_: Import (reserved for Upload), Refresh, Fetch
 
 **Billing currency**:
 The currency an Account is charged in; the charged amount is the single source of truth for all net math. v1 assumes one billing currency per Household (no FX).

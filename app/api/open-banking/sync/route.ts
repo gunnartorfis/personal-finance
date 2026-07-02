@@ -4,8 +4,10 @@ import { NextResponse } from "next/server";
 
 import { sonnetClassifier } from "@/lib/classification/sonnet-classifier";
 import { getDb } from "@/lib/db";
-import { syncDueConnections } from "@/lib/open-banking/cron-sync";
+import { requireHousehold } from "@/lib/household/current";
+import { syncDueConnections, syncHousehold } from "@/lib/open-banking/cron-sync";
 import { getIngestionProvider } from "@/lib/open-banking/provider-factory";
+import { canUseBankSync } from "@/shared/bank-sync";
 
 export const dynamic = "force-dynamic";
 // Syncs every active connection and drains classification sequentially; give the batch headroom.
@@ -43,5 +45,34 @@ async function handle(request: Request): Promise<Response> {
   return NextResponse.json(result);
 }
 
-// Vercel Cron only issues GET — don't expose POST as an out-of-schedule sync trigger.
+// Vercel Cron issues GET, guarded by the cron secret (system-wide, every household).
 export { handle as GET };
+
+/**
+ * On-link initial sync (#146): pull a freshly-linked bank's transactions immediately instead of
+ * making the user wait for the next daily cron. Session-authed and scoped to the caller's own
+ * household via `requireHousehold` — a different trust boundary than the secret-gated GET, so it's
+ * safe to expose. Client-triggered after the connect redirect lands on /accounts?bank=connected.
+ * Idempotent: same dedup + `lastSyncedAt` path as the cron, so a double-fire (e.g. refresh) inserts
+ * nothing new. Bank sync is Premium-only (#117) — a Free household has no active connections, but the
+ * gate is enforced here regardless as the trust boundary.
+ */
+async function postHandler(): Promise<Response> {
+  const { householdId, plan } = await requireHousehold();
+  if (!canUseBankSync(plan)) {
+    return NextResponse.json({ error: "upgrade_required" }, { status: 403 });
+  }
+
+  const result = await syncHousehold({
+    db: getDb(),
+    householdId,
+    plan,
+    provider: getIngestionProvider(),
+    now: new Date(),
+    classifier: sonnetClassifier(),
+  });
+
+  return NextResponse.json(result);
+}
+
+export { postHandler as POST };
