@@ -31,6 +31,10 @@ async function setMarked(id: string, incomeMarked: boolean) {
   }
 
   const [updated] = await repo.transactions.setIncomeMarked(id, incomeMarked)
+  if (!updated) {
+    // The row can vanish (or stop qualifying) between findById and the guarded update.
+    return NextResponse.json({ error: "transaction not found" }, { status: 404 })
+  }
   return NextResponse.json({ id: updated.id, incomeMarked: updated.incomeMarked })
 }
 
