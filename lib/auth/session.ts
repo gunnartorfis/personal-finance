@@ -8,9 +8,19 @@ import { auth } from "@/lib/auth/server";
  * guard).
  */
 
-/** The signed-in user for the current request, or `null` if unauthenticated. */
-export async function getCurrentUser() {
-  const { data: session } = await auth.getSession();
+/**
+ * The signed-in user for the current request, or `null` if unauthenticated.
+ *
+ * By default this can be served from Neon Auth's signed session-data cookie (fast, no upstream call).
+ * That cookie caches user fields — including `emailVerified` — so a value that changed since the
+ * cookie was minted (e.g. the user just verified their email, possibly in another tab) reads stale.
+ * Pass `{ fresh: true }` to bypass the cookie cache and re-read the session from source when an
+ * authoritative `emailVerified` matters (the invite verify-gate and the accept endpoint).
+ */
+export async function getCurrentUser(opts?: { fresh?: boolean }) {
+  const { data: session } = await auth.getSession(
+    opts?.fresh ? { query: { disableCookieCache: "true" } } : undefined,
+  );
   return session?.user ?? null;
 }
 
