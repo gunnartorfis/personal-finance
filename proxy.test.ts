@@ -11,11 +11,9 @@ describe("route-protection matcher", () => {
   const authedSegments = [
     "account",
     "accounts",
-    "billing",
     "dashboard",
-    "household",
-    "rules",
     "savings",
+    "settings",
     "transactions",
     "upload",
   ]

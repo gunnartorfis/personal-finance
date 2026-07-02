@@ -264,7 +264,7 @@ function PremiumUpsell() {
         Upgrade to Premium to share your household’s financial picture with the people you split
         money with.
       </p>
-      <Button variant="outline" className="self-start" render={<Link href="/billing" />}>
+      <Button variant="outline" className="self-start" render={<Link href="/settings/billing" />}>
         See Premium
       </Button>
     </section>

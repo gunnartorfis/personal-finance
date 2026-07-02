@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic"
  * the Household. Identity for the member list comes from Neon Auth's `users_sync` (see
  * `listMembersWithIdentity`); everything mutating runs through `/api/household/*`.
  */
-export default async function HouseholdPage() {
+export default async function HouseholdSettingsPage() {
   const { householdId, plan, repo, user } = await requireHousehold()
   const [members, invites] = await Promise.all([
     listMembersWithIdentity(getDb(), householdId),

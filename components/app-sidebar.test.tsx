@@ -50,14 +50,14 @@ describe("AppSidebar", () => {
       "href",
       "/transactions",
     )
-    expect(screen.getByRole("link", { name: "Rules" })).toHaveAttribute("href", "/rules")
-    expect(screen.getByRole("link", { name: "Billing" })).toHaveAttribute("href", "/billing")
+    expect(screen.getByRole("link", { name: "Savings" })).toHaveAttribute("href", "/savings")
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings")
   })
 
   it("marks the active route with aria-current", () => {
-    usePathname.mockReturnValue("/billing")
+    usePathname.mockReturnValue("/settings")
     renderSidebar()
-    expect(screen.getByRole("link", { name: "Billing" })).toHaveAttribute("aria-current", "page")
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page")
     expect(screen.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current")
   })
 
