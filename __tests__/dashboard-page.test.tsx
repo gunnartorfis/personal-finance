@@ -58,11 +58,25 @@ const VIEW: DashboardView = {
   },
 }
 
+/** Repo double: no savings goal by default, so the progress card stays hidden. */
+function stubRepo(overrides: { goal?: unknown; checkins?: unknown[] } = {}) {
+  return {
+    savings: {
+      goal: { get: vi.fn().mockResolvedValue(overrides.goal) },
+      checkins: { list: vi.fn().mockResolvedValue(overrides.checkins ?? []) },
+    },
+  }
+}
+
 describe("DashboardPage", () => {
   beforeEach(() => {
     requireHousehold.mockReset()
     loadDashboardView.mockReset()
-    requireHousehold.mockResolvedValue({ repo: {}, plan: "Premium", billingCurrency: "ISK" })
+    requireHousehold.mockResolvedValue({
+      repo: stubRepo(),
+      plan: "Premium",
+      billingCurrency: "ISK",
+    })
     loadDashboardView.mockResolvedValue(VIEW)
   })
 
@@ -81,8 +95,29 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Biggest movers")).toBeInTheDocument()
     // Single-account household -> account breakdown hidden.
     expect(screen.queryByText("Spending by account")).not.toBeInTheDocument()
+    // No savings goal -> progress card hidden.
+    expect(screen.queryByRole("link", { name: /savings goal/i })).not.toBeInTheDocument()
 
-    expect(loadDashboardView).toHaveBeenCalledWith({}, expect.any(Date), { plan: "Premium" })
+    expect(loadDashboardView).toHaveBeenCalledWith(expect.anything(), expect.any(Date), {
+      plan: "Premium",
+    })
+  })
+
+  it("shows the savings progress card when a goal exists", async () => {
+    requireHousehold.mockResolvedValue({
+      repo: stubRepo({
+        goal: { target: 1_200_000, startingSaved: 100_000, startCycle: "2026-06", currency: "ISK" },
+        checkins: [{ cycleKey: "2026-06", inferredSaving: 400_000 }],
+      }),
+      plan: "Premium",
+      billingCurrency: "ISK",
+    })
+
+    render(await DashboardPage())
+
+    const card = screen.getByRole("link", { name: /savings goal/i })
+    expect(card).toHaveAttribute("href", "/savings")
+    expect(card).toHaveTextContent("ISK 500,000")
   })
 
   it("shows the account split and the review-backlog action for a multi-account household with work to do", async () => {

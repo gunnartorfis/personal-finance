@@ -2,10 +2,12 @@ import { AccountBreakdown } from "@/components/account-breakdown"
 import { ActionBand } from "@/components/action-band"
 import { BiggestMovers } from "@/components/biggest-movers"
 import { CategoryMixModule } from "@/components/category-mix-module"
+import { SavingsProgressCard } from "@/components/savings-progress-card"
 import { SpendingTrendChart } from "@/components/spending-trend-chart"
 import { ThisMonthHero } from "@/components/this-month-hero"
 import { TopMerchants } from "@/components/top-merchants"
 import { loadDashboardView } from "@/lib/dashboard/dashboard-view"
+import { buildSavingsProgress } from "@/lib/savings/progress"
 import { requireHousehold } from "@/lib/household/current"
 import { cn } from "@/lib/utils"
 
@@ -22,7 +24,12 @@ export const dynamic = "force-dynamic"
  */
 export default async function DashboardPage() {
   const { repo, plan, billingCurrency } = await requireHousehold()
-  const view = await loadDashboardView(repo, new Date(), { plan })
+  const [view, goal, checkins] = await Promise.all([
+    loadDashboardView(repo, new Date(), { plan }),
+    repo.savings.goal.get(),
+    repo.savings.checkins.list(),
+  ])
+  const savingsProgress = buildSavingsProgress(goal, checkins)
 
   const hasMerchants = view.modules.topMerchants.length > 0
   const hasMovers =
@@ -40,7 +47,7 @@ export default async function DashboardPage() {
       <ActionBand actionBand={view.actionBand} />
       <ThisMonthHero hero={view.hero} currency={billingCurrency} />
 
-      {/* Slot: the savings-goal progress card (separate Phase J work) belongs here, above the trend. */}
+      <SavingsProgressCard progress={savingsProgress} />
 
       <SpendingTrendChart
         series={view.modules.series}
