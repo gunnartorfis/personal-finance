@@ -89,6 +89,31 @@ describe("syncDueConnections (daily cron core)", () => {
     expect(classifier).toHaveBeenCalled();
   });
 
+  it("drains rows stranded pending by a prior run even when no new transactions arrive", async () => {
+    // Simulate a prior cron that inserted rows but crashed before classifying them.
+    const h = await premiumHousehold();
+    const conn = await activeConnectionWithAccount(h.repo, "uid-s");
+    const [account] = await h.repo.accounts.listByConnection(conn.id);
+    await h.repo.transactions.createSyncedMany([
+      { accountId: account.id, source: "bank_sync", externalId: "stranded1", date: "2026-02-01", amount: -750, merchant: "SHOP", rawCategory: "" },
+    ]);
+    expect((await h.repo.transactions.list()).every((t) => t.classificationStatus === "pending")).toBe(true);
+
+    // Today's sync finds nothing new (inserted === 0).
+    const provider = scriptedProvider({ "uid-s": [] });
+    const res = await syncDueConnections({
+      db: asCronDb(db),
+      provider,
+      now: NOW,
+      classifier: vi.fn(stubClassifier),
+    });
+
+    expect(res.inserted).toBe(0);
+    // The stranded row is still flushed.
+    const pending = (await h.repo.transactions.list()).filter((t) => t.classificationStatus === "pending");
+    expect(pending).toHaveLength(0);
+  });
+
   it("ignores households whose only connection is not active", async () => {
     const dormant = await premiumHousehold();
     const conn = await activeConnectionWithAccount(dormant.repo, "uid-d");

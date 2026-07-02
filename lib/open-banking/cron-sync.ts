@@ -78,6 +78,11 @@ export async function syncDueConnections(params: {
       });
       inserted += res.inserted;
       failed += res.failed;
+      // Drain unconditionally: a prior run may have inserted rows then crashed before classifying,
+      // leaving them pending on a day with no new transactions (where syncActiveConnections skips
+      // its inserted-gated classify). drainPending short-circuits on an empty queue, so the extra
+      // call is a no-op when everything is already classified.
+      await drainHousehold(repo, classifier, household.plan);
     } catch (err) {
       // syncActiveConnections isolates per-connection internally, so this only fires on an
       // unexpected household-level error; count it and keep the batch going.
