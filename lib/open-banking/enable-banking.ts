@@ -187,7 +187,18 @@ export class EnableBankingClient implements IngestionProvider {
       }>("GET", `/accounts/${accountUid}/transactions`, {
         query: { date_from: range.from, date_to: range.to, continuation_key: continuationKey },
       });
-      out.push(...data.transactions.map(toProviderTransaction));
+      for (const raw of data.transactions) {
+        const txn = toProviderTransaction(raw);
+        if (!txn.externalId) {
+          // No transaction_id and no entry_reference — an unusable dedup key. Skip loudly rather
+          // than persist an empty-string sentinel that would collide across rows and corrupt dedup.
+          console.warn(
+            `Enable Banking transaction for account ${accountUid} has no transaction_id or entry_reference; skipping`,
+          );
+          continue;
+        }
+        out.push(txn);
+      }
       continuationKey = data.continuation_key;
       pages += 1;
     } while (continuationKey);
