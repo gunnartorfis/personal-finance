@@ -818,7 +818,7 @@ export function householdRepo(db: Db, householdId: string) {
         replace: (
           values: Array<Omit<typeof savingsIncomeSources.$inferInsert, "householdId">>
         ) =>
-          db.transaction(async (tx) => {
+          db.transaction(async (tx): Promise<Array<typeof savingsIncomeSources.$inferSelect>> => {
             await tx
               .delete(savingsIncomeSources)
               .where(eq(savingsIncomeSources.householdId, householdId))
@@ -840,7 +840,7 @@ export function householdRepo(db: Db, householdId: string) {
         replace: (
           values: Array<Omit<typeof savingsOffcardCosts.$inferInsert, "householdId">>
         ) =>
-          db.transaction(async (tx) => {
+          db.transaction(async (tx): Promise<Array<typeof savingsOffcardCosts.$inferSelect>> => {
             await tx
               .delete(savingsOffcardCosts)
               .where(eq(savingsOffcardCosts.householdId, householdId))
