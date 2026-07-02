@@ -64,6 +64,14 @@ export function householdRepo(db: Db, householdId: string) {
        * Find a synced Account by its Bank connection + aggregator account id — the key for idempotent
        * account discovery on (re)connect, so re-running a sync never duplicates an account.
        */
+      /** The synced Accounts belonging to one Bank connection (for sync). */
+      listByConnection: (connectionId: string) =>
+        db
+          .select()
+          .from(accounts)
+          .where(
+            and(eq(accounts.householdId, householdId), eq(accounts.connectionId, connectionId))
+          ),
       bySyncKey: async (connectionId: string, externalAccountId: string) => {
         const [row] = await db
           .select()
@@ -84,6 +92,17 @@ export function householdRepo(db: Db, householdId: string) {
           .select()
           .from(bankConnections)
           .where(eq(bankConnections.householdId, householdId)),
+      /** Connections currently syncable (status `active`) — the daily sync's work set. */
+      listActive: () =>
+        db
+          .select()
+          .from(bankConnections)
+          .where(
+            and(
+              eq(bankConnections.householdId, householdId),
+              eq(bankConnections.status, "active")
+            )
+          ),
       findById: async (id: string) => {
         const [row] = await db
           .select()
@@ -216,6 +235,30 @@ export function householdRepo(db: Db, householdId: string) {
           : db
               .insert(transactions)
               .values(values.map((v) => ({ ...v, householdId })))
+              .returning(),
+      /**
+       * Insert synced (bank_sync) rows, skipping any that already exist by
+       * `(household, account, externalId)` — idempotent against the partial unique index, so a
+       * re-sync of an overlapping window never duplicates a transaction. Returns only the newly
+       * inserted rows (the count of genuinely new transactions).
+       */
+      createSyncedMany: (
+        values: Array<Omit<typeof transactions.$inferInsert, "householdId">>
+      ) =>
+        values.length === 0
+          ? Promise.resolve([])
+          : db
+              .insert(transactions)
+              .values(values.map((v) => ({ ...v, householdId })))
+              .onConflictDoNothing({
+                target: [
+                  transactions.householdId,
+                  transactions.accountId,
+                  transactions.externalId,
+                ],
+                // Match the partial unique index's predicate so Postgres infers it as the arbiter.
+                where: sql`${transactions.externalId} is not null`,
+              })
               .returning(),
       /**
        * The classification work queue: transactions still awaiting classification, in a stable
