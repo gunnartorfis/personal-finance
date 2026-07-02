@@ -40,6 +40,13 @@ describe("POST /api/open-banking/connections/[id]/disconnect", () => {
     expect(repo.bankConnections.update).not.toHaveBeenCalled()
   })
 
+  it("404s (not 500) if the update races to an empty result", async () => {
+    repo.bankConnections.findById.mockResolvedValue({ id: VALID, status: "active" })
+    repo.bankConnections.update.mockResolvedValue([])
+    const res = await post(VALID)
+    expect(res.status).toBe(404)
+  })
+
   it("revokes the connection and returns its new status", async () => {
     repo.bankConnections.findById.mockResolvedValue({ id: VALID, status: "active" })
     repo.bankConnections.update.mockResolvedValue([{ id: VALID, status: "revoked" }])

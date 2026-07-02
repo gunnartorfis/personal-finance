@@ -57,7 +57,16 @@ export function DisconnectButton({
   return (
     <div className="flex flex-col items-end gap-1">
       <div className="flex items-center gap-2">
-        <Button type="button" variant="ghost" size="lg" onClick={() => setConfirming(false)} disabled={busy}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="lg"
+          onClick={() => {
+            setConfirming(false)
+            setErrored(false) // don't carry a prior failure into the next attempt
+          }}
+          disabled={busy}
+        >
           Cancel
         </Button>
         <Button

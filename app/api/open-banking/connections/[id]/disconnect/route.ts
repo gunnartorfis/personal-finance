@@ -23,5 +23,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   }
 
   const [updated] = await repo.bankConnections.update(id, { status: "revoked" })
+  if (!updated) {
+    // The findById above makes this near-impossible, but guard a TOCTOU rather than crash on undefined.
+    return NextResponse.json({ error: "connection not found" }, { status: 404 })
+  }
   return NextResponse.json({ id: updated.id, status: updated.status })
 }

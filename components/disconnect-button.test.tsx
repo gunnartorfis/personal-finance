@@ -51,4 +51,18 @@ describe("DisconnectButton", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/try again/i)
     expect(refresh).not.toHaveBeenCalled()
   })
+
+  it("clears a prior error when cancelled, so re-opening is clean", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("no", { status: 500 }))
+
+    render(<DisconnectButton connectionId="c1" institutionName="Indó" />)
+    fireEvent.click(screen.getByRole("button", { name: /^disconnect indó/i }))
+    fireEvent.click(screen.getByRole("button", { name: /confirm disconnect indó/i }))
+    expect(await screen.findByRole("alert")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }))
+    // Re-enter the confirming state — the stale error must be gone.
+    fireEvent.click(screen.getByRole("button", { name: /^disconnect indó/i }))
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
 })
