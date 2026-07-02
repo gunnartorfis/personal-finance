@@ -108,6 +108,44 @@ describe("ingestion & classification schema", () => {
     ).rejects.toThrow();
   });
 
+  it("excludes a debit, with or without a reason note (ADR-0011)", async () => {
+    const [bare] = await db
+      .insert(transactions)
+      .values({ ...baseTxn(), excluded: true })
+      .returning();
+    expect(bare.excluded).toBe(true);
+    expect(bare.exclusionNote).toBeNull();
+    const [noted] = await db
+      .insert(transactions)
+      .values({ ...baseTxn(), excluded: true, exclusionNote: "grandma's vacuum" })
+      .returning();
+    expect(noted.exclusionNote).toBe("grandma's vacuum");
+  });
+
+  it("rejects a row that is both excluded and income-marked (mutually exclusive)", async () => {
+    await expect(
+      db
+        .insert(transactions)
+        .values({ ...baseTxn(), amount: 1000, excluded: true, incomeMarked: true }),
+    ).rejects.toThrow();
+  });
+
+  it("rejects an exclusion note on a row that is not excluded", async () => {
+    await expect(
+      db
+        .insert(transactions)
+        .values({ ...baseTxn(), excluded: false, exclusionNote: "orphan note" }),
+    ).rejects.toThrow();
+  });
+
+  it("rejects an exclusion note longer than the 280-char cap", async () => {
+    await expect(
+      db
+        .insert(transactions)
+        .values({ ...baseTxn(), excluded: true, exclusionNote: "x".repeat(281) }),
+    ).rejects.toThrow();
+  });
+
   it("rejects an upload whose account belongs to another household (composite FK)", async () => {
     const [h2] = await db.insert(households).values({}).returning();
     const [a2] = await db.insert(accounts).values({ householdId: h2.id, name: "Other" }).returning();

@@ -343,6 +343,16 @@ export const transactions = pgTable(
      * payments, or refunds, not revenue (ADR-0009).
      */
     incomeMarked: boolean("income_marked").notNull().default(false),
+    /**
+     * A Member dropped this Transaction from every calculation — Spending, Income, Difference,
+     * spend series, expense-type buckets, and Inferred saving (ADR-0011). Unlike income marking it
+     * applies to any sign: a debit that is not true household spending (reimbursed by someone else,
+     * a mistaken charge, a cost fronted for another party — the "grandma's vacuum"), or a credit
+     * whose exclusion a Member wants recorded explicitly. Mutually exclusive with `incomeMarked`.
+     */
+    excluded: boolean("excluded").notNull().default(false),
+    /** Optional free-text reason shown on the excluded row (e.g. "grandma's vacuum"); null otherwise. */
+    exclusionNote: text("exclusion_note"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -350,6 +360,22 @@ export const transactions = pgTable(
     check(
       "transactions_income_marked_credit_only",
       sql`NOT ${t.incomeMarked} OR ${t.amount} > 0`,
+    ),
+    // A row is in exactly one net state: Spending, Income (marked), or Excluded — never both of the
+    // last two (ADR-0011).
+    check(
+      "transactions_excluded_not_income",
+      sql`NOT (${t.excluded} AND ${t.incomeMarked})`,
+    ),
+    // An exclusion note only makes sense on an excluded row; forbid a dangling note.
+    check(
+      "transactions_exclusion_note_requires_excluded",
+      sql`${t.exclusionNote} IS NULL OR ${t.excluded}`,
+    ),
+    // Bound the note length at the DB too, so a direct insert / seed can't bypass the API's cap.
+    check(
+      "transactions_exclusion_note_length",
+      sql`${t.exclusionNote} IS NULL OR char_length(${t.exclusionNote}) <= 280`,
     ),
     // A row has an Expense type iff it is classified ("" counts); pending/failed carry none.
     check(

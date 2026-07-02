@@ -371,6 +371,124 @@ describe("householdRepo", () => {
     });
   });
 
+  describe("transactions.setExcluded", () => {
+    const range = { from: "2026-03-01", to: "2026-04-01" };
+    async function seed(a: Awaited<ReturnType<typeof twoHouseholds>>["a"]) {
+      const [account] = await a.accounts.create({ name: "Visa" });
+      const [upload] = await a.uploads.create({
+        accountId: account.id,
+        fileName: "e.csv",
+        fileHash: `exc-${account.id}`,
+      });
+      return { accountId: account.id, uploadId: upload.id };
+    }
+
+    it("drops an excluded debit from the net summary rows and spend series", async () => {
+      const { a } = await twoHouseholds();
+      const { accountId, uploadId } = await seed(a);
+      const [txn] = await a.transactions.create({
+        accountId,
+        uploadId,
+        date: "2026-03-10",
+        amount: -5000,
+        merchant: "VACUUM",
+        rawCategory: "",
+        sourceRow: 0,
+        classificationStatus: "classified",
+        expenseType: "Nice to have",
+      });
+      expect(await a.transactions.summaryRows(range)).toHaveLength(1);
+
+      const [excluded] = await a.transactions.setExcluded(txn.id, true, "grandma's vacuum");
+      expect(excluded.excluded).toBe(true);
+      expect(excluded.exclusionNote).toBe("grandma's vacuum");
+      expect(await a.transactions.summaryRows(range)).toHaveLength(0);
+      expect(await a.transactions.monthlySpendSeries(range)).toHaveLength(0);
+
+      // Re-including brings it back into the calculations and clears the note.
+      const [reincluded] = await a.transactions.setExcluded(txn.id, false);
+      expect(reincluded.excluded).toBe(false);
+      expect(reincluded.exclusionNote).toBeNull();
+      expect(await a.transactions.summaryRows(range)).toHaveLength(1);
+    });
+
+    it("clears an income mark when excluding a credit (mutually exclusive)", async () => {
+      const { a } = await twoHouseholds();
+      const { accountId, uploadId } = await seed(a);
+      const [credit] = await a.transactions.create({
+        accountId,
+        uploadId,
+        date: "2026-03-12",
+        amount: 8000,
+        merchant: "REFUND",
+        rawCategory: "",
+        sourceRow: 1,
+        incomeMarked: true,
+        classificationStatus: "classified",
+        expenseType: "",
+      });
+      const [excluded] = await a.transactions.setExcluded(credit.id, true);
+      expect(excluded.excluded).toBe(true);
+      expect(excluded.incomeMarked).toBe(false);
+    });
+
+    it("re-including a formerly income-marked credit does NOT restore the mark (fresh state)", async () => {
+      const { a } = await twoHouseholds();
+      const { accountId, uploadId } = await seed(a);
+      const [credit] = await a.transactions.create({
+        accountId,
+        uploadId,
+        date: "2026-03-12",
+        amount: 8000,
+        merchant: "REFUND",
+        rawCategory: "",
+        sourceRow: 1,
+        incomeMarked: true,
+        classificationStatus: "classified",
+        expenseType: "",
+      });
+      await a.transactions.setExcluded(credit.id, true);
+      // Re-including returns the row to the default credit state (unmarked), by design (ADR-0011):
+      // there is no stored prior state to restore, and re-inclusion is a fresh decision.
+      const [reincluded] = await a.transactions.setExcluded(credit.id, false);
+      expect(reincluded.excluded).toBe(false);
+      expect(reincluded.incomeMarked).toBe(false);
+    });
+
+    it("scopes the update to the bound household", async () => {
+      const { a, b } = await twoHouseholds();
+      const { accountId, uploadId } = await seed(a);
+      const [txn] = await a.transactions.create({
+        accountId,
+        uploadId,
+        date: "2026-03-10",
+        amount: -100,
+        merchant: "X",
+        rawCategory: "",
+        sourceRow: 0,
+      });
+      expect(await b.transactions.setExcluded(txn.id, true)).toHaveLength(0);
+    });
+
+    it("setIncomeMarked no-ops on an excluded credit (mutually exclusive, no CHECK trip)", async () => {
+      const { a } = await twoHouseholds();
+      const { accountId, uploadId } = await seed(a);
+      const [credit] = await a.transactions.create({
+        accountId,
+        uploadId,
+        date: "2026-03-12",
+        amount: 8000,
+        merchant: "REFUND",
+        rawCategory: "",
+        sourceRow: 1,
+        excluded: true,
+      });
+      // Marking an excluded credit as income would violate the CHECK; the WHERE guard makes it a
+      // no-op instead (empty result → the route 404s rather than 500ing on a concurrent exclude).
+      expect(await a.transactions.setIncomeMarked(credit.id, true)).toHaveLength(0);
+    });
+  });
+
   describe("transactions.progress", () => {
     /** Seed an upload in household `a` with `n` rows, then classify/fail some of them. */
     async function seedUpload(

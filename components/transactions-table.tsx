@@ -4,13 +4,14 @@ import { ChevronDown, ChevronsUpDown, ChevronUp, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useId, useMemo, useState } from "react"
 
+import { ExcludeControl } from "@/components/exclude-control"
 import { IncomeToggle } from "@/components/income-toggle"
 import { OverrideControl } from "@/components/override-control"
 import { cn } from "@/lib/utils"
 import type { ExpenseType } from "@/shared/types"
 
-/** A row's effective bucket for filtering: an expense type, an unreviewed debit, or a credit. */
-type TypeBucket = ExpenseType | "unclassified" | "credit"
+/** A row's effective bucket for filtering: excluded, an expense type, an unreviewed debit, or a credit. */
+type TypeBucket = ExpenseType | "unclassified" | "credit" | "excluded"
 /** The type dropdown's value: any bucket, or "all" for no type filter. */
 type TypeFilter = TypeBucket | "all"
 
@@ -26,10 +27,13 @@ const TYPE_FILTERS: { value: TypeFilter; label: string }[] = [
   { value: "", label: "Split / none" },
   { value: "unclassified", label: "Unclassified" },
   { value: "credit", label: "Credits" },
+  { value: "excluded", label: "Excluded" },
 ]
 
-/** The bucket a row falls in, mirroring the display logic (credit → income; unreviewed debit → its status). */
+/** The bucket a row falls in, mirroring the display logic (excluded wins; credit → income; unreviewed debit → its status). */
 function bucketOf(row: TransactionRow): TypeBucket {
+  // Excluded rows count for nothing, so they leave every type-specific bucket (ADR-0011).
+  if (row.excluded) return "excluded"
   if (row.amount > 0) return "credit"
   const unclassified =
     row.classificationStatus !== "classified" && row.overrideType === null
@@ -45,6 +49,10 @@ export interface TransactionRow {
   amount: number
   /** Manually marked as real income (credits only, ADR-0009); unmarked credits count for nothing. */
   incomeMarked: boolean
+  /** Manually excluded from every calculation (ADR-0011); any sign. */
+  excluded: boolean
+  /** Optional reason shown on an excluded row; null otherwise. */
+  exclusionNote: string | null
   classifiedType: ExpenseType | null
   /** AI confidence 0..1; null for credits and not-yet-classified (pending/failed) rows. */
   confidence: number | null
@@ -160,6 +168,29 @@ export function TransactionsTable({
       current.map((row) => (row.id === id ? { ...row, incomeMarked } : row))
     )
     // Marking changes the server-derived Income / Difference in the period summary above.
+    router.refresh()
+  }
+
+  function handleExcludeChanged(
+    id: string,
+    next: { excluded: boolean; note: string | null }
+  ) {
+    setRows((current) =>
+      current.map((row) =>
+        row.id === id
+          ? {
+              ...row,
+              excluded: next.excluded,
+              exclusionNote: next.note,
+              // Excluding clears any income mark (mutually exclusive, ADR-0011); the server does the
+              // same, so mirror it locally to keep the row consistent without a round-trip.
+              incomeMarked: next.excluded ? false : row.incomeMarked,
+            }
+          : row
+      )
+    )
+    // Excluding/including changes server-derived Spending, Income, Difference, and the whole-household
+    // review backlog — refresh to recompute them, as the other inline controls do.
     router.refresh()
   }
 
@@ -366,40 +397,76 @@ export function TransactionsTable({
                       <td className="py-3 pr-4 text-muted-foreground tabular-nums">
                         {fmtDate(row.date)}
                       </td>
-                      <td className="py-3 pr-4 font-medium">{row.merchant}</td>
+                      <td
+                        className={cn(
+                          "py-3 pr-4 font-medium",
+                          // Excluded rows read as struck-through: they count for nothing (ADR-0011).
+                          row.excluded && "text-muted-foreground line-through"
+                        )}
+                      >
+                        {row.merchant}
+                      </td>
                       <td
                         className={cn(
                           "py-3 pr-4 text-right tabular-nums",
-                          isCredit && "text-emerald-600 dark:text-emerald-500"
+                          isCredit &&
+                            !row.excluded &&
+                            "text-emerald-600 dark:text-emerald-500",
+                          row.excluded && "text-muted-foreground line-through"
                         )}
                       >
                         {fmtAmount(row.amount)}
                       </td>
                       <td className="py-3">
-                        {isCredit ? (
-                          // A credit is never an expense: no type to pick. It counts as income only
-                          // when marked here (ADR-0009) — unmarked credits are excluded everywhere.
-                          <IncomeToggle
+                        {row.excluded ? (
+                          // Excluded: no type or income choice applies — just the badge, any reason,
+                          // and an Include action to bring it back into the calculations (ADR-0011).
+                          <ExcludeControl
                             transactionId={row.id}
-                            incomeMarked={row.incomeMarked}
+                            excluded
+                            note={row.exclusionNote}
                             onChanged={(next) =>
-                              handleIncomeChanged(row.id, next)
+                              handleExcludeChanged(row.id, next)
                             }
                           />
                         ) : (
-                          <div className="flex flex-col gap-1">
-                            {unclassified && (
-                              <span className="text-muted-foreground">
-                                {row.classificationStatus === "failed"
-                                  ? "Classification failed"
-                                  : "Awaiting classification"}
-                              </span>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                            {isCredit ? (
+                              // A credit is never an expense: no type to pick. It counts as income
+                              // only when marked here (ADR-0009) — unmarked credits count for nothing.
+                              <IncomeToggle
+                                transactionId={row.id}
+                                incomeMarked={row.incomeMarked}
+                                onChanged={(next) =>
+                                  handleIncomeChanged(row.id, next)
+                                }
+                              />
+                            ) : (
+                              <div className="flex flex-col gap-1">
+                                {unclassified && (
+                                  <span className="text-muted-foreground">
+                                    {row.classificationStatus === "failed"
+                                      ? "Classification failed"
+                                      : "Awaiting classification"}
+                                  </span>
+                                )}
+                                <OverrideControl
+                                  transactionId={row.id}
+                                  value={effective}
+                                  hasOverride={row.overrideType !== null}
+                                  onChanged={(next) =>
+                                    handleChanged(row.id, next)
+                                  }
+                                />
+                              </div>
                             )}
-                            <OverrideControl
+                            <ExcludeControl
                               transactionId={row.id}
-                              value={effective}
-                              hasOverride={row.overrideType !== null}
-                              onChanged={(next) => handleChanged(row.id, next)}
+                              excluded={false}
+                              note={null}
+                              onChanged={(next) =>
+                                handleExcludeChanged(row.id, next)
+                              }
                             />
                           </div>
                         )}
