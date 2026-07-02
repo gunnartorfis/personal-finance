@@ -1,8 +1,8 @@
 import { unstable_rethrow } from "next/navigation";
 import { NextResponse } from "next/server";
 
-import { freeCapStatus } from "@/lib/billing/free-cap-status";
 import { requireHousehold } from "@/lib/household/current";
+import { isClassificationPaused } from "@/shared/free-cap";
 
 /**
  * GET /api/classify/status — household-wide classification backlog (ADR-0005). Unlike the
@@ -14,12 +14,15 @@ import { requireHousehold } from "@/lib/household/current";
 export async function GET() {
   try {
     const { plan, repo } = await requireHousehold();
+    // Only a Free household can be paused, and only then is the classified count needed — skip that
+    // count entirely for Premium (uncapped) so the common case is two counts, not three, per poll.
+    const capped = plan !== "Premium";
     const [pending, failed, classified] = await Promise.all([
       repo.transactions.countPending(),
       repo.transactions.countFailed(),
-      repo.transactions.countClassified(),
+      capped ? repo.transactions.countClassified() : Promise.resolve(0),
     ]);
-    const { paused } = freeCapStatus({ plan, classifiedCount: classified });
+    const paused = capped && isClassificationPaused(plan, classified);
     return NextResponse.json({ pending, failed, paused });
   } catch (error) {
     // requireHousehold signals auth/tenant redirects via control-flow errors Next must catch.

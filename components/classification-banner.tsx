@@ -2,7 +2,7 @@
 
 import { Sparkles, TriangleAlert } from "lucide-react"
 import { usePathname } from "next/navigation"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import { ClassifyTrigger } from "@/components/classify-trigger"
 
@@ -32,29 +32,31 @@ export function ClassificationBanner() {
   const pathname = usePathname()
   const [status, setStatus] = useState<ClassifyStatus | null>(null)
 
-  const refresh = useCallback(async (signal?: AbortSignal) => {
+  // Fetches the backlog and returns it (no setState) so callers can apply the result inside an async
+  // `.then` — keeps the state update off the effect's synchronous path. Returns null on any transient
+  // failure (network / abort / non-2xx); the next poll or navigation refetches.
+  const fetchStatus = useCallback(async (signal?: AbortSignal) => {
     try {
       const res = await fetch("/api/classify/status", { signal })
-      if (!res.ok) return
-      setStatus((await res.json()) as ClassifyStatus)
+      return res.ok ? ((await res.json()) as ClassifyStatus) : null
     } catch {
-      // Transient (network / abort) — the next poll or navigation refetches.
+      return null
     }
   }, [])
 
   const onDashboard = pathname === "/dashboard"
 
   // Refetch on first mount and on every client navigation (the layout keeps this mounted across
-  // route changes, so pathname is the signal). Skip the dashboard, which surfaces the backlog itself.
-  // The ref-guard fires the fetch at most once per path, so setState never runs on every effect pass.
-  const fetchedPath = useRef<string | null>(null)
+  // route changes, so pathname is the signal) — so a backlog created elsewhere surfaces as soon as
+  // the user lands on any non-dashboard page. Skip the dashboard, which surfaces the backlog itself.
   useEffect(() => {
-    if (onDashboard || fetchedPath.current === pathname) return
-    fetchedPath.current = pathname
+    if (onDashboard) return
     const controller = new AbortController()
-    void refresh(controller.signal)
+    void fetchStatus(controller.signal).then((next) => {
+      if (next) setStatus(next)
+    })
     return () => controller.abort()
-  }, [onDashboard, pathname, refresh])
+  }, [onDashboard, pathname, fetchStatus])
 
   const pending = status?.pending ?? 0
   const failed = status?.failed ?? 0
@@ -65,9 +67,13 @@ export function ClassificationBanner() {
   // and disappears once the queue is empty. Idle pages never poll.
   useEffect(() => {
     if (!visible) return
-    const id = setInterval(() => void refresh(), POLL_MS)
+    const id = setInterval(() => {
+      void fetchStatus().then((next) => {
+        if (next) setStatus(next)
+      })
+    }, POLL_MS)
     return () => clearInterval(id)
-  }, [visible, refresh])
+  }, [visible, fetchStatus])
 
   if (!visible) return null
 
