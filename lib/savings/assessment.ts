@@ -51,7 +51,13 @@ export interface SavingsAssessment {
   expectedNecessary: number;
   expectedSource: "history" | "manual" | "none";
   allowedNiceToHave: number;
-  /** True while the current (in-progress) cycle is counted — its numbers still move as spend lands. */
+  /**
+   * True whenever the current (in-progress) cycle is counted — i.e. from the goal's start cycle
+   * onward. Deliberate and effectively always-on for an active goal: unlike the old check-in
+   * (which froze a completed cycle and only flagged unclassified rows), progress here always
+   * includes the current month, whose spend keeps changing until the cycle closes. The panel uses
+   * it to tell the user the latest cycle's numbers are not yet final.
+   */
   provisional: boolean;
 }
 

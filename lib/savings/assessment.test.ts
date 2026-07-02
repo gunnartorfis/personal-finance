@@ -93,4 +93,20 @@ describe("loadSavingsSnapshot", () => {
   it("is null without a goal", async () => {
     expect(await loadSavingsSnapshot(fakeRepo({}), NOW)).toBeNull();
   });
+
+  it("handles a goal whose start cycle is still in the future", async () => {
+    const snapshot = await loadSavingsSnapshot(
+      fakeRepo({
+        goal: { ...GOAL, startCycle: "2026-09" }, // after NOW (2026-08)
+        income: [{ amount: 1_000_000 }],
+        offcard: [{ monthlyAmount: 200_000 }],
+      }),
+      NOW,
+    );
+    expect(snapshot).not.toBeNull();
+    expect(snapshot!.cycles).toEqual([]); // inverted range → no elapsed cycles
+    expect(snapshot!.assessment.cyclesElapsed).toBe(0);
+    expect(snapshot!.assessment.provisional).toBe(false);
+    expect(snapshot!.progress.saved).toBe(GOAL.startingSaved); // only the starting balance
+  });
 });
