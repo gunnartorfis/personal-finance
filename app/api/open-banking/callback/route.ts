@@ -57,7 +57,12 @@ export async function GET(request: Request) {
       `<body><p>Finishing up… <a href="${target}">Continue</a>.</p></body></html>`
     return new NextResponse(html, {
       status: 200,
-      headers: { "content-type": "text/html; charset=utf-8" },
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        // Never cache an OAuth callback response: a cached interstitial could re-redirect on
+        // replay/back-navigation without re-running CSRF + intent consumption.
+        "cache-control": "no-store",
+      },
     })
   }
 

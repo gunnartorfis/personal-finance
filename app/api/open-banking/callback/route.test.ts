@@ -35,8 +35,11 @@ beforeEach(() => {
 const landsOn = async (res: Response, target: string) => {
   expect(res.status).toBe(200)
   expect(res.headers.get("content-type")).toContain("text/html")
+  // OAuth callback responses must not be cached (replay protection).
+  expect(res.headers.get("cache-control")).toBe("no-store")
   const html = await res.text()
-  expect(html).toContain(target)
+  // Assert the full absolute URL so a wrong scheme/origin would fail, not just the path fragment.
+  expect(html).toContain(`http://test${target}`)
   // Client-initiated navigation (not an HTTP redirect), so no Location header.
   expect(res.headers.get("location")).toBeNull()
 }
