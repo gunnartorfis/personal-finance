@@ -48,8 +48,41 @@ import type * as schema from "./schema"
 // this type — the query surface used here (select/insert) is identical across drivers.
 type Db = NodePgDatabase<typeof schema>
 
+// A drizzle transaction handle (or the db itself) — what the savings swap helpers write through.
+type DbOrTx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0]
+
 /** Build a data-access surface scoped to a single Household. */
 export function householdRepo(db: Db, householdId: string) {
+  // Full-set swaps for the Savings config lists (delete + insert). Callers wrap these in a
+  // transaction — per list for a single-list replace, or one shared transaction for
+  // `savings.replaceConfig` so the two lists can never commit half-updated.
+  const swapIncomeSources = async (
+    tx: DbOrTx,
+    values: Array<Omit<typeof savingsIncomeSources.$inferInsert, "householdId">>
+  ): Promise<Array<typeof savingsIncomeSources.$inferSelect>> => {
+    await tx
+      .delete(savingsIncomeSources)
+      .where(eq(savingsIncomeSources.householdId, householdId))
+    if (values.length === 0) return []
+    return tx
+      .insert(savingsIncomeSources)
+      .values(values.map((v) => ({ ...v, householdId })))
+      .returning()
+  }
+  const swapOffcardCosts = async (
+    tx: DbOrTx,
+    values: Array<Omit<typeof savingsOffcardCosts.$inferInsert, "householdId">>
+  ): Promise<Array<typeof savingsOffcardCosts.$inferSelect>> => {
+    await tx
+      .delete(savingsOffcardCosts)
+      .where(eq(savingsOffcardCosts.householdId, householdId))
+    if (values.length === 0) return []
+    return tx
+      .insert(savingsOffcardCosts)
+      .values(values.map((v) => ({ ...v, householdId })))
+      .returning()
+  }
+
   return {
     accounts: {
       list: () =>
@@ -934,17 +967,7 @@ export function householdRepo(db: Db, householdId: string) {
          */
         replace: (
           values: Array<Omit<typeof savingsIncomeSources.$inferInsert, "householdId">>
-        ) =>
-          db.transaction(async (tx): Promise<Array<typeof savingsIncomeSources.$inferSelect>> => {
-            await tx
-              .delete(savingsIncomeSources)
-              .where(eq(savingsIncomeSources.householdId, householdId))
-            if (values.length === 0) return []
-            return tx
-              .insert(savingsIncomeSources)
-              .values(values.map((v) => ({ ...v, householdId })))
-              .returning()
-          }),
+        ) => db.transaction((tx) => swapIncomeSources(tx, values)),
       },
       offcardCosts: {
         list: () =>
@@ -956,18 +979,21 @@ export function householdRepo(db: Db, householdId: string) {
         /** Replace the household's full set of Off-card fixed costs; same shape as income sources. */
         replace: (
           values: Array<Omit<typeof savingsOffcardCosts.$inferInsert, "householdId">>
-        ) =>
-          db.transaction(async (tx): Promise<Array<typeof savingsOffcardCosts.$inferSelect>> => {
-            await tx
-              .delete(savingsOffcardCosts)
-              .where(eq(savingsOffcardCosts.householdId, householdId))
-            if (values.length === 0) return []
-            return tx
-              .insert(savingsOffcardCosts)
-              .values(values.map((v) => ({ ...v, householdId })))
-              .returning()
-          }),
+        ) => db.transaction((tx) => swapOffcardCosts(tx, values)),
       },
+      /**
+       * Replace BOTH Savings-config lists in one transaction (the config form saves them
+       * together), so a failure on either list rolls the whole save back — the config can
+       * never commit half-updated (income swapped, costs stale).
+       */
+      replaceConfig: (
+        incomeSources: Array<Omit<typeof savingsIncomeSources.$inferInsert, "householdId">>,
+        offcardCosts: Array<Omit<typeof savingsOffcardCosts.$inferInsert, "householdId">>
+      ) =>
+        db.transaction(async (tx) => ({
+          incomeSources: await swapIncomeSources(tx, incomeSources),
+          offcardCosts: await swapOffcardCosts(tx, offcardCosts),
+        })),
       checkins: {
         /** The household's Check-in history, oldest cycle first (cumulative math reads in order). */
         list: () =>
