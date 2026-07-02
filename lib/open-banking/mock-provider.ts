@@ -56,4 +56,8 @@ export class MockIngestionProvider implements IngestionProvider {
   async listTransactions(): Promise<ProviderTransaction[]> {
     return this.data.transactions ?? [];
   }
+
+  async deleteSession(): Promise<void> {
+    // No-op: the mock has no server-side consent to revoke.
+  }
 }

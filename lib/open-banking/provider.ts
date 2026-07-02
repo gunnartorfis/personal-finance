@@ -71,4 +71,6 @@ export interface IngestionProvider {
     accountUid: string,
     range: { from: string; to: string },
   ): Promise<ProviderTransaction[]>;
+  /** Withdraw consent for a session at the aggregator (PSD2 revoke) — used on disconnect. */
+  deleteSession(sessionId: string): Promise<void>;
 }

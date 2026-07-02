@@ -39,6 +39,7 @@ function scriptedProvider(byUid: Record<string, ProviderTransaction[]>): Ingesti
     startAuth: async () => ({ url: "", authorizationId: "" }),
     authorizeSession: async () => ({ sessionId: "", accounts: [], consentValidUntil: "" }),
     getSession: async () => ({ status: "AUTHORIZED", consentValidUntil: "" }),
+    deleteSession: async () => {},
     listTransactions: async (uid) => {
       if (uid === "boom") throw new Error("consent expired");
       return byUid[uid] ?? [];
