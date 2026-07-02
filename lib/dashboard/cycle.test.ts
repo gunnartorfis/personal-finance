@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  cyclesBetweenInclusive,
   cycleKeyLabel,
   cycleKeyRange,
   cycleLabel,
@@ -123,5 +124,18 @@ describe("recentCycleKeys", () => {
   it("returns an empty list for a non-positive count", () => {
     expect(recentCycleKeys(new Date("2026-07-09T00:00:00Z"), 0)).toEqual([]);
     expect(recentCycleKeys(new Date("2026-07-09T00:00:00Z"), -2)).toEqual([]);
+  });
+});
+
+describe("cyclesBetweenInclusive", () => {
+  it("counts whole cycles from start through end inclusive", () => {
+    expect(cyclesBetweenInclusive("2026-07", "2026-07")).toBe(1);
+    expect(cyclesBetweenInclusive("2026-07", "2027-06")).toBe(12);
+    expect(cyclesBetweenInclusive("2026-11", "2027-02")).toBe(4);
+  });
+
+  it("is zero or negative when the end cycle precedes the start", () => {
+    expect(cyclesBetweenInclusive("2026-07", "2026-06")).toBe(0);
+    expect(cyclesBetweenInclusive("2026-07", "2025-07")).toBe(-11);
   });
 });
