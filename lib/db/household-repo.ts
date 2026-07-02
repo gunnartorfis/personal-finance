@@ -661,6 +661,31 @@ export function householdRepo(db: Db, householdId: string) {
           )
         return row?.value ?? 0
       },
+      /**
+       * Count of transactions still awaiting classification — same predicate as {@link listPending}
+       * (pending, manual overrides excluded), so it counts exactly what a drain would attempt.
+       * Drives the dashboard's "Classify pending" affordance.
+       */
+      countPending: async () => {
+        const [row] = await db
+          .select({ value: count() })
+          .from(transactions)
+          .leftJoin(
+            overrides,
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactions.id)
+            )
+          )
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              eq(transactions.classificationStatus, "pending"),
+              isNull(overrides.id)
+            )
+          )
+        return row?.value ?? 0
+      },
       /** Count of transactions left in `failed` state — drives the "Retry failed" affordance. */
       countFailed: async () => {
         const [row] = await db

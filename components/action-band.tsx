@@ -1,4 +1,4 @@
-import { ArrowRight, CircleCheck, ClipboardCheck, TriangleAlert } from "lucide-react"
+import { ArrowRight, CircleCheck, ClipboardCheck, Sparkles, TriangleAlert } from "lucide-react"
 import Link from "next/link"
 
 import { ClassifyTrigger } from "@/components/classify-trigger"
@@ -8,9 +8,10 @@ import { cn } from "@/lib/utils"
 
 /**
  * The dashboard's top "needs attention" band (Phase K, K9). Each alert surfaces only when it fires:
- * the Free-cap state (reusing {@link FreeCapStatusBanner}), a review-backlog link, and a failed-
- * classification retry (reusing {@link ClassifyTrigger}). When nothing needs attention, a single
- * all-clear card stands in so the band never renders empty. Prop-driven off the view-model's
+ * the Free-cap state (reusing {@link FreeCapStatusBanner}), a review-backlog link, a pending-
+ * classification card (e.g. an upload's drain was interrupted mid-run), and a failed-classification
+ * retry (both reusing {@link ClassifyTrigger}). When nothing needs attention, a single all-clear
+ * card stands in so the band never renders empty. Prop-driven off the view-model's
  * {@link DashboardActionBand} so it's a pure render.
  */
 export function ActionBand({
@@ -20,7 +21,7 @@ export function ActionBand({
   actionBand: DashboardActionBand
   className?: string
 }) {
-  const { reviewBacklog, failedCount, freeCap, allClear } = actionBand
+  const { reviewBacklog, pendingCount, failedCount, freeCap, allClear } = actionBand
 
   return (
     <section
@@ -46,6 +47,23 @@ export function ActionBand({
             className="size-4 shrink-0 text-muted-foreground group-hover:text-foreground"
           />
         </Link>
+      )}
+
+      {/* Hidden while the Free cap is paused: the drain would skip every expense row anyway, and
+          the FreeCapStatusBanner above already carries the upgrade call-to-action. */}
+      {pendingCount > 0 && !freeCap.paused && (
+        <div className="flex flex-col gap-2 rounded-lg border border-border bg-card px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Sparkles aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+            <p className="text-sm">
+              <span className="font-medium">
+                {pendingCount} transaction{pendingCount === 1 ? "" : "s"} awaiting classification
+              </span>
+              <span className="text-muted-foreground"> — run AI classification to bucket them.</span>
+            </p>
+          </div>
+          <ClassifyTrigger />
+        </div>
       )}
 
       {failedCount > 0 && (
