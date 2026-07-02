@@ -171,7 +171,7 @@ each item one small PR; earliest are pure `shared/` domain logic (test-first).
   (`{name, amount}`), `savings_offcard_costs` (`{name, monthlyAmount}`), `savings_checkins` (cycleKey
   + frozen income/offcard/cardDebits/inferredSaving + optional cycleExtra; unique(household, cycle)).
   Household-scoped, CHECK-constrained, composite same-household FKs. Blocked by: none.
-- [ ] **Data-access** for the new tables: household-scoped repo methods — goal get/upsert, income
+- [x] **Data-access** for the new tables: household-scoped repo methods — goal get/upsert, income
   sources + off-card costs list/replace, check-ins list + upsert-by-cycle. Blocked by: Schema.
 - [ ] **Trailing-average estimator**: expected `Fixed`/`Necessary` from the last ~3 completed cycles'
   net summaries, with a manual fallback when history is thin. Pure logic + repo read. Blocked by:

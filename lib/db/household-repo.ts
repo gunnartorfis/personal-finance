@@ -20,6 +20,7 @@ import {
   bankConnections,
   merchantRules,
   overrides,
+  savingsCheckins,
   savingsGoals,
   savingsIncomeSources,
   savingsOffcardCosts,
@@ -849,6 +850,37 @@ export function householdRepo(db: Db, householdId: string) {
               .values(values.map((v) => ({ ...v, householdId })))
               .returning()
           }),
+      },
+      checkins: {
+        /** The household's Check-in history, oldest cycle first (cumulative math reads in order). */
+        list: () =>
+          db
+            .select()
+            .from(savingsCheckins)
+            .where(eq(savingsCheckins.householdId, householdId))
+            .orderBy(asc(savingsCheckins.cycleKey)),
+        /**
+         * Freeze (or re-freeze) one Statement cycle's Check-in snapshot. One Check-in per
+         * (household, cycle), so re-checking a cycle updates the frozen row in place (ADR-0007:
+         * later config edits never rewrite history — only an explicit re-check does).
+         */
+        upsertByCycle: (
+          value: Omit<typeof savingsCheckins.$inferInsert, "householdId">
+        ) =>
+          db
+            .insert(savingsCheckins)
+            .values({ ...value, householdId })
+            .onConflictDoUpdate({
+              target: [savingsCheckins.householdId, savingsCheckins.cycleKey],
+              set: {
+                monthlyIncome: value.monthlyIncome,
+                cycleExtra: value.cycleExtra,
+                offCardFixed: value.offCardFixed,
+                cardDebits: value.cardDebits,
+                inferredSaving: value.inferredSaving,
+              },
+            })
+            .returning(),
       },
     },
     overrides: {

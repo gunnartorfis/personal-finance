@@ -102,4 +102,60 @@ describe("householdRepo savings", () => {
     expect(costs.map((c) => c.name)).toEqual(["Car loan", "Mortgage"]);
     expect((await b.savings.offcardCosts.list()).map((c) => c.name)).toEqual(["B rent"]);
   });
+
+  it("upserting a check-in freezes the cycle snapshot, stamped with the bound householdId", async () => {
+    const { a, aId } = await twoHouseholds();
+    const [checkin] = await a.savings.checkins.upsertByCycle({
+      cycleKey: "2026-07",
+      monthlyIncome: 1_250_000,
+      cycleExtra: 0,
+      offCardFixed: 310_000,
+      cardDebits: 640_000,
+      inferredSaving: 300_000,
+    });
+    expect(checkin.householdId).toBe(aId);
+    expect(checkin.cycleKey).toBe("2026-07");
+    expect(checkin.inferredSaving).toBe(300_000);
+  });
+
+  it("re-checking the same cycle updates the frozen snapshot instead of duplicating", async () => {
+    const { a } = await twoHouseholds();
+    const snapshot = {
+      cycleKey: "2026-07",
+      monthlyIncome: 1_250_000,
+      cycleExtra: 0,
+      offCardFixed: 310_000,
+      cardDebits: 640_000,
+      inferredSaving: 300_000,
+    };
+    const [first] = await a.savings.checkins.upsertByCycle(snapshot);
+    const [second] = await a.savings.checkins.upsertByCycle({
+      ...snapshot,
+      cardDebits: 700_000,
+      inferredSaving: 240_000,
+    });
+    expect(second.id).toBe(first.id);
+    expect(second.inferredSaving).toBe(240_000);
+    expect(await a.savings.checkins.list()).toHaveLength(1);
+  });
+
+  it("lists check-ins oldest cycle first, scoped to the bound household", async () => {
+    const { a, b } = await twoHouseholds();
+    const base = {
+      monthlyIncome: 1_000_000,
+      cycleExtra: 0,
+      offCardFixed: 300_000,
+      cardDebits: 500_000,
+      inferredSaving: 200_000,
+    };
+    await a.savings.checkins.upsertByCycle({ ...base, cycleKey: "2026-09" });
+    await a.savings.checkins.upsertByCycle({ ...base, cycleKey: "2026-07" });
+    await a.savings.checkins.upsertByCycle({ ...base, cycleKey: "2026-08" });
+    expect((await a.savings.checkins.list()).map((c) => c.cycleKey)).toEqual([
+      "2026-07",
+      "2026-08",
+      "2026-09",
+    ]);
+    expect(await b.savings.checkins.list()).toHaveLength(0);
+  });
 });
