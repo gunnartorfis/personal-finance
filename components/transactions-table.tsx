@@ -1,6 +1,7 @@
 "use client"
 
 import { ChevronDown, ChevronsUpDown, ChevronUp, Search } from "lucide-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useId, useMemo, useState } from "react"
 
@@ -204,9 +205,20 @@ export function TransactionsTable({
       >
         <p className="text-sm font-medium">No transactions in this period</p>
         <p className="text-sm text-pretty text-muted-foreground">
-          {backlogElsewhere > 0
-            ? `${backlogElsewhere} transaction${backlogElsewhere === 1 ? "" : "s"} in other periods still need review — use Rapid review above, or pick another period.`
-            : "Pick another period or upload a statement."}
+          {backlogElsewhere > 0 ? (
+            `${backlogElsewhere} transaction${backlogElsewhere === 1 ? "" : "s"} in other periods still need review — use Rapid review above, or pick another period.`
+          ) : (
+            <>
+              Pick another period or{" "}
+              <Link
+                href="/upload"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                upload a statement
+              </Link>
+              .
+            </>
+          )}
         </p>
       </div>
     )
