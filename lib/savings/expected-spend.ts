@@ -19,15 +19,18 @@ export async function loadExpectedSpend(
   now: Date,
   fallback?: { expectedFixed: number; expectedNecessary: number },
 ): Promise<ExpectedSpend> {
+  const keys: string[] = [];
   let key = previousCycleKey(currentCycleKey(now));
-  const cycles = [];
   for (let i = 0; i < TRAILING_CYCLES; i++) {
-    const summary = await loadNetSummary(repo, cycleKeyRange(key));
-    cycles.push({
-      fixed: summary.byExpenseType.Fixed,
-      necessary: summary.byExpenseType.Necessary,
-    });
+    keys.push(key);
     key = previousCycleKey(key);
   }
+  const summaries = await Promise.all(
+    keys.map((k) => loadNetSummary(repo, cycleKeyRange(k))),
+  );
+  const cycles = summaries.map((summary) => ({
+    fixed: summary.byExpenseType.Fixed,
+    necessary: summary.byExpenseType.Necessary,
+  }));
   return estimateExpectedSpend(cycles, fallback);
 }
