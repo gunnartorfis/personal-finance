@@ -644,6 +644,107 @@ describe("householdRepo", () => {
     });
   });
 
+  describe("transactions.retypeByMerchantRules", () => {
+    /** Seed one upload and a per-transaction adder for `repo`. */
+    async function seed(repo: Awaited<ReturnType<typeof twoHouseholds>>["a"], tag: string) {
+      const [account] = await repo.accounts.create({ name: "Visa" });
+      const [upload] = await repo.uploads.create({
+        accountId: account.id,
+        fileName: `${tag}.csv`,
+        fileHash: `hash-${tag}`,
+      });
+      let n = 0;
+      const addTxn = (merchant: string, amount: number) =>
+        repo.transactions.create({
+          accountId: account.id,
+          uploadId: upload.id,
+          date: "2026-03-01",
+          amount,
+          merchant,
+          rawCategory: "",
+          sourceRow: n++,
+        });
+      return { addTxn };
+    }
+
+    it("re-types matching pending, classified, and failed rows deterministically", async () => {
+      const { a } = await twoHouseholds();
+      const { addTxn } = await seed(a, "retype");
+      const [pending] = await addTxn("NETFLIX", -1990);
+      const [classified] = await addTxn("NETFLIX", -1990);
+      await a.transactions.classify(classified.id, { expenseType: "Necessary", confidence: 0.6 });
+      const [failed] = await addTxn("NETFLIX", -1990);
+      await a.transactions.markFailed(failed.id);
+      const [unmatched] = await addTxn("OBSCURE SHOP", -500);
+
+      await a.merchantRules.create({ merchant: "NETFLIX", flatType: "Fixed" });
+      const retyped = await a.transactions.retypeByMerchantRules();
+
+      expect(retyped).toBe(3);
+      for (const id of [pending.id, classified.id, failed.id]) {
+        const row = await a.transactions.findById(id);
+        expect(row?.classificationStatus).toBe("classified");
+        expect(row?.expenseType).toBe("Fixed");
+        expect(row?.confidence).toBe(1);
+        expect(row?.reasoning).toBe("merchant rule");
+      }
+      // The unmatched row is left alone.
+      expect((await a.transactions.findById(unmatched.id))?.classificationStatus).toBe("pending");
+    });
+
+    it("skips overridden rows and honours split thresholds", async () => {
+      const { a } = await twoHouseholds();
+      const { addTxn } = await seed(a, "split");
+      const [overridden] = await addTxn("WORLD CLASS", -12000);
+      await a.overrides.upsert({ transactionId: overridden.id, expenseType: "Necessary" });
+      const [membership] = await addTxn("WORLD CLASS", -12000);
+      const [dropin] = await addTxn("WORLD CLASS", -1500);
+
+      await a.merchantRules.create({
+        merchant: "WORLD CLASS",
+        threshold: 8000,
+        atOrAboveType: "Fixed",
+        belowType: "Nice to have",
+      });
+      const retyped = await a.transactions.retypeByMerchantRules();
+
+      expect(retyped).toBe(2); // overridden row not counted
+      expect((await a.transactions.findById(membership.id))?.expenseType).toBe("Fixed");
+      expect((await a.transactions.findById(dropin.id))?.expenseType).toBe("Nice to have");
+      // Overridden row keeps its pending status and no baked-in type (override wins on read).
+      expect((await a.transactions.findById(overridden.id))?.classificationStatus).toBe("pending");
+    });
+
+    it("is a no-op when the household has no rules, and is household-scoped", async () => {
+      const { a, b } = await twoHouseholds();
+      const { addTxn } = await seed(a, "noop-a");
+      await addTxn("NETFLIX", -1990);
+      // No rules yet.
+      expect(await a.transactions.retypeByMerchantRules()).toBe(0);
+
+      // B's rule must not re-type A's rows.
+      await b.merchantRules.create({ merchant: "NETFLIX", flatType: "Fixed" });
+      expect(await a.transactions.retypeByMerchantRules()).toBe(0);
+      expect((await a.transactions.listPending())[0].merchant).toBe("NETFLIX");
+    });
+
+    it("createAndApply inserts the rule and re-types matching rows in one transaction", async () => {
+      const { a } = await twoHouseholds();
+      const { addTxn } = await seed(a, "atomic");
+      const [pending] = await addTxn("NETFLIX", -1990);
+      await addTxn("OBSCURE SHOP", -500);
+
+      const { rule, retyped } = await a.merchantRules.createAndApply({
+        merchant: "NETFLIX",
+        flatType: "Fixed",
+      });
+
+      expect(rule.merchant).toBe("NETFLIX");
+      expect(retyped).toBe(1); // the just-created rule is visible to the re-type in the same tx
+      expect((await a.transactions.findById(pending.id))?.expenseType).toBe("Fixed");
+    });
+  });
+
   describe("bankConnections", () => {
     const conn = (providerConnectionId: string) => ({
       provider: "enable_banking",

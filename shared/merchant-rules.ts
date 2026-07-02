@@ -22,6 +22,32 @@ export type MerchantRule =
   | { merchant: string; threshold: number; atOrAbove: ExpenseType; below: ExpenseType };
 
 /**
+ * The stored shape of a merchant rule (the `merchant_rules` columns the matcher cares about).
+ * Structural — a Drizzle `merchant_rules` row satisfies it — so this module stays free of any DB
+ * import. A flat rule has `flatType` set; a split rule has `threshold` + both branch types.
+ */
+export interface MerchantRuleRow {
+  merchant: string;
+  flatType: string | null;
+  threshold: number | null;
+  atOrAboveType: string | null;
+  belowType: string | null;
+}
+
+/** Convert a stored merchant-rules row into the matcher's flat-or-split {@link MerchantRule}. */
+export function toMerchantRule(r: MerchantRuleRow): MerchantRule {
+  if (r.flatType !== null) {
+    return { merchant: r.merchant, type: r.flatType as ExpenseType };
+  }
+  return {
+    merchant: r.merchant,
+    threshold: r.threshold as number,
+    atOrAbove: r.atOrAboveType as ExpenseType,
+    below: r.belowType as ExpenseType,
+  };
+}
+
+/**
  * The result of matching. `matched` distinguishes "a rule matched" from "no rule matched" without
  * overloading a falsy value — a matched rule may legitimately yield the empty Expense type `""`
  * (e.g. an Aur split payment), which must not be confused with no match.

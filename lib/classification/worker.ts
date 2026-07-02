@@ -1,20 +1,23 @@
 import type { HouseholdRepo } from "@/lib/db/household-repo";
 import { NOT_BUCKETED, canClassify, isExpense } from "@/shared/free-cap";
+import { applyMerchantRules, toMerchantRule } from "@/shared/merchant-rules";
 import type { ExpenseType, Plan } from "@/shared/types";
 
 /**
  * Background classification worker — orchestration (ADR-0005).
  *
  * Drains a Household's pending transactions. Credits (non-expense rows) are not bucketed and need
- * no model call; expense rows are classified by an injected `Classifier` (the real Sonnet 5 call
- * via the Vercel AI Gateway is wired separately, so this core is testable without a key). The drain
- * is crash-safe / resumable: it only touches `pending` rows (classify/markFailed are no-ops
- * otherwise), so re-running continues where a previous run stopped. A classifier error marks just
- * that row `failed` and the drain continues.
+ * no model call. Expense rows go through the precedence chain (CONTEXT.md): a deterministic
+ * Merchant rule is applied first and skips the model entirely; otherwise the row is classified by
+ * an injected `Classifier` (the real Sonnet 5 call via the Vercel AI Gateway is wired separately,
+ * so this core is testable without a key). The drain is crash-safe / resumable: it only touches
+ * `pending` rows (classify/markFailed are no-ops otherwise), so re-running continues where a
+ * previous run stopped. A classifier error marks just that row `failed` and the drain continues.
  *
- * The Free cap (ADR-0002) is enforced on the model path: a Free Household stops being AI-classified
- * once it has 50 classified Transactions lifetime — over-cap expense rows are left `pending` and
- * classify on upgrade. Credits are cheap/deterministic and are not gated by the cap.
+ * The Free cap (ADR-0002) is enforced on the model path only: a Free Household stops being
+ * AI-classified once it has 50 classified Transactions lifetime — over-cap expense rows are left
+ * `pending` and classify on upgrade. Credits and Merchant-rule matches are cheap/deterministic and
+ * are not gated by the cap (though they still count toward it, like credits).
  */
 
 /** The salient fields a classifier sees for one transaction. */
@@ -48,6 +51,7 @@ export async function drainPending(
   opts: { plan: Plan; limit?: number },
 ): Promise<DrainResult> {
   const batch = await repo.transactions.listPending(opts.limit);
+  const rules = (await repo.merchantRules.list()).map(toMerchantRule);
   let classifiedCount = await repo.transactions.countClassified();
 
   let classified = 0;
@@ -59,6 +63,21 @@ export async function drainPending(
       const [row] = await repo.transactions.classify(txn.id, {
         expenseType: NOT_BUCKETED,
         reasoning: "credit (not bucketed)",
+      });
+      if (row) {
+        classified += 1;
+        classifiedCount += 1;
+      }
+      continue;
+    }
+    const ruleMatch = applyMerchantRules(rules, { merchant: txn.merchant, amount: txn.amount });
+    if (ruleMatch.matched) {
+      // A deterministic Merchant rule wins over the model (precedence: Override > Merchant rule >
+      // Classification). Like credits it skips the model and is not gated by the Free cap.
+      const [row] = await repo.transactions.classify(txn.id, {
+        expenseType: ruleMatch.type,
+        confidence: 1,
+        reasoning: "merchant rule",
       });
       if (row) {
         classified += 1;
