@@ -1,7 +1,7 @@
 "use client"
 
 import { Check, Loader2, Sparkles } from "lucide-react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 
 import { clearOverride, putOverride } from "@/lib/overrides/client"
 import { cn } from "@/lib/utils"
@@ -54,11 +54,16 @@ export function OverrideControl({
   const [saving, setSaving] = useState(false)
   const [errored, setErrored] = useState(false)
   const [ruleStatus, setRuleStatus] = useState<RuleStatus>("idle")
+  // Monotonic token so a slow in-flight createRule can't write a stale status after the user has
+  // moved on (changed the type or cleared the override). Each of those bumps it; a resolving
+  // create only applies its result while its token is still current.
+  const ruleReq = useRef(0)
 
   async function setOverride(expenseType: ExpenseType) {
     setSaving(true)
     setErrored(false)
-    setRuleStatus("idle") // a new choice gets its own fresh rule offer
+    ruleReq.current += 1 // a new choice supersedes any pending rule create and gets a fresh offer
+    setRuleStatus("idle")
     try {
       await putOverride(transactionId, expenseType)
       onChanged?.({ expenseType, hasOverride: true })
@@ -72,6 +77,7 @@ export function OverrideControl({
   async function resetOverride() {
     setSaving(true)
     setErrored(false)
+    ruleReq.current += 1
     setRuleStatus("idle")
     try {
       await clearOverride(transactionId)
@@ -85,6 +91,7 @@ export function OverrideControl({
 
   async function createRule() {
     if (value === "") return // no rule for the split / none type
+    const req = (ruleReq.current += 1)
     setRuleStatus("creating")
     try {
       const res = await fetch("/api/merchant-rules", {
@@ -92,15 +99,17 @@ export function OverrideControl({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ merchant, flatType: value }),
       })
+      if (ruleReq.current !== req) return // superseded while awaiting
       setRuleStatus(res.ok ? "created" : res.status === 409 ? "exists" : "error")
     } catch {
+      if (ruleReq.current !== req) return
       setRuleStatus("error")
     }
   }
 
-  // Offer the rule shortcut only once a real-typed override is in place — never on the default row
-  // or for the not-bucketed / split type.
-  const showNudge = hasOverride && value !== ""
+  // Offer the rule shortcut only once a real-typed override is in place — never on the default row,
+  // for the not-bucketed / split type, or without a merchant to key the rule on.
+  const showNudge = hasOverride && value !== "" && merchant.trim() !== ""
 
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>

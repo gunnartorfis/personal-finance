@@ -134,6 +134,15 @@ describe("OverrideControl", () => {
       expect(await screen.findByText(/already exists for NETFLIX/i)).toBeInTheDocument()
     })
 
+    it("shows an error on a non-409 failure", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }))
+
+      render(<OverrideControl transactionId={ID} merchant="NETFLIX" value="Fixed" hasOverride={true} />)
+      await userEvent.click(screen.getByRole("button", { name: /apply to all NETFLIX/i }))
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(/couldn.t add rule/i)
+    })
+
     it("does not offer the rule shortcut for the split / none type", () => {
       vi.stubGlobal("fetch", vi.fn())
       render(<OverrideControl transactionId={ID} merchant="AUR" value="" hasOverride={true} />)
