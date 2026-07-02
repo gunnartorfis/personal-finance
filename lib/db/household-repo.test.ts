@@ -745,6 +745,52 @@ describe("householdRepo", () => {
     });
   });
 
+  describe("transactions.reuseTallies", () => {
+    it("tallies only confident genuine model classifications, excluding derived + low-confidence rows", async () => {
+      const { a } = await twoHouseholds();
+      const [account] = await a.accounts.create({ name: "Visa" });
+      const [upload] = await a.uploads.create({
+        accountId: account.id,
+        fileName: "reuse.csv",
+        fileHash: "reuse",
+      });
+      const row = (
+        merchant: string,
+        expenseType: "Fixed" | "Necessary" | "Nice to have" | "",
+        confidence: number | null,
+        reasoning: string | null,
+        sourceRow: number,
+      ) => ({
+        accountId: account.id,
+        uploadId: upload.id,
+        date: "2026-03-01",
+        amount: -1000 - sourceRow,
+        merchant,
+        rawCategory: "x",
+        sourceRow,
+        classificationStatus: "classified" as const,
+        expenseType,
+        confidence,
+        reasoning,
+      });
+      await a.transactions.createMany([
+        row("NETFLIX", "Fixed", 0.98, "model reasoning", 0), // counts
+        row("NETFLIX", "Fixed", 0.85, null, 1), // counts (null reasoning = genuine older row)
+        row("NETFLIX", "Necessary", 0.5, "model reasoning", 2), // excluded: below floor
+        row("BONUS", "Necessary", 1, "merchant rule", 3), // excluded: derived (rule)
+        row("BONUS", "Necessary", 0.9, "reused (merchant history)", 4), // excluded: derived (reuse)
+      ]);
+
+      const tallies = await a.transactions.reuseTallies(0.7);
+      const netflix = tallies.filter((t) => t.merchant === "NETFLIX");
+      expect(netflix).toEqual([
+        { merchant: "NETFLIX", expenseType: "Fixed", n: 2, maxConfidence: 0.98 },
+      ]);
+      // BONUS had only derived-reason rows, so it contributes nothing to the tally.
+      expect(tallies.some((t) => t.merchant === "BONUS")).toBe(false);
+    });
+  });
+
   describe("bankConnections", () => {
     const conn = (providerConnectionId: string) => ({
       provider: "enable_banking",

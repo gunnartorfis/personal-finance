@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { householdRepo } from "@/lib/db/household-repo";
 import { households } from "@/lib/db/schema";
 
+import { REUSED_REASON } from "./reasons";
 import { drainPending, type Classifier } from "./worker";
 
 let db: ReturnType<typeof drizzle>;
@@ -46,10 +47,10 @@ const always =
 describe("drainPending", () => {
   it("classifies expense rows via the injected classifier", async () => {
     const { repo, addTxn } = await setup();
-    await addTxn(-1990);
-    await addTxn(-3200);
+    await addTxn(-1990, "A");
+    await addTxn(-3200, "B"); // distinct merchants — no reuse in play here
     const result = await drainPending(repo, always("Necessary"), { plan: "Premium" });
-    expect(result).toEqual({ classified: 2, failed: 0, capped: 0 });
+    expect(result).toEqual({ classified: 2, failed: 0, capped: 0, reused: 0 });
     expect(await repo.transactions.listPending()).toHaveLength(0);
   });
 
@@ -78,7 +79,7 @@ describe("drainPending", () => {
     };
     const result = await drainPending(repo, counting, { plan: "Premium" });
     expect(calls).toBe(1); // only the non-overridden row is classified — no token on the overridden one
-    expect(result).toEqual({ classified: 1, failed: 0, capped: 0 });
+    expect(result).toEqual({ classified: 1, failed: 0, capped: 0, reused: 0 });
     // The overridden row stays pending with no AI type baked into `expenseType`, so the override's
     // type isn't frozen as ground-truth — removing the override re-exposes it for real classification.
     const row = await repo.transactions.findById(overridden.id);
@@ -97,7 +98,7 @@ describe("drainPending", () => {
     };
     const result = await drainPending(repo, counting, { plan: "Premium" });
     expect(calls).toBe(0);
-    expect(result).toEqual({ classified: 0, failed: 0, capped: 0 });
+    expect(result).toEqual({ classified: 0, failed: 0, capped: 0, reused: 0 });
     // `expenseType` stays null (not "" from the credit guard), so removing the override reverts the
     // credit to the credit path (NOT_BUCKETED) rather than freezing it as an expense type.
     expect((await repo.transactions.findById(credit.id))?.expenseType).toBeNull();
@@ -117,7 +118,7 @@ describe("drainPending", () => {
     const result = await drainPending(repo, counting, { plan: "Premium" });
 
     expect(calls).toBe(1); // only the unmatched row hit the model
-    expect(result).toEqual({ classified: 2, failed: 0, capped: 0 });
+    expect(result).toEqual({ classified: 2, failed: 0, capped: 0, reused: 0 });
     const row = await repo.transactions.findById(ruled.id);
     expect(row?.expenseType).toBe("Fixed");
     expect(row?.confidence).toBe(1);
@@ -151,7 +152,7 @@ describe("drainPending", () => {
     const result = await drainPending(repo, counting, { plan: "Free" });
 
     expect(calls).toBe(0); // model still gated
-    expect(result).toEqual({ classified: 1, failed: 0, capped: 1 }); // rule row classified; model row capped
+    expect(result).toEqual({ classified: 1, failed: 0, capped: 1, reused: 0 }); // rule row classified; model row capped
     expect((await repo.transactions.findById(ruled.id))?.expenseType).toBe("Fixed");
   });
 
@@ -162,7 +163,7 @@ describe("drainPending", () => {
       throw new Error("model error");
     };
     const result = await drainPending(repo, boom, { plan: "Premium" });
-    expect(result).toEqual({ classified: 0, failed: 1, capped: 0 });
+    expect(result).toEqual({ classified: 0, failed: 1, capped: 0, reused: 0 });
     expect(await repo.transactions.listPending()).toHaveLength(0); // moved to failed
   });
 
@@ -171,14 +172,14 @@ describe("drainPending", () => {
     await addTxn(-100);
     await drainPending(repo, always("Fixed"), { plan: "Premium" });
     const second = await drainPending(repo, always("Necessary"), { plan: "Premium" });
-    expect(second).toEqual({ classified: 0, failed: 0, capped: 0 });
+    expect(second).toEqual({ classified: 0, failed: 0, capped: 0, reused: 0 });
   });
 
   it("respects the batch limit", async () => {
     const { repo, addTxn } = await setup();
-    await addTxn(-1);
-    await addTxn(-2);
-    await addTxn(-3);
+    await addTxn(-1, "A");
+    await addTxn(-2, "B");
+    await addTxn(-3, "C"); // distinct merchants so the limit — not reuse — bounds the batch
     const result = await drainPending(repo, always("Fixed"), { plan: "Premium", limit: 2 });
     expect(result.classified).toBe(2);
     expect(await repo.transactions.listPending()).toHaveLength(1);
@@ -212,5 +213,171 @@ describe("drainPending", () => {
     expect(calls).toBe(0); // model never called once the cap is reached
     expect(result.capped).toBe(1);
     expect(await repo.transactions.listPending()).toHaveLength(1); // left pending for upgrade
+  });
+
+  describe("classification reuse (ADR-0012)", () => {
+    it("reuses a merchant's fresh type within one run — one model call for N rows", async () => {
+      const { repo, addTxn } = await setup();
+      await addTxn(-1990, "COSTCO");
+      const [second] = await addTxn(-2500, "COSTCO");
+      await addTxn(-3000, "COSTCO 045"); // normalizes to COSTCO — same reuse key
+      let calls = 0;
+      const counting: Classifier = async () => {
+        calls += 1;
+        return { expenseType: "Necessary", confidence: 0.9 };
+      };
+
+      const result = await drainPending(repo, counting, { plan: "Premium" });
+
+      expect(calls).toBe(1); // one model call, the other two reused
+      expect(result).toEqual({ classified: 3, failed: 0, capped: 0, reused: 2 });
+      const row = await repo.transactions.findById(second.id);
+      expect(row?.expenseType).toBe("Necessary");
+      expect(row?.reasoning).toBe(REUSED_REASON);
+      expect(row?.confidence).toBe(0.9); // carries the source confidence
+    });
+
+    it("reuses a confident type across runs — no model call on the second run", async () => {
+      const { repo, addTxn } = await setup();
+      await addTxn(-1990, "SPOTIFY");
+      let calls = 0;
+      const counting: Classifier = async () => {
+        calls += 1;
+        return { expenseType: "Fixed", confidence: 0.95 };
+      };
+      await drainPending(repo, counting, { plan: "Premium" });
+      expect(calls).toBe(1);
+
+      const [next] = await addTxn(-1990, "SPOTIFY");
+      const result = await drainPending(repo, counting, { plan: "Premium" });
+
+      expect(calls).toBe(1); // still one — the second run reused history
+      expect(result).toEqual({ classified: 1, failed: 0, capped: 0, reused: 1 });
+      expect((await repo.transactions.findById(next.id))?.expenseType).toBe("Fixed");
+    });
+
+    it("does not reuse across runs below the confidence floor", async () => {
+      const { repo, addTxn } = await setup();
+      await addTxn(-500, "WEIRD");
+      let calls = 0;
+      const counting: Classifier = async () => {
+        calls += 1;
+        return { expenseType: "Nice to have", confidence: 0.5 }; // below 0.7 floor
+      };
+      await drainPending(repo, counting, { plan: "Premium" });
+      await addTxn(-500, "WEIRD");
+      const result = await drainPending(repo, counting, { plan: "Premium" });
+
+      expect(calls).toBe(2); // re-run, not reused — the prior guess wasn't confident enough to seed
+      expect(result.reused).toBe(0);
+    });
+
+    it("reuses the majority type when confident history disagrees", async () => {
+      const { repo, addTxn, accountId, uploadId } = await setup();
+      const confident = (expenseType: "Fixed" | "Nice to have", i: number) => ({
+        accountId,
+        uploadId,
+        date: "2026-01-01",
+        amount: -9000,
+        merchant: "WORLD CLASS",
+        rawCategory: "x",
+        sourceRow: 100 + i,
+        classificationStatus: "classified" as const,
+        expenseType,
+        confidence: 0.9,
+        reasoning: "model",
+      });
+      await repo.transactions.createMany([
+        confident("Fixed", 0),
+        confident("Fixed", 1),
+        confident("Nice to have", 2),
+      ]);
+      const [pending] = await addTxn(-1500, "WORLD CLASS");
+      let calls = 0;
+      const counting: Classifier = async () => {
+        calls += 1;
+        return { expenseType: "Necessary", confidence: 0.9 };
+      };
+
+      const result = await drainPending(repo, counting, { plan: "Premium" });
+
+      expect(calls).toBe(0); // reused, not re-run
+      expect(result.reused).toBe(1);
+      expect((await repo.transactions.findById(pending.id))?.expenseType).toBe("Fixed"); // majority
+    });
+
+    it("runs the model when confident history is exactly tied", async () => {
+      const { repo, addTxn, accountId, uploadId } = await setup();
+      const confident = (expenseType: "Fixed" | "Nice to have", i: number) => ({
+        accountId,
+        uploadId,
+        date: "2026-01-01",
+        amount: -9000,
+        merchant: "WORLD CLASS",
+        rawCategory: "x",
+        sourceRow: 200 + i,
+        classificationStatus: "classified" as const,
+        expenseType,
+        confidence: 0.9,
+        reasoning: "model",
+      });
+      await repo.transactions.createMany([confident("Fixed", 0), confident("Nice to have", 1)]);
+      const [pending] = await addTxn(-1500, "WORLD CLASS");
+      let calls = 0;
+      const counting: Classifier = async () => {
+        calls += 1;
+        return { expenseType: "Necessary", confidence: 0.9 };
+      };
+
+      const result = await drainPending(repo, counting, { plan: "Premium" });
+
+      expect(calls).toBe(1); // tie → the model decides
+      expect(result.reused).toBe(0);
+      expect((await repo.transactions.findById(pending.id))?.expenseType).toBe("Necessary");
+    });
+
+    it("counts reused rows toward the Free cap (a reuse can push a household over)", async () => {
+      const { repo, addTxn, accountId, uploadId } = await setup();
+      // 48 filler classified + 1 confident GYM classification = 49 toward the cap; GYM seeds reuse.
+      await repo.transactions.createMany([
+        ...Array.from({ length: 48 }, (_, i) => ({
+          accountId,
+          uploadId,
+          date: "2026-01-01",
+          amount: -(i + 1),
+          merchant: `M${i}`,
+          rawCategory: "x",
+          sourceRow: i,
+          classificationStatus: "classified" as const,
+          expenseType: "Fixed" as const,
+        })),
+        {
+          accountId,
+          uploadId,
+          date: "2026-01-01",
+          amount: -9000,
+          merchant: "GYM",
+          rawCategory: "x",
+          sourceRow: 48,
+          classificationStatus: "classified" as const,
+          expenseType: "Fixed" as const,
+          confidence: 0.9,
+          reasoning: "model",
+        },
+      ]);
+      await addTxn(-9000, "GYM");
+      await addTxn(-9000, "GYM");
+
+      let calls = 0;
+      const counting: Classifier = async () => {
+        calls += 1;
+        return { expenseType: "Fixed" };
+      };
+      const result = await drainPending(repo, counting, { plan: "Free" });
+
+      expect(calls).toBe(0); // both handled by reuse, no model
+      // First GYM reused (49→50); the second is over the cap and left pending.
+      expect(result).toEqual({ classified: 1, failed: 0, capped: 1, reused: 1 });
+    });
   });
 });

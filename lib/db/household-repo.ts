@@ -10,11 +10,15 @@ import {
   inArray,
   isNull,
   lt,
+  max,
   ne,
+  notInArray,
+  or,
   sql,
 } from "drizzle-orm"
 import type { NodePgDatabase } from "drizzle-orm/node-postgres"
 
+import { DERIVED_REASONS, MERCHANT_RULE_REASON } from "@/lib/classification/reasons"
 import { applyMerchantRules, toMerchantRule } from "@/shared/merchant-rules"
 import type { ExpenseType } from "@/shared/types"
 
@@ -144,7 +148,7 @@ export function householdRepo(db: Db, householdId: string) {
           classificationStatus: "classified",
           expenseType,
           confidence: 1,
-          reasoning: "merchant rule",
+          reasoning: MERCHANT_RULE_REASON,
         })
         .where(
           and(eq(transactions.householdId, householdId), inArray(transactions.id, ids))
@@ -855,6 +859,36 @@ export function householdRepo(db: Db, householdId: string) {
           .orderBy(desc(transactions.date), asc(transactions.id))
         return limit === undefined ? q : q.limit(limit)
       },
+      /**
+       * Per-(merchant, type) tallies for the Classification reuse seed (ADR-0012): for every
+       * confident (`confidence >= minConfidence`) genuine model classification, the count and top
+       * confidence, grouped by raw merchant and Expense type. Deterministic/derived rows (credits,
+       * Merchant rules, prior reuses — {@link DERIVED_REASONS}) are excluded so reuse counts only
+       * real model decisions and can't reinforce itself; rows with a null reasoning are treated as
+       * genuine (older model rows predating the markers). The caller normalizes merchants and picks
+       * the majority — see `buildReuseSeed`.
+       */
+      reuseTallies: (minConfidence: number) =>
+        db
+          .select({
+            merchant: transactions.merchant,
+            expenseType: transactions.expenseType,
+            n: count(),
+            maxConfidence: max(transactions.confidence),
+          })
+          .from(transactions)
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              eq(transactions.classificationStatus, "classified"),
+              gte(transactions.confidence, minConfidence),
+              or(
+                isNull(transactions.reasoning),
+                notInArray(transactions.reasoning, DERIVED_REASONS)
+              )
+            )
+          )
+          .groupBy(transactions.merchant, transactions.expenseType),
       /** Count of classified transactions for the Household (lifetime) — used for the Free cap. */
       countClassified: async () => {
         const [row] = await db
