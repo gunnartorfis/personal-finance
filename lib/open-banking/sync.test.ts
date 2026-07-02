@@ -31,6 +31,7 @@ function recordingProvider(byUid: Record<string, ProviderTransaction[]>) {
     startAuth: async () => ({ url: "", authorizationId: "" }),
     authorizeSession: async () => ({ sessionId: "", accounts: [], consentValidUntil: "" }),
     getSession: async () => ({ status: "AUTHORIZED", consentValidUntil: "" }),
+    deleteSession: async () => {},
     listTransactions: async (uid, range) => {
       ranges.push({ uid, ...range });
       return byUid[uid] ?? [];
@@ -158,6 +159,7 @@ describe("syncActiveConnections", () => {
       startAuth: async () => ({ url: "", authorizationId: "" }),
       authorizeSession: async () => ({ sessionId: "", accounts: [], consentValidUntil: "" }),
       getSession: async () => ({ status: "AUTHORIZED", consentValidUntil: "" }),
+      deleteSession: async () => {},
       listTransactions: async (uid) => {
         if (uid === "boom") throw new Error("consent expired");
         return [tx("t1", -1990)];

@@ -204,6 +204,22 @@ export class EnableBankingClient implements IngestionProvider {
     } while (continuationKey);
     return out;
   }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    // DELETE /sessions/{id} returns no meaningful body (often 204), so don't parse JSON — just
+    // assert success. Errors propagate; the caller (disconnect) treats the aggregator revoke as
+    // best-effort.
+    const res = await this.cfg.fetch(`${this.cfg.baseUrl}/sessions/${sessionId}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${this.jwt()}`,
+        "Content-Type": "application/json",
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`Enable Banking DELETE /sessions/${sessionId} failed: ${res.status}`);
+    }
+  }
 }
 
 function toProviderAccount(a: EbAccount): ProviderAccount {

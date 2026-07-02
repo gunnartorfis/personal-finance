@@ -194,4 +194,16 @@ describe("EnableBankingClient", () => {
     const { fn } = stubFetch(() => ({ error: "boom" }), false, 500);
     await expect(client(fn).listInstitutions("IS")).rejects.toThrow();
   });
+
+  it("deletes a session via DELETE /sessions/{id}", async () => {
+    const { fn, calls } = stubFetch(() => ({}));
+    await client(fn).deleteSession("sess-1");
+    expect(calls[0].url).toContain("/sessions/sess-1");
+    expect(calls[0].init.method).toBe("DELETE");
+  });
+
+  it("throws when session deletion is rejected", async () => {
+    const { fn } = stubFetch(() => ({}), false, 404);
+    await expect(client(fn).deleteSession("sess-1")).rejects.toThrow();
+  });
 });
