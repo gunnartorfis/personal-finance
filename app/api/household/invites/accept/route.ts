@@ -19,7 +19,9 @@ export const dynamic = "force-dynamic"
  * precisely someone who does NOT yet have a Household. Returns the joined `householdId`.
  */
 export async function POST(request: Request) {
-  const user = await getCurrentUser()
+  // Fresh read (bypass the session-data cookie) so a just-verified email is honored at accept time —
+  // a cached `emailVerified: false` would otherwise reject the accept with `email_not_verified`.
+  const user = await getCurrentUser({ fresh: true })
   if (!user) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 })
   }

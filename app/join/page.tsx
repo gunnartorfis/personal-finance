@@ -20,7 +20,9 @@ export const dynamic = "force-dynamic"
  * (delete / leave / discard the empty starter). No pending Invite ⇒ back to the dashboard.
  */
 export default async function JoinPage() {
-  const user = await getCurrentUser()
+  // Fresh read (bypass the session-data cookie) so a just-verified email clears the gate on reload —
+  // the cached session can lag behind a verification done moments ago or in another tab.
+  const user = await getCurrentUser({ fresh: true })
   if (!user) redirect("/auth/sign-in")
 
   const db = getDb()
