@@ -67,23 +67,34 @@ export async function syncConnection(params: {
 }
 
 /**
- * Sync every active Bank connection for the Household, then trigger classification once (injected so
- * tests need no model). Drives the connect backfill and the daily cron (#115).
+ * Sync every active Bank connection for the Household, then trigger classification once (injected —
+ * required — so tests need no model and a production caller can't forget the mandatory next step and
+ * silently strand rows in `pending`). Each connection is isolated: a provider failure (e.g. expired
+ * consent) flags that connection `error` and is counted, without aborting the rest of the batch.
+ * Drives the connect backfill and the daily cron (#115).
  */
 export async function syncActiveConnections(params: {
   repo: HouseholdRepo;
   provider: IngestionProvider;
   now: Date;
-  classify?: () => Promise<unknown>;
+  classify: () => Promise<unknown>;
   backfillDays?: number;
-}): Promise<{ connections: number; inserted: number }> {
+}): Promise<{ connections: number; inserted: number; failed: number }> {
   const { repo, provider, now, classify, backfillDays } = params;
   const connections = await repo.bankConnections.listActive();
   let inserted = 0;
+  let failed = 0;
   for (const connection of connections) {
-    const res = await syncConnection({ repo, provider, connection, now, backfillDays });
-    inserted += res.inserted;
+    try {
+      const res = await syncConnection({ repo, provider, connection, now, backfillDays });
+      inserted += res.inserted;
+    } catch (err) {
+      failed += 1;
+      console.error(`open-banking sync failed for connection ${connection.id}`, err);
+      // Flag the connection so the reconnect UI (#116) can surface it; best-effort.
+      await repo.bankConnections.update(connection.id, { status: "error" }).catch(() => {});
+    }
   }
-  if (classify && inserted > 0) await classify();
-  return { connections: connections.length, inserted };
+  if (inserted > 0) await classify();
+  return { connections: connections.length, inserted, failed };
 }

@@ -137,7 +137,40 @@ describe("syncActiveConnections", () => {
     const classify = vi.fn().mockResolvedValue(undefined);
 
     const res = await syncActiveConnections({ repo, provider, now: NOW, classify });
-    expect(res).toEqual({ connections: 1, inserted: 1 });
+    expect(res).toEqual({ connections: 1, inserted: 1, failed: 0 });
+    expect(classify).toHaveBeenCalledTimes(1);
+  });
+
+  it("isolates a failing connection — counts it, flags it error, and still syncs the rest", async () => {
+    const repo = await freshHousehold();
+    // Healthy connection.
+    await connectionWithAccount(repo);
+    // Broken connection whose account uid throws in the provider.
+    const [broken] = await repo.bankConnections.create({
+      provider: "mock",
+      providerConnectionId: "broken",
+    });
+    await repo.accounts.create({ name: "Boom", connectionId: broken.id, externalAccountId: "boom" });
+
+    const provider: IngestionProvider = {
+      name: "mock",
+      listInstitutions: async () => [],
+      startAuth: async () => ({ url: "", authorizationId: "" }),
+      authorizeSession: async () => ({ sessionId: "", accounts: [], consentValidUntil: "" }),
+      getSession: async () => ({ status: "AUTHORIZED", consentValidUntil: "" }),
+      listTransactions: async (uid) => {
+        if (uid === "boom") throw new Error("consent expired");
+        return [tx("t1", -1990)];
+      },
+    };
+    const classify = vi.fn().mockResolvedValue(undefined);
+
+    const res = await syncActiveConnections({ repo, provider, now: NOW, classify });
+    expect(res).toEqual({ connections: 2, inserted: 1, failed: 1 });
+    // The failing connection is flagged so the reconnect UI can surface it.
+    expect((await repo.bankConnections.findById(broken.id))?.status).toBe("error");
+    // The healthy connection's rows still landed, so classify ran.
+    expect(await repo.transactions.list()).toHaveLength(1);
     expect(classify).toHaveBeenCalledTimes(1);
   });
 
