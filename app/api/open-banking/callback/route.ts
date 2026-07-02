@@ -5,7 +5,7 @@ import { requireHousehold } from "@/lib/household/current"
 import { completeBankConnection } from "@/lib/open-banking/connect"
 import { getIngestionProvider } from "@/lib/open-banking/provider-factory"
 
-import { STATE_COOKIE } from "../connect/route"
+import { INSTITUTION_COOKIE, STATE_COOKIE } from "../connect/route"
 
 /**
  * The aggregator redirects the user here after eID/SCA (slice #113). Verify the `state` against the
@@ -21,7 +21,9 @@ export async function GET(request: Request) {
 
   const jar = await cookies()
   const expectedState = jar.get(STATE_COOKIE)?.value
+  const institutionName = jar.get(INSTITUTION_COOKIE)?.value
   jar.delete(STATE_COOKIE)
+  jar.delete(INSTITUTION_COOKIE)
 
   const back = (status: "connected" | "error") =>
     NextResponse.redirect(new URL(`/accounts?bank=${status}`, request.url))
@@ -37,7 +39,7 @@ export async function GET(request: Request) {
   const { repo } = await requireHousehold()
   try {
     const provider = getIngestionProvider()
-    await completeBankConnection({ repo, provider, code })
+    await completeBankConnection({ repo, provider, code, institutionName })
   } catch (err) {
     console.error("open-banking callback failed", err)
     return back("error")

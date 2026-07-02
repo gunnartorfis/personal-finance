@@ -18,8 +18,14 @@ export async function completeBankConnection(params: {
   repo: HouseholdRepo;
   provider: IngestionProvider;
   code: string;
+  /**
+   * The institution the user chose at connect-start (carried through the callback). Persisted so the
+   * reconnect flow (#116) has a name to hand back to the aggregator; without it a connection can't be
+   * reconnected.
+   */
+  institutionName?: string;
 }): Promise<ConnectResult> {
-  const { repo, provider, code } = params;
+  const { repo, provider, code, institutionName } = params;
   const session = await provider.authorizeSession(code);
 
   const existingConnection = await repo.bankConnections.byProviderConnectionId(
@@ -32,6 +38,7 @@ export async function completeBankConnection(params: {
       await repo.bankConnections.create({
         provider: provider.name,
         providerConnectionId: session.sessionId,
+        institutionName: institutionName ?? null,
         consentExpiresAt: new Date(session.consentValidUntil),
         status: "active",
       })

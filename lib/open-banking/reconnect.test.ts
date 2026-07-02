@@ -53,8 +53,7 @@ describe("reconnectPrompts", () => {
     expect(prompts).toEqual([{ id: "bad", institutionName: "Arion", reason: "error" }]);
   });
 
-  it("falls back to a generic bank label when the institution name is missing", () => {
-    const [prompt] = reconnectPrompts([conn({ status: "error", institutionName: null })], NOW);
-    expect(prompt.institutionName).toBe("your bank");
+  it("skips a connection with no institution name — reconnect has nothing to hand the aggregator", () => {
+    expect(reconnectPrompts([conn({ status: "error", institutionName: null })], NOW)).toEqual([]);
   });
 });

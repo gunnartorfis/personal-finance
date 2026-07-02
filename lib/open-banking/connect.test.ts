@@ -36,12 +36,19 @@ const provider = new MockIngestionProvider({
 describe("completeBankConnection", () => {
   it("persists the connection and discovers its accounts", async () => {
     const repo = await freshHousehold();
-    const res = await completeBankConnection({ repo, provider, code: "code" });
+    const res = await completeBankConnection({
+      repo,
+      provider,
+      code: "code",
+      institutionName: "Landsbankinn",
+    });
 
     const [conn] = await repo.bankConnections.list();
     expect(conn.provider).toBe("mock");
     expect(conn.providerConnectionId).toBe("sess-1");
     expect(conn.status).toBe("active");
+    // Persisted so the reconnect flow (#116) has a name to hand back to the aggregator.
+    expect(conn.institutionName).toBe("Landsbankinn");
     expect(conn.consentExpiresAt?.toISOString()).toBe("2026-06-01T00:00:00.000Z");
 
     const accounts = await repo.accounts.list();

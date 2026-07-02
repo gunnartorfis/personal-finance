@@ -14,7 +14,7 @@ vi.mock("@/lib/open-banking/provider-factory", () => ({ getIngestionProvider }))
 vi.mock("@/lib/open-banking/connect", () => ({ completeBankConnection }))
 vi.mock("next/headers", () => ({ cookies: async () => cookieStore }))
 
-import { STATE_COOKIE } from "../connect/route"
+import { INSTITUTION_COOKIE, STATE_COOKIE } from "../connect/route"
 import { GET } from "./route"
 
 const req = (qs: string) => new Request(`http://test/api/open-banking/callback?${qs}`)
@@ -45,6 +45,7 @@ describe("GET /api/open-banking/callback", () => {
   })
 
   it("completes the connection and redirects on a valid callback", async () => {
+    // The state and institution cookies resolve to the same stub value here.
     cookieStore.get.mockReturnValue({ value: "s" })
     requireHousehold.mockResolvedValue({ repo: { tag: "repo" } })
     getIngestionProvider.mockReturnValue({ name: "enable_banking" })
@@ -57,7 +58,9 @@ describe("GET /api/open-banking/callback", () => {
       repo: { tag: "repo" },
       provider: { name: "enable_banking" },
       code: "the-code",
+      institutionName: "s",
     })
     expect(cookieStore.delete).toHaveBeenCalledWith(STATE_COOKIE)
+    expect(cookieStore.delete).toHaveBeenCalledWith(INSTITUTION_COOKIE)
   })
 })

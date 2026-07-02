@@ -48,15 +48,18 @@ export function reconnectReason(
   return null;
 }
 
-/** The subset of connections needing reconnect, mapped to render-ready prompts (#116). */
+/**
+ * The subset of connections needing reconnect, mapped to render-ready prompts (#116). A connection
+ * with no stored `institutionName` is skipped: reconnect re-runs consent by handing that name to the
+ * aggregator, so without it there's nothing to hand off and a prompt would only dead-end the user.
+ */
 export function reconnectPrompts(
   connections: ReadonlyArray<ConnectionStatusInput>,
   now: Date,
 ): ReconnectPrompt[] {
   return connections.flatMap((connection) => {
     const reason = reconnectReason(connection, now);
-    return reason
-      ? [{ id: connection.id, institutionName: connection.institutionName ?? "your bank", reason }]
-      : [];
+    if (!reason || !connection.institutionName) return [];
+    return [{ id: connection.id, institutionName: connection.institutionName, reason }];
   });
 }
