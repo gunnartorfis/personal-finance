@@ -70,12 +70,16 @@ export async function drainPending(
   // Classification reuse seed (ADR-0012): normalized merchant → confident majority type from the
   // Household's own model history. Mutated below to also cover merchants first seen in THIS run.
   const reuse = buildReuseSeed(
-    (await repo.transactions.reuseTallies(REUSE_CONFIDENCE_FLOOR)).map((t) => ({
-      merchant: t.merchant,
-      expenseType: (t.expenseType ?? "") as ExpenseType,
-      n: t.n,
-      maxConfidence: t.maxConfidence,
-    })),
+    (await repo.transactions.reuseTallies(REUSE_CONFIDENCE_FLOOR))
+      // A classified row always has a non-null type (DB CHECK). Drop any null defensively rather
+      // than coercing it to "" (NOT_BUCKETED), which would mis-bucket a genuine expense.
+      .filter((t): t is typeof t & { expenseType: string } => t.expenseType !== null)
+      .map((t) => ({
+        merchant: t.merchant,
+        expenseType: t.expenseType as ExpenseType,
+        n: t.n,
+        maxConfidence: t.maxConfidence,
+      })),
   );
   let classifiedCount = await repo.transactions.countClassified();
 

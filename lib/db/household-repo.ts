@@ -8,6 +8,7 @@ import {
   gt,
   gte,
   inArray,
+  isNotNull,
   isNull,
   lt,
   max,
@@ -881,6 +882,7 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.householdId, householdId),
               eq(transactions.classificationStatus, "classified"),
+              isNotNull(transactions.expenseType),
               gte(transactions.confidence, minConfidence),
               or(
                 isNull(transactions.reasoning),
