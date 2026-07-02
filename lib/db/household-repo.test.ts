@@ -727,6 +727,22 @@ describe("householdRepo", () => {
       expect(await a.transactions.retypeByMerchantRules()).toBe(0);
       expect((await a.transactions.listPending())[0].merchant).toBe("NETFLIX");
     });
+
+    it("createAndApply inserts the rule and re-types matching rows in one transaction", async () => {
+      const { a } = await twoHouseholds();
+      const { addTxn } = await seed(a, "atomic");
+      const [pending] = await addTxn("NETFLIX", -1990);
+      await addTxn("OBSCURE SHOP", -500);
+
+      const { rule, retyped } = await a.merchantRules.createAndApply({
+        merchant: "NETFLIX",
+        flatType: "Fixed",
+      });
+
+      expect(rule.merchant).toBe("NETFLIX");
+      expect(retyped).toBe(1); // the just-created rule is visible to the re-type in the same tx
+      expect((await a.transactions.findById(pending.id))?.expenseType).toBe("Fixed");
+    });
   });
 
   describe("bankConnections", () => {

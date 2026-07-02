@@ -24,11 +24,9 @@ export async function POST(request: Request) {
 
   const { repo } = await requireHousehold()
   try {
-    const [rule] = await repo.merchantRules.create(parsed.value)
-    if (!rule) throw new Error("merchant rule insert returned no rows")
-    // Re-type existing matching rows so the new rule takes effect immediately (CONTEXT.md), not
-    // just on future classification. Overridden rows are left untouched by the repo.
-    await repo.transactions.retypeByMerchantRules()
+    // Create the rule and re-type existing matching rows atomically, so the rule takes effect
+    // immediately (CONTEXT.md) and a crash can't leave rows un-retyped. Overrides are untouched.
+    const { rule } = await repo.merchantRules.createAndApply(parsed.value)
     return NextResponse.json(rule, { status: 201 })
   } catch (error) {
     if (isUniqueViolation(error)) {

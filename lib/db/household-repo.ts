@@ -7,6 +7,7 @@ import {
   getTableColumns,
   gt,
   gte,
+  inArray,
   isNull,
   lt,
   ne,
@@ -81,6 +82,76 @@ export function householdRepo(db: Db, householdId: string) {
       .insert(savingsOffcardCosts)
       .values(values.map((v) => ({ ...v, householdId })))
       .returning()
+  }
+
+  /**
+   * Re-type every non-overridden expense that matches the Household's current Merchant rules
+   * (CONTEXT.md: adding a rule re-types all matching Transactions except those with a manual
+   * Override). Shared by the standalone repo method and the atomic create-then-apply path, so it
+   * writes through whatever `tx` it is given. Reads rules through the same `tx` so a rule inserted
+   * earlier in the same transaction is visible here.
+   *
+   * Matching normalizes the merchant and honours split thresholds, so it runs in JS over the
+   * candidates. The SQL narrows to non-overridden debits (`amount < 0` — credits never match a
+   * rule) so positive rows aren't pulled into memory only to be discarded. Matched ids are grouped
+   * by target type and flushed as one UPDATE per type (not one per row). Returns the count re-typed.
+   */
+  const retypeMatchingRows = async (tx: DbOrTx): Promise<number> => {
+    const rules = (
+      await tx
+        .select()
+        .from(merchantRules)
+        .where(eq(merchantRules.householdId, householdId))
+    ).map(toMerchantRule)
+    if (rules.length === 0) return 0
+
+    const candidates = await tx
+      .select({
+        id: transactions.id,
+        merchant: transactions.merchant,
+        amount: transactions.amount,
+      })
+      .from(transactions)
+      .leftJoin(
+        overrides,
+        and(
+          eq(overrides.householdId, householdId),
+          eq(overrides.transactionId, transactions.id)
+        )
+      )
+      .where(
+        and(
+          eq(transactions.householdId, householdId),
+          lt(transactions.amount, 0),
+          isNull(overrides.id)
+        )
+      )
+
+    const idsByType = new Map<ExpenseType, string[]>()
+    for (const row of candidates) {
+      const match = applyMerchantRules(rules, { merchant: row.merchant, amount: row.amount })
+      if (!match.matched) continue
+      const ids = idsByType.get(match.type)
+      if (ids) ids.push(row.id)
+      else idsByType.set(match.type, [row.id])
+    }
+
+    let retyped = 0
+    for (const [expenseType, ids] of idsByType) {
+      await tx
+        .update(transactions)
+        .set({
+          classificationStatus: "classified",
+          expenseType,
+          confidence: 1,
+          reasoning: "merchant rule",
+        })
+        .where(
+          and(eq(transactions.householdId, householdId), inArray(transactions.id, ids))
+        )
+      retyped += ids.length
+    }
+    return retyped
   }
 
   return {
@@ -918,62 +989,11 @@ export function householdRepo(db: Db, householdId: string) {
       /**
        * Re-type every non-overridden Transaction that matches the Household's current Merchant
        * rules (CONTEXT.md: adding a rule re-types all matching Transactions except those with a
-       * manual Override). Called after a rule is created so existing rows — already AI-classified,
-       * failed, or still pending — pick up the deterministic type immediately, without waiting for
-       * (or spending) the model.
-       *
-       * Matching normalizes the merchant and honours split thresholds, so it runs in JS over the
-       * candidate rows rather than in SQL. Overridden rows are anti-joined out (the Override wins on
-       * read, and baking a type in would leave stale ground-truth). A rule match sets the row
-       * `classified` with `confidence: 1` / `reasoning: "merchant rule"`; like credits it is not
-       * gated by the Free cap. Returns the number of rows re-typed.
+       * manual Override). Existing rows — already AI-classified, failed, or still pending — pick up
+       * the deterministic type immediately, without waiting for (or spending) the model. Wrapped in
+       * a transaction so the per-type batch updates commit together. Returns the number re-typed.
        */
-      retypeByMerchantRules: async () => {
-        const rules = (
-          await db
-            .select()
-            .from(merchantRules)
-            .where(eq(merchantRules.householdId, householdId))
-        ).map(toMerchantRule)
-        if (rules.length === 0) return 0
-
-        const candidates = await db
-          .select({
-            id: transactions.id,
-            merchant: transactions.merchant,
-            amount: transactions.amount,
-          })
-          .from(transactions)
-          .leftJoin(
-            overrides,
-            and(
-              eq(overrides.householdId, householdId),
-              eq(overrides.transactionId, transactions.id)
-            )
-          )
-          .where(
-            and(eq(transactions.householdId, householdId), isNull(overrides.id))
-          )
-
-        let retyped = 0
-        for (const row of candidates) {
-          const match = applyMerchantRules(rules, { merchant: row.merchant, amount: row.amount })
-          if (!match.matched) continue
-          await db
-            .update(transactions)
-            .set({
-              classificationStatus: "classified",
-              expenseType: match.type,
-              confidence: 1,
-              reasoning: "merchant rule",
-            })
-            .where(
-              and(eq(transactions.id, row.id), eq(transactions.householdId, householdId))
-            )
-          retyped += 1
-        }
-        return retyped
-      },
+      retypeByMerchantRules: () => db.transaction((tx) => retypeMatchingRows(tx)),
       /**
        * Requeue every `failed` transaction in the Household back to `pending` so the next drain
        * re-attempts it — used after the cause of a prior failure is cleared (e.g. AI Gateway
@@ -1016,6 +1036,23 @@ export function householdRepo(db: Db, householdId: string) {
           .insert(merchantRules)
           .values({ ...value, householdId })
           .returning(),
+      /**
+       * Create a rule and immediately re-type existing matching rows, atomically: both run in one
+       * transaction so a crash can't leave the rule created but existing rows un-retyped (and a
+       * unique-merchant violation rolls the whole thing back). Returns the new rule and the count
+       * of rows the rule re-typed. Used by the create route; {@link create} stays for setup paths
+       * that don't need the re-type.
+       */
+      createAndApply: (value: Omit<typeof merchantRules.$inferInsert, "householdId">) =>
+        db.transaction(async (tx) => {
+          const [rule] = await tx
+            .insert(merchantRules)
+            .values({ ...value, householdId })
+            .returning()
+          if (!rule) throw new Error("merchant rule insert returned no rows")
+          const retyped = await retypeMatchingRows(tx)
+          return { rule, retyped }
+        }),
       /** Delete a merchant rule. Returns the removed rows (empty if not in this household). */
       remove: (id: string) =>
         db

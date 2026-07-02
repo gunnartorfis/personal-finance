@@ -28,17 +28,16 @@ describe("POST /api/merchant-rules", () => {
     expect(requireHousehold).not.toHaveBeenCalled()
   })
 
-  it("creates a flat rule (normalized), re-types matching rows, and returns 201", async () => {
-    const create = vi.fn().mockResolvedValue([{ id: "r1", merchant: "NETFLIX", flatType: "Fixed" }])
-    const retypeByMerchantRules = vi.fn().mockResolvedValue(3)
-    requireHousehold.mockResolvedValue({
-      repo: { merchantRules: { create }, transactions: { retypeByMerchantRules } },
-    })
+  it("creates a flat rule (normalized) atomically with re-typing, and returns 201", async () => {
+    const createAndApply = vi
+      .fn()
+      .mockResolvedValue({ rule: { id: "r1", merchant: "NETFLIX", flatType: "Fixed" }, retyped: 3 })
+    requireHousehold.mockResolvedValue({ repo: { merchantRules: { createAndApply } } })
 
     const res = await POST(postReq({ merchant: "  netflix ", flatType: "Fixed" }))
     expect(res.status).toBe(201)
-    expect(create).toHaveBeenCalledWith({ merchant: "NETFLIX", flatType: "Fixed" })
-    expect(retypeByMerchantRules).toHaveBeenCalledTimes(1)
+    expect(createAndApply).toHaveBeenCalledWith({ merchant: "NETFLIX", flatType: "Fixed" })
+    expect(await res.json()).toMatchObject({ id: "r1", merchant: "NETFLIX" })
   })
 
   it("creates a split rule (normalized) and forwards all three fields", async () => {
@@ -49,11 +48,8 @@ describe("POST /api/merchant-rules", () => {
       atOrAboveType: "Fixed",
       belowType: "Nice to have",
     }
-    const create = vi.fn().mockResolvedValue([rule])
-    const retypeByMerchantRules = vi.fn().mockResolvedValue(0)
-    requireHousehold.mockResolvedValue({
-      repo: { merchantRules: { create }, transactions: { retypeByMerchantRules } },
-    })
+    const createAndApply = vi.fn().mockResolvedValue({ rule, retyped: 0 })
+    requireHousehold.mockResolvedValue({ repo: { merchantRules: { createAndApply } } })
 
     const res = await POST(
       postReq({
@@ -64,7 +60,7 @@ describe("POST /api/merchant-rules", () => {
       }),
     )
     expect(res.status).toBe(201)
-    expect(create).toHaveBeenCalledWith({
+    expect(createAndApply).toHaveBeenCalledWith({
       merchant: "WORLD CLASS",
       threshold: 5000,
       atOrAboveType: "Fixed",
@@ -72,15 +68,11 @@ describe("POST /api/merchant-rules", () => {
     })
   })
 
-  it("409s a duplicate merchant (and does not re-type)", async () => {
-    const create = vi.fn().mockRejectedValue({ code: "23505" })
-    const retypeByMerchantRules = vi.fn()
-    requireHousehold.mockResolvedValue({
-      repo: { merchantRules: { create }, transactions: { retypeByMerchantRules } },
-    })
+  it("409s a duplicate merchant", async () => {
+    const createAndApply = vi.fn().mockRejectedValue({ code: "23505" })
+    requireHousehold.mockResolvedValue({ repo: { merchantRules: { createAndApply } } })
 
     const res = await POST(postReq({ merchant: "NETFLIX", flatType: "Fixed" }))
     expect(res.status).toBe(409)
-    expect(retypeByMerchantRules).not.toHaveBeenCalled()
   })
 })
