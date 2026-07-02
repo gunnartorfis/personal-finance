@@ -46,7 +46,8 @@ interface EbAccount {
   cash_account_type?: string;
 }
 interface EbTransaction {
-  transaction_id: string;
+  /** Aggregator's stable id; optional because mock/some ASPSPs only populate `entry_reference`. */
+  transaction_id?: string;
   booking_date?: string;
   value_date?: string;
   transaction_date?: string;
@@ -211,7 +212,10 @@ function toProviderTransaction(t: EbTransaction): ProviderTransaction {
     t.credit_debit_indicator === "DBIT" ? t.creditor?.name : t.debtor?.name;
   const remittance = t.remittance_information ?? [];
   return {
-    externalId: t.transaction_id,
+    // Prefer the aggregator's stable id; fall back to entry_reference (both are stable per-account
+    // ids used for dedup) so mock/ASPSPs that omit transaction_id still yield a non-null external id
+    // — otherwise the bank_sync provenance CHECK rejects the row and nothing syncs.
+    externalId: t.transaction_id ?? t.entry_reference ?? "",
     date: t.booking_date ?? t.value_date ?? t.transaction_date ?? "",
     amount,
     currency: t.transaction_amount.currency,
