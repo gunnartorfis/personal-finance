@@ -22,6 +22,6 @@ describe("BankSyncGate", () => {
     )
     expect(screen.queryByRole("button", { name: /connect a bank/i })).not.toBeInTheDocument()
     const link = screen.getByRole("link", { name: /upgrade to premium/i })
-    expect(link).toHaveAttribute("href", "/billing")
+    expect(link).toHaveAttribute("href", "/settings/billing")
   })
 })

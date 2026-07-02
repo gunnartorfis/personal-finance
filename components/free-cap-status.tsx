@@ -38,7 +38,7 @@ export function FreeCapStatusBanner({
             You&apos;ve used all {status.cap} free classifications. Uploads, the dashboard and
             overrides keep working;{" "}
             <Link
-              href="/billing"
+              href="/settings/billing"
               className="font-medium text-foreground underline underline-offset-4"
             >
               upgrade to Premium

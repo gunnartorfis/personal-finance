@@ -5,7 +5,7 @@ import { requireHousehold } from "@/lib/household/current"
 export const dynamic = "force-dynamic"
 
 /** Merchant-rule management (Phase H): deterministic merchant→type rules applied before the AI. */
-export default async function RulesPage() {
+export default async function RulesSettingsPage() {
   await requireHousehold() // gate on auth; the manager fetches the list client-side
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-6">

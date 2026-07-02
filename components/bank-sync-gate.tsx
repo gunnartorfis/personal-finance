@@ -27,7 +27,7 @@ export function BankSyncGate({
         <p className="text-muted-foreground">
           Automatic bank sync keeps your transactions up to date without CSV uploads.{" "}
           <Link
-            href="/billing"
+            href="/settings/billing"
             className="font-medium text-foreground underline underline-offset-4"
           >
             Upgrade to Premium

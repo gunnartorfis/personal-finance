@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic"
  * Billing / subscription management (ADR-0006): shows the current plan and, for Premium, the
  * renewal date with a cancel action.
  */
-export default async function BillingPage() {
+export default async function BillingSettingsPage() {
   const { plan, planRenewsAt, subscriptionPeriod } = await requireHousehold()
 
   return (
