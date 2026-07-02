@@ -6,14 +6,15 @@ import { cycleKeyRange, recentCycleKeys } from "./cycle";
 /**
  * One month in the dashboard's rolling spend trend (Phase K).
  *
- * `spending` is the magnitude of the month's debits (>= 0) and `moneyIn` the sum of its credits
- * (>= 0), both in the Household's billing currency (ADR-0004). `difference` is `moneyIn - spending`
- * — the honest "Money in − Spending" line (ADR-0008), negative in a normal spending month.
+ * `spending` is the magnitude of the month's debits (>= 0) and `income` the sum of its credits
+ * manually marked as income (>= 0) — unmarked credits count for nothing (ADR-0009) — both in the
+ * Household's billing currency (ADR-0004). `difference` is `income - spending`, negative in a
+ * normal spending month.
  */
 export interface MonthlySpendPoint {
   month: CycleKey;
   spending: number;
-  moneyIn: number;
+  income: number;
   difference: number;
 }
 
@@ -21,7 +22,7 @@ export interface MonthlySpendPoint {
 export interface MonthlySpendRow {
   month: string;
   spending: number;
-  moneyIn: number;
+  income: number;
 }
 
 /**
@@ -39,8 +40,8 @@ export function buildMonthlySpendSeries(
   return monthKeys.map((month) => {
     const row = byMonth.get(month);
     const spending = row?.spending ?? 0;
-    const moneyIn = row?.moneyIn ?? 0;
-    return { month, spending, moneyIn, difference: moneyIn - spending };
+    const income = row?.income ?? 0;
+    return { month, spending, income, difference: income - spending };
   });
 }
 

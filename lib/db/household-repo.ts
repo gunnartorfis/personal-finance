@@ -5,6 +5,7 @@ import {
   desc,
   eq,
   getTableColumns,
+  gt,
   gte,
   isNull,
   lt,
@@ -328,6 +329,7 @@ export function householdRepo(db: Db, householdId: string) {
         db
           .select({
             amount: transactions.amount,
+            incomeMarked: transactions.incomeMarked,
             classifiedType: transactions.expenseType,
             overrideType: overrides.expenseType,
           })
@@ -359,6 +361,7 @@ export function householdRepo(db: Db, householdId: string) {
             date: transactions.date,
             merchant: transactions.merchant,
             amount: transactions.amount,
+            incomeMarked: transactions.incomeMarked,
             classificationStatus: transactions.classificationStatus,
             classifiedType: transactions.expenseType,
             confidence: transactions.confidence,
@@ -384,16 +387,17 @@ export function householdRepo(db: Db, householdId: string) {
       /**
        * Per-calendar-month spend series over a half-open date range `[from, to)`: for each month
        * with at least one transaction, the total `spending` (magnitude of debits, `amount < 0`) and
-       * `moneyIn` (sum of credits, `amount > 0`). Drives the dashboard's rolling 12-month trend.
+       * `income` (sum of credits manually marked as income — unmarked credits count for nothing,
+       * ADR-0009). Drives the dashboard's rolling 12-month trend.
        * Months with no rows are simply absent — the pure builder fills the gaps. `sum(...)` comes back
        * as a string from the driver, so both totals are coerced to numbers. Scoped to the household.
        */
       monthlySpendSeries: async (range: { from: string; to: string }) => {
         const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`;
         const spending = sql<string>`coalesce(sum(case when ${transactions.amount} < 0 then -${transactions.amount} else 0 end), 0)`;
-        const moneyIn = sql<string>`coalesce(sum(case when ${transactions.amount} > 0 then ${transactions.amount} else 0 end), 0)`;
+        const income = sql<string>`coalesce(sum(case when ${transactions.amount} > 0 and ${transactions.incomeMarked} then ${transactions.amount} else 0 end), 0)`;
         const rows = await db
-          .select({ month, spending, moneyIn })
+          .select({ month, spending, income })
           .from(transactions)
           .where(
             and(
@@ -407,7 +411,7 @@ export function householdRepo(db: Db, householdId: string) {
         return rows.map((row) => ({
           month: row.month,
           spending: Number(row.spending),
-          moneyIn: Number(row.moneyIn),
+          income: Number(row.income),
         }));
       },
       /**
@@ -623,6 +627,9 @@ export function householdRepo(db: Db, householdId: string) {
             date: transactions.date,
             merchant: transactions.merchant,
             amount: transactions.amount,
+            // Always false here (the queue is debits only) but selected so the row shape stays
+            // identical to listWithOverrides for <ReviewMode>.
+            incomeMarked: transactions.incomeMarked,
             classificationStatus: transactions.classificationStatus,
             classifiedType: transactions.expenseType,
             confidence: transactions.confidence,
@@ -724,6 +731,23 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.id, id),
               eq(transactions.householdId, householdId),
               eq(transactions.classificationStatus, "pending")
+            )
+          )
+          .returning(),
+      /**
+       * Mark (or unmark) a credit as real income (ADR-0009). Scoped to the household and to
+       * credits (`amount > 0`) — a debit id updates nothing (returns []) rather than tripping the
+       * DB CHECK, so callers can 404/409 on an empty result.
+       */
+      setIncomeMarked: (id: string, incomeMarked: boolean) =>
+        db
+          .update(transactions)
+          .set({ incomeMarked })
+          .where(
+            and(
+              eq(transactions.id, id),
+              eq(transactions.householdId, householdId),
+              gt(transactions.amount, 0)
             )
           )
           .returning(),
