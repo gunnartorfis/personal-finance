@@ -95,6 +95,32 @@ describe("ClassifyTrigger", () => {
     expect(window.localStorage.getItem(ACTIVE_KEY)).toBeNull()
   })
 
+  it("does not abort the running drain when pendingCount changes (polling parent)", async () => {
+    let signal: AbortSignal | undefined
+    let calls = 0
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        signal = init?.signal ?? undefined
+        if (init?.signal?.aborted) throw new DOMException("aborted", "AbortError")
+        calls += 1
+        // never-settling queue so the drain stays in flight across the re-renders below
+        return { ok: true, json: async () => ({ classified: 25, failed: 0, capped: 0 }) }
+      }),
+    )
+    window.localStorage.setItem(ACTIVE_KEY, "1")
+    const { rerender } = render(<ClassifyTrigger resumable pendingCount={100} />)
+    await vi.waitFor(() => expect(calls).toBeGreaterThan(0))
+    const before = calls
+
+    // A polling parent (the banner) feeds a decreasing count; this must NOT tear down the drain.
+    rerender(<ClassifyTrigger resumable pendingCount={80} />)
+    rerender(<ClassifyTrigger resumable pendingCount={60} />)
+
+    expect(signal?.aborted).toBe(false)
+    await vi.waitFor(() => expect(calls).toBeGreaterThan(before))
+  })
+
   it("does not auto-resume when the persisted flag is absent", async () => {
     const fetchMock = stubClassify([{ classified: 0, failed: 0, capped: 0 }])
     render(<ClassifyTrigger resumable pendingCount={3} />)
