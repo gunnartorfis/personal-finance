@@ -23,6 +23,9 @@ export async function GET(request: Request) {
 
   const jar = await cookies()
   const expectedState = jar.get(STATE_COOKIE)?.value
+  // Snapshot which cookies arrived BEFORE deleting the state cookie, so a genuinely-missing cookie is
+  // distinguishable from one that was present and just consumed.
+  const arrivedCookies = jar.getAll().map((c) => c.name)
   jar.delete(STATE_COOKIE)
 
   // Diagnostic: confirms the callback handler ran (vs middleware/session bounce) and shows which
@@ -34,7 +37,7 @@ export async function GET(request: Request) {
     stateParam: trunc(state),
     stateCookie: trunc(expectedState),
     stateMatches: Boolean(state && expectedState && state === expectedState),
-    allCookies: jar.getAll().map((c) => c.name),
+    arrivedCookies,
   })
 
   const back = (status: "connected" | "error") =>
