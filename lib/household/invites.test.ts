@@ -4,11 +4,12 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { households, householdInvites, members } from "@/lib/db/schema";
+import { accounts, households, householdInvites, members } from "@/lib/db/schema";
 
 import {
   acceptInvite,
   createInvite,
+  declineInvite,
   findActiveInvitesByEmail,
   generateInviteToken,
   hashInviteToken,
@@ -180,6 +181,92 @@ describe("acceptInvite", () => {
     expect(res.householdId).toBe(householdId);
     const mine = await db.select().from(members).where(and(eq(members.authUserId, "again-user"), eq(members.householdId, householdId)));
     expect(mine).toHaveLength(1); // no duplicate member row
+  });
+
+  it("confirmSwitch deletes the sole-member current household and joins the new one", async () => {
+    const { householdId, rawToken, email } = await pendingInvite("switch@x.co");
+    const [oldHh] = await db.insert(households).values({}).returning();
+    await db.insert(members).values({ householdId: oldHh.id, authUserId: "switcher" });
+
+    const res = await acceptInvite({
+      db: asDb(db), locator: { rawToken }, authUserId: "switcher", email, emailVerified: true, confirmSwitch: true, now: NOW,
+    });
+    expect(res.householdId).toBe(householdId);
+
+    const mine = await db.select().from(members).where(eq(members.authUserId, "switcher"));
+    expect(mine).toHaveLength(1);
+    expect(mine[0].householdId).toBe(householdId);
+    // Sole-member household is deleted (cascades its data).
+    expect(await db.select().from(households).where(eq(households.id, oldHh.id))).toHaveLength(0);
+  });
+
+  it("confirmSwitch leaves a multi-member current household (it survives) and joins the new one", async () => {
+    const { householdId, rawToken, email } = await pendingInvite("mover@x.co");
+    const [oldHh] = await db.insert(households).values({}).returning();
+    await db.insert(members).values({ householdId: oldHh.id, authUserId: "mover" });
+    await db.insert(members).values({ householdId: oldHh.id, authUserId: "roommate" });
+
+    const res = await acceptInvite({
+      db: asDb(db), locator: { rawToken }, authUserId: "mover", email, emailVerified: true, confirmSwitch: true, now: NOW,
+    });
+    expect(res.householdId).toBe(householdId);
+
+    const [mine] = await db.select().from(members).where(eq(members.authUserId, "mover"));
+    expect(mine.householdId).toBe(householdId);
+    // Old household survives for the remaining member.
+    const remaining = await db.select().from(members).where(eq(members.householdId, oldHh.id));
+    expect(remaining.map((m) => m.authUserId)).toEqual(["roommate"]);
+  });
+
+  it("won't delete a sole-member household holding data without confirmDelete (stale leave→delete)", async () => {
+    const { householdId, rawToken, email } = await pendingInvite("stale@x.co");
+    const [oldHh] = await db.insert(households).values({}).returning();
+    await db.insert(members).values({ householdId: oldHh.id, authUserId: "stale-user" });
+    // A non-default account makes the household "active", so dropping it is destructive.
+    await db.insert(accounts).values({ householdId: oldHh.id, name: "Checking" });
+
+    // A bare confirmSwitch (what a stale "leave"/"discard" snapshot sends) must not destroy data.
+    await expect(
+      acceptInvite({ db: asDb(db), locator: { rawToken }, authUserId: "stale-user", email, emailVerified: true, confirmSwitch: true, now: NOW }),
+    ).rejects.toMatchObject({ code: "confirm_delete_required" });
+    expect(await db.select().from(households).where(eq(households.id, oldHh.id))).toHaveLength(1);
+
+    // With the explicit destructive confirmation, the switch goes through.
+    const res = await acceptInvite({
+      db: asDb(db), locator: { rawToken }, authUserId: "stale-user", email, emailVerified: true, confirmSwitch: true, confirmDelete: true, now: NOW,
+    });
+    expect(res.householdId).toBe(householdId);
+    expect(await db.select().from(households).where(eq(households.id, oldHh.id))).toHaveLength(0);
+  });
+
+  it("without confirmSwitch, a sole-member switch is still blocked (no accidental deletion)", async () => {
+    const { rawToken, email } = await pendingInvite("careful@x.co");
+    const [oldHh] = await db.insert(households).values({}).returning();
+    await db.insert(members).values({ householdId: oldHh.id, authUserId: "careful" });
+
+    await expect(
+      acceptInvite({ db: asDb(db), locator: { rawToken }, authUserId: "careful", email, emailVerified: true, now: NOW }),
+    ).rejects.toMatchObject({ code: "already_in_household" });
+    // The current household is untouched.
+    expect(await db.select().from(households).where(eq(households.id, oldHh.id))).toHaveLength(1);
+  });
+});
+
+describe("declineInvite", () => {
+  it("revokes a pending invite addressed to the matching email", async () => {
+    const { householdId, memberId } = await seedHousehold();
+    const { rawToken } = await createInvite({ db: asDb(db), householdId, plan: "Premium", invitedByMemberId: memberId, email: "no@x.co", now: NOW });
+    await declineInvite({ db: asDb(db), locator: { rawToken }, email: "no@x.co" });
+    const [invite] = await db.select().from(householdInvites);
+    expect(invite.status).toBe("revoked");
+  });
+
+  it("ignores an invite for a different email", async () => {
+    const { householdId, memberId } = await seedHousehold();
+    const { rawToken } = await createInvite({ db: asDb(db), householdId, plan: "Premium", invitedByMemberId: memberId, email: "keep@x.co", now: NOW });
+    await declineInvite({ db: asDb(db), locator: { rawToken }, email: "someone-else@x.co" });
+    const [invite] = await db.select().from(householdInvites);
+    expect(invite.status).toBe("pending");
   });
 });
 

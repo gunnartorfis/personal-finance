@@ -1,6 +1,6 @@
-import { Clock, Users } from "lucide-react"
+import { Clock, TriangleAlert, Users } from "lucide-react"
 
-import { AcceptInvite } from "@/components/accept-invite"
+import { AcceptInvite, type InviteConsequence } from "@/components/accept-invite"
 import { cn } from "@/lib/utils"
 
 interface InviteCardProps {
@@ -13,6 +13,8 @@ interface InviteCardProps {
   expiresAt: Date | string
   /** How `AcceptInvite` locates the invite — the link's raw `token` or an `inviteId` from `/join`. */
   locator: { token: string } | { inviteId: string }
+  /** What accepting does to the user's current household, if any (drives the warning + button). */
+  consequence?: InviteConsequence
 }
 
 /**
@@ -27,6 +29,7 @@ export function InviteCard({
   memberCount,
   expiresAt,
   locator,
+  consequence = "none",
 }: InviteCardProps) {
   const displayName = inviterName?.trim() || inviterEmail?.trim() || null
   const firstName = inviterName?.trim().split(/\s+/)[0]
@@ -72,15 +75,61 @@ export function InviteCard({
         </MetaBadge>
       </div>
 
+      {consequence !== "none" && <ConsequenceNotice consequence={consequence} />}
+
       <div className="h-px bg-border" />
 
       <div className="flex flex-col gap-3">
-        <AcceptInvite {...locator} />
+        <AcceptInvite {...locator} consequence={consequence} />
         <p className="text-xs text-pretty text-muted-foreground">
-          This invite is for <span className="font-medium text-foreground">{invitedEmail}</span>. You
-          can belong to one household at a time.
+          This invite is for <span className="font-medium text-foreground">{invitedEmail}</span>.
+          {consequence === "none" && " You can belong to one household at a time."}
         </p>
       </div>
+    </div>
+  )
+}
+
+/**
+ * The one-household consequence of accepting, when the user already has a household. `delete` is the
+ * loud, destructive case (sole member of a household with real data); `leave` is milder (it survives
+ * for others); `discard-empty` is a quiet aside (a pristine starter household costs nothing to drop).
+ */
+function ConsequenceNotice({ consequence }: { consequence: InviteConsequence }) {
+  if (consequence === "discard-empty") {
+    return (
+      <p className="text-sm text-pretty text-muted-foreground">
+        You’ll join with a clean slate — your empty starter household will be removed.
+      </p>
+    )
+  }
+
+  const isDelete = consequence === "delete"
+  return (
+    <div
+      role="alert"
+      className={cn(
+        "flex items-start gap-2 rounded-lg border px-3 py-2 text-sm",
+        isDelete
+          ? "border-destructive/30 bg-destructive/10 text-destructive"
+          : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-500",
+      )}
+    >
+      <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+      <p className="text-pretty">
+        {isDelete ? (
+          <>
+            You’re the only member of your current household. Accepting{" "}
+            <span className="font-medium">permanently deletes it and all its data</span> —
+            transactions, accounts, rules, and savings. This can’t be undone.
+          </>
+        ) : (
+          <>
+            You’ll leave your current household to join this one. It stays with its other members;
+            you’ll lose access to it.
+          </>
+        )}
+      </p>
     </div>
   )
 }

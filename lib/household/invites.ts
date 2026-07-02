@@ -7,6 +7,9 @@ import { householdInvites, members } from "@/lib/db/schema";
 import type * as schema from "@/lib/db/schema";
 import type { Plan } from "@/shared/types";
 
+import { getHouseholdActivity } from "./activity";
+import { switchOutOfHousehold } from "./membership";
+
 /**
  * Household Invite domain logic (ADR-0010).
  *
@@ -39,7 +42,8 @@ export type InviteErrorCode =
   | "expired"
   | "email_mismatch"
   | "email_not_verified"
-  | "already_in_household";
+  | "already_in_household"
+  | "confirm_delete_required";
 
 /** A domain failure in the Invite flow; `code` drives the API status + message. */
 export class InviteError extends Error {
@@ -66,6 +70,7 @@ export function inviteErrorStatus(code: InviteErrorCode): number {
     case "not_pending":
     case "cap_reached":
     case "already_in_household":
+    case "confirm_delete_required":
       return 409;
     case "expired":
       return 410;
@@ -258,6 +263,20 @@ export interface AcceptInviteInput {
   /** The redeemer's session email and whether Neon Auth has verified it. */
   email: string;
   emailVerified: boolean;
+  /**
+   * The redeemer has explicitly confirmed switching out of their current Household in order to join
+   * this one. Without it, an accepter already in a *different* Household is rejected with
+   * `already_in_household`.
+   */
+  confirmSwitch?: boolean;
+  /**
+   * The redeemer has confirmed the *destructive* case: deleting their current Household (they're its
+   * sole Member) along with all of its data. Required whenever the switch would actually destroy a
+   * Household that holds data — a guard against a stale "leave" snapshot silently escalating to a
+   * delete if the other Members left between page render and submit. Not needed to drop a pristine,
+   * empty starter Household.
+   */
+  confirmDelete?: boolean;
   now: Date;
 }
 
@@ -266,9 +285,12 @@ export interface AcceptInviteInput {
  * add the signing-in user as a Member of the Invite's Household and mark the Invite accepted —
  * atomically. Works from either the link's raw token or an invite id surfaced on `/join`; the
  * **verified-email match is the authorization** in both cases (the token only proves link
- * possession), so accept-by-id is equally safe. Returns the joined `householdId`. Idempotent when
- * the user is already a Member of that same Household; throws `already_in_household` if they belong
- * to a different one (they must leave it first).
+ * possession), so accept-by-id is equally safe. Returns the joined `householdId`.
+ *
+ * One-Household rule (ADR-0010): a user already in the *same* Household is a no-op (idempotent). One
+ * in a *different* Household must opt into a switch — with `confirmSwitch`, their current Household is
+ * cleared first ({@link switchOutOfHousehold}: deleted if they're its sole Member, otherwise left)
+ * inside this same transaction, so the whole switch is all-or-nothing; without it, `already_in_household`.
  */
 export async function acceptInvite(input: AcceptInviteInput): Promise<{ householdId: string }> {
   const { db, locator, authUserId, now } = input;
@@ -285,30 +307,44 @@ export async function acceptInvite(input: AcceptInviteInput): Promise<{ househol
       );
     if (!invite) throw new InviteError("not_found");
 
-    // Membership is checked BEFORE Invite status so a repeat accept is idempotent: a double-submit
+    // Membership is read BEFORE Invite status so a repeat accept is idempotent: a double-submit
     // (the common double-click, where the first request already made them a Member, or a true
     // parallel race) resolves to success rather than a confusing `not_pending` on the second call.
     const [existingMembership] = await tx
-      .select({ householdId: members.householdId })
+      .select({ householdId: members.householdId, memberId: members.id })
       .from(members)
       .where(eq(members.authUserId, authUserId));
 
-    if (existingMembership) {
-      if (existingMembership.householdId !== invite.householdId) {
-        throw new InviteError("already_in_household");
-      }
-      // Already a Member of this exact Household — settle a still-pending Invite and no-op the join.
+    // Already a Member of this exact Household — settle a still-pending Invite and no-op the join.
+    if (existingMembership?.householdId === invite.householdId) {
       if (invite.status === "pending") await markAccepted(tx, invite.id, now);
       return { householdId: invite.householdId };
     }
 
-    // New join: the Invite itself must be live and addressed to this verified email.
+    // Join (fresh or via a switch): the Invite must be live and addressed to this verified email.
+    // Validate fully BEFORE touching the current Household, so a rejected accept never destroys it.
     if (!input.emailVerified) throw new InviteError("email_not_verified");
     if (invite.status !== "pending") throw new InviteError("not_pending");
     if (invite.expiresAt.getTime() <= now.getTime()) throw new InviteError("expired");
     if (invite.email !== email) throw new InviteError("email_mismatch");
     if ((await countMembers(tx, invite.householdId)) >= MEMBER_CAP) {
       throw new InviteError("cap_reached");
+    }
+
+    // In a different Household already: only a confirmed switch clears it (delete if sole, else
+    // leave). Re-derive the outcome from live state here, not from the client's page-render snapshot:
+    // if the switch would now DELETE a Household that holds data, it must carry an explicit
+    // `confirmDelete` — otherwise a "leave" the user saw (that became sole-Member since) could destroy
+    // their data without the destructive confirmation. Dropping an empty starter Household needs no
+    // such confirm (nothing is lost).
+    if (existingMembership) {
+      if (!input.confirmSwitch) throw new InviteError("already_in_household");
+      const { memberCount, hasActivity } = await getHouseholdActivity(tx, existingMembership.householdId);
+      const wouldDestroyData = memberCount <= 1 && hasActivity;
+      if (wouldDestroyData && !input.confirmDelete) {
+        throw new InviteError("confirm_delete_required");
+      }
+      await switchOutOfHousehold(tx, existingMembership.householdId, existingMembership.memberId);
     }
 
     // Idempotent insert so a true-parallel double-submit can't abort the transaction on the
@@ -331,6 +367,31 @@ export async function acceptInvite(input: AcceptInviteInput): Promise<{ househol
     await markAccepted(tx, invite.id, now);
     return { householdId: invite.householdId };
   });
+}
+
+/**
+ * Decline an Invite addressed to the current user: mark a still-pending Invite `revoked` so it stops
+ * routing them to `/join` (ADR-0010). Authorized by the **email match** — the target may always
+ * refuse their own Invite. A no-op if the Invite is missing, already settled, or for another email.
+ */
+export async function declineInvite(input: {
+  db: Db;
+  locator: InviteLocator;
+  email: string;
+}): Promise<void> {
+  const email = normalizeEmail(input.email);
+  await input.db
+    .update(householdInvites)
+    .set({ status: "revoked" })
+    .where(
+      and(
+        "rawToken" in input.locator
+          ? eq(householdInvites.tokenHash, hashInviteToken(input.locator.rawToken))
+          : eq(householdInvites.id, input.locator.inviteId),
+        eq(householdInvites.email, email),
+        eq(householdInvites.status, "pending"),
+      ),
+    );
 }
 
 async function markAccepted(db: Db, inviteId: string, now: Date): Promise<void> {

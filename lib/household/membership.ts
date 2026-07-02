@@ -31,6 +31,33 @@ export class LeaveError extends Error {
 }
 
 /**
+ * Detach a Member's row from a Household: null their actor references (upload importer, override
+ * author, invite issuer — composite FKs are NO ACTION) so the row can go, then delete it. No
+ * last-Member guard and no transaction of its own — the caller supplies both. Runs on a `Db` or a
+ * transaction handle, so it composes inside a larger atomic operation (e.g. an Invite switch).
+ */
+async function releaseMembership(db: Db, householdId: string, memberId: string): Promise<void> {
+  await db
+    .update(uploads)
+    .set({ importedByMemberId: null })
+    .where(and(eq(uploads.householdId, householdId), eq(uploads.importedByMemberId, memberId)));
+  await db
+    .update(overrides)
+    .set({ memberId: null })
+    .where(and(eq(overrides.householdId, householdId), eq(overrides.memberId, memberId)));
+  await db
+    .update(householdInvites)
+    .set({ invitedByMemberId: null })
+    .where(
+      and(
+        eq(householdInvites.householdId, householdId),
+        eq(householdInvites.invitedByMemberId, memberId),
+      ),
+    );
+  await db.delete(members).where(and(eq(members.id, memberId), eq(members.householdId, householdId)));
+}
+
+/**
  * Remove `memberId` from `householdId`. Throws `last_member` when they are the only Member — the
  * sole Member must {@link deleteHousehold} instead, so we never orphan a Household's data by a leave.
  */
@@ -41,30 +68,32 @@ export async function leaveHousehold(db: Db, householdId: string, memberId: stri
       .from(members)
       .where(eq(members.householdId, householdId));
     if ((row?.value ?? 0) <= 1) throw new LeaveError("last_member");
-
-    // Null this Member's actor references so the row can be deleted (composite FKs are NO ACTION).
-    await tx
-      .update(uploads)
-      .set({ importedByMemberId: null })
-      .where(and(eq(uploads.householdId, householdId), eq(uploads.importedByMemberId, memberId)));
-    await tx
-      .update(overrides)
-      .set({ memberId: null })
-      .where(and(eq(overrides.householdId, householdId), eq(overrides.memberId, memberId)));
-    await tx
-      .update(householdInvites)
-      .set({ invitedByMemberId: null })
-      .where(
-        and(
-          eq(householdInvites.householdId, householdId),
-          eq(householdInvites.invitedByMemberId, memberId),
-        ),
-      );
-
-    await tx
-      .delete(members)
-      .where(and(eq(members.id, memberId), eq(members.householdId, householdId)));
+    await releaseMembership(tx, householdId, memberId);
   });
+}
+
+/**
+ * Clear a Member out of their current Household so they can join another (the Invite switch,
+ * ADR-0010). The exit depends on who's left: the sole Member's departure would orphan the
+ * Household's data, so the whole Household is deleted (cascading all of it); when others remain the
+ * Member simply leaves and the Household stays with them. Takes a `Db`/transaction handle from the
+ * caller — {@link acceptInvite} runs this inside the same transaction as the join, so a switch is
+ * all-or-nothing. Assumes the destructive intent is already confirmed by the caller.
+ */
+export async function switchOutOfHousehold(
+  db: Db,
+  householdId: string,
+  memberId: string,
+): Promise<void> {
+  const [row] = await db
+    .select({ value: sql<number>`count(*)::int` })
+    .from(members)
+    .where(eq(members.householdId, householdId));
+  if ((row?.value ?? 0) <= 1) {
+    await deleteHousehold(db, householdId);
+    return;
+  }
+  await releaseMembership(db, householdId, memberId);
 }
 
 /**

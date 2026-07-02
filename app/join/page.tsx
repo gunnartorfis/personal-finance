@@ -1,29 +1,29 @@
 import { redirect } from "next/navigation"
 
+import { type InviteConsequence } from "@/components/accept-invite"
 import { InviteCard } from "@/components/invite-card"
 import { VerifyEmailGate } from "@/components/verify-email-gate"
 import { getCurrentUser } from "@/lib/auth/session"
 import { getDb } from "@/lib/db"
+import { getHouseholdActivity } from "@/lib/household/activity"
 import { findActiveInvitesByEmail, getInviteCardDetails } from "@/lib/household/invites"
 import { findMembership } from "@/lib/household/provision"
 
-// Auth-scoped; the visitor may not (yet) belong to any Household.
+// Auth-scoped; the visitor may or may not already belong to a Household.
 export const dynamic = "force-dynamic"
 
 /**
- * Landing screen for an invited user who signed in without the link (ADR-0010): the tenant guard
- * routes them here instead of auto-provisioning a stray Household. Shows the active Invites addressed
- * to their email as acceptance cards and lets them accept by id (the verified-email match is the
- * authorization). If they already belong to a Household, or have no pending Invite, they're sent on;
- * if they haven't verified their email yet they see the verification gate first.
+ * The invite-acceptance screen (ADR-0010). Reached by a signed-in user with a pending Invite — both
+ * brand-new users (routed here instead of being auto-provisioned a stray Household) and existing
+ * Members (force-routed by the app layout so they can actually discover the Invite). Shows each
+ * Invite as a card; for a Member it also spells out the one-Household consequence of accepting
+ * (delete / leave / discard the empty starter). No pending Invite ⇒ back to the dashboard.
  */
 export default async function JoinPage() {
   const user = await getCurrentUser()
   if (!user) redirect("/auth/sign-in")
 
   const db = getDb()
-  if (await findMembership(db, user.id)) redirect("/dashboard")
-
   const invites = await findActiveInvitesByEmail(db, user.email)
   if (invites.length === 0) redirect("/dashboard")
 
@@ -31,10 +31,23 @@ export default async function JoinPage() {
     return <VerifyEmailGate email={user.email} />
   }
 
+  // The current Household (if any) decides what accepting costs: nothing for a new user, otherwise a
+  // switch out of their existing one.
+  const membership = await findMembership(db, user.id)
+  const activity = membership ? await getHouseholdActivity(db, membership.householdId) : null
+
+  const consequenceFor = (inviteHouseholdId: string): InviteConsequence => {
+    if (!membership || !activity) return "none"
+    if (inviteHouseholdId === membership.householdId) return "none"
+    if (activity.memberCount > 1) return "leave"
+    return activity.hasActivity ? "delete" : "discard-empty"
+  }
+
   const cards = await Promise.all(
     invites.map(async (invite) => ({
       invite,
       details: await getInviteCardDetails(db, invite.householdId, invite.invitedByMemberId),
+      consequence: consequenceFor(invite.householdId),
     })),
   )
 
@@ -53,7 +66,7 @@ export default async function JoinPage() {
         <h1 className="sr-only">Join a household</h1>
       )}
       <ul role="list" className="flex flex-col gap-4">
-        {cards.map(({ invite, details }) => (
+        {cards.map(({ invite, details, consequence }) => (
           <li key={invite.id}>
             <InviteCard
               invitedEmail={invite.email}
@@ -62,6 +75,7 @@ export default async function JoinPage() {
               memberCount={details.memberCount}
               expiresAt={invite.expiresAt}
               locator={{ inviteId: invite.id }}
+              consequence={consequence}
             />
           </li>
         ))}

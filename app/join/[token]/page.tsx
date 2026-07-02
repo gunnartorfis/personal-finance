@@ -1,11 +1,14 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
+import { type InviteConsequence } from "@/components/accept-invite"
 import { InviteCard } from "@/components/invite-card"
 import { Button } from "@/components/ui/button"
 import { getCurrentUser } from "@/lib/auth/session"
 import { getDb } from "@/lib/db"
+import { getHouseholdActivity } from "@/lib/household/activity"
 import { getInviteCardDetails, getInvitePreviewByToken } from "@/lib/household/invites"
+import { findMembership } from "@/lib/household/provision"
 
 // Auth-scoped; the visitor may not (yet) belong to any Household.
 export const dynamic = "force-dynamic"
@@ -46,7 +49,17 @@ export default async function JoinTokenPage({
     )
   }
 
-  const details = await getInviteCardDetails(db, preview.householdId, preview.invitedByMemberId)
+  const [details, membership] = await Promise.all([
+    getInviteCardDetails(db, preview.householdId, preview.invitedByMemberId),
+    findMembership(db, user.id),
+  ])
+
+  // If they already belong to a Household, spell out what accepting costs (a switch out of it).
+  let consequence: InviteConsequence = "none"
+  if (membership && membership.householdId !== preview.householdId) {
+    const activity = await getHouseholdActivity(db, membership.householdId)
+    consequence = activity.memberCount > 1 ? "leave" : activity.hasActivity ? "delete" : "discard-empty"
+  }
 
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-md flex-col justify-center gap-4 px-6 py-12">
@@ -59,6 +72,7 @@ export default async function JoinTokenPage({
         memberCount={details.memberCount}
         expiresAt={preview.expiresAt}
         locator={{ token }}
+        consequence={consequence}
       />
     </main>
   )
