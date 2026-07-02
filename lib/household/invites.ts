@@ -219,7 +219,6 @@ export interface AcceptInviteInput {
  */
 export async function acceptInvite(input: AcceptInviteInput): Promise<{ householdId: string }> {
   const { db, locator, authUserId, now } = input;
-  if (!input.emailVerified) throw new InviteError("email_not_verified");
   const email = normalizeEmail(input.email);
 
   return db.transaction(async (tx) => {
@@ -232,10 +231,10 @@ export async function acceptInvite(input: AcceptInviteInput): Promise<{ househol
           : eq(householdInvites.id, locator.inviteId),
       );
     if (!invite) throw new InviteError("not_found");
-    if (invite.status !== "pending") throw new InviteError("not_pending");
-    if (invite.expiresAt.getTime() <= now.getTime()) throw new InviteError("expired");
-    if (invite.email !== email) throw new InviteError("email_mismatch");
 
+    // Membership is checked BEFORE Invite status so a repeat accept is idempotent: a double-submit
+    // (the common double-click, where the first request already made them a Member, or a true
+    // parallel race) resolves to success rather than a confusing `not_pending` on the second call.
     const [existingMembership] = await tx
       .select({ householdId: members.householdId })
       .from(members)
@@ -245,16 +244,37 @@ export async function acceptInvite(input: AcceptInviteInput): Promise<{ househol
       if (existingMembership.householdId !== invite.householdId) {
         throw new InviteError("already_in_household");
       }
-      // Already a Member of this exact Household — settle the Invite and no-op the join.
-      await markAccepted(tx, invite.id, now);
+      // Already a Member of this exact Household — settle a still-pending Invite and no-op the join.
+      if (invite.status === "pending") await markAccepted(tx, invite.id, now);
       return { householdId: invite.householdId };
     }
 
+    // New join: the Invite itself must be live and addressed to this verified email.
+    if (!input.emailVerified) throw new InviteError("email_not_verified");
+    if (invite.status !== "pending") throw new InviteError("not_pending");
+    if (invite.expiresAt.getTime() <= now.getTime()) throw new InviteError("expired");
+    if (invite.email !== email) throw new InviteError("email_mismatch");
     if ((await countMembers(tx, invite.householdId)) >= MEMBER_CAP) {
       throw new InviteError("cap_reached");
     }
 
-    await tx.insert(members).values({ householdId: invite.householdId, authUserId });
+    // Idempotent insert so a true-parallel double-submit can't abort the transaction on the
+    // `members.auth_user_id` unique constraint. A no-op insert means a racing accept won the seat:
+    // reconcile against the membership that now exists rather than 500ing.
+    const inserted = await tx
+      .insert(members)
+      .values({ householdId: invite.householdId, authUserId })
+      .onConflictDoNothing({ target: members.authUserId })
+      .returning({ householdId: members.householdId });
+
+    if (inserted.length === 0) {
+      const [raced] = await tx
+        .select({ householdId: members.householdId })
+        .from(members)
+        .where(eq(members.authUserId, authUserId));
+      if (raced?.householdId !== invite.householdId) throw new InviteError("already_in_household");
+    }
+
     await markAccepted(tx, invite.id, now);
     return { householdId: invite.householdId };
   });

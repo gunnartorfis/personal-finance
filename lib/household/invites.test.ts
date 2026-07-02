@@ -161,6 +161,18 @@ describe("acceptInvite", () => {
     ).rejects.toMatchObject({ code: "already_in_household" });
   });
 
+  it("handles a concurrent double-accept without a unique-violation crash", async () => {
+    const { householdId, rawToken, email } = await pendingInvite("race@x.co")
+    const [a, b] = await Promise.all([
+      acceptInvite({ db: asDb(db), locator: { rawToken }, authUserId: "race-user", email, emailVerified: true, now: NOW }),
+      acceptInvite({ db: asDb(db), locator: { rawToken }, authUserId: "race-user", email, emailVerified: true, now: NOW }),
+    ])
+    expect(a.householdId).toBe(householdId)
+    expect(b.householdId).toBe(householdId)
+    const mine = await db.select().from(members).where(eq(members.authUserId, "race-user"))
+    expect(mine).toHaveLength(1) // exactly one member row despite two accepts
+  })
+
   it("is idempotent when already a Member of the inviting household", async () => {
     const { householdId, rawToken, email } = await pendingInvite("again@x.co");
     await db.insert(members).values({ householdId, authUserId: "again-user" });

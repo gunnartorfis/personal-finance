@@ -36,10 +36,8 @@ interface Props {
   plan: Plan
   cap: number
   currentUserId: string
-  currentMemberId: string
   initialMembers: Member[]
   initialInvites: Invite[]
-  initialSeatsUsed: number
   className?: string
 }
 

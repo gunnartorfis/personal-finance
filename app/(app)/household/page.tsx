@@ -14,13 +14,11 @@ export const dynamic = "force-dynamic"
  * `listMembersWithIdentity`); everything mutating runs through `/api/household/*`.
  */
 export default async function HouseholdPage() {
-  const { householdId, memberId, plan, repo, user } = await requireHousehold()
+  const { householdId, plan, repo, user } = await requireHousehold()
   const [members, invites] = await Promise.all([
     listMembersWithIdentity(getDb(), householdId),
     repo.invites.listActive(),
   ])
-
-  const seatsUsed = members.length + invites.length
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-6">
@@ -35,7 +33,6 @@ export default async function HouseholdPage() {
         plan={plan}
         cap={MEMBER_CAP}
         currentUserId={user.id}
-        currentMemberId={memberId}
         initialMembers={members.map((m) => ({
           id: m.id,
           authUserId: m.authUserId,
@@ -47,7 +44,6 @@ export default async function HouseholdPage() {
           email: i.email,
           expiresAt: i.expiresAt.toISOString(),
         }))}
-        initialSeatsUsed={seatsUsed}
       />
     </div>
   )
