@@ -14,6 +14,7 @@ import {
 } from "drizzle-orm"
 import type { NodePgDatabase } from "drizzle-orm/node-postgres"
 
+import { applyMerchantRules, toMerchantRule } from "@/shared/merchant-rules"
 import type { ExpenseType } from "@/shared/types"
 
 import {
@@ -914,6 +915,65 @@ export function householdRepo(db: Db, householdId: string) {
             )
           )
           .returning(),
+      /**
+       * Re-type every non-overridden Transaction that matches the Household's current Merchant
+       * rules (CONTEXT.md: adding a rule re-types all matching Transactions except those with a
+       * manual Override). Called after a rule is created so existing rows — already AI-classified,
+       * failed, or still pending — pick up the deterministic type immediately, without waiting for
+       * (or spending) the model.
+       *
+       * Matching normalizes the merchant and honours split thresholds, so it runs in JS over the
+       * candidate rows rather than in SQL. Overridden rows are anti-joined out (the Override wins on
+       * read, and baking a type in would leave stale ground-truth). A rule match sets the row
+       * `classified` with `confidence: 1` / `reasoning: "merchant rule"`; like credits it is not
+       * gated by the Free cap. Returns the number of rows re-typed.
+       */
+      retypeByMerchantRules: async () => {
+        const rules = (
+          await db
+            .select()
+            .from(merchantRules)
+            .where(eq(merchantRules.householdId, householdId))
+        ).map(toMerchantRule)
+        if (rules.length === 0) return 0
+
+        const candidates = await db
+          .select({
+            id: transactions.id,
+            merchant: transactions.merchant,
+            amount: transactions.amount,
+          })
+          .from(transactions)
+          .leftJoin(
+            overrides,
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactions.id)
+            )
+          )
+          .where(
+            and(eq(transactions.householdId, householdId), isNull(overrides.id))
+          )
+
+        let retyped = 0
+        for (const row of candidates) {
+          const match = applyMerchantRules(rules, { merchant: row.merchant, amount: row.amount })
+          if (!match.matched) continue
+          await db
+            .update(transactions)
+            .set({
+              classificationStatus: "classified",
+              expenseType: match.type,
+              confidence: 1,
+              reasoning: "merchant rule",
+            })
+            .where(
+              and(eq(transactions.id, row.id), eq(transactions.householdId, householdId))
+            )
+          retyped += 1
+        }
+        return retyped
+      },
       /**
        * Requeue every `failed` transaction in the Household back to `pending` so the next drain
        * re-attempts it — used after the cause of a prior failure is cleared (e.g. AI Gateway

@@ -28,13 +28,17 @@ describe("POST /api/merchant-rules", () => {
     expect(requireHousehold).not.toHaveBeenCalled()
   })
 
-  it("creates a flat rule (normalized) and returns 201", async () => {
+  it("creates a flat rule (normalized), re-types matching rows, and returns 201", async () => {
     const create = vi.fn().mockResolvedValue([{ id: "r1", merchant: "NETFLIX", flatType: "Fixed" }])
-    requireHousehold.mockResolvedValue({ repo: { merchantRules: { create } } })
+    const retypeByMerchantRules = vi.fn().mockResolvedValue(3)
+    requireHousehold.mockResolvedValue({
+      repo: { merchantRules: { create }, transactions: { retypeByMerchantRules } },
+    })
 
     const res = await POST(postReq({ merchant: "  netflix ", flatType: "Fixed" }))
     expect(res.status).toBe(201)
     expect(create).toHaveBeenCalledWith({ merchant: "NETFLIX", flatType: "Fixed" })
+    expect(retypeByMerchantRules).toHaveBeenCalledTimes(1)
   })
 
   it("creates a split rule (normalized) and forwards all three fields", async () => {
@@ -46,7 +50,10 @@ describe("POST /api/merchant-rules", () => {
       belowType: "Nice to have",
     }
     const create = vi.fn().mockResolvedValue([rule])
-    requireHousehold.mockResolvedValue({ repo: { merchantRules: { create } } })
+    const retypeByMerchantRules = vi.fn().mockResolvedValue(0)
+    requireHousehold.mockResolvedValue({
+      repo: { merchantRules: { create }, transactions: { retypeByMerchantRules } },
+    })
 
     const res = await POST(
       postReq({
@@ -65,11 +72,15 @@ describe("POST /api/merchant-rules", () => {
     })
   })
 
-  it("409s a duplicate merchant", async () => {
+  it("409s a duplicate merchant (and does not re-type)", async () => {
     const create = vi.fn().mockRejectedValue({ code: "23505" })
-    requireHousehold.mockResolvedValue({ repo: { merchantRules: { create } } })
+    const retypeByMerchantRules = vi.fn()
+    requireHousehold.mockResolvedValue({
+      repo: { merchantRules: { create }, transactions: { retypeByMerchantRules } },
+    })
 
     const res = await POST(postReq({ merchant: "NETFLIX", flatType: "Fixed" }))
     expect(res.status).toBe(409)
+    expect(retypeByMerchantRules).not.toHaveBeenCalled()
   })
 })

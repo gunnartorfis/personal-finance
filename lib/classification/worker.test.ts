@@ -103,6 +103,58 @@ describe("drainPending", () => {
     expect((await repo.transactions.findById(credit.id))?.expenseType).toBeNull();
   });
 
+  it("applies a matching Merchant rule instead of the model (deterministic, no model call)", async () => {
+    const { repo, addTxn } = await setup();
+    await repo.merchantRules.create({ merchant: "NETFLIX", flatType: "Fixed" });
+    const [ruled] = await addTxn(-1990, "NETFLIX");
+    await addTxn(-3200, "OBSCURE SHOP");
+    let calls = 0;
+    const counting: Classifier = async () => {
+      calls += 1;
+      return { expenseType: "Necessary", confidence: 0.9 };
+    };
+
+    const result = await drainPending(repo, counting, { plan: "Premium" });
+
+    expect(calls).toBe(1); // only the unmatched row hit the model
+    expect(result).toEqual({ classified: 2, failed: 0, capped: 0 });
+    const row = await repo.transactions.findById(ruled.id);
+    expect(row?.expenseType).toBe("Fixed");
+    expect(row?.confidence).toBe(1);
+    expect(row?.reasoning).toBe("merchant rule");
+  });
+
+  it("applies Merchant rules even for a Free household at its cap (rules are not gated)", async () => {
+    const { repo, addTxn, accountId, uploadId } = await setup();
+    await repo.transactions.createMany(
+      Array.from({ length: 50 }, (_, i) => ({
+        accountId,
+        uploadId,
+        date: "2026-01-01",
+        amount: -(i + 1),
+        merchant: `M${i}`,
+        rawCategory: "x",
+        sourceRow: i,
+        classificationStatus: "classified" as const,
+        expenseType: "Fixed" as const,
+      })),
+    );
+    await repo.merchantRules.create({ merchant: "NETFLIX", flatType: "Fixed" });
+    const [ruled] = await addTxn(-1990, "NETFLIX");
+    await addTxn(-5000, "OVER-CAP");
+
+    let calls = 0;
+    const counting: Classifier = async () => {
+      calls += 1;
+      return { expenseType: "Fixed" };
+    };
+    const result = await drainPending(repo, counting, { plan: "Free" });
+
+    expect(calls).toBe(0); // model still gated
+    expect(result).toEqual({ classified: 1, failed: 0, capped: 1 }); // rule row classified; model row capped
+    expect((await repo.transactions.findById(ruled.id))?.expenseType).toBe("Fixed");
+  });
+
   it("marks a row failed when the classifier throws, and continues", async () => {
     const { repo, addTxn } = await setup();
     await addTxn(-100);

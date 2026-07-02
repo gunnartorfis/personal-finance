@@ -26,6 +26,9 @@ export async function POST(request: Request) {
   try {
     const [rule] = await repo.merchantRules.create(parsed.value)
     if (!rule) throw new Error("merchant rule insert returned no rows")
+    // Re-type existing matching rows so the new rule takes effect immediately (CONTEXT.md), not
+    // just on future classification. Overridden rows are left untouched by the repo.
+    await repo.transactions.retypeByMerchantRules()
     return NextResponse.json(rule, { status: 201 })
   } catch (error) {
     if (isUniqueViolation(error)) {
