@@ -144,7 +144,7 @@ export function parseCheckinInput(body: unknown): CheckinParseResult {
   if (body === null || body === undefined) {
     return { ok: true, value: { cycleExtra: 0 } };
   }
-  if (typeof body !== "object") {
+  if (typeof body !== "object" || Array.isArray(body)) {
     return { ok: false, error: "expected a JSON object" };
   }
   const input = body as Record<string, unknown>;

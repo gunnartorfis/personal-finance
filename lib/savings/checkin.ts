@@ -2,6 +2,7 @@ import {
   currentCycleKey,
   cycleKeyRange,
   cyclesBetweenInclusive,
+  isValidCycleKey,
 } from "@/lib/dashboard/cycle";
 import { loadNetSummary } from "@/lib/dashboard/net-summary";
 import type { HouseholdRepo } from "@/lib/db/household-repo";
@@ -96,10 +97,16 @@ export async function performCheckin(
   const cumulative =
     goal.startingSaved + counted.reduce((total, c) => total + c.inferredSaving, 0);
 
+  // The date column maps to a YYYY-MM-DD string; guard the derived month key so a driver/mapping
+  // change fails loudly here instead of silently skewing totalCycles.
+  const targetMonth = goal.targetDate.slice(0, 7);
+  if (!isValidCycleKey(targetMonth)) {
+    throw new Error(`targetDate did not yield a cycle key: ${goal.targetDate}`);
+  }
   const savingsGoal = {
     target: goal.target,
     startingSaved: goal.startingSaved,
-    totalCycles: cyclesBetweenInclusive(goal.startCycle, goal.targetDate.slice(0, 7)),
+    totalCycles: cyclesBetweenInclusive(goal.startCycle, targetMonth),
   };
   const cyclesRemaining = savingsGoal.totalCycles - cyclesElapsed;
   const requiredSaving = correctivePerCycle(savingsGoal, cumulative, cyclesRemaining);

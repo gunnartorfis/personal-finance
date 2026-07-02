@@ -165,6 +165,10 @@ describe("parseCheckinInput", () => {
     });
   });
 
+  it("rejects an array body", () => {
+    expect(parseCheckinInput([1, 2, 3])).toMatchObject({ ok: false });
+  });
+
   it("rejects a negative or non-integer cycleExtra", () => {
     expect(parseCheckinInput({ cycleExtra: -1 })).toMatchObject({ ok: false });
     expect(parseCheckinInput({ cycleExtra: 0.5 })).toMatchObject({ ok: false });
