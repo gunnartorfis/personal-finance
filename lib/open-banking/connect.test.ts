@@ -36,12 +36,19 @@ const provider = new MockIngestionProvider({
 describe("completeBankConnection", () => {
   it("persists the connection and discovers its accounts", async () => {
     const repo = await freshHousehold();
-    const res = await completeBankConnection({ repo, provider, code: "code" });
+    const res = await completeBankConnection({
+      repo,
+      provider,
+      code: "code",
+      institutionName: "Landsbankinn",
+    });
 
     const [conn] = await repo.bankConnections.list();
     expect(conn.provider).toBe("mock");
     expect(conn.providerConnectionId).toBe("sess-1");
     expect(conn.status).toBe("active");
+    // Persisted so the reconnect flow (#116) has a name to hand back to the aggregator.
+    expect(conn.institutionName).toBe("Landsbankinn");
     expect(conn.consentExpiresAt?.toISOString()).toBe("2026-06-01T00:00:00.000Z");
 
     const accounts = await repo.accounts.list();
@@ -61,5 +68,45 @@ describe("completeBankConnection", () => {
     expect(await repo.accounts.list()).toHaveLength(2);
     expect(second.connectionId).toBe(first.connectionId);
     expect(second.accountIds).toEqual(first.accountIds);
+  });
+
+  it("reconnect refreshes the stale connection in place instead of leaving it behind", async () => {
+    const repo = await freshHousehold();
+    const first = await completeBankConnection({
+      repo,
+      provider,
+      code: "code",
+      institutionName: "Landsbankinn",
+    });
+    // The connection later goes stale (sync errored / consent expired), triggering a reconnect alert.
+    await repo.bankConnections.update(first.connectionId, { status: "error" });
+
+    // Re-consent issues a NEW session id for the same institution.
+    const reconsented = new MockIngestionProvider({
+      session: {
+        sessionId: "sess-2",
+        consentValidUntil: "2026-09-01T00:00:00Z",
+        accounts: [
+          { uid: "uid-a", iban: "IS01", name: "Debit", currency: "ISK" },
+          { uid: "uid-b", currency: "ISK" },
+        ],
+      },
+    });
+    const again = await completeBankConnection({
+      repo,
+      provider: reconsented,
+      code: "code-2",
+      institutionName: "Landsbankinn",
+    });
+
+    // Same connection reused (no stale duplicate), re-pointed at the new session and back to active.
+    expect(again.connectionId).toBe(first.connectionId);
+    const connections = await repo.bankConnections.list();
+    expect(connections).toHaveLength(1);
+    expect(connections[0].status).toBe("active");
+    expect(connections[0].providerConnectionId).toBe("sess-2");
+    expect(connections[0].consentExpiresAt?.toISOString()).toBe("2026-09-01T00:00:00.000Z");
+    // Accounts stay attached to the reused connection — no duplication.
+    expect(await repo.accounts.list()).toHaveLength(2);
   });
 });

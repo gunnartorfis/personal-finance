@@ -2,6 +2,7 @@ import { ArrowRight, CircleCheck, ClipboardCheck, Sparkles, TriangleAlert } from
 import Link from "next/link"
 
 import { ClassifyTrigger } from "@/components/classify-trigger"
+import { ConnectionAlerts } from "@/components/connection-alerts"
 import { FreeCapStatusBanner } from "@/components/free-cap-status"
 import type { DashboardActionBand } from "@/lib/dashboard/dashboard-view"
 import { cn } from "@/lib/utils"
@@ -21,7 +22,7 @@ export function ActionBand({
   actionBand: DashboardActionBand
   className?: string
 }) {
-  const { reviewBacklog, pendingCount, failedCount, freeCap, allClear } = actionBand
+  const { reviewBacklog, pendingCount, failedCount, freeCap, reconnect, allClear } = actionBand
 
   return (
     <section
@@ -29,6 +30,8 @@ export function ActionBand({
       className={cn("flex flex-col gap-3", className)}
     >
       <FreeCapStatusBanner status={freeCap} />
+
+      <ConnectionAlerts prompts={reconnect} />
 
       {reviewBacklog > 0 && (
         <Link

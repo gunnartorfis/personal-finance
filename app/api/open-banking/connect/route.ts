@@ -9,6 +9,8 @@ import { canUseBankSync } from "@/shared/bank-sync"
 
 /** Correlates the start request with its callback (CSRF guard); short-lived, httpOnly. */
 export const STATE_COOKIE = "ob_connect_state"
+/** Carries the chosen institution name to the callback so it can be persisted for reconnect (#116). */
+export const INSTITUTION_COOKIE = "ob_connect_institution"
 const CONSENT_DAYS = 90
 
 /**
@@ -47,12 +49,15 @@ export async function POST(request: Request) {
     validUntil,
   })
 
-  ;(await cookies()).set(STATE_COOKIE, state, {
+  const cookieOptions = {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
     path: "/",
     maxAge: 600,
-  })
+  } as const
+  const jar = await cookies()
+  jar.set(STATE_COOKIE, state, cookieOptions)
+  jar.set(INSTITUTION_COOKIE, institutionName, cookieOptions)
   return NextResponse.json({ url })
 }

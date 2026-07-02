@@ -64,6 +64,7 @@ function baseInputs(overrides: Partial<DashboardInputs> = {}): DashboardInputs {
     pendingCount: 0,
     failedCount: 0,
     freeCap: PREMIUM,
+    reconnect: [],
     ...overrides,
   };
 }
@@ -109,6 +110,16 @@ describe("assembleDashboardView", () => {
     expect(
       assembleDashboardView(baseInputs({ reviewBacklog: 0, failedCount: 0, freeCap: FREE_PAUSED }))
         .actionBand.allClear,
+    ).toBe(false);
+    expect(
+      assembleDashboardView(
+        baseInputs({
+          reviewBacklog: 0,
+          failedCount: 0,
+          freeCap: PREMIUM,
+          reconnect: [{ id: "c1", institutionName: "Arion", reason: "error" }],
+        }),
+      ).actionBand.allClear,
     ).toBe(false);
     const clear = assembleDashboardView(
       baseInputs({ reviewBacklog: 0, failedCount: 0, freeCap: PREMIUM }),
