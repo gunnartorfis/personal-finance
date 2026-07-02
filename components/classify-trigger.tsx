@@ -17,6 +17,32 @@ interface ClassifyTotals {
 const MAX_BATCHES = 1000
 
 /**
+ * localStorage flag marking a drain the user has started but not yet finished. Because the drain
+ * loop is browser-driven, a refresh/navigation aborts it mid-run; the flag survives that, so a
+ * `resumable` control re-mounting on the next page load can pick the drain back up (and show its
+ * progress bar) instead of silently stalling. It's set when a drain starts and cleared only on a
+ * clean finish or a real error — never on an abort — so it persists exactly across a refresh.
+ */
+const ACTIVE_KEY = "classify:active"
+
+function setDrainActive(active: boolean) {
+  try {
+    if (active) window.localStorage.setItem(ACTIVE_KEY, "1")
+    else window.localStorage.removeItem(ACTIVE_KEY)
+  } catch {
+    // Private mode / disabled storage: resume-across-refresh degrades to manual, nothing breaks.
+  }
+}
+
+function isDrainActive(): boolean {
+  try {
+    return window.localStorage.getItem(ACTIVE_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+
+/**
  * Trigger classification of the Household's pending transactions (ADR-0005). `POST /api/classify`
  * drains one batch per call, so this re-posts until a batch makes no further progress (queue empty
  * or fully paused by the Free cap), accumulating the counts. Use `autoRun` to fire once on mount —
@@ -25,23 +51,30 @@ const MAX_BATCHES = 1000
  * When `failedCount > 0` a "Retry failed" button requeues prior failures (`POST /api/classify/retry`
  * flips `failed → pending`) and then runs the same drain — the only way back from a `failed` row,
  * e.g. after AI Gateway credits are topped up following a 403.
+ *
+ * Pass `resumable` for the standing household controls (dashboard / transactions / banner): once the
+ * user starts a drain, it auto-resumes on the next page load while pending work remains, so a refresh
+ * mid-classification keeps going with its progress bar instead of dropping to a bare button. (Leave it
+ * off for the post-upload `autoRun` control, which already has its own per-upload progress.)
  */
 export function ClassifyTrigger({
   autoRun = false,
   failedCount = 0,
   pendingCount,
+  resumable = false,
   retryOnly = false,
   className,
 }: {
   autoRun?: boolean
   failedCount?: number
   /**
-   * The backlog this run will drain, used as the progress bar's baseline (see {@link ClassifyTotals}).
-   * Server-rendered / status-polled by the parent, so it's fresh after a reload — which is what makes
-   * the progress survive a refresh: the drain loop is browser-driven and stops on reload, but the
-   * remaining count re-appears here so the user can pick up where it left off. Omit to render no bar.
+   * The backlog this run will drain, used as the progress bar's baseline. Server-rendered by the
+   * parent so it's the *remaining* count after a reload — which becomes the fresh baseline the
+   * resumed drain fills from 0 → 100%. Omit to render no bar.
    */
   pendingCount?: number
+  /** Auto-resume an unfinished drain on mount and persist that intent across a refresh (see above). */
+  resumable?: boolean
   /** Hide the "Classify pending" button and show only the "Retry failed" affordance. */
   retryOnly?: boolean
   className?: string
@@ -49,9 +82,23 @@ export function ClassifyTrigger({
   const [busy, setBusy] = useState(false)
   const [totals, setTotals] = useState<ClassifyTotals | null>(null)
   const [errored, setErrored] = useState(false)
+  // The progress bar's denominator, snapshotted when a run starts rather than read live from
+  // `pendingCount` — a parent that polls (the banner) feeds a *decreasing* count, which would make
+  // the bar overshoot as `settled` climbs against a shrinking baseline. `undefined` → no bar yet.
+  const [baseline, setBaseline] = useState<number | undefined>(undefined)
   // Aborts the in-flight drain so an unmount (navigation, or UploadForm dropping uploadId) stops
   // firing further LLM batches instead of running on in the background.
   const abortRef = useRef<AbortController | null>(null)
+  // Latest baseline source, tracked in a ref so a run can snapshot it without `pendingCount` being an
+  // effect/callback dependency — otherwise a polling parent's prop churn would retrigger the mount
+  // effect's cleanup and abort the very drain it's meant to keep alive. Synced in an effect (below)
+  // rather than during render, and initialised eagerly so the first paint's value is available.
+  const baselineSourceRef = useRef<number | undefined>(
+    pendingCount ?? (retryOnly ? failedCount : undefined),
+  )
+  useEffect(() => {
+    baselineSourceRef.current = pendingCount ?? (retryOnly ? failedCount : undefined)
+  }, [pendingCount, retryOnly, failedCount])
 
   const classify = useCallback(async () => {
     abortRef.current?.abort() // cancel any prior run before starting a fresh one
@@ -60,6 +107,9 @@ export function ClassifyTrigger({
     setBusy(true)
     setErrored(false)
     setTotals(null)
+    setBaseline(baselineSourceRef.current) // freeze the bar denominator for this run
+    // Mark the drain in-flight so a refresh mid-run resumes it (resumable controls only).
+    if (resumable) setDrainActive(true)
     const run: ClassifyTotals = { classified: 0, failed: 0, capped: 0 }
     try {
       for (let batch = 0; batch < MAX_BATCHES; batch++) {
@@ -73,13 +123,18 @@ export function ClassifyTrigger({
         // A batch that classified nothing new means the queue is drained or fully capped.
         if (result.classified === 0 && result.failed === 0) break
       }
+      // Reached only on a clean finish (no throw/abort): the queue is drained or capped, so there's
+      // nothing left to resume — clear the flag so a later page load doesn't re-drive on its own.
+      if (resumable) setDrainActive(false)
     } catch {
-      if (controller.signal.aborted) return // intentional cancel, not a failure
+      if (controller.signal.aborted) return // intentional cancel (refresh/nav): keep the flag to resume
       setErrored(true)
+      // A real failure isn't worth auto-retrying on every subsequent load — clear and let the user retry.
+      if (resumable) setDrainActive(false)
     } finally {
       if (!controller.signal.aborted) setBusy(false)
     }
-  }, [])
+  }, [resumable])
 
   // Requeue prior failures, then drain them. The reset POST is quick (a status flip, no model
   // calls). It gets its own AbortController via abortRef — same as the drain — so an unmount during
@@ -91,6 +146,7 @@ export function ClassifyTrigger({
     setBusy(true)
     setErrored(false)
     setTotals(null) // clear any prior run's totals so they don't linger during the reset POST
+    if (resumable) setDrainActive(true)
     try {
       const res = await fetch("/api/classify/retry", { method: "POST", signal: controller.signal })
       if (!res.ok) throw new Error("retry failed")
@@ -98,24 +154,32 @@ export function ClassifyTrigger({
       if (controller.signal.aborted) return // intentional cancel, not a failure
       setErrored(true)
       setBusy(false)
+      if (resumable) setDrainActive(false)
       return
     }
     await classify()
-  }, [classify])
+  }, [classify, resumable])
 
+  // Fire the drain once on mount when either (a) `autoRun` is set (post-upload), or (b) this is a
+  // resumable control whose drain the user started earlier and a refresh interrupted — detected by
+  // the persisted flag plus remaining pending work. Both are ref-guarded so it never re-drives on
+  // re-render, and the abort-on-unmount is what lets a refresh hand the drain to the next mount.
   const autoRan = useRef(false)
   useEffect(() => {
-    if (autoRun && !autoRan.current) {
+    // Read the pending backlog from the ref, not a dependency: this must fire at most once (guarded by
+    // autoRan), so later prop churn from a polling parent must not re-run this effect — its cleanup
+    // aborts the live drain, which would otherwise leave the control stuck mid-run.
+    const shouldResume =
+      resumable && !retryOnly && (baselineSourceRef.current ?? 0) > 0 && isDrainActive()
+    if (!autoRan.current && (autoRun || shouldResume)) {
       autoRan.current = true
       void classify()
     }
     return () => abortRef.current?.abort()
-  }, [autoRun, classify])
+  }, [autoRun, resumable, retryOnly, classify])
 
-  // Progress-bar baseline: the pending backlog for a normal drain, or the failure count for a
-  // retry-only control. `settled` rows (classified or failed) leave the queue, so they fill the bar;
-  // capped rows stay pending and legitimately leave it short of 100%.
-  const baseline = pendingCount ?? (retryOnly ? failedCount : undefined)
+  // `settled` rows (classified or failed) leave the queue, so they fill the bar against the frozen
+  // baseline; capped rows stay pending and legitimately leave it short of 100%.
   const settled = totals ? totals.classified + totals.failed : 0
   const percent =
     baseline && baseline > 0 ? Math.min(100, Math.round((settled / baseline) * 100)) : 0

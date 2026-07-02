@@ -198,8 +198,10 @@ export function UploadForm({ className }: { className?: string }) {
 
       {uploadId && (
         <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6">
-          {/* Kick classification for the rows just appended, then watch it drain. */}
-          <ClassifyTrigger autoRun />
+          {/* Kick classification for the rows just appended, then watch it drain. `resumable` marks
+              the run so if the user leaves this page mid-drain, the standing controls (dashboard /
+              transactions / banner) pick it back up. UploadProgress shows the per-upload bar here. */}
+          <ClassifyTrigger autoRun resumable />
           <UploadProgress uploadId={uploadId} />
         </div>
       )}
