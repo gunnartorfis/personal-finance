@@ -88,4 +88,18 @@ describe("householdRepo savings", () => {
     await a.savings.incomeSources.replace([]);
     expect(await a.savings.incomeSources.list()).toHaveLength(0);
   });
+
+  it("replace sets the household's off-card costs, discarding the previous set, scoped", async () => {
+    const { a, b, aId } = await twoHouseholds();
+    await a.savings.offcardCosts.replace([{ name: "Old rent", monthlyAmount: 200_000 }]);
+    await b.savings.offcardCosts.replace([{ name: "B rent", monthlyAmount: 180_000 }]);
+    const replaced = await a.savings.offcardCosts.replace([
+      { name: "Mortgage", monthlyAmount: 250_000 },
+      { name: "Car loan", monthlyAmount: 60_000 },
+    ]);
+    expect(replaced.map((c) => c.householdId)).toEqual([aId, aId]);
+    const costs = await a.savings.offcardCosts.list();
+    expect(costs.map((c) => c.name)).toEqual(["Car loan", "Mortgage"]);
+    expect((await b.savings.offcardCosts.list()).map((c) => c.name)).toEqual(["B rent"]);
+  });
 });

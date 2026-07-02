@@ -22,6 +22,7 @@ import {
   overrides,
   savingsGoals,
   savingsIncomeSources,
+  savingsOffcardCosts,
   transactions,
   uploads,
 } from "./schema"
@@ -823,6 +824,28 @@ export function householdRepo(db: Db, householdId: string) {
             if (values.length === 0) return []
             return tx
               .insert(savingsIncomeSources)
+              .values(values.map((v) => ({ ...v, householdId })))
+              .returning()
+          }),
+      },
+      offcardCosts: {
+        list: () =>
+          db
+            .select()
+            .from(savingsOffcardCosts)
+            .where(eq(savingsOffcardCosts.householdId, householdId))
+            .orderBy(asc(savingsOffcardCosts.createdAt), asc(savingsOffcardCosts.name)),
+        /** Replace the household's full set of Off-card fixed costs; same shape as income sources. */
+        replace: (
+          values: Array<Omit<typeof savingsOffcardCosts.$inferInsert, "householdId">>
+        ) =>
+          db.transaction(async (tx) => {
+            await tx
+              .delete(savingsOffcardCosts)
+              .where(eq(savingsOffcardCosts.householdId, householdId))
+            if (values.length === 0) return []
+            return tx
+              .insert(savingsOffcardCosts)
               .values(values.map((v) => ({ ...v, householdId })))
               .returning()
           }),
