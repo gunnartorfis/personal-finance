@@ -1,3 +1,6 @@
+import { Upload } from "lucide-react"
+import Link from "next/link"
+
 import { CycleSummary } from "@/components/cycle-summary"
 import { PeriodSelector, type PeriodOption } from "@/components/period-selector"
 import { RapidReviewLauncher } from "@/components/rapid-review-launcher"
@@ -5,6 +8,7 @@ import {
   TransactionsTable,
   type TransactionRow,
 } from "@/components/transactions-table"
+import { Button } from "@/components/ui/button"
 import {
   currentCycleKey,
   cycleKeyLabel,
@@ -87,7 +91,13 @@ export default async function TransactionsPage({
             Review and reclassify spending for the selected period.
           </p>
         </div>
-        <PeriodSelector options={options} selected={selected} />
+        <div className="flex items-center gap-2">
+          <PeriodSelector options={options} selected={selected} />
+          <Button variant="outline" size="sm" render={<Link href="/upload" />}>
+            <Upload />
+            Upload
+          </Button>
+        </div>
       </header>
 
       <CycleSummary summary={summary} currency={billingCurrency} />

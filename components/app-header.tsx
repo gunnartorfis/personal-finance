@@ -10,11 +10,7 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import { isActivePath, NAV_ITEMS } from "@/lib/nav"
-
-function currentLabel(pathname: string | null): string {
-  return NAV_ITEMS.find((item) => isActivePath(pathname, item.href))?.label ?? "Finance"
-}
+import { currentNavLabel } from "@/lib/nav"
 
 /** Inset header content: the sidebar toggle and a breadcrumb for the current page. */
 export function AppHeader() {
@@ -27,7 +23,7 @@ export function AppHeader() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbPage>{currentLabel(pathname)}</BreadcrumbPage>
+            <BreadcrumbPage>{currentNavLabel(pathname)}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
