@@ -130,6 +130,26 @@ export function householdRepo(db: Db, householdId: string) {
           )
         return row
       },
+      /**
+       * A non-revoked connection for an institution — the reconnect target. Re-running consent issues
+       * a new session id, so matching on the institution lets {@link completeBankConnection} refresh
+       * the existing connection (and keep its accounts + history) in place instead of leaving a stale
+       * error/expired row that keeps triggering the reconnect alert (#116).
+       */
+      byInstitution: async (provider: string, institutionName: string) => {
+        const [row] = await db
+          .select()
+          .from(bankConnections)
+          .where(
+            and(
+              eq(bankConnections.householdId, householdId),
+              eq(bankConnections.provider, provider),
+              eq(bankConnections.institutionName, institutionName),
+              ne(bankConnections.status, "revoked")
+            )
+          )
+        return row
+      },
       // Tokens (accessToken/refreshToken) are intentionally NOT settable here: they must be written
       // only as ciphertext via the encrypted write path introduced with the connect flow (#113), so
       // this slice exposes no way to persist a raw bearer token.
@@ -152,7 +172,13 @@ export function householdRepo(db: Db, householdId: string) {
         patch: Partial<
           Pick<
             typeof bankConnections.$inferInsert,
-            "status" | "consentExpiresAt" | "lastSyncedAt" | "institutionId" | "institutionName"
+            | "status"
+            | "consentExpiresAt"
+            | "lastSyncedAt"
+            | "institutionId"
+            | "institutionName"
+            // Re-pointed on reconnect: a new consent issues a fresh session id for the same connection.
+            | "providerConnectionId"
           >
         >
       ) =>
