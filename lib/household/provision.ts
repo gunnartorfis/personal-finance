@@ -23,7 +23,7 @@ export interface Membership {
   memberId: string;
 }
 
-async function findMembership(db: Db, authUserId: string): Promise<Membership | undefined> {
+export async function findMembership(db: Db, authUserId: string): Promise<Membership | undefined> {
   const [member] = await db.select().from(members).where(eq(members.authUserId, authUserId));
   return member ? { householdId: member.householdId, memberId: member.id } : undefined;
 }

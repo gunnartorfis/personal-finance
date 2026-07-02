@@ -120,6 +120,13 @@
       "when": 1782986206859,
       "tag": "0016_brief_starfox",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1782990196487,
+      "tag": "0017_large_living_mummy",
+      "breakpoints": true
     }
   ]
 }

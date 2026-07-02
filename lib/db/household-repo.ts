@@ -19,6 +19,8 @@ import type { ExpenseType } from "@/shared/types"
 import {
   accounts,
   bankConnections,
+  householdInvites,
+  members,
   merchantRules,
   overrides,
   savingsCheckins,
@@ -1029,6 +1031,88 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(overrides.householdId, householdId),
               eq(overrides.transactionId, transactionId)
+            )
+          )
+          .returning(),
+    },
+    members: {
+      /** All Members of this Household (identity name/email is resolved separately via users_sync). */
+      list: () =>
+        db
+          .select()
+          .from(members)
+          .where(eq(members.householdId, householdId))
+          .orderBy(asc(members.createdAt)),
+      /** How many Members belong to this Household — the numerator of the seat cap (ADR-0010). */
+      count: async () => {
+        const [row] = await db
+          .select({ value: count() })
+          .from(members)
+          .where(eq(members.householdId, householdId))
+        return row?.value ?? 0
+      },
+    },
+    invites: {
+      /** Create a pending Invite for this Household (caller sets `email` lower-cased + a `tokenHash`). */
+      create: (
+        value: Omit<typeof householdInvites.$inferInsert, "householdId" | "status" | "acceptedAt">
+      ) =>
+        db
+          .insert(householdInvites)
+          .values({ ...value, householdId })
+          .returning(),
+      /** Active (pending, unexpired) Invites for this Household, newest first — the management list. */
+      listActive: () =>
+        db
+          .select()
+          .from(householdInvites)
+          .where(
+            and(
+              eq(householdInvites.householdId, householdId),
+              eq(householdInvites.status, "pending"),
+              gt(householdInvites.expiresAt, sql`now()`)
+            )
+          )
+          .orderBy(desc(householdInvites.createdAt)),
+      /** Count of active Invites — added to Member count for the seat cap (a pending seat is reserved). */
+      countActive: async () => {
+        const [row] = await db
+          .select({ value: count() })
+          .from(householdInvites)
+          .where(
+            and(
+              eq(householdInvites.householdId, householdId),
+              eq(householdInvites.status, "pending"),
+              gt(householdInvites.expiresAt, sql`now()`)
+            )
+          )
+        return row?.value ?? 0
+      },
+      /** The live (pending, unexpired) Invite for an email in this Household, if any — idempotent re-invite. */
+      findActiveByEmail: async (email: string) => {
+        const [row] = await db
+          .select()
+          .from(householdInvites)
+          .where(
+            and(
+              eq(householdInvites.householdId, householdId),
+              eq(householdInvites.email, email),
+              eq(householdInvites.status, "pending"),
+              gt(householdInvites.expiresAt, sql`now()`)
+            )
+          )
+        return row
+      },
+      /** Revoke a still-pending Invite in this Household; a non-pending / foreign id updates nothing. */
+      revoke: (id: string) =>
+        db
+          .update(householdInvites)
+          .set({ status: "revoked" })
+          .where(
+            and(
+              eq(householdInvites.id, id),
+              eq(householdInvites.householdId, householdId),
+              eq(householdInvites.status, "pending")
             )
           )
           .returning(),

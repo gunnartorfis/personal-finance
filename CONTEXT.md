@@ -14,6 +14,10 @@ _Avoid_: Account, Organization, Team, Workspace
 A signed-in user who belongs to a Household.
 _Avoid_: User (when the household-scoped meaning matters)
 
+**Invite**:
+A pending, email-addressed offer to join an existing Household as a Member. Created by a Member of a **Premium** Household, redeemed by the invitee when signed in with the matching email; on redemption a new Member row is added to the *existing* Household (never a new one). A user who already belongs to a Household must leave it before redeeming (one Household per Member, v1). Expires if unredeemed.
+_Avoid_: Membership request (the invitee doesn't request; the Household offers), Seat
+
 **Account**:
 A card or bank account within a Household that Transactions belong to (e.g. "my Visa", "their Mastercard") — the provenance label, required on every Transaction.
 _Avoid_: Card (when a non-card account is possible)
@@ -102,6 +106,7 @@ Cumulative Inferred saving to date ≥ cumulative Required saving to date.
 ## Relationships
 
 - A **Household** has one or more **Members**; one Household per Member (v1). All Members are equal — any can upload, edit, manage the subscription, invite/remove Members, or delete the Household. A Member who leaves loses access; the Household's data stays with the rest.
+- A **Household** grows only by **Invite**: any Member of a **Premium** Household may invite by email, up to a cap (10 Members incl. pending Invites). Redeeming adds a Member to that same Household; it never creates or merges Households, and carries no classification budget of its own (the joined Household's Plan governs). A user with an existing Household must leave it first — joining a second is rejected, not auto-resolved.
 - A **Household** owns its **Transactions**, **Overrides**, and income/net config.
 - A **Member** uploads **Transactions** (recorded as provenance); visibility is household-wide.
 - A **Transaction**'s effective Expense type follows a precedence: manual **Override** > **Merchant rule** > AI **Classification**.

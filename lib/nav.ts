@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   SlidersHorizontal,
   Upload,
+  Users,
   Wallet,
 } from "lucide-react"
 import type { ComponentType, SVGProps } from "react"
@@ -21,6 +22,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/upload", label: "Upload", icon: Upload },
   { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
   { href: "/rules", label: "Rules", icon: SlidersHorizontal },
+  { href: "/household", label: "Household", icon: Users },
   { href: "/billing", label: "Billing", icon: CreditCard },
 ]
 

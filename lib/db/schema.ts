@@ -4,6 +4,7 @@ import {
   check,
   date,
   foreignKey,
+  index,
   integer,
   numeric,
   pgEnum,
@@ -80,6 +81,63 @@ export const members = pgTable(
   },
   // Target for composite same-household foreign keys from upload/override actor columns.
   (t) => [unique("members_household_id_id_key").on(t.householdId, t.id)],
+);
+
+/** Lifecycle of a Household Invite (ADR-0010). Expiry is DERIVED from `expiresAt`, not a stored state. */
+export const inviteStatusEnum = pgEnum("invite_status", ["pending", "accepted", "revoked"]);
+
+/**
+ * A pending, email-addressed offer to join an existing Household (ADR-0010).
+ *
+ * App-owned (not the Neon Auth org plugin): the Household DB row stays the single source of truth.
+ * The raw token lives only in the shared invite link; only its SHA-256 (`tokenHash`) is stored.
+ * Redemption is bound to `email` — the redeemer's *verified* session email must match (case-
+ * insensitive; `email` is stored lower-cased) — and inserts a Member into THIS Household. A partial
+ * unique index keeps at most one `pending` invite per (Household, email) so re-inviting is idempotent.
+ * "Active" means `status = 'pending' AND expiresAt > now()`; expiry needs no sweep — it is read off
+ * `expiresAt`. On leave, the app nulls `invitedByMemberId` (composite FK is NO ACTION, like uploads).
+ */
+export const householdInvites = pgTable(
+  "household_invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    /** Lower-cased invitee email; the identity the Invite is bound to. */
+    email: text("email").notNull(),
+    /** SHA-256 (hex) of the random invite token. The raw token is never stored — only in the link. */
+    tokenHash: text("token_hash").notNull().unique(),
+    /** The Member who created the Invite (same Household); nulled by the app if they leave. */
+    invitedByMemberId: uuid("invited_by_member_id"),
+    status: inviteStatusEnum("status").notNull().default("pending"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  },
+  (t) => [
+    // The inviter Member must belong to the same Household (NO ACTION; see uploads importer note).
+    foreignKey({
+      columns: [t.householdId, t.invitedByMemberId],
+      foreignColumns: [members.householdId, members.id],
+      name: "household_invites_inviter_household_fk",
+    }),
+    // Email is stored normalized (lower-cased) so the redeem-time match is a plain equality.
+    check("household_invites_email_lowercase", sql`${t.email} = lower(${t.email})`),
+    // An accepted Invite always records when it was accepted.
+    check(
+      "household_invites_accepted_has_timestamp",
+      sql`${t.status} <> 'accepted' OR ${t.acceptedAt} IS NOT NULL`,
+    ),
+    // At most one live (pending) Invite per (Household, email) — the DB backstop for idempotent re-invite.
+    uniqueIndex("household_invites_household_email_pending_key")
+      .on(t.householdId, t.email)
+      .where(sql`${t.status} = 'pending'`),
+    // Provisioning intercept looks up a signing-in user's pending Invites by email (cross-Household).
+    index("household_invites_email_pending_idx")
+      .on(t.email)
+      .where(sql`${t.status} = 'pending'`),
+  ],
 );
 
 /** The lifecycle/health of a Bank connection's PSD2 consent (open-banking auto-sync). */
