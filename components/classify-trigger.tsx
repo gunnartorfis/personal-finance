@@ -153,7 +153,11 @@ export function ClassifyTrigger({
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">
-              {busy ? `Classifying… ${settled} of ${baseline}` : "Classification complete"}
+              {busy
+                ? // Clamp the shown count: if new rows land mid-run `settled` can exceed the baseline,
+                  // which would otherwise read "12 of 10" against a bar already pinned at 100%.
+                  `Classifying… ${Math.min(settled, baseline ?? settled)} of ${baseline}`
+                : "Classification complete"}
             </span>
             <span className="font-medium tabular-nums">{percent}%</span>
           </div>

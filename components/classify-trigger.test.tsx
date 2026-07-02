@@ -49,6 +49,27 @@ describe("ClassifyTrigger", () => {
     await vi.waitFor(() => expect(bar).toHaveAttribute("aria-valuenow", "100"))
   })
 
+  it("shows a progress bar for a retry-only drain, keyed off the failure count", async () => {
+    let drained = false
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        expect(init?.method).toBe("POST")
+        if (url === "/api/classify/retry") return { ok: true, json: async () => ({ reset: 3 }) }
+        const body = drained
+          ? { classified: 0, failed: 0, capped: 0 }
+          : { classified: 3, failed: 0, capped: 0 }
+        drained = true
+        return { ok: true, json: async () => body }
+      }),
+    )
+    render(<ClassifyTrigger failedCount={3} retryOnly />)
+    await userEvent.click(screen.getByRole("button", { name: /retry 3 failed/i }))
+
+    const bar = await screen.findByRole("progressbar", { name: /classification progress/i })
+    await vi.waitFor(() => expect(bar).toHaveAttribute("aria-valuenow", "100"))
+  })
+
   it("renders no progress bar when no pending baseline is given", () => {
     stubClassify([{ classified: 0, failed: 0, capped: 0 }])
     render(<ClassifyTrigger />)
