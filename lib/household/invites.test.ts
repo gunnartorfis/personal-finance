@@ -9,6 +9,7 @@ import { households, householdInvites, members } from "@/lib/db/schema";
 import {
   acceptInvite,
   createInvite,
+  declineInvite,
   findActiveInvitesByEmail,
   generateInviteToken,
   hashInviteToken,
@@ -180,6 +181,71 @@ describe("acceptInvite", () => {
     expect(res.householdId).toBe(householdId);
     const mine = await db.select().from(members).where(and(eq(members.authUserId, "again-user"), eq(members.householdId, householdId)));
     expect(mine).toHaveLength(1); // no duplicate member row
+  });
+
+  it("confirmSwitch deletes the sole-member current household and joins the new one", async () => {
+    const { householdId, rawToken, email } = await pendingInvite("switch@x.co");
+    const [oldHh] = await db.insert(households).values({}).returning();
+    await db.insert(members).values({ householdId: oldHh.id, authUserId: "switcher" });
+
+    const res = await acceptInvite({
+      db: asDb(db), locator: { rawToken }, authUserId: "switcher", email, emailVerified: true, confirmSwitch: true, now: NOW,
+    });
+    expect(res.householdId).toBe(householdId);
+
+    const mine = await db.select().from(members).where(eq(members.authUserId, "switcher"));
+    expect(mine).toHaveLength(1);
+    expect(mine[0].householdId).toBe(householdId);
+    // Sole-member household is deleted (cascades its data).
+    expect(await db.select().from(households).where(eq(households.id, oldHh.id))).toHaveLength(0);
+  });
+
+  it("confirmSwitch leaves a multi-member current household (it survives) and joins the new one", async () => {
+    const { householdId, rawToken, email } = await pendingInvite("mover@x.co");
+    const [oldHh] = await db.insert(households).values({}).returning();
+    await db.insert(members).values({ householdId: oldHh.id, authUserId: "mover" });
+    await db.insert(members).values({ householdId: oldHh.id, authUserId: "roommate" });
+
+    const res = await acceptInvite({
+      db: asDb(db), locator: { rawToken }, authUserId: "mover", email, emailVerified: true, confirmSwitch: true, now: NOW,
+    });
+    expect(res.householdId).toBe(householdId);
+
+    const [mine] = await db.select().from(members).where(eq(members.authUserId, "mover"));
+    expect(mine.householdId).toBe(householdId);
+    // Old household survives for the remaining member.
+    const remaining = await db.select().from(members).where(eq(members.householdId, oldHh.id));
+    expect(remaining.map((m) => m.authUserId)).toEqual(["roommate"]);
+  });
+
+  it("without confirmSwitch, a sole-member switch is still blocked (no accidental deletion)", async () => {
+    const { rawToken, email } = await pendingInvite("careful@x.co");
+    const [oldHh] = await db.insert(households).values({}).returning();
+    await db.insert(members).values({ householdId: oldHh.id, authUserId: "careful" });
+
+    await expect(
+      acceptInvite({ db: asDb(db), locator: { rawToken }, authUserId: "careful", email, emailVerified: true, now: NOW }),
+    ).rejects.toMatchObject({ code: "already_in_household" });
+    // The current household is untouched.
+    expect(await db.select().from(households).where(eq(households.id, oldHh.id))).toHaveLength(1);
+  });
+});
+
+describe("declineInvite", () => {
+  it("revokes a pending invite addressed to the matching email", async () => {
+    const { householdId, memberId } = await seedHousehold();
+    const { rawToken } = await createInvite({ db: asDb(db), householdId, plan: "Premium", invitedByMemberId: memberId, email: "no@x.co", now: NOW });
+    await declineInvite({ db: asDb(db), locator: { rawToken }, email: "no@x.co" });
+    const [invite] = await db.select().from(householdInvites);
+    expect(invite.status).toBe("revoked");
+  });
+
+  it("ignores an invite for a different email", async () => {
+    const { householdId, memberId } = await seedHousehold();
+    const { rawToken } = await createInvite({ db: asDb(db), householdId, plan: "Premium", invitedByMemberId: memberId, email: "keep@x.co", now: NOW });
+    await declineInvite({ db: asDb(db), locator: { rawToken }, email: "someone-else@x.co" });
+    const [invite] = await db.select().from(householdInvites);
+    expect(invite.status).toBe("pending");
   });
 });
 

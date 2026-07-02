@@ -31,6 +31,7 @@ export async function POST(request: Request) {
   if (!locator) {
     return NextResponse.json({ error: "token_or_invite_id_required" }, { status: 400 })
   }
+  const confirmSwitch = readBoolean(body, "confirmSwitch")
 
   try {
     const { householdId } = await acceptInvite({
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
       authUserId: user.id,
       email: user.email,
       emailVerified: user.emailVerified,
+      confirmSwitch,
       now: new Date(),
     })
     return NextResponse.json({ ok: true, householdId })
@@ -53,4 +55,9 @@ export async function POST(request: Request) {
 function readString(body: unknown, key: string): string | undefined {
   const value = typeof body === "object" && body !== null ? (body as Record<string, unknown>)[key] : undefined
   return typeof value === "string" && value.length > 0 ? value : undefined
+}
+
+function readBoolean(body: unknown, key: string): boolean {
+  const value = typeof body === "object" && body !== null ? (body as Record<string, unknown>)[key] : undefined
+  return value === true
 }
