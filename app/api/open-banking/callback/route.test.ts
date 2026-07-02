@@ -30,19 +30,32 @@ beforeEach(() => {
   completeBankConnection.mockResolvedValue({ connectionId: "c1", accountIds: ["a1"] })
 })
 
+/** The callback returns a same-origin HTML interstitial (200) that navigates client-side, so a
+ * SameSite=Strict session cookie rides along to the auth-gated /accounts page. Assert on the body. */
+const landsOn = async (res: Response, target: string) => {
+  expect(res.status).toBe(200)
+  expect(res.headers.get("content-type")).toContain("text/html")
+  // OAuth callback responses must not be cached (replay protection).
+  expect(res.headers.get("cache-control")).toBe("no-store")
+  const html = await res.text()
+  // Assert the full absolute URL so a wrong scheme/origin would fail, not just the path fragment.
+  expect(html).toContain(`http://test${target}`)
+  // Client-initiated navigation (not an HTTP redirect), so no Location header.
+  expect(res.headers.get("location")).toBeNull()
+}
+
 describe("GET /api/open-banking/callback", () => {
   it("rejects a state mismatch without resolving an intent", async () => {
     cookieStore.get.mockReturnValue({ value: "expected" })
     const res = await GET(req("code=c&state=WRONG"))
-    expect(res.status).toBe(307)
-    expect(res.headers.get("location")).toContain("/accounts?bank=error")
+    await landsOn(res, "/accounts?bank=error")
     expect(consumeConnectIntent).not.toHaveBeenCalled()
   })
 
-  it("redirects to error when the bank returned an error", async () => {
+  it("lands on error when the bank returned an error", async () => {
     cookieStore.get.mockReturnValue({ value: "s" })
     const res = await GET(req("error=access_denied&state=s"))
-    expect(res.headers.get("location")).toContain("bank=error")
+    await landsOn(res, "/accounts?bank=error")
     expect(consumeConnectIntent).not.toHaveBeenCalled()
   })
 
@@ -50,7 +63,7 @@ describe("GET /api/open-banking/callback", () => {
     cookieStore.get.mockReturnValue({ value: "s" })
     consumeConnectIntent.mockResolvedValue(null)
     const res = await GET(req("code=the-code&state=s"))
-    expect(res.headers.get("location")).toContain("bank=error")
+    await landsOn(res, "/accounts?bank=error")
     expect(completeBankConnection).not.toHaveBeenCalled()
   })
 
@@ -59,8 +72,7 @@ describe("GET /api/open-banking/callback", () => {
     consumeConnectIntent.mockResolvedValue({ householdId: "hh-9", institutionName: "Landsbankinn" })
 
     const res = await GET(req("code=the-code&state=s"))
-    expect(res.status).toBe(307)
-    expect(res.headers.get("location")).toContain("/accounts?bank=connected")
+    await landsOn(res, "/accounts?bank=connected")
     expect(householdRepo).toHaveBeenCalledWith(expect.anything(), "hh-9")
     expect(completeBankConnection).toHaveBeenCalledWith({
       repo: { tag: "repo" },

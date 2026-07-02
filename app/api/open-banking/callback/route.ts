@@ -40,8 +40,31 @@ export async function GET(request: Request) {
     arrivedCookies,
   })
 
-  const back = (status: "connected" | "error") =>
-    NextResponse.redirect(new URL(`/accounts?bank=${status}`, request.url))
+  // Return a same-origin HTML interstitial that navigates client-side, rather than an HTTP redirect.
+  // The bank's redirect into this callback is cross-site, and a 307 to /accounts is treated by the
+  // browser as a continuation of that cross-site navigation — so a SameSite=Strict session cookie is
+  // withheld and the auth-gated /accounts page bounces to sign-in even though the user is logged in.
+  // A JS-initiated navigation from this same-origin page is same-site, so the session cookie rides
+  // along. `status` is a fixed literal (no injection); the meta-refresh is a no-JS fallback.
+  const back = (status: "connected" | "error") => {
+    const target = new URL(`/accounts?bank=${status}`, request.url).toString()
+    const targetJson = JSON.stringify(target)
+    const html =
+      `<!doctype html><html><head><meta charset="utf-8"><title>Finishing up…</title>` +
+      `<meta name="robots" content="noindex">` +
+      `<meta http-equiv="refresh" content="0;url=${target}">` +
+      `<script>location.replace(${targetJson})</script></head>` +
+      `<body><p>Finishing up… <a href="${target}">Continue</a>.</p></body></html>`
+    return new NextResponse(html, {
+      status: 200,
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        // Never cache an OAuth callback response: a cached interstitial could re-redirect on
+        // replay/back-navigation without re-running CSRF + intent consumption.
+        "cache-control": "no-store",
+      },
+    })
+  }
 
   // CSRF: the echoed state must match the cookie set at connect-start.
   if (error || !code || !state || !expectedState || state !== expectedState) {
