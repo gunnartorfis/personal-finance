@@ -4,7 +4,13 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ClassifyTrigger } from "@/components/classify-trigger"
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  window.localStorage.clear()
+})
+
+/** The localStorage key ClassifyTrigger uses to mark a resumable drain in flight. */
+const ACTIVE_KEY = "classify:active"
 
 /** Queue of `POST /api/classify` responses, consumed in order (one per batch). */
 function stubClassify(batches: Array<{ classified: number; failed: number; capped: number }>) {
@@ -74,6 +80,46 @@ describe("ClassifyTrigger", () => {
     stubClassify([{ classified: 0, failed: 0, capped: 0 }])
     render(<ClassifyTrigger />)
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument()
+  })
+
+  it("auto-resumes a persisted drain on mount when resumable, without a click", async () => {
+    stubClassify([
+      { classified: 3, failed: 0, capped: 0 },
+      { classified: 0, failed: 0, capped: 0 },
+    ])
+    window.localStorage.setItem(ACTIVE_KEY, "1")
+    render(<ClassifyTrigger resumable pendingCount={3} />)
+    // No click: the persisted flag + remaining pending drives the drain on mount.
+    expect(await screen.findByText(/3 classified/i)).toBeInTheDocument()
+    // Cleared once the queue drains, so a later load doesn't re-drive on its own.
+    expect(window.localStorage.getItem(ACTIVE_KEY)).toBeNull()
+  })
+
+  it("does not auto-resume when the persisted flag is absent", async () => {
+    const fetchMock = stubClassify([{ classified: 0, failed: 0, capped: 0 }])
+    render(<ClassifyTrigger resumable pendingCount={3} />)
+    await screen.findByRole("button", { name: /classify pending/i })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("keeps the active flag when unmounted mid-drain so a later mount resumes", async () => {
+    let signal: AbortSignal | undefined
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        signal = init?.signal ?? undefined
+        if (init?.signal?.aborted) throw new DOMException("aborted", "AbortError")
+        // never-settling queue so the drain is still in flight at unmount
+        return { ok: true, json: async () => ({ classified: 25, failed: 0, capped: 0 }) }
+      }),
+    )
+    window.localStorage.setItem(ACTIVE_KEY, "1")
+    const { unmount } = render(<ClassifyTrigger resumable pendingCount={100} />)
+    await vi.waitFor(() => expect(signal).toBeDefined())
+
+    unmount()
+    // Abort (refresh/nav) must NOT clear the flag — that's what lets the next page load resume.
+    expect(window.localStorage.getItem(ACTIVE_KEY)).toBe("1")
   })
 
   it("hides the Classify-pending button in retryOnly mode, keeping only retry", () => {

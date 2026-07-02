@@ -44,24 +44,27 @@ export function ClassificationBanner() {
     }
   }, [])
 
-  const onDashboard = pathname === "/dashboard"
+  // Pages that render their own classify control (dashboard ActionBand, transactions actions, the
+  // upload form). Suppress the banner there so two resumable controls don't both auto-drive the same
+  // queue on one page — the banner is the safety net for every *other* page.
+  const selfHandled = pathname === "/dashboard" || pathname === "/transactions" || pathname === "/upload"
 
   // Refetch on first mount and on every client navigation (the layout keeps this mounted across
   // route changes, so pathname is the signal) — so a backlog created elsewhere surfaces as soon as
-  // the user lands on any non-dashboard page. Skip the dashboard, which surfaces the backlog itself.
+  // the user lands on any page without its own control.
   useEffect(() => {
-    if (onDashboard) return
+    if (selfHandled) return
     const controller = new AbortController()
     void fetchStatus(controller.signal).then((next) => {
       if (next) setStatus(next)
     })
     return () => controller.abort()
-  }, [onDashboard, pathname, fetchStatus])
+  }, [selfHandled, pathname, fetchStatus])
 
   const pending = status?.pending ?? 0
   const failed = status?.failed ?? 0
   const showPending = pending > 0 && !status?.paused
-  const visible = !onDashboard && (showPending || failed > 0)
+  const visible = !selfHandled && (showPending || failed > 0)
 
   // Keep the counts fresh while the banner is up so it reflects a running drain (this tab or another)
   // and disappears once the queue is empty. Idle pages never poll.
@@ -90,7 +93,7 @@ export function ClassificationBanner() {
               <span className="text-muted-foreground"> — run AI classification to bucket them.</span>
             </p>
           </div>
-          <ClassifyTrigger pendingCount={pending} />
+          <ClassifyTrigger pendingCount={pending} resumable />
         </div>
       )}
 

@@ -65,7 +65,7 @@ export function ActionBand({
               <span className="text-muted-foreground"> — run AI classification to bucket them.</span>
             </p>
           </div>
-          <ClassifyTrigger pendingCount={pendingCount} />
+          <ClassifyTrigger pendingCount={pendingCount} resumable />
         </div>
       )}
 

@@ -116,7 +116,7 @@ export default async function TransactionsPage({
       {(showClassify || reviewTotal > 0) && (
         <div className="flex flex-wrap items-start justify-end gap-3">
           {showClassify && (
-            <ClassifyTrigger pendingCount={pendingCount} className="min-w-48 items-end" />
+            <ClassifyTrigger pendingCount={pendingCount} resumable className="min-w-48 items-end" />
           )}
           {reviewTotal > 0 && (
             <RapidReviewLauncher count={reviewTotal} currency={billingCurrency} />
