@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 
 import { AcceptInvite } from "@/components/accept-invite"
+import { VerifyEmailGate } from "@/components/verify-email-gate"
 import { getCurrentUser } from "@/lib/auth/session"
 import { getDb } from "@/lib/db"
 import { findActiveInvitesByEmail } from "@/lib/household/invites"
@@ -22,20 +23,12 @@ export default async function JoinPage() {
   const db = getDb()
   if (await findMembership(db, user.id)) redirect("/dashboard")
 
-  if (!user.emailVerified) {
-    return (
-      <JoinShell>
-        <h1 className="text-xl font-semibold tracking-tight">Verify your email to join</h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          Your invitation was sent to <strong>{user.email}</strong>. Verify this email address, then
-          reload this page to accept.
-        </p>
-      </JoinShell>
-    )
-  }
-
   const invites = await findActiveInvitesByEmail(db, user.email)
   if (invites.length === 0) redirect("/dashboard")
+
+  if (!user.emailVerified) {
+    return <VerifyEmailGate email={user.email} />
+  }
 
   return (
     <JoinShell>
