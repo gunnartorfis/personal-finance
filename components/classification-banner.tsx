@@ -90,7 +90,7 @@ export function ClassificationBanner() {
               <span className="text-muted-foreground"> — run AI classification to bucket them.</span>
             </p>
           </div>
-          <ClassifyTrigger />
+          <ClassifyTrigger pendingCount={pending} />
         </div>
       )}
 

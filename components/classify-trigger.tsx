@@ -29,11 +29,19 @@ const MAX_BATCHES = 1000
 export function ClassifyTrigger({
   autoRun = false,
   failedCount = 0,
+  pendingCount,
   retryOnly = false,
   className,
 }: {
   autoRun?: boolean
   failedCount?: number
+  /**
+   * The backlog this run will drain, used as the progress bar's baseline (see {@link ClassifyTotals}).
+   * Server-rendered / status-polled by the parent, so it's fresh after a reload — which is what makes
+   * the progress survive a refresh: the drain loop is browser-driven and stops on reload, but the
+   * remaining count re-appears here so the user can pick up where it left off. Omit to render no bar.
+   */
+  pendingCount?: number
   /** Hide the "Classify pending" button and show only the "Retry failed" affordance. */
   retryOnly?: boolean
   className?: string
@@ -104,13 +112,27 @@ export function ClassifyTrigger({
     return () => abortRef.current?.abort()
   }, [autoRun, classify])
 
+  // Progress-bar baseline: the pending backlog for a normal drain, or the failure count for a
+  // retry-only control. `settled` rows (classified or failed) leave the queue, so they fill the bar;
+  // capped rows stay pending and legitimately leave it short of 100%.
+  const baseline = pendingCount ?? (retryOnly ? failedCount : undefined)
+  const settled = totals ? totals.classified + totals.failed : 0
+  const percent =
+    baseline && baseline > 0 ? Math.min(100, Math.round((settled / baseline) * 100)) : 0
+  const complete = !busy && totals !== null && !errored
+  const showProgress = baseline !== undefined && baseline > 0 && (busy || complete)
+
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       <div className="flex flex-wrap gap-2">
         {!retryOnly && (
           <Button type="button" onClick={() => void classify()} disabled={busy}>
             {busy ? <Loader2 className="animate-spin" /> : <Sparkles />}
-            {busy ? "Classifying…" : "Classify pending"}
+            {busy
+              ? "Classifying…"
+              : pendingCount !== undefined
+                ? `Classify pending (${pendingCount})`
+                : "Classify pending"}
           </Button>
         )}
 
@@ -126,6 +148,33 @@ export function ClassifyTrigger({
           </Button>
         )}
       </div>
+
+      {showProgress && (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">
+              {busy ? `Classifying… ${settled} of ${baseline}` : "Classification complete"}
+            </span>
+            <span className="font-medium tabular-nums">{percent}%</span>
+          </div>
+          <div
+            role="progressbar"
+            aria-label="Classification progress"
+            aria-valuenow={percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            className="h-2 w-full overflow-hidden rounded-full bg-muted"
+          >
+            <div
+              className={cn(
+                "h-full bg-primary transition-all",
+                complete && percent === 100 && "bg-emerald-500",
+              )}
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {errored && (
         <p role="alert" className="text-sm text-destructive">

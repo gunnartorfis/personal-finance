@@ -35,6 +35,26 @@ describe("ClassifyTrigger", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
+  it("renders a progress bar against the pending baseline, filling to 100% on completion", async () => {
+    stubClassify([
+      { classified: 6, failed: 0, capped: 0 },
+      { classified: 4, failed: 0, capped: 0 },
+      { classified: 0, failed: 0, capped: 0 },
+    ])
+    render(<ClassifyTrigger pendingCount={10} />)
+    // The baseline count is surfaced on the button so it's visible (and survives reload) pre-run.
+    await userEvent.click(screen.getByRole("button", { name: /classify pending \(10\)/i }))
+
+    const bar = await screen.findByRole("progressbar", { name: /classification progress/i })
+    await vi.waitFor(() => expect(bar).toHaveAttribute("aria-valuenow", "100"))
+  })
+
+  it("renders no progress bar when no pending baseline is given", () => {
+    stubClassify([{ classified: 0, failed: 0, capped: 0 }])
+    render(<ClassifyTrigger />)
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument()
+  })
+
   it("hides the Classify-pending button in retryOnly mode, keeping only retry", () => {
     render(<ClassifyTrigger failedCount={2} retryOnly />)
     expect(screen.queryByRole("button", { name: /classify pending/i })).not.toBeInTheDocument()
