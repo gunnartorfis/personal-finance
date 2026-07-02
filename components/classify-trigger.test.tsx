@@ -35,6 +35,47 @@ describe("ClassifyTrigger", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
+  it("renders a progress bar against the pending baseline, filling to 100% on completion", async () => {
+    stubClassify([
+      { classified: 6, failed: 0, capped: 0 },
+      { classified: 4, failed: 0, capped: 0 },
+      { classified: 0, failed: 0, capped: 0 },
+    ])
+    render(<ClassifyTrigger pendingCount={10} />)
+    // The baseline count is surfaced on the button so it's visible (and survives reload) pre-run.
+    await userEvent.click(screen.getByRole("button", { name: /classify pending \(10\)/i }))
+
+    const bar = await screen.findByRole("progressbar", { name: /classification progress/i })
+    await vi.waitFor(() => expect(bar).toHaveAttribute("aria-valuenow", "100"))
+  })
+
+  it("shows a progress bar for a retry-only drain, keyed off the failure count", async () => {
+    let drained = false
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        expect(init?.method).toBe("POST")
+        if (url === "/api/classify/retry") return { ok: true, json: async () => ({ reset: 3 }) }
+        const body = drained
+          ? { classified: 0, failed: 0, capped: 0 }
+          : { classified: 3, failed: 0, capped: 0 }
+        drained = true
+        return { ok: true, json: async () => body }
+      }),
+    )
+    render(<ClassifyTrigger failedCount={3} retryOnly />)
+    await userEvent.click(screen.getByRole("button", { name: /retry 3 failed/i }))
+
+    const bar = await screen.findByRole("progressbar", { name: /classification progress/i })
+    await vi.waitFor(() => expect(bar).toHaveAttribute("aria-valuenow", "100"))
+  })
+
+  it("renders no progress bar when no pending baseline is given", () => {
+    stubClassify([{ classified: 0, failed: 0, capped: 0 }])
+    render(<ClassifyTrigger />)
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument()
+  })
+
   it("hides the Classify-pending button in retryOnly mode, keeping only retry", () => {
     render(<ClassifyTrigger failedCount={2} retryOnly />)
     expect(screen.queryByRole("button", { name: /classify pending/i })).not.toBeInTheDocument()

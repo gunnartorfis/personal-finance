@@ -1,6 +1,7 @@
 import { Upload } from "lucide-react"
 import Link from "next/link"
 
+import { ClassifyTrigger } from "@/components/classify-trigger"
 import { CycleSummary } from "@/components/cycle-summary"
 import { PeriodSelector, type PeriodOption } from "@/components/period-selector"
 import { RapidReviewLauncher } from "@/components/rapid-review-launcher"
@@ -17,6 +18,7 @@ import {
 } from "@/lib/dashboard/cycle"
 import { loadNetSummary } from "@/lib/dashboard/net-summary"
 import { requireHousehold } from "@/lib/household/current"
+import { isClassificationPaused } from "@/shared/free-cap"
 import type { ExpenseType } from "@/shared/types"
 
 // Auth- and tenant-scoped per-request data.
@@ -36,18 +38,24 @@ export default async function TransactionsPage({
 }: {
   searchParams: Promise<{ cycle?: string }>
 }) {
-  const { repo, billingCurrency } = await requireHousehold()
+  const { repo, plan, billingCurrency } = await requireHousehold()
   const current = currentCycleKey(new Date())
   const { cycle } = await searchParams
 
   // Fetch the cycle list and the review backlog-by-month up front: together they decide the default
   // landing period and drive the Rapid review badge, and both are needed before we know which
-  // period's rows to load.
-  const [months, reviewMonths] = await Promise.all([
+  // period's rows to load. The pending count (and, for Free, the classified count that gates it)
+  // drive the whole-household "Classify pending" affordance beside Rapid review — like ActionBand,
+  // it's hidden once the Free cap has paused classification, since a drain would skip every row.
+  const capped = plan !== "Premium"
+  const [months, reviewMonths, pendingCount, classifiedCount] = await Promise.all([
     repo.transactions.cycleMonths(),
     repo.transactions.reviewQueueMonths(),
+    repo.transactions.countPending(),
+    capped ? repo.transactions.countClassified() : Promise.resolve(0),
   ])
   const reviewTotal = reviewMonths.reduce((sum, m) => sum + m.count, 0)
+  const showClassify = pendingCount > 0 && !(capped && isClassificationPaused(plan, classifiedCount))
 
   // Default (no valid `?cycle`): the newest month that still has unreviewed work, else the newest
   // month with any data, else the current month (empty — prompts an upload). `reviewMonths` and
@@ -102,11 +110,17 @@ export default async function TransactionsPage({
 
       <CycleSummary summary={summary} currency={billingCurrency} />
 
-      {/* Whole-household rapid review: shown whenever any period has a backlog, so it's reachable
-          even from an empty month you just landed on. */}
-      {reviewTotal > 0 && (
-        <div className="flex justify-end">
-          <RapidReviewLauncher count={reviewTotal} currency={billingCurrency} />
+      {/* Whole-household actions, shown whenever there's cross-period work so they're reachable even
+          from an empty month you just landed on: "Classify pending" (drains the AI queue, with a live
+          progress bar) sits next to Rapid review (settles the human review backlog). */}
+      {(showClassify || reviewTotal > 0) && (
+        <div className="flex flex-wrap items-start justify-end gap-3">
+          {showClassify && (
+            <ClassifyTrigger pendingCount={pendingCount} className="min-w-48 items-end" />
+          )}
+          {reviewTotal > 0 && (
+            <RapidReviewLauncher count={reviewTotal} currency={billingCurrency} />
+          )}
         </div>
       )}
 
