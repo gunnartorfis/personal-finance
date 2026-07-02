@@ -59,5 +59,21 @@ export async function POST(request: Request) {
     path: "/",
     maxAge: 600,
   })
+
+  // Diagnostic: correlate with `[ob:callback]` by the truncated state. Confirms intent was written
+  // and shows the redirect_url + the bank auth host we're sending the user to.
+  console.log("[ob:connect] intent recorded + auth started", {
+    householdId,
+    institution: institutionName,
+    state: `${state.slice(0, 8)}…`,
+    redirectUrl,
+    authHost: (() => {
+      try {
+        return new URL(url).host
+      } catch {
+        return "unparseable"
+      }
+    })(),
+  })
   return NextResponse.json({ url })
 }
