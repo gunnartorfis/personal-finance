@@ -33,9 +33,10 @@ const SECONDARY_LABELS: ReadonlyArray<{ href: string; label: string }> = [
   { href: "/settings/income", label: "Income" },
   { href: "/settings/household", label: "Household" },
   { href: "/settings/billing", label: "Billing" },
-  // The Settings hub links out to the Neon Auth account view, which still renders under the app
-  // layout's breadcrumb — without this it would fall through to the "Finance" fallback.
-  { href: "/account", label: "Account" },
+  // The Neon Auth account/security views render under the Settings hub; label their breadcrumbs so
+  // they don't fall through to the "Finance" fallback.
+  { href: "/settings/account", label: "Account" },
+  { href: "/settings/security", label: "Security" },
 ]
 
 /** The breadcrumb label for `pathname`, preferring the most specific matching route. */

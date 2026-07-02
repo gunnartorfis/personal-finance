@@ -21,7 +21,7 @@ type SettingsLink = {
   icon: ComponentType<SVGProps<SVGSVGElement>>
 }
 
-/** The hub's sections. Account lives under Neon Auth (`/account/*`); everything else is app-owned. */
+/** The hub's sections. Account/security are Neon Auth views mounted under `/settings/*`. */
 const SECTIONS: SettingsLink[] = [
   {
     href: "/settings/income",
@@ -48,7 +48,7 @@ const SECTIONS: SettingsLink[] = [
     icon: CreditCard,
   },
   {
-    href: "/account/settings",
+    href: "/settings/account",
     title: "Account",
     description: "Your profile, security, and sign-in.",
     icon: UserCog,

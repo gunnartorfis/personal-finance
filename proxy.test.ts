@@ -9,7 +9,6 @@ import { config } from "./proxy"
 
 describe("route-protection matcher", () => {
   const authedSegments = [
-    "account",
     "accounts",
     "dashboard",
     "savings",
