@@ -29,6 +29,8 @@ describe("route-protection matcher", () => {
   it("leaves the marketing root and public routes unprotected", () => {
     // A matcher entry for "/" (root), auth, or join would break the public marketing/sign-in flow.
     expect(config.matcher).not.toContain("/")
+    // A catch-all like "/:path*" or "/(.*)" would intercept root + public routes too — reject those.
+    expect(config.matcher.some((m) => m === "/:path*" || m === "/(.*)" || m === "/((?!).*)")).toBe(false)
     expect(config.matcher.some((m) => m.startsWith("/auth"))).toBe(false)
     expect(config.matcher.some((m) => m.startsWith("/join"))).toBe(false)
   })
