@@ -5,6 +5,7 @@ import { NextResponse } from "next/server"
 
 import { requireHousehold } from "@/lib/household/current"
 import { getIngestionProvider } from "@/lib/open-banking/provider-factory"
+import { canUseBankSync } from "@/shared/bank-sync"
 
 /** Correlates the start request with its callback (CSRF guard); short-lived, httpOnly. */
 export const STATE_COOKIE = "ob_connect_state"
@@ -27,7 +28,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "institutionName and country are required" }, { status: 400 })
   }
 
-  await requireHousehold()
+  // Bank auto-sync is Premium-only (#117); a Free household is told to upgrade before any provider
+  // call. This is the real enforcement — the UI hides the entry, but the API is the trust boundary.
+  const { plan } = await requireHousehold()
+  if (!canUseBankSync(plan)) {
+    return NextResponse.json({ error: "upgrade_required" }, { status: 403 })
+  }
+
   const provider = getIngestionProvider()
   const state = randomUUID()
   const redirectUrl = new URL("/api/open-banking/callback", request.url).toString()
