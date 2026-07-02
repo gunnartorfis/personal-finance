@@ -21,6 +21,7 @@ import {
   merchantRules,
   overrides,
   savingsGoals,
+  savingsIncomeSources,
   transactions,
   uploads,
 } from "./schema"
@@ -799,6 +800,32 @@ export function householdRepo(db: Db, householdId: string) {
               },
             })
             .returning(),
+      },
+      incomeSources: {
+        list: () =>
+          db
+            .select()
+            .from(savingsIncomeSources)
+            .where(eq(savingsIncomeSources.householdId, householdId))
+            .orderBy(asc(savingsIncomeSources.createdAt), asc(savingsIncomeSources.name)),
+        /**
+         * Replace the household's full set of Income sources with the given list (the config
+         * form saves the whole list at once). Delete + insert in one transaction, so a failed
+         * save never leaves the config half-written.
+         */
+        replace: (
+          values: Array<Omit<typeof savingsIncomeSources.$inferInsert, "householdId">>
+        ) =>
+          db.transaction(async (tx) => {
+            await tx
+              .delete(savingsIncomeSources)
+              .where(eq(savingsIncomeSources.householdId, householdId))
+            if (values.length === 0) return []
+            return tx
+              .insert(savingsIncomeSources)
+              .values(values.map((v) => ({ ...v, householdId })))
+              .returning()
+          }),
       },
     },
     overrides: {

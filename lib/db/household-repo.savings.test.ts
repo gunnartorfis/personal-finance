@@ -60,4 +60,32 @@ describe("householdRepo savings", () => {
     await a.savings.goal.upsert(goalValue);
     expect(await b.savings.goal.get()).toBeUndefined();
   });
+
+  it("replace sets the household's income sources, stamped with the bound householdId", async () => {
+    const { a, aId } = await twoHouseholds();
+    await a.savings.incomeSources.replace([
+      { name: "Salary A", amount: 700_000 },
+      { name: "Salary B", amount: 550_000 },
+    ]);
+    const sources = await a.savings.incomeSources.list();
+    expect(sources).toHaveLength(2);
+    expect(sources.map((s) => s.householdId)).toEqual([aId, aId]);
+    expect(sources.map((s) => s.name)).toEqual(["Salary A", "Salary B"]);
+  });
+
+  it("replace discards the household's previous income sources, leaving other households' intact", async () => {
+    const { a, b } = await twoHouseholds();
+    await a.savings.incomeSources.replace([{ name: "Old salary", amount: 500_000 }]);
+    await b.savings.incomeSources.replace([{ name: "B salary", amount: 400_000 }]);
+    await a.savings.incomeSources.replace([{ name: "New salary", amount: 800_000 }]);
+    expect((await a.savings.incomeSources.list()).map((s) => s.name)).toEqual(["New salary"]);
+    expect((await b.savings.incomeSources.list()).map((s) => s.name)).toEqual(["B salary"]);
+  });
+
+  it("replace with an empty list clears the household's income sources", async () => {
+    const { a } = await twoHouseholds();
+    await a.savings.incomeSources.replace([{ name: "Salary", amount: 500_000 }]);
+    await a.savings.incomeSources.replace([]);
+    expect(await a.savings.incomeSources.list()).toHaveLength(0);
+  });
 });
