@@ -34,6 +34,13 @@ export function InitialSyncOnConnect() {
         })
         if (!res.ok) throw new Error("sync failed")
         const data = (await res.json()) as { inserted: number; failed: number }
+        // A connection-level failure comes back as HTTP 200 with `failed > 0` (the server flags the
+        // connection `error` and keeps the batch going). On a fresh link that's the whole story —
+        // surface it rather than the no-new-transactions success message.
+        if (data.failed > 0) {
+          setStatus("error")
+          return
+        }
         setInserted(data.inserted)
         setStatus("done")
         // Drop the one-shot param and re-render the server component with the synced state.
