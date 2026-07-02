@@ -464,6 +464,7 @@ export function TransactionsTable({
                                 )}
                                 <OverrideControl
                                   transactionId={row.id}
+                                  merchant={row.merchant}
                                   value={effective}
                                   hasOverride={row.overrideType !== null}
                                   onChanged={(next) =>

@@ -17,7 +17,13 @@ describe("OverrideControl", () => {
     const onChanged = vi.fn()
 
     render(
-      <OverrideControl transactionId={ID} value="Necessary" hasOverride={false} onChanged={onChanged} />,
+      <OverrideControl
+        transactionId={ID}
+        merchant="NETFLIX"
+        value="Necessary"
+        hasOverride={false}
+        onChanged={onChanged}
+      />,
     )
     await userEvent.selectOptions(screen.getByRole("combobox"), "Nice to have")
 
@@ -33,7 +39,7 @@ describe("OverrideControl", () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) })
     vi.stubGlobal("fetch", fetchMock)
 
-    render(<OverrideControl transactionId={ID} value="Fixed" hasOverride={false} />)
+    render(<OverrideControl transactionId={ID} merchant="AUR" value="Fixed" hasOverride={false} />)
     await userEvent.selectOptions(screen.getByRole("combobox"), "Split / none")
 
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ expenseType: "" })
@@ -44,7 +50,15 @@ describe("OverrideControl", () => {
     vi.stubGlobal("fetch", fetchMock)
     const onChanged = vi.fn()
 
-    render(<OverrideControl transactionId={ID} value="Fixed" hasOverride={true} onChanged={onChanged} />)
+    render(
+      <OverrideControl
+        transactionId={ID}
+        merchant="NETFLIX"
+        value="Fixed"
+        hasOverride={true}
+        onChanged={onChanged}
+      />,
+    )
     await userEvent.click(screen.getByRole("button", { name: /reset/i }))
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -57,12 +71,16 @@ describe("OverrideControl", () => {
 
   it("reflects the props directly, so a parent refetch keeps the dropdown and reset consistent", () => {
     vi.stubGlobal("fetch", vi.fn())
-    const { rerender } = render(<OverrideControl transactionId={ID} value="Fixed" hasOverride={true} />)
+    const { rerender } = render(
+      <OverrideControl transactionId={ID} merchant="NETFLIX" value="Fixed" hasOverride={true} />,
+    )
     expect(screen.getByRole("combobox")).toHaveValue("Fixed")
     expect(screen.getByRole("button", { name: /reset/i })).toBeInTheDocument()
 
     // Parent cleared the override and refetched: effective type is now the classified type.
-    rerender(<OverrideControl transactionId={ID} value="Necessary" hasOverride={false} />)
+    rerender(
+      <OverrideControl transactionId={ID} merchant="NETFLIX" value="Necessary" hasOverride={false} />,
+    )
     expect(screen.getByRole("combobox")).toHaveValue("Necessary")
     expect(screen.queryByRole("button", { name: /reset/i })).not.toBeInTheDocument()
   })
@@ -71,12 +89,70 @@ describe("OverrideControl", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }))
     const onChanged = vi.fn()
 
-    render(<OverrideControl transactionId={ID} value="Fixed" hasOverride={false} onChanged={onChanged} />)
+    render(
+      <OverrideControl
+        transactionId={ID}
+        merchant="NETFLIX"
+        value="Fixed"
+        hasOverride={false}
+        onChanged={onChanged}
+      />,
+    )
     await userEvent.selectOptions(screen.getByRole("combobox"), "Necessary")
 
     expect(await screen.findByRole("alert")).toBeInTheDocument()
     expect(onChanged).not.toHaveBeenCalled()
     // Controlled by the prop, so the dropdown still shows the persisted type.
     expect(screen.getByRole("combobox")).toHaveValue("Fixed")
+  })
+
+  describe("merchant-rule nudge", () => {
+    it("offers a rule shortcut on an overridden row and creates the rule for the merchant", async () => {
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => ({}) })
+      vi.stubGlobal("fetch", fetchMock)
+
+      render(<OverrideControl transactionId={ID} merchant="NETFLIX" value="Fixed" hasOverride={true} />)
+      await userEvent.click(screen.getByRole("button", { name: /apply to all NETFLIX/i }))
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/merchant-rules",
+        expect.objectContaining({ method: "POST" }),
+      )
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+        merchant: "NETFLIX",
+        flatType: "Fixed",
+      })
+      expect(await screen.findByText(/rule added/i)).toBeInTheDocument()
+    })
+
+    it("surfaces an already-existing rule on a 409", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 409 }))
+
+      render(<OverrideControl transactionId={ID} merchant="NETFLIX" value="Fixed" hasOverride={true} />)
+      await userEvent.click(screen.getByRole("button", { name: /apply to all NETFLIX/i }))
+
+      expect(await screen.findByText(/already exists for NETFLIX/i)).toBeInTheDocument()
+    })
+
+    it("shows an error on a non-409 failure", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }))
+
+      render(<OverrideControl transactionId={ID} merchant="NETFLIX" value="Fixed" hasOverride={true} />)
+      await userEvent.click(screen.getByRole("button", { name: /apply to all NETFLIX/i }))
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(/couldn.t add rule/i)
+    })
+
+    it("does not offer the rule shortcut for the split / none type", () => {
+      vi.stubGlobal("fetch", vi.fn())
+      render(<OverrideControl transactionId={ID} merchant="AUR" value="" hasOverride={true} />)
+      expect(screen.queryByRole("button", { name: /apply to all/i })).not.toBeInTheDocument()
+    })
+
+    it("does not offer the rule shortcut without an override", () => {
+      vi.stubGlobal("fetch", vi.fn())
+      render(<OverrideControl transactionId={ID} merchant="NETFLIX" value="Fixed" hasOverride={false} />)
+      expect(screen.queryByRole("button", { name: /apply to all/i })).not.toBeInTheDocument()
+    })
   })
 })
