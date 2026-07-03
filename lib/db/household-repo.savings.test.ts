@@ -130,4 +130,77 @@ describe("householdRepo savings", () => {
     expect((await a.savings.offcardCosts.list()).map((c) => c.name)).toEqual(["Old rent"]);
   });
 
+  it("round-trips an explicit effective cycle on income sources (ADR-0015)", async () => {
+    const { a } = await twoHouseholds();
+    await a.savings.incomeSources.replace([
+      { name: "Salary", amount: 500_000, effectiveFrom: "2026-01" },
+      { name: "Salary", amount: 600_000, effectiveFrom: "2026-07" },
+    ]);
+    const sources = await a.savings.incomeSources.list();
+    expect(sources.map((s) => [s.amount, s.effectiveFrom])).toEqual([
+      [500_000, "2026-01"],
+      [600_000, "2026-07"],
+    ]);
+  });
+
+  it("replace sets one-off adjustments scoped to the household, ordered by cycle", async () => {
+    const { a, b, aId } = await twoHouseholds();
+    await b.savings.oneOffAdjustments.replace([{ cycleKey: "2026-05", kind: "income", amount: 1 }]);
+    const replaced = await a.savings.oneOffAdjustments.replace([
+      { cycleKey: "2026-04", kind: "cost", amount: 90_000, label: "Insurance" },
+      { cycleKey: "2026-03", kind: "income", amount: 300_000, label: "Tax refund" },
+    ]);
+    expect(replaced.map((o) => o.householdId)).toEqual([aId, aId]);
+    const list = await a.savings.oneOffAdjustments.list();
+    expect(list.map((o) => [o.cycleKey, o.kind, o.amount])).toEqual([
+      ["2026-03", "income", 300_000],
+      ["2026-04", "cost", 90_000],
+    ]);
+    // other household untouched
+    expect((await b.savings.oneOffAdjustments.list()).map((o) => o.cycleKey)).toEqual(["2026-05"]);
+  });
+
+  it("replace with an empty list clears the household's one-off adjustments", async () => {
+    const { a } = await twoHouseholds();
+    await a.savings.oneOffAdjustments.replace([{ cycleKey: "2026-03", kind: "income", amount: 5 }]);
+    await a.savings.oneOffAdjustments.replace([]);
+    expect(await a.savings.oneOffAdjustments.list()).toHaveLength(0);
+  });
+
+  it("replaceConfig swaps all three lists (incl. one-offs) atomically", async () => {
+    const { a } = await twoHouseholds();
+    const result = await a.savings.replaceConfig(
+      [{ name: "Salary", amount: 700_000, effectiveFrom: "2026-01" }],
+      [{ name: "Mortgage", monthlyAmount: 250_000, effectiveFrom: "2026-01" }],
+      [{ cycleKey: "2026-03", kind: "income", amount: 300_000 }],
+    );
+    expect(result.oneOffAdjustments?.map((o) => o.cycleKey)).toEqual(["2026-03"]);
+    expect((await a.savings.oneOffAdjustments.list())).toHaveLength(1);
+  });
+
+  it("replaceConfig rolls back income + one-offs when the one-off write fails", async () => {
+    const { a } = await twoHouseholds();
+    await a.savings.replaceConfig(
+      [{ name: "Old salary", amount: 500_000 }],
+      [{ name: "Old rent", monthlyAmount: 200_000 }],
+      [{ cycleKey: "2026-02", kind: "income", amount: 10 }],
+    );
+    await expect(
+      a.savings.replaceConfig(
+        [{ name: "New salary", amount: 800_000 }],
+        [{ name: "New rent", monthlyAmount: 210_000 }],
+        [{ cycleKey: "2026-13", kind: "income", amount: 1 }], // bad cycle key → CHECK fails
+      ),
+    ).rejects.toThrow();
+    expect((await a.savings.incomeSources.list()).map((s) => s.name)).toEqual(["Old salary"]);
+    expect((await a.savings.oneOffAdjustments.list()).map((o) => o.cycleKey)).toEqual(["2026-02"]);
+  });
+
+  it("replaceConfig without a one-off list leaves existing one-offs untouched", async () => {
+    const { a } = await twoHouseholds();
+    await a.savings.oneOffAdjustments.replace([{ cycleKey: "2026-03", kind: "income", amount: 5 }]);
+    await a.savings.replaceConfig([{ name: "Salary", amount: 500_000 }], []);
+    expect((await a.savings.oneOffAdjustments.list()).map((o) => o.cycleKey)).toEqual(["2026-03"]);
+  });
+
 });

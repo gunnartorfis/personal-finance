@@ -34,6 +34,7 @@ import {
   savingsGoals,
   savingsIncomeSources,
   savingsOffcardCosts,
+  savingsOneOffAdjustments,
   transactions,
   uploads,
 } from "./schema"
@@ -86,6 +87,21 @@ export function householdRepo(db: Db, householdId: string) {
     if (values.length === 0) return []
     return tx
       .insert(savingsOffcardCosts)
+      .values(values.map((v) => ({ ...v, householdId })))
+      .returning()
+  }
+  // Same full-set-swap shape as the recurring lists above, for the per-cycle One-off adjustments
+  // (ADR-0015) — the config form saves the whole set at once.
+  const swapOneOffAdjustments = async (
+    tx: DbOrTx,
+    values: Array<Omit<typeof savingsOneOffAdjustments.$inferInsert, "householdId">>
+  ): Promise<Array<typeof savingsOneOffAdjustments.$inferSelect>> => {
+    await tx
+      .delete(savingsOneOffAdjustments)
+      .where(eq(savingsOneOffAdjustments.householdId, householdId))
+    if (values.length === 0) return []
+    return tx
+      .insert(savingsOneOffAdjustments)
       .values(values.map((v) => ({ ...v, householdId })))
       .returning()
   }
@@ -1208,18 +1224,40 @@ export function householdRepo(db: Db, householdId: string) {
           values: Array<Omit<typeof savingsOffcardCosts.$inferInsert, "householdId">>
         ) => db.transaction((tx) => swapOffcardCosts(tx, values)),
       },
+      oneOffAdjustments: {
+        /** The household's per-cycle One-off adjustments (ADR-0015), oldest cycle first. */
+        list: () =>
+          db
+            .select()
+            .from(savingsOneOffAdjustments)
+            .where(eq(savingsOneOffAdjustments.householdId, householdId))
+            .orderBy(
+              asc(savingsOneOffAdjustments.cycleKey),
+              asc(savingsOneOffAdjustments.createdAt),
+            ),
+        /** Replace the household's full set of one-off adjustments (whole set saved at once). */
+        replace: (
+          values: Array<Omit<typeof savingsOneOffAdjustments.$inferInsert, "householdId">>
+        ) => db.transaction((tx) => swapOneOffAdjustments(tx, values)),
+      },
       /**
-       * Replace BOTH Savings-config lists in one transaction (the config form saves them
-       * together), so a failure on either list rolls the whole save back — the config can
-       * never commit half-updated (income swapped, costs stale).
+       * Replace the Savings-config lists in one transaction (the config form saves them
+       * together), so a failure on any list rolls the whole save back — the config can never
+       * commit half-updated. `oneOffAdjustments` is optional: omit it to leave the household's
+       * existing one-offs untouched (a caller saving only the recurring lists); pass `[]` to clear.
        */
       replaceConfig: (
         incomeSources: Array<Omit<typeof savingsIncomeSources.$inferInsert, "householdId">>,
-        offcardCosts: Array<Omit<typeof savingsOffcardCosts.$inferInsert, "householdId">>
+        offcardCosts: Array<Omit<typeof savingsOffcardCosts.$inferInsert, "householdId">>,
+        oneOffAdjustments?: Array<Omit<typeof savingsOneOffAdjustments.$inferInsert, "householdId">>
       ) =>
         db.transaction(async (tx) => ({
           incomeSources: await swapIncomeSources(tx, incomeSources),
           offcardCosts: await swapOffcardCosts(tx, offcardCosts),
+          oneOffAdjustments:
+            oneOffAdjustments === undefined
+              ? undefined
+              : await swapOneOffAdjustments(tx, oneOffAdjustments),
         })),
     },
     overrides: {
