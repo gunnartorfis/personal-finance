@@ -41,5 +41,14 @@
     "failed": "{count, plural, one {# flokkun mistókst} other {# flokkanir mistókust}}",
     "failedHint": "— reyndu aftur til að ljúka flokkun.",
     "allCaughtUp": "Þú ert með allt á hreinu."
+  },
+  "householdReset": {
+    "dangerZone": "Hættusvæði",
+    "description": "Eyða <strong>öllum</strong> innhleðslum, færslum, breytingum, reikningum og söluaðilareglum heimilisins. Aðgangurinn þinn og áskrift haldast. Þetta er ekki hægt að afturkalla.",
+    "error": "Tókst ekki að endurstilla gögnin. Reyndu aftur.",
+    "confirmPrompt": "Eyða öllu? Þetta er ekki hægt að afturkalla.",
+    "confirm": "Já, endurstilla gögnin mín",
+    "cancel": "Hætta við",
+    "trigger": "Endurstilla færslugögn"
   }
 }

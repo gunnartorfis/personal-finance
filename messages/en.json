@@ -41,5 +41,14 @@
     "failed": "{count, plural, one {# classification} other {# classifications}} failed",
     "failedHint": "— retry to finish bucketing them.",
     "allCaughtUp": "You're all caught up."
+  },
+  "householdReset": {
+    "dangerZone": "Danger zone",
+    "description": "Delete <strong>all</strong> uploads, transactions, overrides, accounts, and merchant rules for your household. Your account and plan are kept. This cannot be undone.",
+    "error": "Couldn't reset the data. Please try again.",
+    "confirmPrompt": "Delete everything? This can't be undone.",
+    "confirm": "Yes, reset my data",
+    "cancel": "Cancel",
+    "trigger": "Reset transaction data"
   }
 }
