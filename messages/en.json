@@ -488,6 +488,33 @@
     "income": "Income",
     "expenses": "Expenses"
   },
+  "transactions": {
+    "searchLabel": "Search transactions",
+    "searchPlaceholder": "Search merchant",
+    "filterLabel": "Filter by type",
+    "filter": {
+      "all": "All types",
+      "fixed": "Fixed",
+      "necessary": "Necessary",
+      "niceToHave": "Nice to have",
+      "splitNone": "Split / none",
+      "unclassified": "Unclassified",
+      "credits": "Credits",
+      "excluded": "Excluded"
+    },
+    "showingCount": "{visible} of {total} transactions",
+    "empty": "No transactions in this period",
+    "emptyBacklog": "{count, plural, one {# transaction in other periods still needs review} other {# transactions in other periods still need review}} — use Rapid review above, or pick another period.",
+    "emptyCta": "Pick another period or <link>upload a statement</link>.",
+    "noMatch": "No matching transactions",
+    "noMatchBody": "No transactions in this period match your search or filter.",
+    "clearFilters": "Clear filters",
+    "colDate": "Date",
+    "colMerchant": "Merchant",
+    "colAmount": "Amount",
+    "colType": "Type",
+    "yourShare": "your share {amount}"
+  },
   "charts": {
     "spendingTrend": {
       "title": "Spending trend",

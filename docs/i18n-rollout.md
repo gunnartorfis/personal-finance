@@ -73,7 +73,7 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
   from `CATEGORIES` (owned by transactions/spending-by-type, slice 5) — they localize
   there. `cycleKeyLabel`/`shortCycleLabel` are now only used by savings/transactions
   (deferred) + `lib/dashboard/cycle`; delete once those migrate.
-- [ ] **5. Migrate: transactions.** (Resumed — area settled.) Income done in #204.
+- [x] **5. Migrate: transactions.** (Resumed — area settled.) Income done in #204.
   - [x] **5a. spend breakdown** (`net-summary-card` + `spending-by-type` + the mix chart's
     category labels) → `netSummary` + `spendingByType` + shared `expenseCategory`
     namespaces via a `useCategoryLabels()` hook (canonical `CATEGORIES` keys stay English;
@@ -83,8 +83,10 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
     `rowType` namespace + shared `useExpenseTypeLabels()` (`expenseType` namespace,
     incl. `""`→"Split / none"); guarded expense-type labels, `{merchant}`/`{type}`/
     `{amount}` interpolation, keyed save errors.
-  - [ ] **5c. transactions table** (`transactions-table.tsx` — headers, filters,
-    empty/loading states, date/currency) — next.
+  - [x] **5c. transactions table** (`transactions-table.tsx`) → `transactions`
+    namespace: search + type-filter labels (literal-key record), showing-count,
+    empty + no-match states, `emptyBacklog` plural, `emptyCta` rich upload link,
+    column headers, your-share; locale-aware currency + date (`formatDate`).
 - [ ] **6. Migrate: savings.** DEFERRED — handled by the concurrent ADR-0015 stream
   (income/config already localized under `incomeSettings` in #204/#206). Goal + check-in
   remain to that stream.
