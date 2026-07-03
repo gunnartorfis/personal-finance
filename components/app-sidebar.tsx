@@ -6,6 +6,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import { LocaleSwitcher } from "@/components/locale-switcher"
+import { useThemeMenuItems } from "@/components/theme-menu-items"
 import {
   Sidebar,
   SidebarContent,
@@ -28,6 +29,7 @@ import { isActivePath, NAV_ITEMS } from "@/lib/nav"
 export function AppSidebar() {
   const pathname = usePathname()
   const labels = useNavLabels()
+  const themeItems = useThemeMenuItems()
 
   return (
     <TooltipProvider>
@@ -84,7 +86,9 @@ export function AppSidebar() {
                 icon: <Settings />,
                 label: labels.settings,
                 signedIn: true,
+                separator: true,
               },
+              ...themeItems,
             ]}
           />
         </SidebarFooter>

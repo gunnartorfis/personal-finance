@@ -10,6 +10,12 @@
     },
     "switchTo": "Switch to {language}"
   },
+  "theme": {
+    "label": "Theme",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
+  },
   "dashboard": {
     "title": "Dashboard",
     "subtitle": "Your household's spending at a glance.",

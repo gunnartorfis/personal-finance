@@ -10,6 +10,12 @@
     },
     "switchTo": "Skipta yfir í {language}"
   },
+  "theme": {
+    "label": "Þema",
+    "system": "Kerfi",
+    "light": "Ljóst",
+    "dark": "Dökkt"
+  },
   "dashboard": {
     "title": "Yfirlit",
     "subtitle": "Útgjöld heimilisins í hnotskurn.",
