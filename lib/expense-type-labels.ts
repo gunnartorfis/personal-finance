@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl"
+import { useMemo } from "react"
 
 import type { ExpenseType } from "@/shared/types"
 
@@ -10,10 +11,15 @@ import type { ExpenseType } from "@/shared/types"
  */
 export function useExpenseTypeLabels(): Record<ExpenseType, string> {
   const t = useTranslations("expenseType")
-  return {
-    Fixed: t("fixed"),
-    Necessary: t("necessary"),
-    "Nice to have": t("niceToHave"),
-    "": t("splitNone"),
-  }
+  // Memoized so the returned record keeps a stable reference across renders — safe for consumers
+  // that pass it into a dependency array.
+  return useMemo(
+    () => ({
+      Fixed: t("fixed"),
+      Necessary: t("necessary"),
+      "Nice to have": t("niceToHave"),
+      "": t("splitNone"),
+    }),
+    [t]
+  )
 }

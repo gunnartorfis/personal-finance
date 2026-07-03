@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react"
+import { screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -6,6 +6,7 @@ import {
   TransactionsTable,
   type TransactionRow,
 } from "@/components/transactions-table"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 // The table calls router.refresh() after an inline override settles (to recount the server-derived
 // net summary + Rapid review badge); stub it so the component renders outside an app-router context.
@@ -14,7 +15,10 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }))
 afterEach(() => vi.unstubAllGlobals())
 
 /** The per-row "Type" pill is the row's only button; click it to open its action menu. */
-async function openRowMenu(user: ReturnType<typeof userEvent.setup>, name: RegExp) {
+async function openRowMenu(
+  user: ReturnType<typeof userEvent.setup>,
+  name: RegExp
+) {
   const row = screen.getByRole("row", { name })
   await user.click(within(row).getByRole("button"))
   return row
@@ -308,7 +312,9 @@ describe("TransactionsTable — shared expenses (ADR-0014)", () => {
     render(<TransactionsTable rows={ROWS} currency="ISK" />)
 
     await openRowMenu(user, /NETFLIX/)
-    await user.click(await screen.findByRole("menuitem", { name: /split charge/i }))
+    await user.click(
+      await screen.findByRole("menuitem", { name: /split charge/i })
+    )
 
     const row = screen.getByRole("row", { name: /NETFLIX/ })
     await user.type(within(row).getByLabelText(/your share/i), "500")
@@ -334,7 +340,9 @@ describe("TransactionsTable — shared expenses (ADR-0014)", () => {
 
     // NETFLIX is -1990; split 2 ways → 995.
     await openRowMenu(user, /NETFLIX/)
-    await user.click(await screen.findByRole("menuitem", { name: /split charge/i }))
+    await user.click(
+      await screen.findByRole("menuitem", { name: /split charge/i })
+    )
 
     const row = screen.getByRole("row", { name: /NETFLIX/ })
     await user.type(within(row).getByLabelText(/split evenly/i), "2")
@@ -362,7 +370,9 @@ describe("TransactionsTable — shared expenses (ADR-0014)", () => {
     expect(within(row).getByText(/your share/i)).toBeInTheDocument()
 
     await openRowMenu(user, /GROUP GIFT/)
-    await user.click(await screen.findByRole("menuitem", { name: /remove split/i }))
+    await user.click(
+      await screen.findByRole("menuitem", { name: /remove split/i })
+    )
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/transactions/t9/share",
       expect.objectContaining({ method: "DELETE" })
