@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
 import { SavingsProgressCard } from "@/components/savings-progress-card"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 describe("SavingsProgressCard", () => {
   it("renders nothing without progress", () => {
@@ -14,13 +15,18 @@ describe("SavingsProgressCard", () => {
   it("shows saved of target with a meter and links to /savings", () => {
     render(
       <SavingsProgressCard
-        progress={{ target: 1_200_000, saved: 500_000, percent: 42, currency: "ISK" }}
+        progress={{
+          target: 1_200_000,
+          saved: 500_000,
+          percent: 42,
+          currency: "ISK",
+        }}
         locale="en"
-      />,
+      />
     )
     expect(screen.getByRole("link", { name: /savings goal/i })).toHaveAttribute(
       "href",
-      "/savings",
+      "/savings"
     )
     expect(screen.getByText("ISK 500,000")).toBeInTheDocument()
     expect(screen.getByText(/of ISK 1,200,000/)).toBeInTheDocument()
@@ -31,9 +37,14 @@ describe("SavingsProgressCard", () => {
   it("floors a negative saved at an empty meter", () => {
     render(
       <SavingsProgressCard
-        progress={{ target: 1_200_000, saved: -300_000, percent: 0, currency: "ISK" }}
+        progress={{
+          target: 1_200_000,
+          saved: -300_000,
+          percent: 0,
+          currency: "ISK",
+        }}
         locale="en"
-      />,
+      />
     )
     expect(screen.getByRole("meter")).toHaveAttribute("aria-valuenow", "0")
   })

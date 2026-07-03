@@ -488,6 +488,54 @@
     "income": "Income",
     "expenses": "Expenses"
   },
+  "savings": {
+    "goal": {
+      "loading": "Loading goal…",
+      "regionLabel": "Savings goal",
+      "target": "Target amount",
+      "targetPlaceholder": "e.g. 3000000",
+      "targetDate": "Target date",
+      "alreadySaved": "Already saved",
+      "startCycle": "Start cycle",
+      "error": "Couldn't save the goal. Check the values and try again.",
+      "saved": "Goal saved.",
+      "save": "Save goal"
+    },
+    "progress": {
+      "regionLabel": "Savings goal",
+      "progressLabel": "Progress toward the savings goal",
+      "title": "Savings goal",
+      "ofTarget": "of {target}"
+    },
+    "assessment": {
+      "regionLabel": "Savings assessment",
+      "heading": "Where the goal stands",
+      "subtitle": "Derived from your income, off-card costs, and each cycle's spending.",
+      "statusStart": "On track — {saved} saved so far. No cycle has closed yet.",
+      "statusOnTrack": "On track — {saved} saved of the {required} needed by now.",
+      "statusBehind": "Behind — {saved} saved of the {required} needed by now. Save {perCycle} per cycle to catch up.",
+      "allowedNiceToHave": "Allowed nice to have",
+      "requiredPerCycle": "Required per cycle",
+      "expectedFixed": "Expected fixed",
+      "expectedNecessary": "Expected necessary",
+      "provisional": "{cycle} isn't in your total yet — it counts once the month closes.",
+      "byCycle": "By cycle",
+      "empty": "Nothing yet — progress starts once the goal's start cycle begins.",
+      "colCycle": "Cycle",
+      "colIncome": "Income",
+      "colOffCard": "Off-card",
+      "colCardDebits": "Card debits",
+      "colSaved": "Saved",
+      "thisMonth": "(this month)",
+      "notYetCounted": "Not yet counted"
+    },
+    "page": {
+      "title": "Savings",
+      "subtitle": "Your goal and whether it's on track — progress is inferred from spend, never an entered balance. Set your income and off-card costs under <link>Settings</link>.",
+      "goalRegion": "Goal",
+      "goalHeading": "Goal"
+    }
+  },
   "transactions": {
     "searchLabel": "Search transactions",
     "searchPlaceholder": "Search merchant",
