@@ -40,7 +40,7 @@ describe("CategoryMixModule", () => {
     expect(screen.getByText(/March 2026 spending mix/i)).toBeInTheDocument()
   })
 
-  it("labels the mix-over-time colours with a legend of only the categories that appear", () => {
+  it("names every category that appears (and only those) in the mix summary", () => {
     render(
       <CategoryMixModule
         categoryTrend={TREND}
@@ -49,12 +49,14 @@ describe("CategoryMixModule", () => {
         currency="ISK"
       />,
     )
-    // TREND spans Fixed, Necessary and Nice to have across its two months.
-    expect(screen.getAllByText("Fixed").length).toBeGreaterThan(0)
-    expect(screen.getByText("Necessary")).toBeInTheDocument()
-    expect(screen.getAllByText("Nice to have").length).toBeGreaterThan(0)
-    // Buckets absent from every month never appear in the legend.
-    expect(screen.queryByText("Unclassified")).not.toBeInTheDocument()
+    // TREND spans Fixed, Necessary and Nice to have across its two months; each is named in the
+    // sr-only per-month summary. (The visual key is a Recharts <ChartLegend>, which only renders
+    // in a laid-out browser, not jsdom.)
+    expect(screen.getAllByText(/Fixed \d+%/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Necessary \d+%/)).toBeInTheDocument()
+    expect(screen.getByText(/Nice to have \d+%/)).toBeInTheDocument()
+    // Buckets absent from every month never appear.
+    expect(screen.queryByText(/Unclassified/)).not.toBeInTheDocument()
   })
 
   it("exposes each month's mix to assistive tech via a screen-reader summary", () => {
