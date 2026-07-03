@@ -148,6 +148,13 @@
       "when": 1783021653663,
       "tag": "0020_drop_savings_checkins",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1783041271481,
+      "tag": "0021_glorious_ricochet",
+      "breakpoints": true
     }
   ]
 }

@@ -2,5 +2,33 @@
   "common": {
     "appName": "Fjármál",
     "loading": "Hleð…"
+  },
+  "localeSwitcher": {
+    "language": {
+      "is": "Íslenska",
+      "en": "English"
+    },
+    "switchTo": "Skipta yfir í {language}"
+  },
+  "dashboard": {
+    "title": "Yfirlit",
+    "subtitle": "Útgjöld heimilisins í hnotskurn.",
+    "thisMonth": "Þessi mánuður",
+    "spendingSoFar": "Eytt hingað til",
+    "projected": "Áætlað {amount} í lok mánaðar.",
+    "vsAverageWithAvg": "Síðasti heili mánuður var {delta} miðað við meðaltalið {average}.",
+    "vsAverage": "Síðasti heili mánuður var {delta} miðað við meðaltalið þitt.",
+    "largestCharge": "Stærsta færsla mánaðarins: {merchant} · {amount}.",
+    "income": "Tekjur",
+    "difference": "Mismunur",
+    "topMerchants": "Efstu söluaðilar",
+    "spendingByAccount": "Útgjöld eftir reikningi",
+    "movers": {
+      "title": "Mesta breytingin",
+      "subtitle": "Hvar útgjöldin hækkuðu mest miðað við venjulega.",
+      "merchants": "Söluaðilar",
+      "categories": "Flokkar",
+      "new": "nýtt"
+    }
   }
 }

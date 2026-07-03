@@ -5,6 +5,7 @@ import { PiggyBank, Settings } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
+import { LocaleSwitcher } from "@/components/locale-switcher"
 import {
   Sidebar,
   SidebarContent,
@@ -66,6 +67,7 @@ export function AppSidebar() {
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter>
+          <LocaleSwitcher />
           {/* Account menu is an identity control, not a primary action — render the trigger as a
               neutral, full-width row matching the sidebar's menu items instead of the auth-ui
               default (a solid `bg-primary` button). The default "Settings" link (which points at the

@@ -35,12 +35,32 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
   `resolveRequestLocale` now feeds it cookie + geo + `Accept-Language` from the request.
   (Split out of the original slice 3 to keep PRs small; the `member.locale` DB tier +
   switcher are 3b.)
-- [ ] **3b. Member locale + switcher.** Drizzle `locale` column + migration; slot
-  `member.locale` into the precedence ahead of geo (cookie → `member.locale` → geo →
-  `Accept-Language` → `is`); locale switcher in the app-shell account menu (persists to
-  DB + cookie via a server action).
-- [ ] **4. Migrate: dashboard.** All strings in `app/(app)/dashboard` + its modules
-  → catalogs (both locales).
+- [x] **3b. Member locale (DB + resolution + API).** Drizzle `locale` column on
+  `members` + migration; `member.locale` slots into the precedence ahead of geo
+  (cookie → `member.locale` → geo → `Accept-Language` → `is`), consulted only on a
+  cookie miss (`currentMemberLocale`, lazy-loaded to keep auth out of the pure path);
+  `PUT /api/settings/locale` writes both the column and the `NEXT_LOCALE` cookie.
+  (Switcher UI split to 3c; the codebase uses API routes + client fetch, not server
+  actions.)
+- [x] **3c. Language switcher UI.** `LocaleSwitcher` in the sidebar footer
+  (`components/locale-switcher.tsx`): offers the other locale, `PUT`s
+  `/api/settings/locale`, then `router.refresh()`. Own strings localized via
+  next-intl (`localeSwitcher` namespace, both catalogs). Built on the existing
+  `Sidebar` primitives (design-system-consistent); a full `/design` pass can refine
+  the visual treatment later.
+- [x] **4a. Migrate: dashboard page + hero.** `dashboard/page.tsx` (title/subtitle via
+  `getTranslations`) and `ThisMonthHero` (`useTranslations`/`useLocale`, locale-aware
+  currency + the new `formatCycleMonth` date helper) → `dashboard` namespace. Established
+  the pattern: sync Server Components call `useTranslations`/`useLocale` (work in RSC and
+  under `renderWithIntl` in tests); async pages use `getTranslations`.
+- [x] **4b. Migrate: dashboard list modules.** `top-merchants` + `account-breakdown`
+  (headings via `dashboard` namespace) and `biggest-movers` (strings +
+  `currencyFormatter`). Category names stay English (enum data).
+- [ ] **4c. Migrate: dashboard charts + summary.** `action-band`, `net-summary-card`,
+  `spending-trend-chart`, `category-mix-module` → `dashboard` namespace; replace their
+  inline `Intl.*`/`cycleKeyLabel`/`shortCycleLabel` with `lib/format/*` (locale-aware).
+  Once no caller of `cycleKeyLabel`/`shortCycleLabel` remains (also savings, slice 6),
+  delete them from `lib/dashboard/cycle.ts`.
 - [ ] **5. Migrate: transactions.** Table, review-mode, override, income; expense-type
   labels via catalog (canonical enum stays English). AI `reasoning` stays English (data).
 - [ ] **6. Migrate: savings.** Goal, config, check-in surfaces.

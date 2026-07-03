@@ -77,6 +77,12 @@ export const members = pgTable(
       .references(() => households.id, { onDelete: "cascade" }),
     /** The Stack Auth user id this Member maps to. */
     authUserId: text("auth_user_id").notNull().unique(),
+    /**
+     * The Member's chosen Locale (`is`/`en`); `null` = not chosen, so locale
+     * resolution falls through to geo / Accept-Language (ADR-0013). Validated in
+     * the app via `toLocale`; kept as free text to avoid a DB enum migration.
+     */
+    locale: text("locale"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   // Target for composite same-household foreign keys from upload/override actor columns.

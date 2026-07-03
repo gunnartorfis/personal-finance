@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
 import { ThisMonthHero } from "@/components/this-month-hero"
 import type { DashboardHero } from "@/lib/dashboard/dashboard-view"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 const HERO: DashboardHero = {
   month: "2026-03",

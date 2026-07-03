@@ -3,6 +3,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import { households, householdInvites, members, overrides, uploads } from "@/lib/db/schema";
 import type * as schema from "@/lib/db/schema";
+import { toLocale, type Locale } from "@/lib/i18n/config";
 
 /**
  * Leaving and deleting a Household (ADR-0010).
@@ -102,4 +103,25 @@ export async function switchOutOfHousehold(
  */
 export async function deleteHousehold(db: Db, householdId: string): Promise<void> {
   await db.delete(households).where(eq(households.id, householdId));
+}
+
+/** The Member's saved Locale for an auth user, or `null` if unset/unsupported/no Member yet. */
+export async function findMemberLocale(
+  db: Db,
+  authUserId: string,
+): Promise<Locale | null> {
+  const [member] = await db
+    .select({ locale: members.locale })
+    .from(members)
+    .where(eq(members.authUserId, authUserId));
+  return member ? toLocale(member.locale) : null;
+}
+
+/** Persist a Member's chosen Locale. Scope `memberId` to the current tenant. */
+export async function updateMemberLocale(
+  db: Db,
+  memberId: string,
+  locale: Locale,
+): Promise<void> {
+  await db.update(members).set({ locale }).where(eq(members.id, memberId));
 }

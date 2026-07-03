@@ -106,7 +106,7 @@ A recurring monthly outflow that does NOT appear on the uploaded cards (rent, mo
 _Avoid_: Fixed expense (collides with the `Fixed` Expense type)
 
 **Inferred saving**:
-What a Household saved in a Statement cycle — computed, not observed: Monthly income − Off-card fixed costs − net card debits for the cycle (positive card lines ignored).
+What a Household saved in a Statement cycle — computed, not observed: Monthly income − Off-card fixed costs − net card debits for the cycle (positive card lines ignored). Only **completed** cycles count toward cumulative saved; the **current** (in-progress) cycle is excluded until its calendar month closes, because mid-month it carries full income against near-zero spend and would overstate savings. The current cycle is instead the one being budgeted (see **Allowed nice-to-have**).
 _Avoid_: Savings balance (implies an entered figure; we infer)
 
 **Required saving**:
@@ -121,7 +121,7 @@ A recorded, roughly-monthly action: after uploading a cycle's Transactions it FR
 _Avoid_: Review, Report
 
 **On track**:
-Cumulative Inferred saving to date ≥ cumulative Required saving to date.
+Cumulative Inferred saving to date ≥ cumulative Required saving to date, where "to date" means through the last **completed** cycle (the current in-progress cycle counts toward neither side).
 
 ## Relationships
 
@@ -143,6 +143,6 @@ Cumulative Inferred saving to date ≥ cumulative Required saving to date.
 - "billing" is overloaded: **Statement cycle** (credit-card statement window, the dashboard time axis) vs. subscription/payment billing (the free/premium plan). Use "Statement cycle" for the former; reserve "billing" for payments. The existing `shared/billing.ts` computes the **Statement cycle** despite its name.
 - "category" vs **Expense type**: the raw row's merchant category (`Tegund`) is an input hint; the assigned bucket is the **Expense type**. Don't conflate.
 - "income" is two things: the dashboard's **Income (marked)** (credits a Member marked as real income; all other credits count for nothing — ADR-0009) vs configured **Monthly income** (the off-card savings anchor). Never sum them. Resolution: **Inferred saving** counts only card DEBITS (negative amounts) as spend and ignores all positive card lines — so a bank-account **Account** with salary credits cannot double-count with **Monthly income** (refunds are also ignored; accepted v1 simplification). The dashboard leads with **Spending**; wiring **Difference** to **Monthly income** for a true net stays deferred (ADR-0008).
-- "savings" is **Inferred saving** (computed from spend), never an entered balance — chosen over a tracked-balance model.
+- "savings" is **Inferred saving** (computed from spend), never an entered balance — chosen over a tracked-balance model. Cumulative saving counts only **completed** cycles; the current in-progress cycle is excluded until its month closes (it would otherwise show full income against near-zero spend), and is instead the cycle being budgeted (ADR-0014, updating ADR-0007).
 - "language" vs **Locale**: the product setting is a **Locale** (`is`/`en`) — it governs both translated text and number/date formatting together, not just words. Reserve "language" for informal use. AI **Classification** `reasoning` is Household-shared data generated once, so it is NOT localized (v1): it stays English and is shown as-is in both UIs (dynamic data, exempt from catalogs/lint). An Icelandic-UI Member seeing English reasoning is an accepted v1 limitation.
 - "reconcile"/"afstemma" is NOT a domain term here: the user-facing gesture of cancelling out a reimbursed purchase is modelled as a per-Transaction **Excluded** flag, not a link between two rows. "reconciliation" already names an internal math invariant in `lib/dashboard/net-summary.ts` (`sum(byExpenseType) + unclassified === expense`); do not reuse it for the Excluded feature. Pairing/matching a debit to its funding credit stays deferred (transfer detection, issue #97).
