@@ -250,8 +250,8 @@
     "deleteAria": "Eyða reglu fyrir {merchant}",
     "loading": "Hleð…",
     "empty": "Engar reglur enn.",
-    "addError": "Tókst ekki að bæta við reglunni",
-    "deleteError": "Tókst ekki að eyða reglunni",
+    "addError": "Tókst ekki að bæta við reglunni.",
+    "deleteError": "Tókst ekki að eyða reglunni.",
     "split": "≥ {threshold} → {atOrAbove}, undir → {below}",
     "types": {
       "fixed": "Fastur",

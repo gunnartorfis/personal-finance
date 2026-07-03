@@ -250,8 +250,8 @@
     "deleteAria": "Delete rule for {merchant}",
     "loading": "Loading…",
     "empty": "No rules yet.",
-    "addError": "Couldn't add the rule",
-    "deleteError": "Couldn't delete the rule",
+    "addError": "Couldn't add the rule.",
+    "deleteError": "Couldn't delete the rule.",
     "split": "≥ {threshold} → {atOrAbove}, below → {below}",
     "types": {
       "fixed": "Fixed",
