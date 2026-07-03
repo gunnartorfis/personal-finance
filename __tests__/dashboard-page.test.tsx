@@ -21,10 +21,18 @@ vi.mock("@/lib/i18n/locale", () => ({
   resolveRequestLocale: () => Promise.resolve("en"),
 }))
 // getTranslations reads the request config (unavailable in jsdom); back it with
-// the en catalog so the page's title/subtitle render in English.
+// the en catalog so the page's strings render in English. Interpolates {values}
+// so the mock stays faithful once the page uses interpolated keys.
 vi.mock("next-intl/server", () => ({
-  getTranslations: async (ns: keyof typeof en) => (key: string) =>
-    (en[ns] as Record<string, string>)[key] ?? `${ns}.${key}`,
+  getTranslations: async (ns: keyof typeof en) =>
+    (key: string, values?: Record<string, string | number>) => {
+      const template = (en[ns] as Record<string, string>)[key] ?? `${ns}.${key}`
+      return values
+        ? template.replace(/\{(\w+)\}/g, (_, name) =>
+            name in values ? String(values[name]) : `{${name}}`
+          )
+        : template
+    },
 }))
 
 // The page tree includes Client-Component descendants that call useTranslations
