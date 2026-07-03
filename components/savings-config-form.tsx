@@ -8,85 +8,331 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 
-interface EntryRow {
-  /** Stable client-side identity so React reconciles rows by entry, not by list position. */
+/**
+ * The Savings config form (ADR-0007/0015): the household's recurring Monthly income sources and
+ * Off-card fixed costs — now EFFECTIVE-DATED (a source keeps a timeline of dated versions; a raise
+ * or rent change is a new version) — plus per-cycle One-off adjustments (a bonus, refund, or
+ * one-time bill). Saving replaces the whole config in one atomic PUT.
+ *
+ * A source's identity is its NAME (versions of one source share a name); on the wire each version is
+ * its own row. The floor sentinel `0001-01` is the baseline "from the start" cycle — shown here as an
+ * empty month and sent back as the floor.
+ */
+
+const FLOOR = "0001-01"
+
+let nextKey = 0
+const key = () => (nextKey += 1)
+
+interface VersionRow {
+  key: number
+  amount: string
+  /** `YYYY-MM`, or "" for the baseline (maps to the {@link FLOOR} sentinel). */
+  effectiveFrom: string
+}
+
+interface SourceRow {
   key: number
   name: string
+  /** Oldest first; `versions[0]` is the baseline (may carry an empty month). */
+  versions: VersionRow[]
+}
+
+interface OneOffRow {
+  key: number
+  cycleKey: string
+  kind: "income" | "cost"
   amount: string
+  label: string
 }
 
-let nextRowKey = 0
-function newRow(name = "", amount = ""): EntryRow {
-  nextRowKey += 1
-  return { key: nextRowKey, name, amount }
+interface WireOneOff {
+  cycleKey: string
+  kind: "income" | "cost"
+  amount: number
+  label?: string | null
 }
 
-/** One editable named-amount list (income sources or off-card costs). */
-function EntryList({
+/** Group flat wire rows (one per version) into per-source timelines, oldest version first. */
+function groupSources(
+  rows: Array<{ name: string; amount: number; effectiveFrom: string }>,
+): SourceRow[] {
+  const byName = new Map<string, SourceRow>()
+  const order: string[] = []
+  for (const row of rows) {
+    let source = byName.get(row.name)
+    if (!source) {
+      source = { key: key(), name: row.name, versions: [] }
+      byName.set(row.name, source)
+      order.push(row.name)
+    }
+    source.versions.push({
+      key: key(),
+      amount: String(row.amount),
+      effectiveFrom: row.effectiveFrom === FLOOR ? "" : row.effectiveFrom,
+    })
+  }
+  for (const name of order) {
+    byName.get(name)!.versions.sort((a, b) => (a.effectiveFrom || FLOOR).localeCompare(b.effectiveFrom || FLOOR))
+  }
+  return order.map((name) => byName.get(name)!)
+}
+
+/** Flatten per-source timelines back to wire rows; an empty baseline month becomes the floor. */
+function sourceVersions(
+  sources: SourceRow[],
+): Array<{ name: string; amount: number; effectiveFrom: string }> {
+  return sources.flatMap((source) =>
+    source.versions.map((v) => ({
+      name: source.name.trim(),
+      amount: Number(v.amount),
+      effectiveFrom: v.effectiveFrom === "" ? FLOOR : v.effectiveFrom,
+    })),
+  )
+}
+
+/** One recurring source and its dated versions (income or off-card cost). */
+function SourceList({
   kind,
-  rows,
+  sources,
   onChange,
 }: {
   kind: "income" | "offcard"
-  rows: EntryRow[]
-  onChange: (rows: EntryRow[]) => void
+  sources: SourceRow[]
+  onChange: (sources: SourceRow[]) => void
 }) {
   const t = useTranslations("incomeSettings")
-  // EntryList owns all its own copy: the legend and add-button labels derive from `kind`, alongside
-  // the field labels below — no pre-translated strings are threaded in as props.
   const idPrefix = kind
   const legend = t(kind === "income" ? "incomeLegend" : "offcardLegend")
   const addLabel = t(kind === "income" ? "addIncome" : "addOffcard")
+
+  const patchSource = (index: number, patch: Partial<SourceRow>) =>
+    onChange(sources.map((s, i) => (i === index ? { ...s, ...patch } : s)))
+
+  return (
+    <fieldset className="flex flex-col gap-4">
+      <legend className="text-sm font-medium">{legend}</legend>
+      {sources.length === 0 && <p className="text-sm text-muted-foreground">{t("none")}</p>}
+      {sources.map((source, si) => (
+        <div key={source.key} className="flex flex-col gap-3 rounded-lg border border-border/60 p-3">
+          <div className="flex items-end gap-3">
+            <div className="flex flex-1 flex-col gap-1.5">
+              <label htmlFor={`${idPrefix}-name-${si}`} className="text-xs text-muted-foreground">
+                {t("nameLabel")}
+              </label>
+              <Input
+                id={`${idPrefix}-name-${si}`}
+                name={`${idPrefix}-name-${si}`}
+                value={source.name}
+                required
+                onChange={(e) => patchSource(si, { name: e.target.value })}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={t("remove", { label: source.name || legend.toLowerCase() })}
+              onClick={() => onChange(sources.filter((_, i) => i !== si))}
+            >
+              <Trash2 />
+            </Button>
+          </div>
+
+          {source.versions.map((version, vi) => {
+            const isBaseline = vi === 0
+            const patchVersion = (patch: Partial<VersionRow>) =>
+              patchSource(si, {
+                versions: source.versions.map((v, i) => (i === vi ? { ...v, ...patch } : v)),
+              })
+            return (
+              <div key={version.key} className="flex items-end gap-3 pl-3">
+                <div className="flex w-40 flex-col gap-1.5">
+                  <label
+                    htmlFor={`${idPrefix}-from-${si}-${vi}`}
+                    className="text-xs text-muted-foreground"
+                  >
+                    {isBaseline ? t("baselineLabel") : t("fromMonth")}
+                  </label>
+                  {isBaseline ? (
+                    <p
+                      id={`${idPrefix}-from-${si}-${vi}`}
+                      className="flex h-9 items-center text-sm text-muted-foreground"
+                    >
+                      {t("baselineLabel")}
+                    </p>
+                  ) : (
+                    <Input
+                      id={`${idPrefix}-from-${si}-${vi}`}
+                      name={`${idPrefix}-from-${si}-${vi}`}
+                      type="month"
+                      required
+                      value={version.effectiveFrom}
+                      onChange={(e) => patchVersion({ effectiveFrom: e.target.value })}
+                    />
+                  )}
+                </div>
+                <div className="flex w-36 flex-col gap-1.5">
+                  <label
+                    htmlFor={`${idPrefix}-amount-${si}-${vi}`}
+                    className="text-xs text-muted-foreground"
+                  >
+                    {t("amountLabel")}
+                  </label>
+                  <Input
+                    id={`${idPrefix}-amount-${si}-${vi}`}
+                    name={`${idPrefix}-amount-${si}-${vi}`}
+                    type="number"
+                    min={0}
+                    step={1}
+                    required
+                    value={version.amount}
+                    onChange={(e) => patchVersion({ amount: e.target.value })}
+                  />
+                </div>
+                {!isBaseline && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t("removeChange")}
+                    onClick={() =>
+                      patchSource(si, { versions: source.versions.filter((_, i) => i !== vi) })
+                    }
+                  >
+                    <Trash2 />
+                  </Button>
+                )}
+              </div>
+            )
+          })}
+
+          <div className="pl-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                patchSource(si, {
+                  versions: [...source.versions, { key: key(), amount: "", effectiveFrom: "" }],
+                })
+              }
+            >
+              <Plus />
+              {t("addChange")}
+            </Button>
+          </div>
+        </div>
+      ))}
+      <div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            onChange([...sources, { key: key(), name: "", versions: [{ key: key(), amount: "", effectiveFrom: "" }] }])
+          }
+        >
+          <Plus />
+          {addLabel}
+        </Button>
+      </div>
+    </fieldset>
+  )
+}
+
+/** The per-cycle One-off adjustments section (ADR-0015). */
+function OneOffList({
+  rows,
+  onChange,
+}: {
+  rows: OneOffRow[]
+  onChange: (rows: OneOffRow[]) => void
+}) {
+  const t = useTranslations("incomeSettings")
+  const patch = (index: number, p: Partial<OneOffRow>) =>
+    onChange(rows.map((r, i) => (i === index ? { ...r, ...p } : r)))
+
   return (
     <fieldset className="flex flex-col gap-3">
-      <legend className="text-sm font-medium">{legend}</legend>
-      {rows.length === 0 && (
-        <p className="text-sm text-muted-foreground">{t("none")}</p>
-      )}
-      {rows.map((row, index) => (
-        <div key={row.key} className="flex items-end gap-3">
-          <div className="flex flex-1 flex-col gap-1.5">
-            <label htmlFor={`${idPrefix}-name-${index}`} className="text-xs text-muted-foreground">
-              {t("nameLabel")}
+      <legend className="text-sm font-medium">{t("oneOffLegend")}</legend>
+      <p className="text-sm text-muted-foreground">{t("oneOffDescription")}</p>
+      {rows.length === 0 && <p className="text-sm text-muted-foreground">{t("noneOneOff")}</p>}
+      {rows.map((row, i) => (
+        <div key={row.key} className="flex flex-wrap items-end gap-3">
+          <div className="flex w-40 flex-col gap-1.5">
+            <label htmlFor={`oneoff-month-${i}`} className="text-xs text-muted-foreground">
+              {t("oneOffMonth")}
             </label>
             <Input
-              id={`${idPrefix}-name-${index}`}
-              name={`${idPrefix}-name-${index}`}
-              value={row.name}
+              id={`oneoff-month-${i}`}
+              name={`oneoff-month-${i}`}
+              type="month"
               required
-              onChange={(event) =>
-                onChange(rows.map((r, i) => (i === index ? { ...r, name: event.target.value } : r)))
-              }
+              value={row.cycleKey}
+              onChange={(e) => patch(i, { cycleKey: e.target.value })}
             />
           </div>
+          <div className="flex w-32 flex-col gap-1.5">
+            <label htmlFor={`oneoff-kind-${i}`} className="text-xs text-muted-foreground">
+              {t("oneOffKindLabel")}
+            </label>
+            <div className="inline-grid grid-cols-[1fr_--spacing(8)]">
+              <select
+                id={`oneoff-kind-${i}`}
+                name={`oneoff-kind-${i}`}
+                value={row.kind}
+                onChange={(e) => patch(i, { kind: e.target.value as OneOffRow["kind"] })}
+                className="col-span-full row-start-1 h-9 appearance-none rounded-md border border-input bg-transparent pr-8 pl-3 text-sm shadow-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="income">{t("kindIncome")}</option>
+                <option value="cost">{t("kindCost")}</option>
+              </select>
+              <svg
+                viewBox="0 0 8 5"
+                width="8"
+                height="5"
+                fill="none"
+                aria-hidden="true"
+                className="pointer-events-none col-start-2 row-start-1 place-self-center text-muted-foreground"
+              >
+                <path d="M.5.5 4 4 7.5.5" stroke="currentColor" />
+              </svg>
+            </div>
+          </div>
           <div className="flex w-36 flex-col gap-1.5">
-            <label
-              htmlFor={`${idPrefix}-amount-${index}`}
-              className="text-xs text-muted-foreground"
-            >
-              {t("amountLabel")}
+            <label htmlFor={`oneoff-amount-${i}`} className="text-xs text-muted-foreground">
+              {t("oneOffAmount")}
             </label>
             <Input
-              id={`${idPrefix}-amount-${index}`}
-              name={`${idPrefix}-amount-${index}`}
+              id={`oneoff-amount-${i}`}
+              name={`oneoff-amount-${i}`}
               type="number"
               min={0}
               step={1}
               required
               value={row.amount}
-              onChange={(event) =>
-                onChange(
-                  rows.map((r, i) => (i === index ? { ...r, amount: event.target.value } : r))
-                )
-              }
+              onChange={(e) => patch(i, { amount: e.target.value })}
+            />
+          </div>
+          <div className="flex flex-1 flex-col gap-1.5">
+            <label htmlFor={`oneoff-label-${i}`} className="text-xs text-muted-foreground">
+              {t("oneOffLabelField")}
+            </label>
+            <Input
+              id={`oneoff-label-${i}`}
+              name={`oneoff-label-${i}`}
+              placeholder={t("oneOffLabelPlaceholder")}
+              value={row.label}
+              onChange={(e) => patch(i, { label: e.target.value })}
             />
           </div>
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            aria-label={t("remove", { label: row.name || legend.toLowerCase() })}
-            onClick={() => onChange(rows.filter((_, i) => i !== index))}
+            aria-label={t("removeOneOff")}
+            onClick={() => onChange(rows.filter((_, idx) => idx !== i))}
           >
             <Trash2 />
           </Button>
@@ -97,26 +343,24 @@ function EntryList({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => onChange([...rows, newRow()])}
+          onClick={() =>
+            onChange([...rows, { key: key(), cycleKey: "", kind: "income", amount: "", label: "" }])
+          }
         >
           <Plus />
-          {addLabel}
+          {t("addOneOff")}
         </Button>
       </div>
     </fieldset>
   )
 }
 
-/**
- * The Savings config form (ADR-0007, Phase J): the recurring Monthly income sources and Off-card
- * fixed costs (rent, loans — spend not on the uploaded cards) that feed the savings math. Saving
- * replaces both lists in full.
- */
 export function SavingsConfigForm({ className }: { className?: string }) {
   const t = useTranslations("incomeSettings")
   const [loading, setLoading] = useState(true)
-  const [incomeSources, setIncomeSources] = useState<EntryRow[]>([])
-  const [offcardCosts, setOffcardCosts] = useState<EntryRow[]>([])
+  const [incomeSources, setIncomeSources] = useState<SourceRow[]>([])
+  const [offcardCosts, setOffcardCosts] = useState<SourceRow[]>([])
+  const [oneOffs, setOneOffs] = useState<OneOffRow[]>([])
   const [busy, setBusy] = useState(false)
   const [errored, setErrored] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -128,12 +372,30 @@ export function SavingsConfigForm({ className }: { className?: string }) {
         const res = await fetch("/api/savings/config")
         if (!res.ok) return
         const config = (await res.json()) as {
-          incomeSources: Array<{ name: string; amount: number }>
-          offcardCosts: Array<{ name: string; monthlyAmount: number }>
+          incomeSources: Array<{ name: string; amount: number; effectiveFrom: string }>
+          offcardCosts: Array<{ name: string; monthlyAmount: number; effectiveFrom: string }>
+          oneOffAdjustments?: Array<WireOneOff>
         }
         if (ignore) return
-        setIncomeSources(config.incomeSources.map((s) => newRow(s.name, String(s.amount))))
-        setOffcardCosts(config.offcardCosts.map((c) => newRow(c.name, String(c.monthlyAmount))))
+        setIncomeSources(groupSources(config.incomeSources))
+        setOffcardCosts(
+          groupSources(
+            config.offcardCosts.map((c) => ({
+              name: c.name,
+              amount: c.monthlyAmount,
+              effectiveFrom: c.effectiveFrom,
+            })),
+          ),
+        )
+        setOneOffs(
+          (config.oneOffAdjustments ?? []).map((o) => ({
+            key: key(),
+            cycleKey: o.cycleKey,
+            kind: o.kind,
+            amount: String(o.amount),
+            label: o.label ?? "",
+          })),
+        )
       } finally {
         if (!ignore) setLoading(false)
       }
@@ -154,14 +416,20 @@ export function SavingsConfigForm({ className }: { className?: string }) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          incomeSources: incomeSources.map((row) => ({
-            name: row.name,
-            amount: Number(row.amount),
+          incomeSources: sourceVersions(incomeSources),
+          offcardCosts: sourceVersions(offcardCosts).map(({ amount, ...rest }) => ({
+            ...rest,
+            monthlyAmount: amount,
           })),
-          offcardCosts: offcardCosts.map((row) => ({
-            name: row.name,
-            monthlyAmount: Number(row.amount),
-          })),
+          oneOffAdjustments: oneOffs.map((o) => {
+            const label = o.label.trim()
+            return {
+              cycleKey: o.cycleKey,
+              kind: o.kind,
+              amount: Number(o.amount),
+              ...(label === "" ? {} : { label }),
+            }
+          }),
         }),
       })
       if (!res.ok) {
@@ -186,8 +454,9 @@ export function SavingsConfigForm({ className }: { className?: string }) {
       aria-label={t("formLabel")}
       className={cn("flex flex-col gap-6 rounded-xl border border-border bg-card p-6", className)}
     >
-      <EntryList kind="income" rows={incomeSources} onChange={setIncomeSources} />
-      <EntryList kind="offcard" rows={offcardCosts} onChange={setOffcardCosts} />
+      <SourceList kind="income" sources={incomeSources} onChange={setIncomeSources} />
+      <SourceList kind="offcard" sources={offcardCosts} onChange={setOffcardCosts} />
+      <OneOffList rows={oneOffs} onChange={setOneOffs} />
 
       {errored && (
         <div
