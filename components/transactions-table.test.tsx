@@ -13,6 +13,13 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }))
 
 afterEach(() => vi.unstubAllGlobals())
 
+/** The per-row "Type" pill is the row's only button; click it to open its action menu. */
+async function openRowMenu(user: ReturnType<typeof userEvent.setup>, name: RegExp) {
+  const row = screen.getByRole("row", { name })
+  await user.click(within(row).getByRole("button"))
+  return row
+}
+
 const ROWS: TransactionRow[] = [
   {
     id: "t1",
@@ -70,49 +77,64 @@ describe("TransactionsTable", () => {
     expect(screen.getByText(/1,990/)).toBeInTheDocument()
   })
 
-  it("shows the effective type, with the override winning over the classified type", () => {
+  it("shows the effective type on the pill, with the override winning over the classified type", async () => {
+    const user = userEvent.setup()
     render(<TransactionsTable rows={ROWS} currency="ISK" />)
+
+    // GYM is classified Necessary but overridden to Nice to have — the pill shows the override.
     const overridden = screen.getByRole("row", { name: /GYM/ })
-    expect(within(overridden).getByRole("combobox")).toHaveValue("Nice to have")
-    // overridden row exposes a Reset affordance
     expect(
-      within(overridden).getByRole("button", { name: /reset/i })
+      within(overridden).getByRole("button", { name: /nice to have/i })
+    ).toBeInTheDocument()
+
+    // Its menu exposes a Reset back to the AI suggestion (Necessary).
+    await openRowMenu(user, /GYM/)
+    expect(
+      await screen.findByRole("menuitem", { name: /reset to ai.*necessary/i })
     ).toBeInTheDocument()
   })
 
-  it("gives a credit row an income toggle instead of an expense-type control (ADR-0009)", async () => {
+  it("gives a credit an income checkbox instead of expense types, and no Exclude (ADR-0009)", async () => {
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }))
     vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
     render(<TransactionsTable rows={ROWS} currency="ISK" />)
 
+    // The credit's pill reads "Credit", not an expense type.
     const credit = screen.getByRole("row", { name: /SALARY/ })
-    expect(within(credit).queryByRole("combobox")).not.toBeInTheDocument()
-    // A credit is already out of every calculation; Exclude would be a no-op, so it's
-    // not offered — the Income toggle is the sole lever (ADR-0009). Debits keep Exclude.
     expect(
-      within(credit).queryByRole("button", { name: /exclude/i })
-    ).not.toBeInTheDocument()
-    const debit = screen.getByRole("row", { name: /NETFLIX/ })
-    expect(
-      within(debit).getByRole("button", { name: /exclude/i })
+      within(credit).getByRole("button", { name: /^credit$/i })
     ).toBeInTheDocument()
 
-    const toggle = within(credit).getByRole("checkbox", { name: /income/i })
-    expect(toggle).not.toBeChecked()
-    await userEvent.click(toggle)
+    await openRowMenu(user, /SALARY/)
+    const toggle = await screen.findByRole("menuitemcheckbox", {
+      name: /count as income/i,
+    })
+    // A credit is already out of every calculation; Exclude would be a no-op, so it's not offered.
+    expect(
+      screen.queryByRole("menuitem", { name: /exclude/i })
+    ).not.toBeInTheDocument()
 
+    await user.click(toggle)
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/transactions/t2/income",
       expect.objectContaining({ method: "PUT" })
     )
+    // Marking flips the pill to "Income".
     expect(
-      within(credit).getByRole("checkbox", { name: /income/i })
-    ).toBeChecked()
+      await within(credit).findByRole("button", { name: /^income$/i })
+    ).toBeInTheDocument()
+
+    // Debits, by contrast, do offer Exclude.
+    await openRowMenu(user, /NETFLIX/)
+    expect(
+      await screen.findByRole("menuitem", { name: /exclude/i })
+    ).toBeInTheDocument()
   })
 
-  it("keeps the Include-only affordance on an already-excluded credit (ADR-0011)", () => {
-    // A credit excluded before this change (or one that was income-marked then excluded)
-    // must still be restorable — the row.excluded branch shows Include, not the Income toggle.
+  it("keeps the Include-only affordance on an already-excluded credit (ADR-0011)", async () => {
+    // A credit excluded before this change (or one income-marked then excluded) must still be
+    // restorable — the excluded branch shows Include, never the income checkbox.
     const excludedCredit: TransactionRow = {
       id: "t4",
       date: "2026-03-08",
@@ -128,34 +150,41 @@ describe("TransactionsTable", () => {
       overrideType: null,
       classificationStatus: "classified",
     }
+    const user = userEvent.setup()
     render(<TransactionsTable rows={[excludedCredit]} currency="ISK" />)
 
     const row = screen.getByRole("row", { name: /REFUND/ })
     expect(
-      within(row).getByRole("button", { name: /include/i })
+      within(row).getByRole("button", { name: /excluded/i })
+    ).toBeInTheDocument()
+
+    await openRowMenu(user, /REFUND/)
+    expect(
+      await screen.findByRole("menuitem", { name: /include/i })
     ).toBeInTheDocument()
     expect(
-      within(row).queryByRole("checkbox", { name: /income/i })
+      screen.queryByRole("menuitemcheckbox", { name: /income/i })
     ).not.toBeInTheDocument()
   })
 
-  it("persists an override change and reflects it on the row", async () => {
+  it("persists an override change and reflects it on the pill", async () => {
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }))
     vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
     render(<TransactionsTable rows={ROWS} currency="ISK" />)
 
-    const row = screen.getByRole("row", { name: /NETFLIX/ })
-    await userEvent.selectOptions(
-      within(row).getByRole("combobox"),
-      "Necessary"
+    await openRowMenu(user, /NETFLIX/)
+    await user.click(
+      await screen.findByRole("menuitemradio", { name: /necessary/i })
     )
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/transactions/t1/override",
       expect.objectContaining({ method: "PUT" })
     )
+    const row = screen.getByRole("row", { name: /NETFLIX/ })
     expect(
-      await within(row).findByRole("button", { name: /reset/i })
+      await within(row).findByRole("button", { name: /necessary/i })
     ).toBeInTheDocument()
   })
 
@@ -194,13 +223,17 @@ describe("TransactionsTable", () => {
     ]
     render(<TransactionsTable rows={rows} currency="ISK" />)
 
+    // Unclassified → "Needs review"; a real split/none → "Split / none".
     const pending = screen.getByRole("row", { name: /PENDING CO/ })
     expect(
-      within(pending).getByText(/awaiting classification/i)
+      within(pending).getByRole("button", { name: /needs review/i })
     ).toBeInTheDocument()
     const split = screen.getByRole("row", { name: /SPLIT CO/ })
     expect(
-      within(split).queryByText(/awaiting classification/i)
+      within(split).getByRole("button", { name: /split \/ none/i })
+    ).toBeInTheDocument()
+    expect(
+      within(split).queryByRole("button", { name: /needs review/i })
     ).not.toBeInTheDocument()
   })
 
@@ -268,23 +301,27 @@ describe("TransactionsTable — shared expenses (ADR-0014)", () => {
   const lastBody = (fetchMock: ReturnType<typeof vi.fn>) =>
     JSON.parse(fetchMock.mock.calls.at(-1)![1].body as string)
 
-  it("sets an Own share by typing an amount", async () => {
+  it("sets an Own share via the Split editor", async () => {
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }))
     vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
     render(<TransactionsTable rows={ROWS} currency="ISK" />)
 
+    await openRowMenu(user, /NETFLIX/)
+    await user.click(await screen.findByRole("menuitem", { name: /split charge/i }))
+
     const row = screen.getByRole("row", { name: /NETFLIX/ })
-    await userEvent.click(within(row).getByRole("button", { name: /^split$/i }))
-    await userEvent.type(within(row).getByLabelText(/your share/i), "500")
-    await userEvent.click(within(row).getByRole("button", { name: /^save$/i }))
+    await user.type(within(row).getByLabelText(/your share/i), "500")
+    await user.click(within(row).getByRole("button", { name: /^save$/i }))
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/transactions/t1/share",
       expect.objectContaining({ method: "PUT" })
     )
     expect(lastBody(fetchMock)).toEqual({ ownShareAmount: -500 })
-    // Shown twice after saving: the control badge and the amount-cell sub-line.
-    expect(within(row).getAllByText(/your share/i).length).toBeGreaterThan(0)
+    // After saving, the row is tagged Shared and the amount cell gains a "your share" sub-line.
+    expect(await within(row).findByText(/^shared$/i)).toBeInTheDocument()
+    expect(within(row).getByText(/your share/i)).toBeInTheDocument()
   })
 
   it("fills the share from an even split by headcount", async () => {
@@ -292,21 +329,24 @@ describe("TransactionsTable — shared expenses (ADR-0014)", () => {
       "fetch",
       vi.fn(async () => ({ ok: true, json: async () => ({}) }))
     )
+    const user = userEvent.setup()
     render(<TransactionsTable rows={ROWS} currency="ISK" />)
 
     // NETFLIX is -1990; split 2 ways → 995.
-    const row = screen.getByRole("row", { name: /NETFLIX/ })
-    await userEvent.click(within(row).getByRole("button", { name: /^split$/i }))
-    await userEvent.type(within(row).getByLabelText(/split evenly/i), "2")
+    await openRowMenu(user, /NETFLIX/)
+    await user.click(await screen.findByRole("menuitem", { name: /split charge/i }))
 
-    expect(within(row).getByLabelText<HTMLInputElement>(/your share/i).value).toBe(
-      "995"
-    )
+    const row = screen.getByRole("row", { name: /NETFLIX/ })
+    await user.type(within(row).getByLabelText(/split evenly/i), "2")
+    expect(
+      within(row).getByLabelText<HTMLInputElement>(/your share/i).value
+    ).toBe("995")
   })
 
-  it("shows the badge, the share, and clears it", async () => {
+  it("shows a shared row's tag and share, and removes the split", async () => {
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }))
     vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
     const shared: TransactionRow = {
       ...ROWS[0],
       id: "t9",
@@ -317,11 +357,12 @@ describe("TransactionsTable — shared expenses (ADR-0014)", () => {
     render(<TransactionsTable rows={[shared]} currency="ISK" />)
 
     const row = screen.getByRole("row", { name: /GROUP GIFT/ })
-    expect(within(row).getByText(/shared/i)).toBeInTheDocument()
-    // The full charge shows, plus a "your share" annotation (control + amount sub-line).
-    expect(within(row).getAllByText(/your share/i).length).toBeGreaterThan(0)
+    expect(within(row).getByText(/^shared$/i)).toBeInTheDocument()
+    // The full charge shows, plus a "your share" annotation in the amount cell.
+    expect(within(row).getByText(/your share/i)).toBeInTheDocument()
 
-    await userEvent.click(within(row).getByRole("button", { name: /^clear$/i }))
+    await openRowMenu(user, /GROUP GIFT/)
+    await user.click(await screen.findByRole("menuitem", { name: /remove split/i }))
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/transactions/t9/share",
       expect.objectContaining({ method: "DELETE" })
