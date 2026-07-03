@@ -126,6 +126,7 @@
     "oneOffLabelPlaceholder": "e.g. Tax refund",
     "removeOneOff": "Remove one-off adjustment",
     "saveError": "Couldn’t save the config. Check the values and try again.",
+    "duplicateError": "Two changes to the same source can’t start in the same month.",
     "saved": "Config saved.",
     "save": "Save config"
   },

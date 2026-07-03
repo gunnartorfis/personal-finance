@@ -26,15 +26,22 @@ const key = () => (nextKey += 1)
 
 interface VersionRow {
   key: number
-  amount: string
-  /** `YYYY-MM`, or "" for the baseline (maps to the {@link FLOOR} sentinel). */
+  /** `YYYY-MM` for a dated version; ignored (and empty) when {@link baseline} is true. */
   effectiveFrom: string
+  amount: string
+  /**
+   * True for a "from the start" version (maps to/from the {@link FLOOR} sentinel), shown without a
+   * month input. Driven by the data, NOT array position — a household migrated by ADR-0015 has its
+   * earliest version dated at the goal's start cycle (not the floor), so it has no baseline row and
+   * every version stays editable.
+   */
+  baseline: boolean
 }
 
 interface SourceRow {
   key: number
   name: string
-  /** Oldest first; `versions[0]` is the baseline (may carry an empty month). */
+  /** Oldest first: the baseline (if any) leads, then dated versions ascending. */
   versions: VersionRow[]
 }
 
@@ -70,10 +77,14 @@ function groupSources(
       key: key(),
       amount: String(row.amount),
       effectiveFrom: row.effectiveFrom === FLOOR ? "" : row.effectiveFrom,
+      baseline: row.effectiveFrom === FLOOR,
     })
   }
   for (const name of order) {
-    byName.get(name)!.versions.sort((a, b) => (a.effectiveFrom || FLOOR).localeCompare(b.effectiveFrom || FLOOR))
+    // Baseline (if present) leads; dated versions follow in ascending month order.
+    byName.get(name)!.versions.sort((a, b) =>
+      a.baseline === b.baseline ? a.effectiveFrom.localeCompare(b.effectiveFrom) : a.baseline ? -1 : 1,
+    )
   }
   return order.map((name) => byName.get(name)!)
 }
@@ -86,9 +97,17 @@ function sourceVersions(
     source.versions.map((v) => ({
       name: source.name.trim(),
       amount: Number(v.amount),
-      effectiveFrom: v.effectiveFrom === "" ? FLOOR : v.effectiveFrom,
+      effectiveFrom: v.baseline ? FLOOR : v.effectiveFrom,
     })),
   )
+}
+
+/** True if any source has two versions sharing the same effective cycle (a resolver-ambiguous tie). */
+function hasDuplicateEffectiveFrom(sources: SourceRow[]): boolean {
+  return sources.some((source) => {
+    const months = source.versions.map((v) => (v.baseline ? FLOOR : v.effectiveFrom))
+    return new Set(months).size !== months.length
+  })
 }
 
 /** One recurring source and its dated versions (income or off-card cost). */
@@ -140,7 +159,7 @@ function SourceList({
           </div>
 
           {source.versions.map((version, vi) => {
-            const isBaseline = vi === 0
+            const isBaseline = version.baseline
             const patchVersion = (patch: Partial<VersionRow>) =>
               patchSource(si, {
                 versions: source.versions.map((v, i) => (i === vi ? { ...v, ...patch } : v)),
@@ -214,7 +233,10 @@ function SourceList({
               size="sm"
               onClick={() =>
                 patchSource(si, {
-                  versions: [...source.versions, { key: key(), amount: "", effectiveFrom: "" }],
+                  versions: [
+                    ...source.versions,
+                    { key: key(), amount: "", effectiveFrom: "", baseline: false },
+                  ],
                 })
               }
             >
@@ -230,7 +252,10 @@ function SourceList({
           variant="outline"
           size="sm"
           onClick={() =>
-            onChange([...sources, { key: key(), name: "", versions: [{ key: key(), amount: "", effectiveFrom: "" }] }])
+            onChange([
+              ...sources,
+              { key: key(), name: "", versions: [{ key: key(), amount: "", effectiveFrom: "", baseline: true }] },
+            ])
           }
         >
           <Plus />
@@ -362,7 +387,7 @@ export function SavingsConfigForm({ className }: { className?: string }) {
   const [offcardCosts, setOffcardCosts] = useState<SourceRow[]>([])
   const [oneOffs, setOneOffs] = useState<OneOffRow[]>([])
   const [busy, setBusy] = useState(false)
-  const [errored, setErrored] = useState(false)
+  const [errorKey, setErrorKey] = useState<"saveError" | "duplicateError" | null>(null)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
@@ -408,9 +433,15 @@ export function SavingsConfigForm({ className }: { className?: string }) {
 
   async function saveConfig(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setBusy(true)
-    setErrored(false)
     setSaved(false)
+    // A source can't have two versions starting the same month — it makes the in-force amount
+    // ambiguous. Catch it here (a clear message) rather than silently sending a resolver-tie.
+    if (hasDuplicateEffectiveFrom(incomeSources) || hasDuplicateEffectiveFrom(offcardCosts)) {
+      setErrorKey("duplicateError")
+      return
+    }
+    setBusy(true)
+    setErrorKey(null)
     try {
       const res = await fetch("/api/savings/config", {
         method: "PUT",
@@ -433,12 +464,12 @@ export function SavingsConfigForm({ className }: { className?: string }) {
         }),
       })
       if (!res.ok) {
-        setErrored(true)
+        setErrorKey("saveError")
         return
       }
       setSaved(true)
     } catch {
-      setErrored(true)
+      setErrorKey("saveError")
     } finally {
       setBusy(false)
     }
@@ -458,13 +489,13 @@ export function SavingsConfigForm({ className }: { className?: string }) {
       <SourceList kind="offcard" sources={offcardCosts} onChange={setOffcardCosts} />
       <OneOffList rows={oneOffs} onChange={setOneOffs} />
 
-      {errored && (
+      {errorKey && (
         <div
           role="alert"
           className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
           <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          <p>{t("saveError")}</p>
+          <p>{t(errorKey)}</p>
         </div>
       )}
       {saved && (

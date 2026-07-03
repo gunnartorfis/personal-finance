@@ -126,6 +126,7 @@
     "oneOffLabelPlaceholder": "t.d. Skattaendurgreiðsla",
     "removeOneOff": "Fjarlægja staka færslu",
     "saveError": "Ekki tókst að vista stillingarnar. Athugaðu gildin og reyndu aftur.",
+    "duplicateError": "Tvær breytingar á sömu tekjulind geta ekki byrjað í sama mánuði.",
     "saved": "Stillingar vistaðar.",
     "save": "Vista stillingar"
   },

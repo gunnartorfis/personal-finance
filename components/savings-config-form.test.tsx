@@ -113,6 +113,40 @@ describe("SavingsConfigForm", () => {
     ])
   })
 
+  it("renders a migrated source (earliest version dated, no floor) with an editable month", async () => {
+    // ADR-0015 migration backfills existing rows to the goal's start cycle, not the floor — so the
+    // earliest version is dated and must stay editable, not be shown as an uneditable baseline.
+    stubApi({
+      ...config,
+      incomeSources: [{ id: "s1", name: "Salary", amount: 500_000, effectiveFrom: "2026-06" }],
+    })
+    renderWithIntl(<SavingsConfigForm />)
+    await screen.findByDisplayValue("Salary")
+    const income = screen.getByRole("group", { name: /income sources/i })
+    expect(within(income).getByDisplayValue("2026-06")).toBeInTheDocument()
+    expect(within(income).queryByText(/from the start/i)).not.toBeInTheDocument()
+  })
+
+  it("blocks saving when two versions of a source share a month, without issuing a PUT", async () => {
+    const fetchMock = stubApi(config)
+    renderWithIntl(<SavingsConfigForm />)
+    await screen.findByDisplayValue("Salary")
+
+    const income = screen.getByRole("group", { name: /income sources/i })
+    await userEvent.click(within(income).getByRole("button", { name: /add a change/i }))
+    await userEvent.click(within(income).getByRole("button", { name: /add a change/i }))
+    const months = within(income).getAllByLabelText(/from month/i)
+    fireEvent.change(months[0], { target: { value: "2026-07" } })
+    fireEvent.change(months[1], { target: { value: "2026-07" } })
+    const amounts = within(income).getAllByLabelText(/amount \/ month/i)
+    fireEvent.change(amounts[1], { target: { value: "800000" } })
+    fireEvent.change(amounts[2], { target: { value: "900000" } })
+
+    await userEvent.click(screen.getByRole("button", { name: /save config/i }))
+    expect(await screen.findByRole("alert")).toHaveTextContent(/same month/i)
+    expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit)?.method === "PUT")).toBe(false)
+  })
+
   it("surfaces an error when the save fails", async () => {
     stubApi(config, { putFails: true })
     renderWithIntl(<SavingsConfigForm />)
