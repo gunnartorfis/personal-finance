@@ -228,4 +228,21 @@ describe("UploadForm", () => {
       /already imported/i
     )
   })
+
+  it("maps a 404 (deleted account) to the unknown-account message", async () => {
+    stubApi({ uploadStatus: 404, uploadBody: { status: "unknown-account" } })
+    render(<UploadForm />)
+    await screen.findByRole("option", { name: "Visa" })
+
+    await userEvent.selectOptions(
+      screen.getByLabelText(/account/i),
+      ACCOUNTS[0].id
+    )
+    await userEvent.upload(screen.getByLabelText(/csv file/i), csvFile())
+    await userEvent.click(screen.getByRole("button", { name: /upload/i }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /no longer exists/i
+    )
+  })
 })

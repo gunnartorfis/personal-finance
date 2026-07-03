@@ -123,6 +123,18 @@ export function UploadForm({ className }: { className?: string }) {
     }
   }
 
+  // Resolve to text at render (not when the error is raised) so the alert follows a locale change.
+  // Keys are spelled out literally rather than interpolated so next-intl can statically check them.
+  const errorText = !error
+    ? null
+    : "message" in error
+      ? error.message
+      : error.key === "duplicate"
+        ? t("errors.duplicate")
+        : error.key === "unknownAccount"
+          ? t("errors.unknownAccount")
+          : t("errors.failed")
+
   return (
     <section className={cn("flex flex-col gap-6", className)}>
       <form
@@ -200,13 +212,13 @@ export function UploadForm({ className }: { className?: string }) {
         </Button>
       </form>
 
-      {error && (
+      {errorText && (
         <div
           role="alert"
           className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
           <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          <p>{"message" in error ? error.message : t(`errors.${error.key}`)}</p>
+          <p>{errorText}</p>
         </div>
       )}
 
