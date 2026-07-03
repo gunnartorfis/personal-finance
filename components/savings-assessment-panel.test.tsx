@@ -40,7 +40,7 @@ function renderPanel(overrides?: Partial<{ assessment: SavingsAssessment; cycles
 describe("SavingsAssessmentPanel", () => {
   it("flags the in-progress cycle row as not yet counted, not as a saved amount", () => {
     renderPanel()
-    const row = screen.getByText(/August 2026/).closest("tr")!
+    const row = screen.getByText(/August 2026 \(this month\)/).closest("tr")!
     expect(within(row).getByText(/not yet counted/i)).toBeInTheDocument()
     // Its spiky inferred saving must NOT be shown as a counted figure.
     expect(within(row).queryByText("ISK 760,000")).not.toBeInTheDocument()
@@ -48,7 +48,7 @@ describe("SavingsAssessmentPanel", () => {
 
   it("still shows the in-progress row's spend so far (card debits)", () => {
     renderPanel()
-    const row = screen.getByText(/August 2026/).closest("tr")!
+    const row = screen.getByText(/August 2026 \(this month\)/).closest("tr")!
     expect(within(row).getByText("ISK 40,000")).toBeInTheDocument()
   })
 
@@ -60,13 +60,31 @@ describe("SavingsAssessmentPanel", () => {
 
   it("labels the in-progress row as this month", () => {
     renderPanel()
-    const row = screen.getByText(/August 2026/).closest("tr")!
+    const row = screen.getByText(/August 2026 \(this month\)/).closest("tr")!
     expect(within(row).getByText(/\(this month\)/i)).toBeInTheDocument()
   })
 
-  it("tells the user the current month is not yet in the total", () => {
+  it("names the current month in the not-yet-counted banner", () => {
     renderPanel()
-    expect(screen.getByText(/counts once the (calendar )?month closes/i)).toBeInTheDocument()
+    expect(screen.getByText(/August 2026 isn.t in your total yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/counts once the month closes/i)).toBeInTheDocument()
+  })
+
+  it("shows a getting-started on-track message when no cycle has closed", () => {
+    renderPanel({
+      assessment: {
+        ...assessment,
+        cyclesElapsed: 0,
+        cumulative: 2_000_000,
+        requiredCumulative: 2_000_000,
+        onTrack: true,
+      },
+      cycles: cycles.filter((c) => c.inProgress),
+    })
+    expect(screen.getByText(/on track/i)).toBeInTheDocument()
+    expect(screen.getByText(/ISK 2,000,000 saved so far/i)).toBeInTheDocument()
+    // No tautological "needed by now" when nothing is due yet.
+    expect(screen.queryByText(/needed by now/i)).not.toBeInTheDocument()
   })
 
   it("hides the provisional banner when the assessment is not provisional", () => {
