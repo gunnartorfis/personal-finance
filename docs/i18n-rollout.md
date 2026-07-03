@@ -30,10 +30,15 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
   screen slice below — where those components are already being touched for strings —
   rather than in one sweeping formatter PR. The final enforcement slice's ESLint rule
   bans direct `new Intl` in components, guaranteeing none are missed.
-- [ ] **3. Member locale + real resolution + switcher.** Drizzle `locale` column +
-  migration; resolution precedence cookie → `member.locale` → Vercel geo (`IS`→`is`)
-  → `Accept-Language` → `is`; locale switcher in the app-shell account menu
-  (persists to DB + cookie).
+- [x] **3a. Resolution precedence (no DB).** Pure `resolveLocale` in `lib/i18n/resolve.ts`:
+  cookie → Vercel geo (`x-vercel-ip-country` `IS`→`is`) → `Accept-Language` → `is`;
+  `resolveRequestLocale` now feeds it cookie + geo + `Accept-Language` from the request.
+  (Split out of the original slice 3 to keep PRs small; the `member.locale` DB tier +
+  switcher are 3b.)
+- [ ] **3b. Member locale + switcher.** Drizzle `locale` column + migration; slot
+  `member.locale` into the precedence ahead of geo (cookie → `member.locale` → geo →
+  `Accept-Language` → `is`); locale switcher in the app-shell account menu (persists to
+  DB + cookie via a server action).
 - [ ] **4. Migrate: dashboard.** All strings in `app/(app)/dashboard` + its modules
   → catalogs (both locales).
 - [ ] **5. Migrate: transactions.** Table, review-mode, override, income; expense-type
