@@ -1,4 +1,5 @@
 import { Upload } from "lucide-react"
+import { getTranslations } from "next-intl/server"
 import Link from "next/link"
 
 import { ClassifyTrigger } from "@/components/classify-trigger"
@@ -12,12 +13,13 @@ import {
 import { Button } from "@/components/ui/button"
 import {
   currentCycleKey,
-  cycleKeyLabel,
   cycleKeyRange,
   isValidCycleKey,
 } from "@/lib/dashboard/cycle"
 import { loadNetSummary } from "@/lib/dashboard/net-summary"
+import { formatCycleMonth } from "@/lib/format/date"
 import { requireHousehold } from "@/lib/household/current"
+import { resolveRequestLocale } from "@/lib/i18n/locale"
 import { isClassificationPaused } from "@/shared/free-cap"
 import type { ExpenseType } from "@/shared/types"
 
@@ -39,6 +41,10 @@ export default async function TransactionsPage({
   searchParams: Promise<{ cycle?: string }>
 }) {
   const { repo, plan, billingCurrency } = await requireHousehold()
+  const [t, locale] = await Promise.all([
+    getTranslations("transactions"),
+    resolveRequestLocale(),
+  ])
   const current = currentCycleKey(new Date())
   const { cycle } = await searchParams
 
@@ -48,14 +54,17 @@ export default async function TransactionsPage({
   // drive the whole-household "Classify pending" affordance beside Rapid review — like ActionBand,
   // it's hidden once the Free cap has paused classification, since a drain would skip every row.
   const capped = plan !== "Premium"
-  const [months, reviewMonths, pendingCount, classifiedCount] = await Promise.all([
-    repo.transactions.cycleMonths(),
-    repo.transactions.reviewQueueMonths(),
-    repo.transactions.countPending(),
-    capped ? repo.transactions.countClassified() : Promise.resolve(0),
-  ])
+  const [months, reviewMonths, pendingCount, classifiedCount] =
+    await Promise.all([
+      repo.transactions.cycleMonths(),
+      repo.transactions.reviewQueueMonths(),
+      repo.transactions.countPending(),
+      capped ? repo.transactions.countClassified() : Promise.resolve(0),
+    ])
   const reviewTotal = reviewMonths.reduce((sum, m) => sum + m.count, 0)
-  const showClassify = pendingCount > 0 && !(capped && isClassificationPaused(plan, classifiedCount))
+  const showClassify =
+    pendingCount > 0 &&
+    !(capped && isClassificationPaused(plan, classifiedCount))
 
   // Default (no valid `?cycle`): the newest month that still has unreviewed work, else the newest
   // month with any data, else the current month (empty — prompts an upload). `reviewMonths` and
@@ -78,7 +87,7 @@ export default async function TransactionsPage({
     .reverse()
   const options: PeriodOption[] = keys.map((key) => ({
     key,
-    label: cycleKeyLabel(key),
+    label: formatCycleMonth(key, locale),
   }))
 
   // The DB CHECK constrains these text columns to valid expense types, so the cast is safe.
@@ -93,17 +102,17 @@ export default async function TransactionsPage({
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Transactions
+            {t("pageTitle")}
           </h1>
           <p className="text-sm text-pretty text-muted-foreground">
-            Review and reclassify spending for the selected period.
+            {t("pageSubtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <PeriodSelector options={options} selected={selected} />
           <Button variant="outline" size="sm" render={<Link href="/upload" />}>
             <Upload />
-            Upload
+            {t("upload")}
           </Button>
         </div>
       </header>
@@ -116,10 +125,17 @@ export default async function TransactionsPage({
       {(showClassify || reviewTotal > 0) && (
         <div className="flex flex-wrap items-start justify-end gap-3">
           {showClassify && (
-            <ClassifyTrigger pendingCount={pendingCount} resumable className="min-w-48 items-end" />
+            <ClassifyTrigger
+              pendingCount={pendingCount}
+              resumable
+              className="min-w-48 items-end"
+            />
           )}
           {reviewTotal > 0 && (
-            <RapidReviewLauncher count={reviewTotal} currency={billingCurrency} />
+            <RapidReviewLauncher
+              count={reviewTotal}
+              currency={billingCurrency}
+            />
           )}
         </div>
       )}

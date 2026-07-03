@@ -1,6 +1,7 @@
 "use client"
 
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
@@ -25,6 +26,7 @@ export function PeriodSelector({
   options: PeriodOption[]
   selected: string
 }) {
+  const t = useTranslations("periodSelector")
   const router = useRouter()
   const index = options.findIndex((option) => option.key === selected)
   const older =
@@ -41,7 +43,7 @@ export function PeriodSelector({
         type="button"
         variant="outline"
         size="icon"
-        aria-label="Previous period"
+        aria-label={t("previous")}
         disabled={!older}
         onClick={() => older && go(older.key)}
       >
@@ -50,7 +52,7 @@ export function PeriodSelector({
 
       <div className="relative inline-grid h-7 grid-cols-[1fr_--spacing(7)] items-center rounded-md border border-border">
         <label className="sr-only" htmlFor="cycle">
-          Statement period
+          {t("label")}
         </label>
         <select
           id="cycle"
@@ -81,7 +83,7 @@ export function PeriodSelector({
         type="button"
         variant="outline"
         size="icon"
-        aria-label="Next period"
+        aria-label={t("next")}
         disabled={!newer}
         onClick={() => newer && go(newer.key)}
       >
