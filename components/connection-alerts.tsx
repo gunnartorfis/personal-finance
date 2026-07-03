@@ -1,15 +1,12 @@
 import { TriangleAlert } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 import { ReconnectButton } from "@/components/reconnect-button"
-import type { ReconnectPrompt, ReconnectReason } from "@/lib/open-banking/reconnect"
+import type {
+  ReconnectPrompt,
+  ReconnectReason,
+} from "@/lib/open-banking/reconnect"
 import { cn } from "@/lib/utils"
-
-/** Per-reason message; the bank name is filled in at render. */
-const REASON_COPY: Record<ReconnectReason, (bank: string) => string> = {
-  error: (bank) => `Sync failed for ${bank} — reconnect to resume automatic updates.`,
-  expired: (bank) => `Your consent for ${bank} has expired — reconnect to resume automatic updates.`,
-  expiring: (bank) => `Your consent for ${bank} is expiring soon — reconnect to keep syncing.`,
-}
 
 /**
  * Surfaces bank connections that need re-consent (#116) as "needs attention" cards, each with a
@@ -23,6 +20,19 @@ export function ConnectionAlerts({
   prompts: ReconnectPrompt[]
   className?: string
 }) {
+  const t = useTranslations("bankSync.alerts")
+  // Localized per-reason copy via a guarded switch over known reasons (no catch-all).
+  function reasonCopy(reason: ReconnectReason, bank: string): string {
+    switch (reason) {
+      case "error":
+        return t("error", { bank })
+      case "expired":
+        return t("expired", { bank })
+      case "expiring":
+        return t("expiring", { bank })
+    }
+  }
+
   if (prompts.length === 0) return null
 
   return (
@@ -37,8 +47,13 @@ export function ConnectionAlerts({
             aria-hidden="true"
             className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-500"
           />
-          <p className="min-w-0 flex-1 text-sm">{REASON_COPY[prompt.reason](prompt.institutionName)}</p>
-          <ReconnectButton institutionName={prompt.institutionName} className="shrink-0" />
+          <p className="min-w-0 flex-1 text-sm">
+            {reasonCopy(prompt.reason, prompt.institutionName)}
+          </p>
+          <ReconnectButton
+            institutionName={prompt.institutionName}
+            className="shrink-0"
+          />
         </div>
       ))}
     </div>

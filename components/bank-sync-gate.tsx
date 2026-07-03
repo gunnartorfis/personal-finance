@@ -1,4 +1,5 @@
 import { Lock } from "lucide-react"
+import { useTranslations } from "next-intl"
 import Link from "next/link"
 
 import { canUseBankSync } from "@/shared/bank-sync"
@@ -17,22 +18,28 @@ export function BankSyncGate({
   plan: Plan
   children: React.ReactNode
 }) {
+  const t = useTranslations("bankSync.gate")
   if (canUseBankSync(plan)) return <>{children}</>
 
   return (
     <div className="flex items-start gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm">
-      <Lock aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <Lock
+        aria-hidden="true"
+        className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+      />
       <div className="flex flex-col gap-1">
-        <p className="font-medium">Connect your bank with Premium</p>
+        <p className="font-medium">{t("title")}</p>
         <p className="text-muted-foreground">
-          Automatic bank sync keeps your transactions up to date without CSV uploads.{" "}
-          <Link
-            href="/settings/billing"
-            className="font-medium text-foreground underline underline-offset-4"
-          >
-            Upgrade to Premium
-          </Link>{" "}
-          to connect a bank.
+          {t.rich("body", {
+            link: (chunks) => (
+              <Link
+                href="/settings/billing"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                {chunks}
+              </Link>
+            ),
+          })}
         </p>
       </div>
     </div>

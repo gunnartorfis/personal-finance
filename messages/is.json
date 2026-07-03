@@ -387,5 +387,56 @@
     "billing": "Greiðslur",
     "account": "Aðgangur",
     "security": "Öryggi"
+  },
+  "bankSync": {
+    "connect": {
+      "regionLabel": "Tengja banka",
+      "label": "Tengja banka",
+      "hint": "Tengdu bankann þinn til að samstilla færslur sjálfkrafa — engar CSV-innhleðslur lengur.",
+      "loadError": "Tókst ekki að hlaða bönkum — vinsamlegast endurnýjaðu.",
+      "loading": "Hleð…",
+      "error": "Tókst ekki að hefja tenginguna — reyndu aftur.",
+      "connect": "Tengja",
+      "connecting": "Tengist…"
+    },
+    "connections": {
+      "title": "Tengdir bankar",
+      "status": {
+        "active": "Tengt",
+        "expiring": "Samþykki rennur brátt út",
+        "expired": "Samþykki útrunnið",
+        "error": "Samstillingarvilla",
+        "revoked": "Aftengt"
+      }
+    },
+    "alerts": {
+      "error": "Samstilling mistókst fyrir {bank} — tengdu aftur til að halda áfram sjálfvirkum uppfærslum.",
+      "expired": "Samþykki þitt fyrir {bank} er útrunnið — tengdu aftur til að halda áfram sjálfvirkum uppfærslum.",
+      "expiring": "Samþykki þitt fyrir {bank} rennur brátt út — tengdu aftur til að halda samstillingu áfram."
+    },
+    "gate": {
+      "title": "Tengdu bankann þinn með Premium",
+      "body": "Sjálfvirk bankasamstilling heldur færslunum þínum uppfærðum án CSV-innhleðslna. <link>Uppfærðu í Premium</link> til að tengja banka."
+    },
+    "sync": {
+      "importing": "Flyt inn færslurnar þínar…",
+      "done": "{count, plural, =0 {Bankinn þinn er tengdur — engar nýjar færslur til að flytja inn strax.} one {Flutti inn # færslu.} other {Flutti inn # færslur.}}",
+      "error": "Bankinn þinn er tengdur, en okkur tókst ekki að flytja inn færslur í augnablikinu — þær birtast eftir næstu samstillingu."
+    },
+    "disconnect": {
+      "action": "Aftengja",
+      "aria": "Aftengja {bank}",
+      "cancel": "Hætta við",
+      "confirm": "Staðfesta",
+      "disconnecting": "Aftengist…",
+      "confirmAria": "Staðfesta aftengingu {bank}",
+      "error": "Tókst ekki að aftengja — reyndu aftur."
+    },
+    "reconnect": {
+      "reconnect": "Tengja aftur",
+      "reconnecting": "Tengist aftur…",
+      "aria": "Tengja aftur {bank}",
+      "error": "Tókst ekki að hefja endurtengingu — reyndu aftur."
+    }
   }
 }

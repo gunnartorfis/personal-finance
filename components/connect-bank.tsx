@@ -1,6 +1,7 @@
 "use client"
 
 import { Landmark, Loader2 } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -17,6 +18,7 @@ const COUNTRY = "IS"
  * assumes access — the route enforces the gate regardless.
  */
 export function ConnectBank({ className }: { className?: string }) {
+  const t = useTranslations("bankSync.connect")
   const [institutions, setInstitutions] = useState<Institution[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
@@ -68,22 +70,25 @@ export function ConnectBank({ className }: { className?: string }) {
 
   return (
     <section
-      aria-label="Connect a bank"
+      aria-label={t("regionLabel")}
       className={cn(
         "flex flex-col gap-3 rounded-xl border border-border bg-card p-6 sm:flex-row sm:items-end",
-        className,
+        className
       )}
     >
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <label htmlFor="connect-bank" className="text-sm font-medium">
-          Connect a bank
+          {t("label")}
         </label>
-        <p id="connect-bank-hint" className="text-sm text-pretty text-muted-foreground">
-          Link your bank to sync transactions automatically — no more CSV uploads.
+        <p
+          id="connect-bank-hint"
+          className="text-sm text-pretty text-muted-foreground"
+        >
+          {t("hint")}
         </p>
         {loadError ? (
           <p role="alert" className="text-sm text-destructive">
-            Couldn&apos;t load banks — please refresh.
+            {t("loadError")}
           </p>
         ) : (
           <select
@@ -95,7 +100,7 @@ export function ConnectBank({ className }: { className?: string }) {
             className="mt-1 h-9 rounded-md border border-border bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50"
           >
             {loading ? (
-              <option>Loading…</option>
+              <option>{t("loading")}</option>
             ) : (
               institutions.map((institution) => (
                 <option key={institution.name} value={institution.name}>
@@ -107,13 +112,17 @@ export function ConnectBank({ className }: { className?: string }) {
         )}
         {errored && (
           <p role="alert" className="text-sm text-destructive">
-            Couldn&apos;t start the connection — try again.
+            {t("error")}
           </p>
         )}
       </div>
-      <Button type="button" onClick={() => void connect()} disabled={busy || loading || !selected}>
+      <Button
+        type="button"
+        onClick={() => void connect()}
+        disabled={busy || loading || !selected}
+      >
         {busy ? <Loader2 className="animate-spin" /> : <Landmark />}
-        {busy ? "Connecting…" : "Connect"}
+        {busy ? t("connecting") : t("connect")}
       </Button>
     </section>
   )

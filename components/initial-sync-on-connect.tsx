@@ -1,6 +1,7 @@
 "use client"
 
 import { CheckCircle2, Loader2 } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 
@@ -15,10 +16,13 @@ type Status = "idle" | "syncing" | "done" | "error"
  * that re-triggers it is harmless. Renders nothing unless the household just connected.
  */
 export function InitialSyncOnConnect() {
+  const t = useTranslations("bankSync.sync")
   const router = useRouter()
   const params = useSearchParams()
   const justConnected = params.get("bank") === "connected"
-  const [status, setStatus] = useState<Status>(justConnected ? "syncing" : "idle")
+  const [status, setStatus] = useState<Status>(
+    justConnected ? "syncing" : "idle"
+  )
   const [inserted, setInserted] = useState(0)
   const started = useRef(false)
 
@@ -65,7 +69,7 @@ export function InitialSyncOnConnect() {
         className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground"
       >
         <Loader2 className="size-4 animate-spin" />
-        Importing your transactions…
+        {t("importing")}
       </p>
     )
   }
@@ -77,9 +81,7 @@ export function InitialSyncOnConnect() {
         className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground"
       >
         <CheckCircle2 className="size-4 text-emerald-500" />
-        {inserted > 0
-          ? `Imported ${inserted.toLocaleString()} transaction${inserted === 1 ? "" : "s"}.`
-          : "Your bank is connected — no new transactions to import yet."}
+        {t("done", { count: inserted })}
       </p>
     )
   }
@@ -90,8 +92,7 @@ export function InitialSyncOnConnect() {
         role="alert"
         className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-destructive"
       >
-        Your bank is connected, but we couldn&apos;t import transactions just now — they&apos;ll
-        appear after the next sync.
+        {t("error")}
       </p>
     )
   }

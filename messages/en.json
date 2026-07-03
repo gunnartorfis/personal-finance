@@ -387,5 +387,56 @@
     "billing": "Billing",
     "account": "Account",
     "security": "Security"
+  },
+  "bankSync": {
+    "connect": {
+      "regionLabel": "Connect a bank",
+      "label": "Connect a bank",
+      "hint": "Link your bank to sync transactions automatically — no more CSV uploads.",
+      "loadError": "Couldn't load banks — please refresh.",
+      "loading": "Loading…",
+      "error": "Couldn't start the connection — try again.",
+      "connect": "Connect",
+      "connecting": "Connecting…"
+    },
+    "connections": {
+      "title": "Connected banks",
+      "status": {
+        "active": "Connected",
+        "expiring": "Consent expiring soon",
+        "expired": "Consent expired",
+        "error": "Sync error",
+        "revoked": "Disconnected"
+      }
+    },
+    "alerts": {
+      "error": "Sync failed for {bank} — reconnect to resume automatic updates.",
+      "expired": "Your consent for {bank} has expired — reconnect to resume automatic updates.",
+      "expiring": "Your consent for {bank} is expiring soon — reconnect to keep syncing."
+    },
+    "gate": {
+      "title": "Connect your bank with Premium",
+      "body": "Automatic bank sync keeps your transactions up to date without CSV uploads. <link>Upgrade to Premium</link> to connect a bank."
+    },
+    "sync": {
+      "importing": "Importing your transactions…",
+      "done": "{count, plural, =0 {Your bank is connected — no new transactions to import yet.} one {Imported # transaction.} other {Imported # transactions.}}",
+      "error": "Your bank is connected, but we couldn't import transactions just now — they'll appear after the next sync."
+    },
+    "disconnect": {
+      "action": "Disconnect",
+      "aria": "Disconnect {bank}",
+      "cancel": "Cancel",
+      "confirm": "Confirm",
+      "disconnecting": "Disconnecting…",
+      "confirmAria": "Confirm disconnect {bank}",
+      "error": "Couldn't disconnect — try again."
+    },
+    "reconnect": {
+      "reconnect": "Reconnect",
+      "reconnecting": "Reconnecting…",
+      "aria": "Reconnect {bank}",
+      "error": "Couldn't start reconnect — try again."
+    }
   }
 }
