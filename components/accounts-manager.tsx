@@ -1,6 +1,7 @@
 "use client"
 
 import { CircleAlert, Loader2, Plus } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { type FormEvent, useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -17,6 +18,7 @@ interface Account {
  * provenance an upload's transactions attach to, so this is the prerequisite for the upload flow.
  */
 export function AccountsManager({ className }: { className?: string }) {
+  const t = useTranslations("accounts")
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
@@ -80,14 +82,17 @@ export function AccountsManager({ className }: { className?: string }) {
   }
 
   return (
-    <section aria-label="Accounts" className={cn("flex flex-col gap-6", className)}>
+    <section
+      aria-label={t("regionLabel")}
+      className={cn("flex flex-col gap-6", className)}
+    >
       <form
         onSubmit={addAccount}
         className="flex flex-col gap-3 rounded-xl border border-border bg-card p-6 sm:flex-row sm:items-end"
       >
         <div className="flex flex-1 flex-col gap-1.5">
           <label htmlFor="account-name" className="text-sm font-medium">
-            Name
+            {t("nameLabel")}
           </label>
           <Input
             id="account-name"
@@ -95,12 +100,12 @@ export function AccountsManager({ className }: { className?: string }) {
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
-            placeholder="e.g. Visa, Landsbankinn"
+            placeholder={t("namePlaceholder")}
           />
         </div>
         <Button type="submit" disabled={busy}>
           {busy ? <Loader2 className="animate-spin" /> : <Plus />}
-          Add account
+          {t("add")}
         </Button>
       </form>
 
@@ -110,23 +115,23 @@ export function AccountsManager({ className }: { className?: string }) {
           className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
           <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          <p>Couldn’t add the account.</p>
+          <p>{t("addError")}</p>
         </div>
       )}
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-sm text-muted-foreground">{t("loading")}</p>
       ) : loadError ? (
         <div
           role="alert"
           className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
           <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          <p>Couldn’t load accounts. Please refresh.</p>
+          <p>{t("loadError")}</p>
         </div>
       ) : accounts.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-          No accounts yet.
+          {t("empty")}
         </div>
       ) : (
         <ul

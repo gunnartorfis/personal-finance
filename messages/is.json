@@ -225,5 +225,17 @@
       "complete": "Flokkun lokið",
       "classifying": "Flokka…"
     }
+  },
+  "accounts": {
+    "title": "Reikningar",
+    "subtitle": "Kort- og bankareikningarnir sem yfirlitin þín tengjast.",
+    "regionLabel": "Reikningar",
+    "nameLabel": "Nafn",
+    "namePlaceholder": "t.d. Visa, Landsbankinn",
+    "add": "Bæta við reikningi",
+    "addError": "Tókst ekki að bæta við reikningnum.",
+    "loading": "Hleð…",
+    "loadError": "Tókst ekki að hlaða reikningum. Vinsamlegast endurnýjaðu.",
+    "empty": "Engir reikningar enn."
   }
 }
