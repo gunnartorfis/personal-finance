@@ -17,18 +17,39 @@ import { loadSavingsProgress, loadSavingsSnapshot } from "./assessment";
 
 type Goal = { target: number; targetDate: string; startingSaved: number; startCycle: string; currency: string };
 
-/** Minimal repo double: only the methods the derivation touches. */
+/**
+ * Minimal repo double: only the methods the derivation touches. Income/cost rows carry an optional
+ * `name` (source identity — versions of one source share a name) and `effectiveFrom` (ADR-0015);
+ * both default so pre-ADR-0015-style rows (no name, no date) act as distinct, always-in-force
+ * sources — i.e. the old flat behaviour.
+ */
 function fakeRepo(opts: {
   goal?: Goal;
-  income?: Array<{ amount: number }>;
-  offcard?: Array<{ monthlyAmount: number }>;
+  income?: Array<{ amount: number; name?: string; effectiveFrom?: string }>;
+  offcard?: Array<{ monthlyAmount: number; name?: string; effectiveFrom?: string }>;
+  oneOffs?: Array<{ cycleKey: string; kind: "income" | "cost"; amount: number }>;
   series?: Array<{ month: string; spending: number; income: number }>;
 }): HouseholdRepo {
   return {
     savings: {
       goal: { get: async () => opts.goal },
-      incomeSources: { list: async () => opts.income ?? [] },
-      offcardCosts: { list: async () => opts.offcard ?? [] },
+      incomeSources: {
+        list: async () =>
+          (opts.income ?? []).map((s, i) => ({
+            name: s.name ?? `income-${i}`,
+            effectiveFrom: s.effectiveFrom ?? "0001-01",
+            amount: s.amount,
+          })),
+      },
+      offcardCosts: {
+        list: async () =>
+          (opts.offcard ?? []).map((c, i) => ({
+            name: c.name ?? `cost-${i}`,
+            effectiveFrom: c.effectiveFrom ?? "0001-01",
+            monthlyAmount: c.monthlyAmount,
+          })),
+      },
+      oneOffAdjustments: { list: async () => opts.oneOffs ?? [] },
     },
     transactions: { monthlySpendSeries: async () => opts.series ?? [] },
   } as unknown as HouseholdRepo;
@@ -111,6 +132,66 @@ describe("loadSavingsSnapshot", () => {
 
   it("is null without a goal", async () => {
     expect(await loadSavingsSnapshot(fakeRepo({}), NOW)).toBeNull();
+  });
+
+  it("applies an effective-dated raise from its cycle onward, per cycle (ADR-0015)", async () => {
+    const snapshot = await loadSavingsSnapshot(
+      fakeRepo({
+        goal: { ...GOAL, startCycle: "2026-06", startingSaved: 0 },
+        income: [
+          { name: "Salary", amount: 500_000, effectiveFrom: "2026-06" },
+          { name: "Salary", amount: 700_000, effectiveFrom: "2026-07" }, // a raise
+        ],
+        series: [
+          { month: "2026-06", spending: 100_000, income: 0 },
+          { month: "2026-07", spending: 100_000, income: 0 },
+        ],
+      }),
+      NOW, // 2026-08 → 06 and 07 completed
+    );
+    const byKey = Object.fromEntries(snapshot!.cycles.map((c) => [c.cycleKey, c]));
+    // The two rows are versions of ONE source (same name), so only the latest in force counts —
+    // not summed. Old flat behaviour would show 1,200,000 in every cycle.
+    expect(byKey["2026-06"].monthlyIncome).toBe(500_000);
+    expect(byKey["2026-07"].monthlyIncome).toBe(700_000);
+    expect(byKey["2026-06"].inferredSaving).toBe(400_000);
+    expect(byKey["2026-07"].inferredSaving).toBe(600_000);
+  });
+
+  it("adds a one-off income adjustment to only its cycle (ADR-0015)", async () => {
+    const snapshot = await loadSavingsSnapshot(
+      fakeRepo({
+        goal: { ...GOAL, startCycle: "2026-06", startingSaved: 0 },
+        income: [{ name: "Salary", amount: 500_000, effectiveFrom: "2026-06" }],
+        oneOffs: [{ cycleKey: "2026-07", kind: "income", amount: 300_000 }], // a refund
+        series: [
+          { month: "2026-06", spending: 0, income: 0 },
+          { month: "2026-07", spending: 0, income: 0 },
+        ],
+      }),
+      NOW,
+    );
+    const byKey = Object.fromEntries(snapshot!.cycles.map((c) => [c.cycleKey, c]));
+    expect(byKey["2026-06"].monthlyIncome).toBe(500_000);
+    expect(byKey["2026-07"].monthlyIncome).toBe(800_000);
+  });
+
+  it("adds a one-off cost adjustment to only its cycle (ADR-0015)", async () => {
+    const snapshot = await loadSavingsSnapshot(
+      fakeRepo({
+        goal: { ...GOAL, startCycle: "2026-06", startingSaved: 0 },
+        income: [{ name: "Salary", amount: 500_000, effectiveFrom: "2026-06" }],
+        offcard: [{ name: "Rent", monthlyAmount: 200_000, effectiveFrom: "2026-06" }],
+        oneOffs: [{ cycleKey: "2026-07", kind: "cost", amount: 90_000 }], // annual bill
+        series: [],
+      }),
+      NOW,
+    );
+    const byKey = Object.fromEntries(snapshot!.cycles.map((c) => [c.cycleKey, c]));
+    expect(byKey["2026-06"].offCardFixed).toBe(200_000);
+    expect(byKey["2026-07"].offCardFixed).toBe(290_000);
+    // one-off cost lowers that cycle's inferred saving: 500k - 290k - 0 debits
+    expect(byKey["2026-07"].inferredSaving).toBe(210_000);
   });
 
   it("handles a goal whose start cycle is still in the future", async () => {
