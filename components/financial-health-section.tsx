@@ -57,7 +57,7 @@ export function FinancialHealthSection({
             <div className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 @sm:px-4 @sm:py-0 @sm:first:pl-0 @sm:last:pr-0">
               <dt className="truncate text-sm text-muted-foreground">{t("typicalSaving")}</dt>
               <dd className="text-2xl font-semibold tabular-nums">
-                {money.format(avgMonthlySaving ?? 0)}
+                {avgMonthlySaving === null ? "—" : money.format(avgMonthlySaving)}
               </dd>
             </div>
             <div className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 @sm:px-4 @sm:py-0 @sm:first:pl-0 @sm:last:pr-0">
@@ -68,7 +68,10 @@ export function FinancialHealthSection({
             </div>
           </dl>
 
-          <p className="text-sm text-pretty text-muted-foreground">{t("savingsRateBenchmark")}</p>
+          {/* The benchmark contextualises the savings rate, so it only shows when there is one. */}
+          {savingsRate !== null && (
+            <p className="text-sm text-pretty text-muted-foreground">{t("savingsRateBenchmark")}</p>
+          )}
         </>
       )}
     </section>

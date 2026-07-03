@@ -43,6 +43,8 @@ describe("FinancialHealthSection", () => {
     expect(screen.getByText("—")).toBeInTheDocument()
     // The other stats still render.
     expect(screen.getByText("5 of 6")).toBeInTheDocument()
+    // With no rate to benchmark, the 20%-target line is suppressed.
+    expect(screen.queryByText(/healthy target/i)).not.toBeInTheDocument()
   })
 
   it("shows a neutral thin-data line instead of stats without enough history", () => {
