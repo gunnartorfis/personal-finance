@@ -1,6 +1,7 @@
 "use client"
 
-import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
+import type { ReactElement } from "react"
+import { Bar, BarChart, CartesianGrid, Rectangle, XAxis } from "recharts"
 
 import { CATEGORIES } from "@/components/spending-by-type"
 import {
@@ -37,14 +38,37 @@ function mixLabel(month: CycleKey, point: CategoryTrendPoint): string {
   return `${label} spending mix: ${parts.join(", ")}`
 }
 
-/** Rounded outer corners for a stacked bar: bottom segment rounds its base, top segment its cap. */
-function stackRadius(index: number, count: number): [number, number, number, number] {
-  const isBottom = index === 0
-  const isTop = index === count - 1
-  if (isBottom && isTop) return [4, 4, 4, 4]
-  if (isTop) return [4, 4, 0, 0]
-  if (isBottom) return [0, 0, 4, 4]
-  return [0, 0, 0, 0]
+/** Geometry + row payload Recharts hands a Bar's `shape` callback for each rendered segment. */
+type SegmentShapeProps = {
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  fill?: string
+  payload?: Record<string, number | string>
+}
+
+/**
+ * Round only the segments that are actually the top/bottom of the stack *for their own month*.
+ * A per-Bar `radius` can't do this: the topmost category varies month to month (a month with no
+ * "Other" is capped by "Nice to have"), so we decide per rendered rectangle from its row payload.
+ * `presentSlugs` is the stack order; the first/last nonzero entry in a row is that month's base/cap.
+ */
+function roundedSegment(slug: string, presentSlugs: string[]) {
+  return function Segment(props: SegmentShapeProps): ReactElement {
+    const { height = 0, payload } = props
+    if (height <= 0 || !payload) return <g />
+    const nonzero = presentSlugs.filter((candidate) => Number(payload[candidate]) > 0)
+    const r = 4
+    const isTop = slug === nonzero[nonzero.length - 1]
+    const isBottom = slug === nonzero[0]
+    return (
+      <Rectangle
+        {...props}
+        radius={[isTop ? r : 0, isTop ? r : 0, isBottom ? r : 0, isBottom ? r : 0]}
+      />
+    )
+  }
 }
 
 /**
@@ -76,6 +100,8 @@ export function MixOverTimeChart({
   const chartConfig = Object.fromEntries(
     present.map((category) => [category.slug, { label: category.label, theme: category.color }])
   ) satisfies ChartConfig
+
+  const presentSlugs = present.map((category) => category.slug)
 
   const data = categoryTrend.map((point) => {
     const row: Record<string, number | string> = {
@@ -111,13 +137,13 @@ export function MixOverTimeChart({
             }
           />
           <ChartLegend content={<ChartLegendContent />} />
-          {present.map((category, index) => (
+          {present.map((category) => (
             <Bar
               key={category.slug}
               dataKey={category.slug}
               stackId="mix"
               fill={`var(--color-${category.slug})`}
-              radius={stackRadius(index, present.length)}
+              shape={roundedSegment(category.slug, presentSlugs)}
               isAnimationActive={false}
             />
           ))}
