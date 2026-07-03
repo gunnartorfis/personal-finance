@@ -429,6 +429,54 @@
     "other": "Annað",
     "unclassified": "Óflokkað"
   },
+  "expenseType": {
+    "fixed": "Fast",
+    "necessary": "Nauðsynlegt",
+    "niceToHave": "Gott að hafa",
+    "splitNone": "Skipt / ekkert"
+  },
+  "rowType": {
+    "saveError": "Tókst ekki að vista",
+    "excluded": "Undanskilið",
+    "include": "Taka með í útreikninga",
+    "income": "Tekjur",
+    "credit": "Innborgun",
+    "countAsIncome": "Telja sem tekjur",
+    "needsReview": "Þarf yfirferð",
+    "failedTitle": "Flokkun mistókst — veldu tegund",
+    "awaitingTitle": "Bíður flokkunar — veldu tegund",
+    "setType": "Velja tegund",
+    "ai": "Gervigreind",
+    "aiSuggestion": "Tillaga gervigreindar",
+    "resetToAiTyped": "Endurstilla á gervigreind · {type}",
+    "resetToAi": "Endurstilla á tillögu gervigreindar",
+    "ruleAdded": "Regla bætt við fyrir {merchant}",
+    "ruleExists": "Regla er þegar til fyrir {merchant}",
+    "ruleRetry": "Tókst ekki að bæta við — reyndu aftur",
+    "applyToAll": "Beita á allt {merchant}",
+    "editSplit": "Breyta skiptingu…",
+    "splitCharge": "Skipta færslu…",
+    "removeSplit": "Fjarlægja skiptingu",
+    "exclude": "Undanskilja…",
+    "shared": "Deilt",
+    "split": {
+      "shareLabel": "Þinn hluti",
+      "sharePlaceholder": "Þinn hluti af {amount}",
+      "orSplitBy": "eða skipta í",
+      "waysLabel": "Skipta jafnt milli (þ.m.t. þín)",
+      "waysPlaceholder": "t.d. 7",
+      "save": "Vista",
+      "cancel": "Hætta við",
+      "saveError": "Tókst ekki að vista"
+    },
+    "excludeEditor": {
+      "reasonLabel": "Ástæða fyrir undanskilningi (valfrjálst)",
+      "reasonPlaceholder": "Ástæða (valfrjálst)",
+      "exclude": "Undanskilja",
+      "cancel": "Hætta við",
+      "saveError": "Tókst ekki að vista"
+    }
+  },
   "spendingByType": {
     "heading": "Útgjöld eftir tegund",
     "total": "{amount} samtals"

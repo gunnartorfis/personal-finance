@@ -79,8 +79,12 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
     namespaces via a `useCategoryLabels()` hook (canonical `CATEGORIES` keys stay English;
     labels localize at the presentation layer). `renderWithIntl` now uses the RTL `wrapper`
     option so `rerender` re-applies the provider.
-  - [ ] **5b. transactions table + row-type control** (Type pill/menu, review-mode,
-    override) — next.
+  - [x] **5b. row-type control** (the Type pill/menu + split/exclude inline editors) →
+    `rowType` namespace + shared `useExpenseTypeLabels()` (`expenseType` namespace,
+    incl. `""`→"Split / none"); guarded expense-type labels, `{merchant}`/`{type}`/
+    `{amount}` interpolation, keyed save errors.
+  - [ ] **5c. transactions table** (`transactions-table.tsx` — headers, filters,
+    empty/loading states, date/currency) — next.
 - [ ] **6. Migrate: savings.** DEFERRED — handled by the concurrent ADR-0015 stream
   (income/config already localized under `incomeSettings` in #204/#206). Goal + check-in
   remain to that stream.

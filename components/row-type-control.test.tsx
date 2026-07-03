@@ -1,9 +1,10 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { RowTypeControl } from "@/components/row-type-control"
 import type { TransactionRow } from "@/components/transactions-table"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -38,7 +39,13 @@ function setup(row: Partial<TransactionRow> = {}) {
     onShareChanged: vi.fn(),
     onRuleCreated: vi.fn(),
   }
-  render(<RowTypeControl row={{ ...BASE, ...row }} formatAmount={fmt} {...handlers} />)
+  render(
+    <RowTypeControl
+      row={{ ...BASE, ...row }}
+      formatAmount={fmt}
+      {...handlers}
+    />
+  )
   return { user: userEvent.setup(), ...handlers }
 }
 
