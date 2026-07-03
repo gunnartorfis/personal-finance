@@ -93,6 +93,11 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
     namespace: account picker / file labels + hints, submit/loading states,
     keyed upload errors (static status→key map, server `{error}` passed through),
     discriminated progress status line.
+  - [x] **8b. accounts** (accounts page header + accounts-manager) → `accounts`
+    namespace: name label/placeholder, add button, add/load error alerts, loading
+    + empty states, region aria-label. Bank-connection components (ConnectBank,
+    BankConnections, ConnectionAlerts, bank-sync-gate) are their own later slice;
+    settings/account is Neon Auth's view (English v1, exempt).
 - [ ] **9. Migrate: landing + auth shell.** Bilingual landing (Vercel-geo default).
   Neon Auth UI + OTP emails stay English (v1).
 - [ ] **10. Enforcement flip.** Blocking ESLint rule banning literal JSX strings in

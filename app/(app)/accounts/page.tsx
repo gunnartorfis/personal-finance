@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server"
 import { Suspense } from "react"
 
 import { AccountsManager } from "@/components/accounts-manager"
@@ -16,18 +17,19 @@ export const dynamic = "force-dynamic"
 /** Accounts management (Phase H): the card/bank accounts uploads attach to. */
 export default async function AccountsPage() {
   const { repo, plan } = await requireHousehold() // gate on auth; the manager fetches the list client-side
-  const [connections, accounts] = await Promise.all([
+  const [connections, accounts, t] = await Promise.all([
     repo.bankConnections.list(),
     repo.accounts.list(),
+    getTranslations("accounts"),
   ])
   const reconnect = reconnectPrompts(connections, new Date())
   const connectionViews = buildConnectionViews(connections, accounts)
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Accounts</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-sm text-pretty text-muted-foreground">
-          The card and bank accounts your statement uploads attach to.
+          {t("subtitle")}
         </p>
       </header>
       <Suspense fallback={null}>

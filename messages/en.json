@@ -225,5 +225,17 @@
       "complete": "Classification complete",
       "classifying": "Classifying…"
     }
+  },
+  "accounts": {
+    "title": "Accounts",
+    "subtitle": "The card and bank accounts your statement uploads attach to.",
+    "regionLabel": "Accounts",
+    "nameLabel": "Name",
+    "namePlaceholder": "e.g. Visa, Landsbankinn",
+    "add": "Add account",
+    "addError": "Couldn't add the account.",
+    "loading": "Loading…",
+    "loadError": "Couldn't load accounts. Please refresh.",
+    "empty": "No accounts yet."
   }
 }
