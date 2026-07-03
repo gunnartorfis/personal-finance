@@ -23,9 +23,12 @@ const eslintConfig = defineConfig([
         {
           mode: "jsx-text-only",
           "jsx-components": { exclude: ["Kbd"] },
-          // Skip the brand wordmark and any text node that is pure punctuation / symbols / emoji
-          // (e.g. "%", "·", "—", "🎉" sitting beside a {value}) — those aren't translatable copy.
-          words: { exclude: ["Finance", "[^A-Za-zÀ-ÿ]+"] },
+          // Skip the brand wordmark and any text node that is *entirely* punctuation / symbols /
+          // emoji (e.g. "%", "·", "—", "🎉" sitting beside a {value}) — those aren't translatable
+          // copy. Patterns are fully anchored (^…$): the plugin wraps each as `(^|\.)<pattern>$`,
+          // so without a leading ^ the "dot-ahead" branch would let any text whose tail after a "."
+          // is non-letters (e.g. "Sale ends 12.31") slip through the guardrail.
+          words: { exclude: ["^Finance$", "^[^A-Za-zÀ-ÿ]+$"] },
         },
       ],
     },
