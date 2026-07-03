@@ -245,6 +245,19 @@ describe("householdRepo", () => {
       expect(await a.transactions.reviewQueueMonths()).toEqual([]);
       expect(await a.transactions.reviewQueue()).toHaveLength(0);
     });
+
+    it("surfaces a low-confidence classification but keeps a confident one settled", async () => {
+      const { a } = await twoHouseholds();
+      const weak = await seedExpense(a, { date: "2026-03-15", sourceRow: 0 });
+      const strong = await seedExpense(a, { date: "2026-03-16", sourceRow: 1 });
+      // Below the 0.7 ceiling -> worth a human glance; at/above -> trusted and out of the queue.
+      await a.transactions.classify(weak.id, { expenseType: "Necessary", confidence: 0.4 });
+      await a.transactions.classify(strong.id, { expenseType: "Fixed", confidence: 0.9 });
+
+      const queue = await a.transactions.reviewQueue();
+      expect(queue.map((r) => r.id)).toEqual([weak.id]);
+      expect(await a.transactions.reviewQueueMonths()).toEqual([{ month: "2026-03", count: 1 }]);
+    });
   });
 
   it("findById returns a row in the household but not one from another", async () => {

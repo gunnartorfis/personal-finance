@@ -557,6 +557,7 @@
     "close": "Esc ✕",
     "statusFailed": "Classification failed",
     "statusAwaiting": "Awaiting classification",
+    "statusLowConfidence": "AI guessed {type} · {confidence}% confident",
     "doneNothing": "Nothing to review",
     "doneAllCaughtUp": "All caught up",
     "doneBodyEmpty": "Every expense is already settled.",
