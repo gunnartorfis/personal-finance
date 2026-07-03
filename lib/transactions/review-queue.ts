@@ -3,16 +3,18 @@
 import { useCallback, useState } from "react"
 
 import type { TransactionRow } from "@/components/transactions-table"
+import { REVIEW_CONFIDENCE_CEILING } from "@/lib/transactions/review-config"
 import type { ExpenseType } from "@/shared/types"
 
 /** Persist a review decision: a type (incl. `""` for split/none) sets an override; `null` clears it. */
 export type OnOverride = (id: string, type: ExpenseType | null) => void
 
 /**
- * The transactions worth reviewing, ordered for triage. We review only unclassified expenses
- * (`amount < 0`): a row the AI already classified, or that carries a manual override, is settled and
- * skipped. Order is least-confident-first (kept for safety — remaining rows normally have no
- * confidence), then biggest expense first.
+ * The transactions worth reviewing, ordered for triage. We review expenses (`amount < 0`) with no
+ * manual override that are either still unclassified, or classified below
+ * {@link REVIEW_CONFIDENCE_CEILING} (a weak AI guess). Mirrors the server queue so the two agree; a
+ * confidently-classified row is settled and skipped. Order is least-confident-first (so the weakest
+ * guesses lead), then biggest expense first.
  */
 export function buildReviewQueue(rows: TransactionRow[]): TransactionRow[] {
   return rows
@@ -20,7 +22,8 @@ export function buildReviewQueue(rows: TransactionRow[]): TransactionRow[] {
       (r) =>
         r.amount < 0 &&
         r.overrideType === null &&
-        r.classificationStatus !== "classified"
+        (r.classificationStatus !== "classified" ||
+          (r.confidence !== null && r.confidence < REVIEW_CONFIDENCE_CEILING))
     )
     .sort((a, b) => {
       const ca = a.confidence

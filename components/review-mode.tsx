@@ -32,9 +32,10 @@ function Kbd({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Keyboard-first rapid-review overlay, ported from the legacy tool. Presents the still-unclassified
- * expenses (the whole-household backlog across every period — rows the AI classified or the user
- * overrode are settled and excluded) one at a time. `1`/`2`/`3` set Fixed/Necessary/Nice-to-have
+ * Keyboard-first rapid-review overlay, ported from the legacy tool. Presents the review backlog (the
+ * whole-household set across every period — still-unclassified expenses plus low-confidence AI
+ * guesses; confidently-classified or user-overridden rows are settled and excluded) one at a time,
+ * showing the AI's guess and confidence for a classified card. `1`/`2`/`3` set Fixed/Necessary/Nice-to-have
  * (and advance), `0` sets split/none, `J`/`K` (or arrows) navigate, `U` undoes, `Esc` closes.
  *
  * Each decision persists through `onOverride` (the caller writes it and reconciles on close) and the
@@ -160,9 +161,20 @@ export function ReviewMode({
 
             <div className="flex flex-col gap-1 border-t border-border pt-4">
               <span className="text-sm text-muted-foreground">
-                {cur.classificationStatus === "failed"
-                  ? t("statusFailed")
-                  : t("statusAwaiting")}
+                {/* A classified card is only ever a low-confidence one here (the queue filters out
+                    confident rows), and the filter guarantees a non-null type and confidence — guard
+                    on both rather than papering over a null with a fallback, so a malformed row falls
+                    through to the neutral status instead of showing a fabricated "0% confident" guess. */}
+                {cur.classificationStatus === "classified" &&
+                cur.classifiedType !== null &&
+                cur.confidence !== null
+                  ? t("statusLowConfidence", {
+                      type: typeLabels[cur.classifiedType],
+                      confidence: Math.round(cur.confidence * 100),
+                    })
+                  : cur.classificationStatus === "failed"
+                    ? t("statusFailed")
+                    : t("statusAwaiting")}
               </span>
               {cur.reasoning && (
                 <p className="text-sm text-pretty text-muted-foreground/80 italic">

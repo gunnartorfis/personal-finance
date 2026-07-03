@@ -21,6 +21,7 @@ import {
 import type { NodePgDatabase } from "drizzle-orm/node-postgres"
 
 import { DERIVED_REASONS, MERCHANT_RULE_REASON } from "@/lib/classification/reasons"
+import { REVIEW_CONFIDENCE_CEILING } from "@/lib/transactions/review-config"
 import { applyMerchantRules, toMerchantRule } from "@/shared/merchant-rules"
 import type { ExpenseType } from "@/shared/types"
 
@@ -827,8 +828,9 @@ export function householdRepo(db: Db, householdId: string) {
       },
       /**
        * The household-wide rapid-review backlog broken down by statement cycle: each calendar month
-       * (`"YYYY-MM"`) that still has at least one unclassified expense (`amount < 0`, not AI-classified,
-       * no manual override), with how many, newest-first. Drives where the transactions view lands by
+       * (`"YYYY-MM"`) that still has at least one expense (`amount < 0`, no manual override) worth
+       * reviewing — either not yet AI-classified, or classified below {@link REVIEW_CONFIDENCE_CEILING}
+       * — with how many, newest-first. Drives where the transactions view lands by
        * default (the newest month that still has work) and the Rapid review badge total (the sum of the
        * counts). Anti-join on `overrides` (`isNull(overrides.id)`) plus the status filter, mirroring the
        * queue itself, so the badge total equals the number of cards {@link reviewQueue} will present.
@@ -851,7 +853,13 @@ export function householdRepo(db: Db, householdId: string) {
               lt(transactions.amount, 0),
               // An Excluded row is settled: it counts for nothing, so it needs no review (ADR-0011).
               eq(transactions.excluded, false),
-              ne(transactions.classificationStatus, "classified"),
+              // Worth reviewing = still unclassified, OR classified but below the confidence ceiling
+              // (a weak AI guess). `lt` is null-safe: credits/pending have null confidence and
+              // deterministic merchant rules sit at 1, so neither slips in via the second disjunct.
+              or(
+                ne(transactions.classificationStatus, "classified"),
+                lt(transactions.confidence, REVIEW_CONFIDENCE_CEILING)
+              ),
               isNull(overrides.id)
             )
           )
@@ -860,10 +868,11 @@ export function householdRepo(db: Db, householdId: string) {
         return rows.map((row) => ({ month: row.month, count: row.value }))
       },
       /**
-       * The whole-household rapid-review queue: every unclassified expense (`amount < 0`, not yet
-       * AI-classified — pending/failed only — and with no manual override), across all statement
+       * The whole-household rapid-review queue: every expense (`amount < 0`, no manual override) worth
+       * reviewing — unclassified (pending/failed) or classified below the confidence ceiling — across all statement
        * cycles, in the same row shape as {@link listWithOverrides} so `<ReviewMode>` consumes it
-       * directly. Rows the AI already classified are settled and stay out of the queue. Newest-first.
+       * directly. Rows the AI classified confidently (>= the ceiling) are settled and stay out; a
+       * low-confidence classification is surfaced alongside the unclassified backlog. Newest-first.
        * Unlike the per-period list this spans every month, so the overlay can drain the whole backlog
        * regardless of which period the user is viewing. `overrideType` is always `null` here (the
        * anti-join keeps overridden rows out) but is selected to keep the shape identical.
@@ -910,7 +919,13 @@ export function householdRepo(db: Db, householdId: string) {
               lt(transactions.amount, 0),
               // An Excluded row is settled: it counts for nothing, so it needs no review (ADR-0011).
               eq(transactions.excluded, false),
-              ne(transactions.classificationStatus, "classified"),
+              // Worth reviewing = still unclassified, OR classified but below the confidence ceiling
+              // (a weak AI guess). `lt` is null-safe: credits/pending have null confidence and
+              // deterministic merchant rules sit at 1, so neither slips in via the second disjunct.
+              or(
+                ne(transactions.classificationStatus, "classified"),
+                lt(transactions.confidence, REVIEW_CONFIDENCE_CEILING)
+              ),
               isNull(overrides.id)
             )
           )

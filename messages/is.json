@@ -567,6 +567,7 @@
     "close": "Esc ✕",
     "statusFailed": "Flokkun mistókst",
     "statusAwaiting": "Bíður flokkunar",
+    "statusLowConfidence": "Gervigreind giskaði á {type} · {confidence}% viss",
     "doneNothing": "Ekkert til að yfirfara",
     "doneAllCaughtUp": "Allt yfirfarið",
     "doneBodyEmpty": "Öll útgjöld eru þegar frágengin.",

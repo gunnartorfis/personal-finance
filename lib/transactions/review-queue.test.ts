@@ -28,21 +28,30 @@ function row(
 }
 
 describe("buildReviewQueue", () => {
-  it("keeps only unclassified, non-overridden expenses, biggest first", () => {
+  it("keeps unclassified and low-confidence expenses, least-confident then biggest first", () => {
     const rows = [
       row({ id: "credit", amount: 500 }), // excluded: not an expense
       row({ id: "settled", overrideType: "Fixed" }), // excluded: already overridden
       row({
-        id: "classified",
+        id: "confident",
         classifiedType: "Fixed",
         confidence: 0.9,
         classificationStatus: "classified",
-      }), // excluded: AI already classified it
+      }), // excluded: AI classified it confidently (>= ceiling)
+      row({
+        id: "lowconf",
+        classifiedType: "Necessary",
+        confidence: 0.4,
+        classificationStatus: "classified",
+      }), // kept: classified but below the confidence ceiling
       row({ id: "small", amount: -50 }),
       row({ id: "big", amount: -900 }),
       row({ id: "failed", classificationStatus: "failed" }),
     ]
+    // The low-confidence guess leads (it has a confidence to sort by); the unclassified rows have
+    // null confidence and sink below it, biggest expense first.
     expect(buildReviewQueue(rows).map((r) => r.id)).toEqual([
+      "lowconf",
       "big",
       "failed",
       "small",
