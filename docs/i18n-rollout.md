@@ -93,7 +93,7 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
   states, save), savings-progress-card (labels + of-target), savings-assessment-panel
   (status variants, metric labels, per-cycle table, `formatCycleMonth`). `savings-config-form`
   left to the stream (PR #211 flattening it).
-- [ ] **7. Migrate: household + invites + billing** (COLD — in progress).
+- [x] **7. Migrate: household + invites + billing.**
   - [x] **7a. household-reset** ("danger zone" data-reset control) → `householdReset`.
   - [x] **7b. household page + household-manager** (members, invite form, premium upsell,
     pending invites, danger zone leave/delete) → `household` namespace; ICU cap
@@ -123,7 +123,7 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
     delete aria-label, keyed add/delete errors (server `{error}` passed through),
     loading + empty states, guarded expense-type labels (`types.*`, canonical enum
     stays English) + the split-rule description.
-- [ ] **9. Migrate: landing + auth shell + nav.** Bilingual landing (Vercel-geo
+- [x] **9. Migrate: landing + auth shell + nav.** Bilingual landing (Vercel-geo
   default). Neon Auth UI + OTP emails stay English (v1).
   - [x] **9a. landing** (`app/page.tsx` metadata + `marketing/landing-page`) →
     `landing` namespace: metadata (`generateMetadata`), nav/hero/steps/features/
@@ -140,7 +140,16 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
     InitialSyncOnConnect plural, disconnect/reconnect buttons) → `bankSync`
     namespace: guarded status/reason switches, ICU `=0`/one/other import plural,
     `{bank}`-interpolated aria/messages.
-- [ ] **10. Enforcement flip.** Blocking ESLint rule banning literal JSX strings in
-  `app/**` + `components/**` (exclude API routes, `lib/`, tests, scripts, drizzle;
-  ignore non-user-facing attrs); CI **key-parity** check (`keys(en) ≡ keys(is)`).
-  Remove temporary disables. Verify lint fails on a planted hard-coded string.
+- [x] **10. Enforcement flip.** Blocking `i18next/no-literal-string` (ESLint) over
+  `app/**` + `components/**` (excludes API routes, `lib/`, tests, scripts, drizzle,
+  `components/ui/**` primitives; `jsx-text-only` so it flags literal JSX text — not
+  `t()`/`{expr}`/attributes; `<Kbd>` glyphs + brand + pure-punctuation allowlisted;
+  illustrative sample figures held as consts, not JSX text). CI **key-parity** stays
+  enforced by the `parity` test (`keys(en) ≡ keys(is)`). Verified lint fails on a
+  planted literal.
+
+**Rollout complete.** Every user-facing string in the rendered app comes from the
+`en`/`is` catalogs via next-intl, at enforced key parity, with a blocking lint rule
+preventing regressions. Exempt by design: Neon Auth account/security views + OTP
+emails (English v1), AI classification `reasoning` (data), canonical enum values and
+merchant names (data).
