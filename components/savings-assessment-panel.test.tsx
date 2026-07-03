@@ -58,8 +58,22 @@ describe("SavingsAssessmentPanel", () => {
     expect(within(row).getByText("ISK 300,000")).toBeInTheDocument()
   })
 
+  it("labels the in-progress row as this month", () => {
+    renderPanel()
+    const row = screen.getByText(/August 2026/).closest("tr")!
+    expect(within(row).getByText(/\(this month\)/i)).toBeInTheDocument()
+  })
+
   it("tells the user the current month is not yet in the total", () => {
     renderPanel()
     expect(screen.getByText(/counts once the (calendar )?month closes/i)).toBeInTheDocument()
+  })
+
+  it("hides the provisional banner when the assessment is not provisional", () => {
+    renderPanel({
+      assessment: { ...assessment, provisional: false },
+      cycles: cycles.filter((c) => !c.inProgress),
+    })
+    expect(screen.queryByText(/counts once the (calendar )?month closes/i)).not.toBeInTheDocument()
   })
 })
