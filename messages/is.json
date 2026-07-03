@@ -95,5 +95,46 @@
     "deleteConfirmPrompt": "Eyða öllu? Þetta er ekki hægt að afturkalla.",
     "deleteConfirm": "Já, eyða heimili",
     "deleteTrigger": "Eyða heimili"
+  },
+  "invites": {
+    "headlineNamed": "{name} bauð þér í heimilið sitt",
+    "headlineGeneric": "Þér hefur verið boðið í heimili",
+    "fallbackMember": "Meðlimur heimilis",
+    "joinBlurb": "Sameinastu til að deila einni heildarmynd af fjármálunum — reikningum, færslum og sparnaði, allt á einum stað.",
+    "memberCount": "{count, plural, one {# meðlimur} other {# meðlimir}}",
+    "expiry": {
+      "expired": "Útrunnið",
+      "withinHour": "Rennur út innan klukkustundar",
+      "inHours": "Rennur út eftir {hours} klukkustundir",
+      "tomorrow": "Rennur út á morgun",
+      "inDays": "Rennur út eftir {days} daga"
+    },
+    "consequence": {
+      "discardEmpty": "Þú byrjar með hreint borð — tóma byrjunarheimilinu þínu verður eytt.",
+      "deleteWarning": "Þú ert eini meðlimur núverandi heimilis. Að samþykkja <strong>eyðir því og öllum gögnum þess varanlega</strong> — færslum, reikningum, reglum og sparnaði. Þetta er ekki hægt að afturkalla.",
+      "leaveWarning": "Þú yfirgefur núverandi heimili til að ganga í þetta. Það helst hjá hinum meðlimunum; þú missir aðgang að því."
+    },
+    "inviteFor": "Þetta boð er fyrir <address>{email}</address>.",
+    "oneHouseholdNote": "Þú getur tilheyrt einu heimili í einu.",
+    "accept": {
+      "default": "Samþykkja boð",
+      "leave": "Yfirgefa og ganga í",
+      "delete": "Eyða heimili og ganga í",
+      "deleteConfirm": "Já, eyða og ganga í"
+    },
+    "decline": "Hafna",
+    "cancel": "Hætta við",
+    "confirmDeleteNote": "Þetta eyðir núverandi heimili þínu og öllum gögnum þess varanlega.",
+    "acceptError": {
+      "alreadyInHousehold": "Þú tilheyrir nú þegar heimili. Yfirgefðu það eða eyddu því fyrst, samþykktu svo þetta boð.",
+      "emailMismatch": "Þetta boð er fyrir annað netfang. Skráðu þig inn með netfanginu sem boðið var.",
+      "emailNotVerified": "Staðfestu netfangið þitt fyrst, samþykktu svo.",
+      "expired": "Þetta boð er útrunnið. Biddu um nýtt.",
+      "notPending": "Þetta boð hefur þegar verið notað eða afturkallað.",
+      "notFound": "Þetta boð fannst ekki.",
+      "capReached": "Það heimili er nú fullt.",
+      "generic": "Tókst ekki að samþykkja boðið."
+    },
+    "declineError": "Tókst ekki að hafna boðinu."
   }
 }

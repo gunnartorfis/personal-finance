@@ -95,5 +95,46 @@
     "deleteConfirmPrompt": "Delete everything? This can't be undone.",
     "deleteConfirm": "Yes, delete household",
     "deleteTrigger": "Delete household"
+  },
+  "invites": {
+    "headlineNamed": "{name} invited you to their household",
+    "headlineGeneric": "You've been invited to a household",
+    "fallbackMember": "A household member",
+    "joinBlurb": "Join to share one combined view of your money — accounts, transactions, and savings, all in one place.",
+    "memberCount": "{count, plural, one {# member} other {# members}}",
+    "expiry": {
+      "expired": "Expired",
+      "withinHour": "Expires within the hour",
+      "inHours": "Expires in {hours} hours",
+      "tomorrow": "Expires tomorrow",
+      "inDays": "Expires in {days} days"
+    },
+    "consequence": {
+      "discardEmpty": "You'll join with a clean slate — your empty starter household will be removed.",
+      "deleteWarning": "You're the only member of your current household. Accepting <strong>permanently deletes it and all its data</strong> — transactions, accounts, rules, and savings. This can't be undone.",
+      "leaveWarning": "You'll leave your current household to join this one. It stays with its other members; you'll lose access to it."
+    },
+    "inviteFor": "This invite is for <address>{email}</address>.",
+    "oneHouseholdNote": "You can belong to one household at a time.",
+    "accept": {
+      "default": "Accept invitation",
+      "leave": "Leave & join",
+      "delete": "Delete household & join",
+      "deleteConfirm": "Yes, delete & join"
+    },
+    "decline": "Decline",
+    "cancel": "Cancel",
+    "confirmDeleteNote": "This permanently deletes your current household and all its data.",
+    "acceptError": {
+      "alreadyInHousehold": "You already belong to a household. Leave or delete it first, then accept this invite.",
+      "emailMismatch": "This invite is for a different email. Sign in with the invited address.",
+      "emailNotVerified": "Verify your email address first, then accept.",
+      "expired": "This invite has expired. Ask for a new one.",
+      "notPending": "This invite has already been used or revoked.",
+      "notFound": "This invite could not be found.",
+      "capReached": "That household is now full.",
+      "generic": "Couldn't accept the invite."
+    },
+    "declineError": "Couldn't decline the invite."
   }
 }

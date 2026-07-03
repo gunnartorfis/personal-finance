@@ -1,6 +1,7 @@
 "use client"
 
 import { Check, CircleAlert, Loader2, Trash2, X } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -33,6 +34,7 @@ export function AcceptInvite({
   inviteId?: string
   consequence?: InviteConsequence
 }) {
+  const t = useTranslations("invites")
   const [busy, setBusy] = useState<null | "accept" | "decline">(null)
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -69,9 +71,19 @@ export function AcceptInvite({
         window.location.reload()
         return
       }
-      setError(ACCEPT_ERROR_COPY[parsed?.error ?? ""] ?? "Couldn’t accept the invite.")
+      // Map API error codes to statically-keyed messages (type-checked, no dynamic key).
+      const byCode: Record<string, string> = {
+        already_in_household: t("acceptError.alreadyInHousehold"),
+        email_mismatch: t("acceptError.emailMismatch"),
+        email_not_verified: t("acceptError.emailNotVerified"),
+        expired: t("acceptError.expired"),
+        not_pending: t("acceptError.notPending"),
+        not_found: t("acceptError.notFound"),
+        cap_reached: t("acceptError.capReached"),
+      }
+      setError(byCode[parsed?.error ?? ""] ?? t("acceptError.generic"))
     } catch {
-      setError("Couldn’t accept the invite.")
+      setError(t("acceptError.generic"))
     }
     setBusy(null)
     setConfirming(false)
@@ -90,12 +102,21 @@ export function AcceptInvite({
         window.location.assign("/dashboard")
         return
       }
-      setError("Couldn’t decline the invite.")
+      setError(t("declineError"))
     } catch {
-      setError("Couldn’t decline the invite.")
+      setError(t("declineError"))
     }
     setBusy(null)
   }
+
+  const acceptLabel =
+    consequence === "delete"
+      ? confirming
+        ? t("accept.deleteConfirm")
+        : t("accept.delete")
+      : consequence === "leave"
+        ? t("accept.leave")
+        : t("accept.default")
 
   return (
     <div className="flex flex-col gap-3">
@@ -110,9 +131,7 @@ export function AcceptInvite({
       )}
 
       {confirming && consequence === "delete" && (
-        <p className="text-sm font-medium text-destructive">
-          This permanently deletes your current household and all its data.
-        </p>
+        <p className="text-sm font-medium text-destructive">{t("confirmDeleteNote")}</p>
       )}
 
       <div className="flex flex-wrap items-center gap-3">
@@ -128,37 +147,20 @@ export function AcceptInvite({
           ) : (
             <Check />
           )}
-          {acceptLabel(consequence, confirming)}
+          {acceptLabel}
         </Button>
 
         {confirming ? (
           <Button variant="outline" onClick={() => setConfirming(false)} disabled={busy !== null}>
-            Cancel
+            {t("cancel")}
           </Button>
         ) : (
           <Button variant="ghost" onClick={decline} disabled={busy !== null}>
             {busy === "decline" ? <Loader2 className="animate-spin" /> : <X />}
-            Decline
+            {t("decline")}
           </Button>
         )}
       </div>
     </div>
   )
-}
-
-function acceptLabel(consequence: InviteConsequence, confirming: boolean): string {
-  if (consequence === "delete") return confirming ? "Yes, delete & join" : "Delete household & join"
-  if (consequence === "leave") return "Leave & join"
-  return "Accept invitation"
-}
-
-const ACCEPT_ERROR_COPY: Record<string, string> = {
-  already_in_household:
-    "You already belong to a household. Leave or delete it first, then accept this invite.",
-  email_mismatch: "This invite is for a different email. Sign in with the invited address.",
-  email_not_verified: "Verify your email address first, then accept.",
-  expired: "This invite has expired. Ask for a new one.",
-  not_pending: "This invite has already been used or revoked.",
-  not_found: "This invite could not be found.",
-  cap_reached: "That household is now full.",
 }
