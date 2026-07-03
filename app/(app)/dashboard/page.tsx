@@ -2,6 +2,7 @@ import { AccountBreakdown } from "@/components/account-breakdown"
 import { ActionBand } from "@/components/action-band"
 import { BiggestMovers } from "@/components/biggest-movers"
 import { CategoryMixModule } from "@/components/category-mix-module"
+import { FinancialHealthSection } from "@/components/financial-health-section"
 import { SavingsProgressCard } from "@/components/savings-progress-card"
 import { SpendingTrendChart } from "@/components/spending-trend-chart"
 import { getTranslations } from "next-intl/server"
@@ -50,6 +51,8 @@ export default async function DashboardPage() {
       <ThisMonthHero hero={view.hero} currency={billingCurrency} />
 
       <SavingsProgressCard progress={savingsProgress} locale={locale} />
+
+      <FinancialHealthSection health={view.financialHealth} currency={billingCurrency} />
 
       <SpendingTrendChart
         series={view.modules.series}

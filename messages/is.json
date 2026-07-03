@@ -29,6 +29,16 @@
       "merchants": "Söluaðilar",
       "categories": "Flokkar",
       "new": "nýtt"
+    },
+    "financialHealth": {
+      "title": "Fjárhagsheilsa",
+      "subtitle": "Hvernig sparnaður og afgangur þróast.",
+      "savingsRate": "Sparnaðarhlutfall",
+      "typicalSaving": "Dæmigerður mánaðarsparnaður",
+      "profitStreak": "Mánuðir í plús",
+      "profitStreakValue": "{count} af {total}",
+      "savingsRateBenchmark": "Sparnaðarhlutfall upp á 20% eða meira er heilbrigt markmið.",
+      "notEnoughData": "Nokkurra mánaða saga opnar sparnaðarhlutfall, dæmigerðan mánaðarsparnað og fjölda mánaða í plús."
     }
   },
   "actionBand": {

@@ -29,6 +29,16 @@
       "merchants": "Merchants",
       "categories": "Categories",
       "new": "new"
+    },
+    "financialHealth": {
+      "title": "Financial health",
+      "subtitle": "How your saving and profit are trending.",
+      "savingsRate": "Savings rate",
+      "typicalSaving": "Typical monthly saving",
+      "profitStreak": "Profitable months",
+      "profitStreakValue": "{count} of {total}",
+      "savingsRateBenchmark": "A savings rate of 20% or more is a healthy target.",
+      "notEnoughData": "A few months of history will unlock your savings rate, typical monthly saving, and profit streak."
     }
   },
   "actionBand": {

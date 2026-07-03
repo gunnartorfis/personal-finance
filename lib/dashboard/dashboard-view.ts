@@ -9,6 +9,8 @@ import type { CategoryTrendPoint } from "./category-trend";
 import { loadCategoryTrend } from "./category-trend";
 import type { CycleKey } from "./cycle";
 import { currentCycleKey, cycleKeyRange, recentCycleKeys } from "./cycle";
+import type { FinancialHealth } from "./financial-health";
+import { loadFinancialHealth } from "./financial-health";
 import type { MonthlySpendPoint } from "./monthly-series";
 import { loadMonthlySpendSeries } from "./monthly-series";
 import type { LargestCharge, Mover } from "./movers";
@@ -34,6 +36,8 @@ export interface DashboardInputs {
   accountBreakdown: AccountSpend[];
   /** The Household's total Account count — the account module is shown only when this is > 1. */
   accountCount: number;
+  /** Trailing financial-health metrics (savings rate, typical saving, profit streak). */
+  financialHealth: FinancialHealth;
   reviewBacklog: number;
   pendingCount: number;
   failedCount: number;
@@ -84,6 +88,8 @@ export interface DashboardView {
   hero: DashboardHero;
   modules: DashboardModules;
   actionBand: DashboardActionBand;
+  /** Trailing profit/savings health (ADR-0016); the section gates its own thin-data display. */
+  financialHealth: FinancialHealth;
 }
 
 /** Whether unclassified spend outweighs classified spend across the trend window. */
@@ -143,6 +149,7 @@ export function assembleDashboardView(input: DashboardInputs): DashboardView {
         !input.freeCap.paused &&
         input.reconnect.length === 0,
     },
+    financialHealth: input.financialHealth,
   };
 }
 
@@ -174,6 +181,7 @@ export async function loadDashboardView(
     failedCount,
     classifiedCount,
     connections,
+    financialHealth,
   ] = await Promise.all([
     loadMonthlySpendSeries(repo, now, count),
     loadTopMerchants(repo, recentRange, TOP_MERCHANTS),
@@ -186,6 +194,7 @@ export async function loadDashboardView(
     repo.transactions.countFailed(),
     repo.transactions.countClassified(),
     repo.bankConnections.list(),
+    loadFinancialHealth(repo, now, count),
   ]);
 
   // Reuse the already-loaded category trend for the category movers (avoids a second query).
@@ -204,6 +213,7 @@ export async function loadDashboardView(
     largestCharge,
     accountBreakdown,
     accountCount: accountList.length,
+    financialHealth,
     reviewBacklog,
     pendingCount,
     failedCount,
