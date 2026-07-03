@@ -56,11 +56,14 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
 - [x] **4b. Migrate: dashboard list modules.** `top-merchants` + `account-breakdown`
   (headings via `dashboard` namespace) and `biggest-movers` (strings +
   `currencyFormatter`). Category names stay English (enum data).
-- [ ] **4c. Migrate: dashboard charts + summary.** `action-band`, `net-summary-card`,
-  `spending-trend-chart`, `category-mix-module` → `dashboard` namespace; replace their
-  inline `Intl.*`/`cycleKeyLabel`/`shortCycleLabel` with `lib/format/*` (locale-aware).
-  Once no caller of `cycleKeyLabel`/`shortCycleLabel` remains (also savings, slice 6),
-  delete them from `lib/dashboard/cycle.ts`.
+- [x] **4c. Migrate: action band.** `action-band` → `actionBand` namespace (ICU plurals
+  for the review-backlog / pending / failed alerts + all-clear + aria-labels). Its child
+  banners (free-cap, connection alerts, classify-trigger) belong to their own slices.
+- [ ] **4d. Migrate: dashboard charts.** `spending-trend-chart`, `category-mix-module` →
+  `dashboard` namespace; replace inline `Intl.*`/`shortCycleLabel` with `lib/format/*`
+  (locale-aware, likely client chart components). Once no caller of
+  `cycleKeyLabel`/`shortCycleLabel` remains (also savings, slice 6), delete them from
+  `lib/dashboard/cycle.ts`. (`net-summary-card` is transactions-side — slice 5.)
 - [ ] **5. Migrate: transactions.** Table, review-mode, override, income; expense-type
   labels via catalog (canonical enum stays English). AI `reasoning` stays English (data).
 - [ ] **6. Migrate: savings.** Goal, config, check-in surfaces.

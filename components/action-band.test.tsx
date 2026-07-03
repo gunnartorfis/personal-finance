@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
 import { ActionBand } from "@/components/action-band"
+import { renderWithIntl as render } from "@/lib/test/render"
 import type { FreeCapStatus } from "@/lib/billing/free-cap-status"
 import type { DashboardActionBand } from "@/lib/dashboard/dashboard-view"
 

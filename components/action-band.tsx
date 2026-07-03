@@ -1,4 +1,5 @@
 import { ArrowRight, CircleCheck, ClipboardCheck, Sparkles, TriangleAlert } from "lucide-react"
+import { useTranslations } from "next-intl"
 import Link from "next/link"
 
 import { ClassifyTrigger } from "@/components/classify-trigger"
@@ -22,11 +23,12 @@ export function ActionBand({
   actionBand: DashboardActionBand
   className?: string
 }) {
+  const t = useTranslations("actionBand")
   const { reviewBacklog, pendingCount, failedCount, freeCap, reconnect, allClear } = actionBand
 
   return (
     <section
-      aria-label={allClear ? "All caught up" : "Needs attention"}
+      aria-label={allClear ? t("allCaughtUpLabel") : t("needsAttention")}
       className={cn("flex flex-col gap-3", className)}
     >
       <FreeCapStatusBanner status={freeCap} />
@@ -40,10 +42,8 @@ export function ActionBand({
         >
           <ClipboardCheck aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
           <span className="min-w-0 flex-1 text-sm">
-            <span className="font-medium">
-              {reviewBacklog} {reviewBacklog === 1 ? "expense needs" : "expenses need"} review
-            </span>
-            <span className="text-muted-foreground"> — confirm their spending types.</span>
+            <span className="font-medium">{t("reviewBacklog", { count: reviewBacklog })}</span>
+            <span className="text-muted-foreground"> {t("reviewBacklogHint")}</span>
           </span>
           <ArrowRight
             aria-hidden="true"
@@ -59,10 +59,8 @@ export function ActionBand({
           <div className="flex items-center gap-3">
             <Sparkles aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
             <p className="text-sm">
-              <span className="font-medium">
-                {pendingCount} transaction{pendingCount === 1 ? "" : "s"} awaiting classification
-              </span>
-              <span className="text-muted-foreground"> — run AI classification to bucket them.</span>
+              <span className="font-medium">{t("pending", { count: pendingCount })}</span>
+              <span className="text-muted-foreground"> {t("pendingHint")}</span>
             </p>
           </div>
           <ClassifyTrigger pendingCount={pendingCount} resumable />
@@ -80,10 +78,8 @@ export function ActionBand({
               className="size-4 shrink-0 text-amber-600 dark:text-amber-500"
             />
             <p className="text-sm">
-              <span className="font-medium">
-                {failedCount} classification{failedCount === 1 ? "" : "s"} failed
-              </span>
-              <span className="text-muted-foreground"> — retry to finish bucketing them.</span>
+              <span className="font-medium">{t("failed", { count: failedCount })}</span>
+              <span className="text-muted-foreground"> {t("failedHint")}</span>
             </p>
           </div>
           <ClassifyTrigger failedCount={failedCount} retryOnly />
@@ -96,7 +92,7 @@ export function ActionBand({
             aria-hidden="true"
             className="size-4 shrink-0 text-emerald-600 dark:text-emerald-500"
           />
-          <p className="text-sm font-medium">You&apos;re all caught up.</p>
+          <p className="text-sm font-medium">{t("allCaughtUp")}</p>
         </div>
       )}
     </section>
