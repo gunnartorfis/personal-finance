@@ -1,6 +1,7 @@
 "use client"
 
-import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
+import type { ReactElement } from "react"
+import { Bar, BarChart, CartesianGrid, Rectangle, XAxis } from "recharts"
 
 import { CATEGORIES } from "@/components/spending-by-type"
 import {
@@ -37,14 +38,43 @@ function mixLabel(month: CycleKey, point: CategoryTrendPoint): string {
   return `${label} spending mix: ${parts.join(", ")}`
 }
 
-/** Rounded outer corners for a stacked bar: bottom segment rounds its base, top segment its cap. */
-function stackRadius(index: number, count: number): [number, number, number, number] {
-  const isBottom = index === 0
-  const isTop = index === count - 1
-  if (isBottom && isTop) return [4, 4, 4, 4]
-  if (isTop) return [4, 4, 0, 0]
-  if (isBottom) return [0, 0, 4, 4]
-  return [0, 0, 0, 0]
+/** Geometry + row payload Recharts hands a Bar's `shape` callback for each rendered segment. */
+/** Geometry + row payload Recharts hands a Bar's `shape` callback for each rendered segment. */
+type SegmentShapeProps = {
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  fill?: string
+  payload?: Record<string, number | string>
+}
+
+/**
+ * Round only the segments that are actually the top/bottom of the stack *for their own month*.
+ * A per-Bar `radius` can't do this: the topmost category varies month to month (a month with no
+ * "Other" is capped by "Nice to have"), so each segment reads its row's precomputed `__top`/`__bottom`
+ * slug (see the data build below). Shapes are cached per slug at module scope — there are only a
+ * handful of category slugs — so mapping the Bars on each render reuses stable component references.
+ */
+const segmentShapes = new Map<string, (props: SegmentShapeProps) => ReactElement>()
+function segmentShapeFor(slug: string) {
+  const cached = segmentShapes.get(slug)
+  if (cached) return cached
+  const Segment = (props: SegmentShapeProps): ReactElement => {
+    const { height = 0, payload } = props
+    if (height <= 0 || !payload) return <g />
+    const r = 4
+    const isTop = payload.__top === slug
+    const isBottom = payload.__bottom === slug
+    return (
+      <Rectangle
+        {...props}
+        radius={[isTop ? r : 0, isTop ? r : 0, isBottom ? r : 0, isBottom ? r : 0]}
+      />
+    )
+  }
+  segmentShapes.set(slug, Segment)
+  return Segment
 }
 
 /**
@@ -83,6 +113,13 @@ export function MixOverTimeChart({
       label: shortCycleLabel(point.month),
     }
     for (const category of present) row[category.slug] = magnitudeFor(point, category.key)
+    // Precompute which categories are the visible base/cap of *this* month's stack so each segment
+    // shape can round the true ends without knowing the whole stack.
+    const nonzero = present.filter((category) => Number(row[category.slug]) > 0)
+    if (nonzero.length > 0) {
+      row.__bottom = nonzero[0].slug
+      row.__top = nonzero[nonzero.length - 1].slug
+    }
     return row
   })
 
@@ -111,13 +148,13 @@ export function MixOverTimeChart({
             }
           />
           <ChartLegend content={<ChartLegendContent />} />
-          {present.map((category, index) => (
+          {present.map((category) => (
             <Bar
               key={category.slug}
               dataKey={category.slug}
               stackId="mix"
               fill={`var(--color-${category.slug})`}
-              radius={stackRadius(index, present.length)}
+              shape={segmentShapeFor(category.slug)}
               isAnimationActive={false}
             />
           ))}
