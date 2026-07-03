@@ -532,8 +532,7 @@
     "page": {
       "title": "Sparnaður",
       "subtitle": "Markmiðið þitt og hvort það er á áætlun — framvinda er reiknuð út frá eyðslu, aldrei innslegin staða. Stilltu tekjur og kostnað utan korts undir <link>Stillingar</link>.",
-      "goalRegion": "Markmið",
-      "goalHeading": "Markmið"
+      "goalSection": "Markmið"
     }
   },
   "transactions": {

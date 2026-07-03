@@ -532,8 +532,7 @@
     "page": {
       "title": "Savings",
       "subtitle": "Your goal and whether it's on track — progress is inferred from spend, never an entered balance. Set your income and off-card costs under <link>Settings</link>.",
-      "goalRegion": "Goal",
-      "goalHeading": "Goal"
+      "goalSection": "Goal"
     }
   },
   "transactions": {

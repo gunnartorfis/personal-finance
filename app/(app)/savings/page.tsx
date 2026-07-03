@@ -48,8 +48,8 @@ export default async function SavingsPage() {
           locale={locale}
         />
       )}
-      <section aria-label={t("goalRegion")} className="flex flex-col gap-6">
-        <h2 className="text-base font-semibold">{t("goalHeading")}</h2>
+      <section aria-label={t("goalSection")} className="flex flex-col gap-6">
+        <h2 className="text-base font-semibold">{t("goalSection")}</h2>
         <SavingsGoalForm />
       </section>
     </div>
