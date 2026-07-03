@@ -29,6 +29,15 @@
       "merchants": "Merchants",
       "categories": "Categories",
       "new": "new"
+    },
+    "trend": {
+      "title": "Spending trend",
+      "spending": "Spending",
+      "income": "Income",
+      "barLabel": "{month} — spent {spent}, income {income}",
+      "barTitle": "{month}: {spent}",
+      "notEnough": "Not enough history yet.",
+      "keepUploading": "Keep uploading — {completed}/{min} months so far. Your spending trend appears once there's a bit of history."
     }
   },
   "actionBand": {

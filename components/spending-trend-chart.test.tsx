@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
 import { SpendingTrendChart, incomeLineBottom } from "@/components/spending-trend-chart"
 import type { MonthlySpendPoint } from "@/lib/dashboard/monthly-series"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 const SERIES: MonthlySpendPoint[] = [
   { month: "2026-01", spending: 300000, income: 0, difference: -300000 },
@@ -13,7 +14,7 @@ const SERIES: MonthlySpendPoint[] = [
 describe("SpendingTrendChart", () => {
   it("shows a keep-uploading placeholder (no bars) until there's enough history", () => {
     render(
-      <SpendingTrendChart series={SERIES} hasEnoughHistory={false} completedMonths={1} currency="ISK" />,
+      <SpendingTrendChart series={SERIES} hasEnoughHistory={false} completedMonths={1} currency="ISK" locale="en" />,
     )
     expect(screen.getByText(/1\/3 months/i)).toBeInTheDocument()
     expect(screen.queryAllByRole("link")).toHaveLength(0)
@@ -21,7 +22,7 @@ describe("SpendingTrendChart", () => {
 
   it("renders one tappable bar per month linking to that cycle, with an accessible label", () => {
     render(
-      <SpendingTrendChart series={SERIES} hasEnoughHistory completedMonths={3} currency="ISK" />,
+      <SpendingTrendChart series={SERIES} hasEnoughHistory completedMonths={3} currency="ISK" locale="en" />,
     )
     const links = screen.getAllByRole("link")
     expect(links).toHaveLength(3)
@@ -38,7 +39,7 @@ describe("SpendingTrendChart", () => {
 
   it("shows a legend for spending and income", () => {
     render(
-      <SpendingTrendChart series={SERIES} hasEnoughHistory completedMonths={3} currency="ISK" />,
+      <SpendingTrendChart series={SERIES} hasEnoughHistory completedMonths={3} currency="ISK" locale="en" />,
     )
     expect(screen.getByText("Spending")).toBeInTheDocument()
     expect(screen.getByText("Income")).toBeInTheDocument()

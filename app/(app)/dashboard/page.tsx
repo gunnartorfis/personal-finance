@@ -56,6 +56,7 @@ export default async function DashboardPage() {
         hasEnoughHistory={view.modules.hasEnoughHistory}
         completedMonths={view.modules.completedMonths}
         currency={billingCurrency}
+        locale={locale}
       />
       <CategoryMixModule
         categoryTrend={view.modules.categoryTrend}

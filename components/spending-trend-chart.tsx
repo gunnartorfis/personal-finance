@@ -1,8 +1,11 @@
+import { useTranslations } from "next-intl"
 import Link from "next/link"
 
-import { cycleKeyLabel, shortCycleLabel } from "@/lib/dashboard/cycle"
+import { currencyFormatter } from "@/lib/format/currency"
+import { formatCycleMonth } from "@/lib/format/date"
 import type { MonthlySpendPoint } from "@/lib/dashboard/monthly-series"
 import { DEFAULT_TRAILING } from "@/lib/dashboard/spending-trend"
+import type { Locale } from "@/lib/i18n/config"
 import { cn } from "@/lib/utils"
 
 /**
@@ -26,19 +29,18 @@ export function SpendingTrendChart({
   hasEnoughHistory,
   completedMonths,
   currency,
+  locale,
   className,
 }: {
   series: MonthlySpendPoint[]
   hasEnoughHistory: boolean
   completedMonths: number
   currency: string
+  locale: Locale
   className?: string
 }) {
-  const money = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  })
+  const t = useTranslations("dashboard.trend")
+  const money = currencyFormatter(currency, locale)
   const fmt = (amount: number) => money.format(amount)
 
   // Scale to the largest single value (spending or income) so both fit; floor at 1 to avoid /0.
@@ -47,16 +49,16 @@ export function SpendingTrendChart({
   return (
     <section className={cn("flex flex-col gap-4 rounded-xl border border-border bg-card p-6", className)}>
       <header className="flex items-center justify-between gap-4">
-        <h2 className="text-base font-medium">Spending trend</h2>
+        <h2 className="text-base font-medium">{t("title")}</h2>
         {hasEnoughHistory && (
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <span aria-hidden="true" className="size-2 rounded-sm bg-foreground/80" />
-              Spending
+              {t("spending")}
             </span>
             <span className="flex items-center gap-1.5">
               <span aria-hidden="true" className="h-0.5 w-3 rounded-full bg-emerald-500" />
-              Income
+              {t("income")}
             </span>
           </div>
         )}
@@ -71,8 +73,15 @@ export function SpendingTrendChart({
               <Link
                 key={point.month}
                 href={`/transactions?cycle=${point.month}`}
-                aria-label={`${cycleKeyLabel(point.month)} — spent ${fmt(point.spending)}, income ${fmt(point.income)}`}
-                title={`${cycleKeyLabel(point.month)}: ${fmt(point.spending)}`}
+                aria-label={t("barLabel", {
+                  month: formatCycleMonth(point.month, locale),
+                  spent: fmt(point.spending),
+                  income: fmt(point.income),
+                })}
+                title={t("barTitle", {
+                  month: formatCycleMonth(point.month, locale),
+                  spent: fmt(point.spending),
+                })}
                 className="group flex min-w-8 flex-1 flex-col items-center gap-1.5"
               >
                 <span
@@ -91,7 +100,7 @@ export function SpendingTrendChart({
                   )}
                 </span>
                 <span aria-hidden="true" className="text-[10px] tabular-nums text-muted-foreground">
-                  {shortCycleLabel(point.month)}
+                  {formatCycleMonth(point.month, locale, { short: true })}
                 </span>
               </Link>
             )
@@ -99,10 +108,12 @@ export function SpendingTrendChart({
         </div>
       ) : (
         <div className="flex h-32 flex-col items-center justify-center gap-1 rounded-lg bg-muted px-4 text-center text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">Not enough history yet.</p>
+          <p className="font-medium text-foreground">{t("notEnough")}</p>
           <p>
-            Keep uploading — {completedMonths}/{DEFAULT_TRAILING.minMonths} months so far. Your
-            spending trend appears once there&apos;s a bit of history.
+            {t("keepUploading", {
+              completed: completedMonths,
+              min: DEFAULT_TRAILING.minMonths,
+            })}
           </p>
         </div>
       )}

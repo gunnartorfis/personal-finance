@@ -29,6 +29,15 @@
       "merchants": "Söluaðilar",
       "categories": "Flokkar",
       "new": "nýtt"
+    },
+    "trend": {
+      "title": "Þróun útgjalda",
+      "spending": "Útgjöld",
+      "income": "Tekjur",
+      "barLabel": "{month} — eytt {spent}, tekjur {income}",
+      "barTitle": "{month}: {spent}",
+      "notEnough": "Ekki næg saga ennþá.",
+      "keepUploading": "Haltu áfram að hlaða upp — {completed}/{min} mánuðir hingað til. Þróun útgjalda birtist þegar einhver saga er komin."
     }
   },
   "actionBand": {
