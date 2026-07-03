@@ -64,7 +64,7 @@ export function ManageSubscription({
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <span className="text-lg font-semibold">{t("premium")}</span>
-              {period && (
+              {(period === "monthly" || period === "annual") && (
                 <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">
                   {period === "annual" ? t("period.annual") : t("period.monthly")}
                 </span>
@@ -72,7 +72,14 @@ export function ManageSubscription({
             </div>
             {planRenewsAt && (
               <p className="text-sm text-muted-foreground">
-                {t("renews", { date: formatDate(new Date(planRenewsAt), locale) })}
+                {t("renews", {
+                  // Renewal timestamps are stored at UTC midnight; format in UTC so the date
+                  // doesn't slip a day for users east of UTC.
+                  date: formatDate(new Date(planRenewsAt), locale, {
+                    dateStyle: "medium",
+                    timeZone: "UTC",
+                  }),
+                })}
               </p>
             )}
           </div>

@@ -21,7 +21,8 @@ describe("ManageSubscription", () => {
       <ManageSubscription plan="Premium" period="monthly" planRenewsAt="2026-04-15T00:00:00.000Z" />,
     )
     expect(screen.getByText(/Premium/)).toBeInTheDocument()
-    expect(screen.getByText(/2026/)).toBeInTheDocument()
+    // UTC-midnight timestamp must render as its UTC calendar day, not slip east of UTC.
+    expect(screen.getByText(/Apr 15, 2026/)).toBeInTheDocument()
 
     // First click only reveals the confirm step — no POST yet.
     await userEvent.click(screen.getByRole("button", { name: /cancel subscription/i }))
