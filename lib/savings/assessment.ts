@@ -179,8 +179,10 @@ async function deriveCycles(
   });
 
   // The coming/budgeted cycle is the current in-progress one (ADR-0014); its resolved amounts drive
-  // Allowed nice-to-have, so return them rather than a flat all-sources sum.
-  const current = resolved.get(cycleKey) ?? { monthlyIncome: 0, offCardFixed: 0 };
+  // Allowed nice-to-have, so return them rather than a flat all-sources sum. `cycleKey` is always in
+  // `resolveKeys` (it is the last of `keys`, or the sole key when the range is empty), so the lookup
+  // never misses.
+  const current = resolved.get(cycleKey)!;
   return { cycles, monthlyIncome: current.monthlyIncome, offCardFixed: current.offCardFixed };
 }
 
