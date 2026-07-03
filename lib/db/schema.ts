@@ -259,6 +259,50 @@ export const accounts = pgTable(
   ],
 );
 
+/** Where an Account balance snapshot came from: a Member's manual entry, or an automatic bank sync. */
+export const balanceSourceEnum = pgEnum("balance_source", ["manual", "bank_sync"]);
+
+/**
+ * Append-only Account balance snapshots (ADR-0016): each row is one observation of an Account's
+ * balance at a point in time, never updated in place. Net worth reads the latest snapshot per
+ * Account and sums them; keeping the full history means a future bank-balance sync just inserts new
+ * rows on the same table. Balances are whole billing-currency units (ADR-0004) and MAY be negative —
+ * an overdraft or a credit-card balance is real debt that reduces net worth.
+ */
+export const accountBalances = pgTable(
+  "account_balances",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").notNull(),
+    /** The observed balance in whole billing-currency units; negative for overdrafts / card debt. */
+    balance: integer("balance").notNull(),
+    /** When the balance was observed (manual entry stamps "now"; a sync stamps the provider's time). */
+    asOf: timestamp("as_of", { withTimezone: true }).notNull().defaultNow(),
+    source: balanceSourceEnum("source").notNull().default("manual"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // The Account must belong to the same Household as the snapshot (composite same-household FK, as
+    // uploads/transactions do). NO ACTION: accounts are not hard-deleted out from under history.
+    foreignKey({
+      columns: [t.householdId, t.accountId],
+      foreignColumns: [accounts.householdId, accounts.id],
+      name: "account_balances_account_household_fk",
+    }),
+    // Backs the latest-per-account lookup (DISTINCT ON account, newest first) for net worth.
+    // Includes created_at so the exact-`as_of`-tie tiebreak stays a pure index scan (no heap fetch).
+    index("account_balances_latest_idx").on(
+      t.householdId,
+      t.accountId,
+      t.asOf.desc(),
+      t.createdAt.desc(),
+    ),
+  ],
+);
+
 /** The lifecycle of a Transaction's classification (ADR-0005). */
 export const classificationStatusEnum = pgEnum("classification_status", [
   "pending",
