@@ -20,6 +20,15 @@
     "vsAverage": "Last full month ran {delta} vs your average.",
     "largestCharge": "Largest charge this month: {merchant} · {amount}.",
     "income": "Income",
-    "difference": "Difference"
+    "difference": "Difference",
+    "topMerchants": "Top merchants",
+    "spendingByAccount": "Spending by account",
+    "movers": {
+      "title": "Biggest movers",
+      "subtitle": "Where spending rose most vs your usual.",
+      "merchants": "Merchants",
+      "categories": "Categories",
+      "new": "new"
+    }
   }
 }

@@ -53,11 +53,14 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
   currency + the new `formatCycleMonth` date helper) → `dashboard` namespace. Established
   the pattern: sync Server Components call `useTranslations`/`useLocale` (work in RSC and
   under `renderWithIntl` in tests); async pages use `getTranslations`.
-- [ ] **4b. Migrate: remaining dashboard modules.** `action-band`, `spending-trend-chart`,
-  `category-mix-module`, `biggest-movers`, `net-summary-card`, `top-merchants`,
-  `account-breakdown` headings/labels → `dashboard` namespace; replace their inline
-  `Intl.*`/`cycleKeyLabel` with `lib/format/*` (locale-aware). Once no caller of
-  `cycleKeyLabel`/`shortCycleLabel` remains (also savings, slice 6), delete them.
+- [x] **4b. Migrate: dashboard list modules.** `top-merchants` + `account-breakdown`
+  (headings via `dashboard` namespace) and `biggest-movers` (strings +
+  `currencyFormatter`). Category names stay English (enum data).
+- [ ] **4c. Migrate: dashboard charts + summary.** `action-band`, `net-summary-card`,
+  `spending-trend-chart`, `category-mix-module` → `dashboard` namespace; replace their
+  inline `Intl.*`/`cycleKeyLabel`/`shortCycleLabel` with `lib/format/*` (locale-aware).
+  Once no caller of `cycleKeyLabel`/`shortCycleLabel` remains (also savings, slice 6),
+  delete them from `lib/dashboard/cycle.ts`.
 - [ ] **5. Migrate: transactions.** Table, review-mode, override, income; expense-type
   labels via catalog (canonical enum stays English). AI `reasoning` stays English (data).
 - [ ] **6. Migrate: savings.** Goal, config, check-in surfaces.
