@@ -42,8 +42,12 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
   `PUT /api/settings/locale` writes both the column and the `NEXT_LOCALE` cookie.
   (Switcher UI split to 3c; the codebase uses API routes + client fetch, not server
   actions.)
-- [ ] **3c. Language switcher UI.** A switcher in the app-shell account menu that
-  `PUT`s `/api/settings/locale` and refreshes. Route the UI through the `/design` skill.
+- [x] **3c. Language switcher UI.** `LocaleSwitcher` in the sidebar footer
+  (`components/locale-switcher.tsx`): offers the other locale, `PUT`s
+  `/api/settings/locale`, then `router.refresh()`. Own strings localized via
+  next-intl (`localeSwitcher` namespace, both catalogs). Built on the existing
+  `Sidebar` primitives (design-system-consistent); a full `/design` pass can refine
+  the visual treatment later.
 - [ ] **4. Migrate: dashboard.** All strings in `app/(app)/dashboard` + its modules
   → catalogs (both locales).
 - [ ] **5. Migrate: transactions.** Table, review-mode, override, income; expense-type

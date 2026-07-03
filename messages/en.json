@@ -2,5 +2,12 @@
   "common": {
     "appName": "Finance",
     "loading": "Loading…"
+  },
+  "localeSwitcher": {
+    "language": {
+      "is": "Íslenska",
+      "en": "English"
+    },
+    "switchTo": "Switch to {language}"
   }
 }
