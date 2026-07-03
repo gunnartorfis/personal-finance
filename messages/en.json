@@ -2,5 +2,33 @@
   "common": {
     "appName": "Finance",
     "loading": "Loading…"
+  },
+  "localeSwitcher": {
+    "language": {
+      "is": "Íslenska",
+      "en": "English"
+    },
+    "switchTo": "Switch to {language}"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Your household's spending at a glance.",
+    "thisMonth": "This month",
+    "spendingSoFar": "Spending so far",
+    "projected": "Projected {amount} by month end.",
+    "vsAverageWithAvg": "Last full month ran {delta} vs your average of {average}.",
+    "vsAverage": "Last full month ran {delta} vs your average.",
+    "largestCharge": "Largest charge this month: {merchant} · {amount}.",
+    "income": "Income",
+    "difference": "Difference",
+    "topMerchants": "Top merchants",
+    "spendingByAccount": "Spending by account",
+    "movers": {
+      "title": "Biggest movers",
+      "subtitle": "Where spending rose most vs your usual.",
+      "merchants": "Merchants",
+      "categories": "Categories",
+      "new": "new"
+    }
   }
 }

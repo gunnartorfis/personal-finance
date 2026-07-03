@@ -31,8 +31,24 @@ describe("localeFromAcceptLanguage", () => {
 describe("resolveLocale", () => {
   it("prefers a valid cookie above everything", () => {
     expect(
-      resolveLocale({ cookie: "en", geoCountry: "IS", acceptLanguage: "is" })
+      resolveLocale({
+        cookie: "en",
+        memberLocale: "is",
+        geoCountry: "IS",
+        acceptLanguage: "is",
+      })
     ).toBe("en")
+  })
+
+  it("uses the member's saved locale when there is no cookie", () => {
+    expect(
+      resolveLocale({ memberLocale: "en", geoCountry: "IS", acceptLanguage: "is" })
+    ).toBe("en")
+  })
+
+  it("ignores an invalid or absent member locale and falls through to geo", () => {
+    expect(resolveLocale({ memberLocale: null, geoCountry: "IS" })).toBe("is")
+    expect(resolveLocale({ memberLocale: "fr", geoCountry: "IS" })).toBe("is")
   })
 
   it("ignores an invalid cookie and falls through", () => {

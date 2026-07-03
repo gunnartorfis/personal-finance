@@ -1,8 +1,14 @@
 import { render, screen } from "@testing-library/react"
+import { NextIntlClientProvider } from "next-intl"
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 
+import en from "@/messages/en.json"
+
 const usePathname = vi.fn()
-vi.mock("next/navigation", () => ({ usePathname: () => usePathname() }))
+vi.mock("next/navigation", () => ({
+  usePathname: () => usePathname(),
+  useRouter: () => ({ refresh: () => {} }),
+}))
 // UserButton needs the Neon Auth provider; stub it so the sidebar renders standalone.
 vi.mock("@neondatabase/auth-ui", () => ({
   UserButton: () => <div data-testid="user-button" />,
@@ -33,9 +39,11 @@ afterEach(() => usePathname.mockReset())
 
 function renderSidebar() {
   return render(
-    <SidebarProvider>
-      <AppSidebar />
-    </SidebarProvider>,
+    <NextIntlClientProvider locale="en" messages={en}>
+      <SidebarProvider>
+        <AppSidebar />
+      </SidebarProvider>
+    </NextIntlClientProvider>,
   )
 }
 

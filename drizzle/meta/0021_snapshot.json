@@ -1,5 +1,5 @@
 {
-  "id": "7b229953-8f2b-454e-9157-a1fc9663b6b4",
+  "id": "5cf2b9b5-21ce-4840-9c36-c080b74c3060",
   "prevId": "3e699258-ecb3-46eb-8a7c-efc9656eab14",
   "version": "7",
   "dialect": "postgresql",
@@ -580,6 +580,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "locale": {
+          "name": "locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -1233,22 +1239,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "own_share_amount": {
-          "name": "own_share_amount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "effective_amount": {
-          "name": "effective_amount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "generated": {
-            "as": "coalesce(own_share_amount, amount)",
-            "type": "stored"
-          }
-        },
         "original_amount": {
           "name": "original_amount",
           "type": "numeric",
@@ -1440,14 +1430,6 @@
         "transactions_classified_has_type": {
           "name": "transactions_classified_has_type",
           "value": "(\"transactions\".\"classification_status\" = 'classified') = (\"transactions\".\"expense_type\" IS NOT NULL)"
-        },
-        "transactions_own_share_debit_bounds": {
-          "name": "transactions_own_share_debit_bounds",
-          "value": "\"transactions\".\"own_share_amount\" IS NULL OR (\"transactions\".\"amount\" < 0 AND \"transactions\".\"own_share_amount\" >= \"transactions\".\"amount\" AND \"transactions\".\"own_share_amount\" < 0)"
-        },
-        "transactions_own_share_not_excluded": {
-          "name": "transactions_own_share_not_excluded",
-          "value": "NOT (\"transactions\".\"own_share_amount\" IS NOT NULL AND \"transactions\".\"excluded\")"
         },
         "transactions_expense_type_valid": {
           "name": "transactions_expense_type_valid",

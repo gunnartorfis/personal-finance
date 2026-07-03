@@ -1,3 +1,5 @@
+import { useTranslations } from "next-intl"
+
 import { SpendShareList } from "@/components/spend-share-list"
 import type { AccountSpend } from "@/lib/dashboard/account-breakdown"
 import type { Locale } from "@/lib/i18n/config"
@@ -18,11 +20,12 @@ export function AccountBreakdown({
   locale: Locale
   className?: string
 }) {
+  const t = useTranslations("dashboard")
   if (!accounts) return null
 
   return (
     <SpendShareList
-      heading="Spending by account"
+      heading={t("spendingByAccount")}
       items={accounts.map((account) => ({
         key: account.accountId,
         label: account.name,

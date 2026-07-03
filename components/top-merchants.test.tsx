@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
 import { TopMerchants } from "@/components/top-merchants"
 import type { MerchantSpend } from "@/lib/dashboard/top-merchants"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 const MERCHANTS: MerchantSpend[] = [
   { merchant: "BONUS", spending: 500, share: 0.5 },

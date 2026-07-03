@@ -1,4 +1,0 @@
-ALTER TABLE "transactions" ADD COLUMN "own_share_amount" integer;--> statement-breakpoint
-ALTER TABLE "transactions" ADD COLUMN "effective_amount" integer GENERATED ALWAYS AS (coalesce(own_share_amount, amount)) STORED NOT NULL;--> statement-breakpoint
-ALTER TABLE "transactions" ADD CONSTRAINT "transactions_own_share_debit_bounds" CHECK ("transactions"."own_share_amount" IS NULL OR ("transactions"."amount" < 0 AND "transactions"."own_share_amount" >= "transactions"."amount" AND "transactions"."own_share_amount" < 0));--> statement-breakpoint
-ALTER TABLE "transactions" ADD CONSTRAINT "transactions_own_share_not_excluded" CHECK (NOT ("transactions"."own_share_amount" IS NOT NULL AND "transactions"."excluded"));

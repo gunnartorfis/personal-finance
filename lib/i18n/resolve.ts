@@ -3,6 +3,8 @@ import { defaultLocale, toLocale, type Locale } from "@/lib/i18n/config"
 export interface LocaleSources {
   /** `NEXT_LOCALE` cookie value (an explicit prior choice). */
   cookie?: string | null
+  /** The signed-in Member's saved `locale` (durable, cross-device). */
+  memberLocale?: string | null
   /** Vercel geo header `x-vercel-ip-country` (ISO-3166-1 alpha-2). */
   geoCountry?: string | null
   /** Raw `Accept-Language` request header. */
@@ -39,12 +41,13 @@ export function localeFromAcceptLanguage(
 
 /**
  * Resolve a Locale from request signals in precedence order (ADR-0013):
- * cookie → Vercel geo (`IS` → `is`) → `Accept-Language` → default (`is`).
- * The `member.locale` tier slots in ahead of geo in a later slice (3b).
+ * cookie → `member.locale` → Vercel geo (`IS` → `is`) → `Accept-Language` →
+ * default (`is`).
  */
 export function resolveLocale(sources: LocaleSources): Locale {
   return (
     toLocale(sources.cookie) ??
+    toLocale(sources.memberLocale) ??
     (sources.geoCountry?.toUpperCase() === "IS" ? "is" : null) ??
     localeFromAcceptLanguage(sources.acceptLanguage) ??
     defaultLocale

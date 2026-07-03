@@ -11,14 +11,30 @@ export function normalizeLocale(value: string | undefined | null): Locale {
 }
 
 /**
- * Resolve the request's Locale from cookie → Vercel geo → `Accept-Language` →
- * default (ADR-0013). The `member.locale` tier (ahead of geo) lands with the DB
- * column in slice 3b (see docs/i18n-rollout.md).
+ * Resolve the request's Locale by precedence (ADR-0013): cookie → `member.locale`
+ * → Vercel geo → `Accept-Language` → default. The DB-backed member tier is only
+ * consulted when the cookie is absent/invalid, keeping the common path DB-free.
  */
 export async function resolveRequestLocale(): Promise<Locale> {
   const [cookieStore, headerStore] = await Promise.all([cookies(), headers()])
+  const cookie = cookieStore.get(LOCALE_COOKIE)?.value
+  // Lazy-load the DB/auth-backed member tier only on a cookie miss — both to skip
+  // the DB on the fast path and to keep the auth import chain out of modules that
+  // only need `LOCALE_COOKIE`/`normalizeLocale` from here.
+  let memberLocale: Locale | null = null
+  if (!toLocale(cookie)) {
+    try {
+      const { currentMemberLocale } = await import("@/lib/i18n/member-locale")
+      memberLocale = await currentMemberLocale()
+    } catch {
+      // Locale is best-effort: a transient auth/DB error must never break a page
+      // render via next-intl's request config. Fall through to geo/Accept-Language.
+      memberLocale = null
+    }
+  }
   return resolveLocale({
-    cookie: cookieStore.get(LOCALE_COOKIE)?.value,
+    cookie,
+    memberLocale,
     geoCountry: headerStore.get("x-vercel-ip-country"),
     acceptLanguage: headerStore.get("accept-language"),
   })
