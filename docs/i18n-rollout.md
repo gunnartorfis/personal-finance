@@ -59,15 +59,25 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
 - [x] **4c. Migrate: action band.** `action-band` → `actionBand` namespace (ICU plurals
   for the review-backlog / pending / failed alerts + all-clear + aria-labels). Its child
   banners (free-cap, connection alerts, classify-trigger) belong to their own slices.
-- [ ] **4d. Migrate: dashboard charts.** `spending-trend-chart`, `category-mix-module` →
-  `dashboard` namespace; replace inline `Intl.*`/`shortCycleLabel` with `lib/format/*`
-  (locale-aware, likely client chart components). Once no caller of
-  `cycleKeyLabel`/`shortCycleLabel` remains (also savings, slice 6), delete them from
-  `lib/dashboard/cycle.ts`. (`net-summary-card` is transactions-side — slice 5.)
-- [ ] **5. Migrate: transactions.** Table, review-mode, override, income; expense-type
-  labels via catalog (canonical enum stays English). AI `reasoning` stays English (data).
-- [ ] **6. Migrate: savings.** Goal, config, check-in surfaces.
-- [ ] **7. Migrate: billing + household + invites.**
+> **Reordered (2026-07-03):** the repo has concurrent refactors of the charts,
+> savings, and transactions areas (see memory `finance-concurrent-development`), so
+> those slices (4d, 4e, 5, 6) are **DEFERRED** to avoid conflicts — done last, once
+> those refactors settle. The loop works the **cold** areas first (household/invites,
+> billing, upload, accounts, rules, landing/nav). Enforcement (10) is always last.
+
+- [ ] **4d/4e. Migrate: dashboard charts.** DEFERRED (concurrent shadcn/recharts
+  refactor). `spending-trend-chart` (parked draft #182, now stale vs recharts) +
+  `category-mix-module`. Once no caller of `cycleKeyLabel`/`shortCycleLabel` remains,
+  delete them from `lib/dashboard/cycle.ts`.
+- [ ] **5. Migrate: transactions.** DEFERRED (concurrent refactor). Table, review-mode,
+  override, income, net-summary-card, spending-by-type; expense-type labels via catalog
+  (canonical enum stays English). AI `reasoning` stays English (data).
+- [ ] **6. Migrate: savings.** DEFERRED (concurrent refactor). Goal, config, check-in.
+- [ ] **7. Migrate: household + invites + billing** (COLD — in progress).
+  - [x] **7a. household-reset** ("danger zone" data-reset control) → `householdReset`.
+  - [ ] **7b. household page + household-manager** (members, invite, pending, danger zone).
+  - [ ] **7c. invites**: invite-card, accept-invite, verify-email-gate, `app/join/*`.
+  - [ ] **7d. billing**: billing page, manage-subscription, premium-checkout, free-cap.
 - [ ] **8. Migrate: upload + accounts + rules.**
 - [ ] **9. Migrate: landing + auth shell.** Bilingual landing (Vercel-geo default).
   Neon Auth UI + OTP emails stay English (v1).

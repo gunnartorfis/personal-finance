@@ -1,6 +1,7 @@
 "use client"
 
 import { CircleAlert, Loader2, Trash2 } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -14,6 +15,7 @@ import { cn } from "@/lib/utils"
  * hard-reloads to the dashboard on success so every cached view reflects the empty state.
  */
 export function HouseholdReset({ className }: { className?: string }) {
+  const t = useTranslations("householdReset")
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [errored, setErrored] = useState(false)
@@ -39,17 +41,16 @@ export function HouseholdReset({ className }: { className?: string }) {
 
   return (
     <section
-      aria-label="Danger zone"
+      aria-label={t("dangerZone")}
       className={cn(
         "flex flex-col gap-4 rounded-xl border border-destructive/30 bg-destructive/5 p-6",
         className,
       )}
     >
       <div className="flex flex-col gap-1">
-        <h2 className="text-sm font-semibold text-destructive">Danger zone</h2>
+        <h2 className="text-sm font-semibold text-destructive">{t("dangerZone")}</h2>
         <p className="text-sm text-pretty text-muted-foreground">
-          Delete <strong>all</strong> uploads, transactions, overrides, accounts, and merchant rules
-          for your household. Your account and plan are kept. This cannot be undone.
+          {t.rich("description", { strong: (chunks) => <strong>{chunks}</strong> })}
         </p>
       </div>
 
@@ -59,16 +60,16 @@ export function HouseholdReset({ className }: { className?: string }) {
           className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
           <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          <p>Couldn’t reset the data. Please try again.</p>
+          <p>{t("error")}</p>
         </div>
       )}
 
       {confirming ? (
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-medium">Delete everything? This can’t be undone.</span>
+          <span className="text-sm font-medium">{t("confirmPrompt")}</span>
           <Button variant="destructive" onClick={reset} disabled={busy}>
             {busy ? <Loader2 className="animate-spin" /> : <Trash2 />}
-            Yes, reset my data
+            {t("confirm")}
           </Button>
           <Button
             variant="outline"
@@ -78,7 +79,7 @@ export function HouseholdReset({ className }: { className?: string }) {
             }}
             disabled={busy}
           >
-            Cancel
+            {t("cancel")}
           </Button>
         </div>
       ) : (
@@ -88,7 +89,7 @@ export function HouseholdReset({ className }: { className?: string }) {
           onClick={() => setConfirming(true)}
         >
           <Trash2 />
-          Reset transaction data
+          {t("trigger")}
         </Button>
       )}
     </section>
