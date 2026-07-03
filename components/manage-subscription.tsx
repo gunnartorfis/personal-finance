@@ -1,17 +1,14 @@
 "use client"
 
 import { CircleAlert, Loader2 } from "lucide-react"
+import { useLocale, useTranslations } from "next-intl"
 import { useState } from "react"
 
 import { PremiumCheckout } from "@/components/premium-checkout"
 import { Button } from "@/components/ui/button"
+import { formatDate } from "@/lib/format/date"
+import { defaultLocale, toLocale } from "@/lib/i18n/config"
 import { cn } from "@/lib/utils"
-
-function formatRenewal(iso: string): string {
-  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(
-    new Date(iso),
-  )
-}
 
 /**
  * Manage the current Household's subscription (ADR-0006). Premium shows the period + renewal date
@@ -30,6 +27,8 @@ export function ManageSubscription({
   period: string | null
   className?: string
 }) {
+  const t = useTranslations("billing")
+  const locale = toLocale(useLocale()) ?? defaultLocale
   const [cancelled, setCancelled] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -57,29 +56,31 @@ export function ManageSubscription({
       className={cn("flex flex-col gap-4 rounded-xl border border-border bg-card p-6", className)}
     >
       <h2 id="subscription-heading" className="text-base font-medium">
-        Subscription
+        {t("subscription")}
       </h2>
 
       {isPremium ? (
         <>
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
-              <span className="text-lg font-semibold">Premium</span>
+              <span className="text-lg font-semibold">{t("premium")}</span>
               {period && (
-                <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground capitalize">
-                  {period}
+                <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  {period === "annual" ? t("period.annual") : t("period.monthly")}
                 </span>
               )}
             </div>
             {planRenewsAt && (
-              <p className="text-sm text-muted-foreground">Renews {formatRenewal(planRenewsAt)}.</p>
+              <p className="text-sm text-muted-foreground">
+                {t("renews", { date: formatDate(new Date(planRenewsAt), locale) })}
+              </p>
             )}
           </div>
 
           {confirming ? (
             // Two-step confirm: cancelling is destructive, so the POST only fires on explicit confirm.
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm">Cancel your Premium subscription?</span>
+              <span className="text-sm">{t("cancelPrompt")}</span>
               <Button
                 type="button"
                 variant="destructive"
@@ -88,7 +89,7 @@ export function ManageSubscription({
                 disabled={busy}
               >
                 {busy && <Loader2 className="animate-spin" />}
-                Yes, cancel
+                {t("cancelConfirm")}
               </Button>
               <Button
                 type="button"
@@ -97,7 +98,7 @@ export function ManageSubscription({
                 onClick={() => setConfirming(false)}
                 disabled={busy}
               >
-                Keep it
+                {t("keepIt")}
               </Button>
             </div>
           ) : (
@@ -107,18 +108,16 @@ export function ManageSubscription({
               className="self-start"
               onClick={() => setConfirming(true)}
             >
-              Cancel subscription
+              {t("cancelTrigger")}
             </Button>
           )}
         </>
       ) : (
         <>
           <div className="flex flex-col gap-1">
-            <span className="text-lg font-semibold">Free</span>
+            <span className="text-lg font-semibold">{t("free")}</span>
             <p className="text-sm text-muted-foreground">
-              {cancelled
-                ? "Your subscription is cancelled — you’re on the Free plan."
-                : "You’re on the Free plan."}
+              {cancelled ? t("cancelledFree") : t("onFree")}
             </p>
           </div>
           <PremiumCheckout />
@@ -131,7 +130,7 @@ export function ManageSubscription({
           className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
           <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          <p>Couldn’t cancel — please try again.</p>
+          <p>{t("cancelError")}</p>
         </div>
       )}
     </section>

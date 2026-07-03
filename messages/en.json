@@ -160,5 +160,29 @@
       "switch": "Not you? Sign in with a different account",
       "switchError": "Couldn't sign out. Please try again."
     }
+  },
+  "billing": {
+    "title": "Billing",
+    "subtitle": "Your plan and subscription.",
+    "subscription": "Subscription",
+    "premium": "Premium",
+    "free": "Free",
+    "period": {
+      "monthly": "Monthly",
+      "annual": "Annual"
+    },
+    "renews": "Renews {date}.",
+    "cancelPrompt": "Cancel your Premium subscription?",
+    "cancelConfirm": "Yes, cancel",
+    "keepIt": "Keep it",
+    "cancelTrigger": "Cancel subscription",
+    "onFree": "You're on the Free plan.",
+    "cancelledFree": "Your subscription is cancelled — you're on the Free plan.",
+    "cancelError": "Couldn't cancel — please try again."
+  },
+  "freeCap": {
+    "pausedTitle": "AI classification paused",
+    "pausedBody": "You've used all {cap} free classifications. Uploads, the dashboard and overrides keep working; <link>upgrade to Premium</link> to classify the rest.",
+    "usage": "{used} of {cap} free AI classifications used — {remaining} left."
   }
 }

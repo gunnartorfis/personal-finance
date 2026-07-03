@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ManageSubscription } from "@/components/manage-subscription"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 // The Free/cancelled branch renders <PremiumCheckout>, which calls useRouter at render; stub it so the
 // component tree mounts outside an app-router context (rather than depending on another test file's
