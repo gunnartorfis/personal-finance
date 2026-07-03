@@ -9,5 +9,17 @@
       "en": "English"
     },
     "switchTo": "Switch to {language}"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Your household's spending at a glance.",
+    "thisMonth": "This month",
+    "spendingSoFar": "Spending so far",
+    "projected": "Projected {amount} by month end.",
+    "vsAverageWithAvg": "Last full month ran {delta} vs your average of {average}.",
+    "vsAverage": "Last full month ran {delta} vs your average.",
+    "largestCharge": "Largest charge this month: {merchant} · {amount}.",
+    "income": "Income",
+    "difference": "Difference"
   }
 }

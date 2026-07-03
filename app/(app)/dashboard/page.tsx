@@ -4,6 +4,8 @@ import { BiggestMovers } from "@/components/biggest-movers"
 import { CategoryMixModule } from "@/components/category-mix-module"
 import { SavingsProgressCard } from "@/components/savings-progress-card"
 import { SpendingTrendChart } from "@/components/spending-trend-chart"
+import { getTranslations } from "next-intl/server"
+
 import { ThisMonthHero } from "@/components/this-month-hero"
 import { TopMerchants } from "@/components/top-merchants"
 import { loadDashboardView } from "@/lib/dashboard/dashboard-view"
@@ -26,6 +28,7 @@ export const dynamic = "force-dynamic"
 export default async function DashboardPage() {
   const { repo, plan, billingCurrency } = await requireHousehold()
   const locale = await resolveRequestLocale()
+  const t = await getTranslations("dashboard")
   const now = new Date()
   const [view, savingsProgress] = await Promise.all([
     loadDashboardView(repo, now, { plan }),
@@ -39,10 +42,8 @@ export default async function DashboardPage() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          Your household&apos;s spending at a glance.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        <p className="text-sm text-pretty text-muted-foreground">{t("subtitle")}</p>
       </header>
 
       <ActionBand actionBand={view.actionBand} />
