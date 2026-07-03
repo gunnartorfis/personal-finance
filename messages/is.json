@@ -237,5 +237,27 @@
     "loading": "Hleð…",
     "loadError": "Tókst ekki að hlaða reikningum. Vinsamlegast endurnýjaðu.",
     "empty": "Engir reikningar enn."
+  },
+  "rules": {
+    "title": "Söluaðilareglur",
+    "subtitle": "Fastar reglur söluaðili → tegund, beittar á undan gervigreindarflokkun.",
+    "regionLabel": "Söluaðilareglur",
+    "merchantLabel": "Söluaðili",
+    "merchantPlaceholder": "t.d. NETFLIX",
+    "typeFieldLabel": "Tegund",
+    "add": "Bæta við",
+    "delete": "Eyða",
+    "deleteAria": "Eyða reglu fyrir {merchant}",
+    "loading": "Hleð…",
+    "empty": "Engar reglur enn.",
+    "addError": "Tókst ekki að bæta við reglunni",
+    "deleteError": "Tókst ekki að eyða reglunni",
+    "split": "≥ {threshold} → {atOrAbove}, undir → {below}",
+    "types": {
+      "fixed": "Fastur",
+      "necessary": "Nauðsynlegt",
+      "niceToHave": "Gott að hafa",
+      "splitNone": "Skipt / ekkert"
+    }
   }
 }
