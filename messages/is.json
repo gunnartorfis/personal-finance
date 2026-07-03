@@ -96,6 +96,23 @@
     "deleteConfirm": "Já, eyða heimili",
     "deleteTrigger": "Eyða heimili"
   },
+  "incomeSettings": {
+    "pageTitle": "Tekjur og fastir kostnaðir",
+    "pageDescription": "Mánaðarlegar tekjulindir þínar og fastir kostnaðir utan korts. Þau eru grunnurinn að sparnaðarframvindu og áætlanagerð.",
+    "formLabel": "Sparnaðarstillingar",
+    "loading": "Hleð stillingum…",
+    "incomeLegend": "Tekjulindir",
+    "offcardLegend": "Kostnaður utan korts",
+    "addIncome": "Bæta við tekjulind",
+    "addOffcard": "Bæta við kostnaði utan korts",
+    "nameLabel": "Heiti",
+    "amountLabel": "Upphæð / mánuði",
+    "none": "Ekkert enn.",
+    "remove": "Fjarlægja {label}",
+    "saveError": "Ekki tókst að vista stillingarnar. Athugaðu gildin og reyndu aftur.",
+    "saved": "Stillingar vistaðar.",
+    "save": "Vista stillingar"
+  },
   "invites": {
     "headlineNamed": "{name} bauð þér í heimilið sitt",
     "headlineGeneric": "Þér hefur verið boðið í heimili",

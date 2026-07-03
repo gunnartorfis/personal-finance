@@ -1,8 +1,9 @@
-import { render, screen, within } from "@testing-library/react"
+import { screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { SavingsConfigForm } from "@/components/savings-config-form"
+import { renderWithIntl } from "@/lib/test/render"
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -37,14 +38,14 @@ const config: Config = {
 describe("SavingsConfigForm", () => {
   it("loads and shows the existing config rows", async () => {
     stubApi(config)
-    render(<SavingsConfigForm />)
+    renderWithIntl(<SavingsConfigForm />)
     expect(await screen.findByDisplayValue("Salary")).toBeInTheDocument()
     expect(screen.getByDisplayValue("Mortgage")).toBeInTheDocument()
   })
 
   it("adds a row and saves the full lists", async () => {
     const fetchMock = stubApi(config)
-    render(<SavingsConfigForm />)
+    renderWithIntl(<SavingsConfigForm />)
     await screen.findByDisplayValue("Salary")
 
     const income = screen.getByRole("group", { name: /income sources/i })
@@ -68,7 +69,7 @@ describe("SavingsConfigForm", () => {
 
   it("removes a row before saving", async () => {
     const fetchMock = stubApi(config)
-    render(<SavingsConfigForm />)
+    renderWithIntl(<SavingsConfigForm />)
     await screen.findByDisplayValue("Salary")
 
     const costs = screen.getByRole("group", { name: /off-card costs/i })
@@ -85,7 +86,7 @@ describe("SavingsConfigForm", () => {
 
   it("surfaces an error when the save fails", async () => {
     stubApi(config, { putFails: true })
-    render(<SavingsConfigForm />)
+    renderWithIntl(<SavingsConfigForm />)
     await screen.findByDisplayValue("Salary")
 
     await userEvent.click(screen.getByRole("button", { name: /save config/i }))
