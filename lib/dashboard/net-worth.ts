@@ -64,3 +64,50 @@ export async function loadNetWorth(repo: HouseholdRepo): Promise<NetWorth | null
   const rows = await repo.accounts.balances.latestPerAccount();
   return computeNetWorth(rows.map((row) => ({ accountId: row.accountId, balance: row.balance, asOf: row.asOf })));
 }
+
+/** One Account with its latest recorded balance (or `null` if none yet) — for the entry form. */
+export interface AccountBalance {
+  id: string;
+  name: string;
+  /** Latest recorded balance in whole billing-currency units, or `null` when none is recorded. */
+  balance: number | null;
+}
+
+/**
+ * Everything the net-worth panel needs in one pass: the Household's net worth (`null` until a balance
+ * exists) and every Account with its latest recorded balance to prefill the entry form. Reads the
+ * Account list and the latest-per-account snapshots together so the panel and form never disagree.
+ */
+export async function loadNetWorthPanel(
+  repo: HouseholdRepo,
+): Promise<{ netWorth: NetWorth | null; accounts: AccountBalance[] }> {
+  const [accountList, latest] = await Promise.all([
+    repo.accounts.list(),
+    repo.accounts.balances.latestPerAccount(),
+  ]);
+  const balanceByAccount = new Map(latest.map((row) => [row.accountId, row.balance]));
+  const accounts = accountList.map((account) => ({
+    id: account.id,
+    name: account.name,
+    balance: balanceByAccount.get(account.id) ?? null,
+  }));
+  const netWorth = computeNetWorth(
+    latest.map((row) => ({ accountId: row.accountId, balance: row.balance, asOf: row.asOf })),
+  );
+  return { netWorth, accounts };
+}
+
+/**
+ * Runway in whole months (ADR-0016): how long net worth covers the Household's monthly burn if income
+ * stopped — `netWorth / monthlyBurn`, rounded down so it never overstates. `null` when there is no
+ * net worth, no burn figure (thin history), or burn is non-positive (nothing being spent, so runway
+ * is not meaningful). Also `null` when net worth is zero or negative — there is no runway to report.
+ */
+export function computeRunwayMonths(
+  netWorthTotal: number,
+  monthlyBurn: number | null,
+): number | null {
+  if (monthlyBurn === null || monthlyBurn <= 0) return null;
+  if (netWorthTotal <= 0) return null;
+  return Math.floor(netWorthTotal / monthlyBurn);
+}

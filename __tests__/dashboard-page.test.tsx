@@ -7,14 +7,22 @@ import en from "@/messages/en.json"
 
 // Mock the tenant guard (keeps Neon Auth / next/headers out of jsdom) and the data loader, so the
 // page test exercises pure assembly of the already-tested modules.
-const { requireHousehold, loadDashboardView, loadSavingsProgress } = vi.hoisted(() => ({
-  requireHousehold: vi.fn(),
-  loadDashboardView: vi.fn(),
-  loadSavingsProgress: vi.fn(),
-}))
+const { requireHousehold, loadDashboardView, loadSavingsProgress, loadNetWorthPanel } = vi.hoisted(
+  () => ({
+    requireHousehold: vi.fn(),
+    loadDashboardView: vi.fn(),
+    loadSavingsProgress: vi.fn(),
+    loadNetWorthPanel: vi.fn(),
+  })
+)
 vi.mock("@/lib/household/current", () => ({ requireHousehold }))
 vi.mock("@/lib/dashboard/dashboard-view", () => ({ loadDashboardView }))
 vi.mock("@/lib/savings/assessment", () => ({ loadSavingsProgress }))
+vi.mock("@/lib/dashboard/net-worth", async (importOriginal) => ({
+  // Keep computeRunwayMonths et al. real (the section imports them); only stub the loader.
+  ...(await importOriginal<typeof import("@/lib/dashboard/net-worth")>()),
+  loadNetWorthPanel,
+}))
 // resolveRequestLocale reads cookies() (request scope, unavailable in jsdom); pin
 // it to en so the currency assertions below stay en-US.
 vi.mock("@/lib/i18n/locale", () => ({
@@ -108,6 +116,7 @@ describe("DashboardPage", () => {
     requireHousehold.mockReset()
     loadDashboardView.mockReset()
     loadSavingsProgress.mockReset()
+    loadNetWorthPanel.mockReset()
     requireHousehold.mockResolvedValue({
       repo: {},
       plan: "Premium",
@@ -116,6 +125,8 @@ describe("DashboardPage", () => {
     loadDashboardView.mockResolvedValue(VIEW)
     // No savings goal by default, so the progress card stays hidden.
     loadSavingsProgress.mockResolvedValue(null)
+    // No accounts by default, so the net-worth block stays hidden.
+    loadNetWorthPanel.mockResolvedValue({ netWorth: null, accounts: [] })
   })
 
   it("assembles the action band, hero, and the over-time modules in order", async () => {

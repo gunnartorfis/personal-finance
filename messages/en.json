@@ -38,7 +38,17 @@
       "profitStreak": "Profitable months",
       "profitStreakValue": "{count} of {total}",
       "savingsRateBenchmark": "A savings rate of 20% or more is a healthy target.",
-      "notEnoughData": "A few months of history will unlock your savings rate, typical monthly saving, and profit streak."
+      "notEnoughData": "A few months of history will unlock your savings rate, typical monthly saving, and profit streak.",
+      "netWorth": "Net worth",
+      "runway": "Runway",
+      "runwayValue": "{months, plural, one {# month} other {# months}}",
+      "runwayCaption": "if income stopped",
+      "addBalancesPrompt": "Add your account balances to see net worth and runway.",
+      "addBalances": "Add balances",
+      "updateBalances": "Update balances",
+      "saveBalances": "Save",
+      "cancelBalances": "Cancel",
+      "balanceError": "Couldn't save your balances. Please try again."
     }
   },
   "actionBand": {
