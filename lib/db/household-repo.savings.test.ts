@@ -193,6 +193,7 @@ describe("householdRepo savings", () => {
       ),
     ).rejects.toThrow();
     expect((await a.savings.incomeSources.list()).map((s) => s.name)).toEqual(["Old salary"]);
+    expect((await a.savings.offcardCosts.list()).map((c) => c.name)).toEqual(["Old rent"]);
     expect((await a.savings.oneOffAdjustments.list()).map((o) => o.cycleKey)).toEqual(["2026-02"]);
   });
 
