@@ -1,6 +1,7 @@
-import { ChevronRight, PiggyBank } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import Link from "next/link"
 
+import { RadialProgress } from "@/components/radial-progress"
 import { currencyFormatter } from "@/lib/format/currency"
 import type { Locale } from "@/lib/i18n/config"
 import type { SavingsProgress } from "@/lib/savings/progress"
@@ -32,28 +33,17 @@ export function SavingsProgressCard({
         className
       )}
     >
-      <PiggyBank aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <p className="truncate text-sm font-medium">Savings goal</p>
-          <p className="text-sm tabular-nums">
-            <span className="font-semibold">{format.format(progress.saved)}</span>{" "}
-            <span className="text-muted-foreground">of {format.format(progress.target)}</span>
-          </p>
-        </div>
-        <div
-          role="meter"
-          aria-label="Progress toward the savings goal"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={progress.percent}
-          className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
-        >
-          <div
-            className="h-full rounded-full bg-primary"
-            style={{ width: `${progress.percent}%` }}
-          />
-        </div>
+      <RadialProgress
+        percent={progress.percent}
+        label="Progress toward the savings goal"
+        className="size-12"
+      />
+      <div className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <p className="truncate text-sm font-medium">Savings goal</p>
+        <p className="text-sm tabular-nums">
+          <span className="font-semibold">{format.format(progress.saved)}</span>{" "}
+          <span className="text-muted-foreground">of {format.format(progress.target)}</span>
+        </p>
       </div>
       <ChevronRight
         aria-hidden="true"

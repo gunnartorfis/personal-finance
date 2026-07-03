@@ -37,3 +37,9 @@ trustPolicyExclude:
 # the maintainer restores attestation on a newer release.
 overrides:
   eslint-import-resolver-typescript: "3.10.0"
+  # recharts@3.x (shadcn charts) pins reselect@5.1.1 exactly, which DROPPED the
+  # provenance attestation its earlier releases had — no-downgrade flags it as a
+  # possible takeover. Pin to 5.1.0, the last provenance-attested 5.x (a patch
+  # behind, API-compatible), instead of excluding the suspect build. Revisit when
+  # the maintainer restores attestation on a newer release.
+  reselect: "5.1.0"

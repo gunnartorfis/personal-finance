@@ -20,6 +20,8 @@ vi.mock("@/lib/savings/assessment", () => ({ loadSavingsProgress }))
 vi.mock("@/lib/i18n/locale", () => ({
   resolveRequestLocale: () => Promise.resolve("en"),
 }))
+// The Recharts-backed spending-trend chart calls useRouter at render for bar-click navigation.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }))
 // getTranslations reads the request config (unavailable in jsdom); back it with
 // the en catalog so the page's strings render in English. Interpolates {values}
 // so the mock stays faithful once the page uses interpolated keys.

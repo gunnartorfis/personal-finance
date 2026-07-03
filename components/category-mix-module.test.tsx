@@ -32,15 +32,32 @@ describe("CategoryMixModule", () => {
       />,
     )
     expect(screen.getByText(/Where it goes/i)).toBeInTheDocument()
-    // Current cycle (2026-03) breakdown via SpendingByType.
-    expect(screen.getByText("Fixed")).toBeInTheDocument()
-    expect(screen.getByText("Nice to have")).toBeInTheDocument()
-    // Mix-over-time strip has a label per month.
-    expect(screen.getByText("Feb")).toBeInTheDocument()
-    expect(screen.getByText("Mar")).toBeInTheDocument()
+    // Current cycle (2026-03) breakdown via SpendingByType (also echoed in the mix legend).
+    expect(screen.getAllByText("Fixed").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Nice to have").length).toBeGreaterThan(0)
+    // Mix-over-time strip exposes each month via an accessible summary.
+    expect(screen.getByText(/February 2026 spending mix/i)).toBeInTheDocument()
+    expect(screen.getByText(/March 2026 spending mix/i)).toBeInTheDocument()
   })
 
-  it("exposes each month's mix to assistive tech via a role=img composition label", () => {
+  it("labels the mix-over-time colours with a legend of only the categories that appear", () => {
+    render(
+      <CategoryMixModule
+        categoryTrend={TREND}
+        currentMonth="2026-03"
+        mostlyUnclassified={false}
+        currency="ISK"
+      />,
+    )
+    // TREND spans Fixed, Necessary and Nice to have across its two months.
+    expect(screen.getAllByText("Fixed").length).toBeGreaterThan(0)
+    expect(screen.getByText("Necessary")).toBeInTheDocument()
+    expect(screen.getAllByText("Nice to have").length).toBeGreaterThan(0)
+    // Buckets absent from every month never appear in the legend.
+    expect(screen.queryByText("Unclassified")).not.toBeInTheDocument()
+  })
+
+  it("exposes each month's mix to assistive tech via a screen-reader summary", () => {
     render(
       <CategoryMixModule
         categoryTrend={TREND}
@@ -50,9 +67,9 @@ describe("CategoryMixModule", () => {
       />,
     )
     // 2026-03: Fixed 60000 + Nice to have 40000 -> Fixed 60%, Nice to have 40%.
-    const march = screen.getByRole("img", { name: /March 2026 spending mix/i })
-    expect(march).toHaveAccessibleName(/Fixed 60%/)
-    expect(march).toHaveAccessibleName(/Nice to have 40%/)
+    expect(
+      screen.getByText(/March 2026 spending mix: Fixed 60%, Nice to have 40%/i),
+    ).toBeInTheDocument()
   })
 
   it("shows a classify-to-unlock nudge when spending is mostly unclassified", () => {

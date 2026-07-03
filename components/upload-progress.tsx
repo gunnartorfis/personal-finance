@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 
+import { RadialProgress } from "@/components/radial-progress"
 import { cn } from "@/lib/utils"
 
 /** Shape returned by `GET /api/uploads/:id/progress`. */
@@ -83,27 +84,15 @@ export function UploadProgress({
         : "Classifying…"
 
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="font-medium tabular-nums">{percent}%</span>
-      </div>
-      <div
+    <div className={cn("flex items-center gap-3", className)}>
+      <RadialProgress
+        percent={percent}
+        label="Classification progress"
         role="progressbar"
-        aria-label="Classification progress"
-        aria-valuenow={percent}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        className="h-2 w-full overflow-hidden rounded-full bg-muted"
-      >
-        <div
-          className={cn(
-            "h-full bg-primary transition-all",
-            data?.done && "bg-emerald-500",
-          )}
-          style={{ width: `${percent}%` }}
-        />
-      </div>
+        tone={data?.done ? "success" : "primary"}
+        className="size-12"
+      />
+      <span className="text-sm text-muted-foreground">{label}</span>
     </div>
   )
 }

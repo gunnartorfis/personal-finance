@@ -1,25 +1,31 @@
-import Link from "next/link"
+"use client"
 
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { Bar, ComposedChart, Line, XAxis } from "recharts"
+
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart"
 import { cycleKeyLabel, shortCycleLabel } from "@/lib/dashboard/cycle"
 import type { MonthlySpendPoint } from "@/lib/dashboard/monthly-series"
 import { DEFAULT_TRAILING } from "@/lib/dashboard/spending-trend"
 import { cn } from "@/lib/utils"
 
-/**
- * Bottom offset for the income marker. Clamped so the 2px line stays inside the overflow-hidden
- * track even when income is the chart's ceiling — a bare `100%` would push it entirely above the
- * top edge and clip it to nothing.
- */
-export function incomeLineBottom(moneyPct: number): string {
-  return `min(${moneyPct}%, calc(100% - 2px))`
-}
+const chartConfig = {
+  spending: { label: "Spending", color: "var(--color-foreground)" },
+  income: { label: "Income", color: "var(--color-emerald-500)" },
+} satisfies ChartConfig
 
 /**
- * The rolling 12-month spending trend (Phase K, K11). Lightweight CSS/SVG-free bars — spending as the
- * bar height with a income overlay line — so it carries no chart dependency. Each bar links to that
- * cycle on the transactions view. Below {@link DEFAULT_TRAILING.minMonths} months of history it shows
- * a keep-uploading placeholder instead of a near-empty chart (progressive thin-data). Prop-driven off
- * the view-model's `series` + history flags.
+ * The rolling 12-month spending trend (Phase K, K11): spending as bars with an income overlay line,
+ * drawn with Recharts. Clicking a bar opens that cycle on the transactions view; a screen-reader-only
+ * list of per-cycle links carries the same navigation and figures for keyboard/AT users, since the
+ * SVG marks aren't anchors. Below {@link DEFAULT_TRAILING.minMonths} months of history it shows a
+ * keep-uploading placeholder instead of a near-empty chart. Prop-driven off the view-model's `series`.
  */
 export function SpendingTrendChart({
   series,
@@ -34,6 +40,8 @@ export function SpendingTrendChart({
   currency: string
   className?: string
 }) {
+  const router = useRouter()
+
   const money = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
@@ -41,8 +49,20 @@ export function SpendingTrendChart({
   })
   const fmt = (amount: number) => money.format(amount)
 
-  // Scale to the largest single value (spending or income) so both fit; floor at 1 to avoid /0.
-  const maxValue = Math.max(1, ...series.map((point) => Math.max(point.spending, point.income)))
+  // Recharts hands a Bar's onClick the datum (its `payload`); navigate to that cycle. Scoping the
+  // handler to the bar — rather than the chart — means only a bar click navigates, never a click on
+  // empty plot area (which chart-level onClick would fire off the last hovered index).
+  const goToCycle = (entry: unknown) => {
+    const month = (entry as { payload?: { month?: string } })?.payload?.month
+    if (month) router.push(`/transactions?cycle=${month}`)
+  }
+
+  const data = series.map((point) => ({
+    month: point.month,
+    label: shortCycleLabel(point.month),
+    spending: point.spending,
+    income: point.income,
+  }))
 
   return (
     <section className={cn("flex flex-col gap-4 rounded-xl border border-border bg-card p-6", className)}>
@@ -63,40 +83,65 @@ export function SpendingTrendChart({
       </header>
 
       {hasEnoughHistory ? (
-        <div className="flex items-end gap-1.5 overflow-x-auto">
-          {series.map((point) => {
-            const spendPct = (point.spending / maxValue) * 100
-            const moneyPct = (point.income / maxValue) * 100
-            return (
-              <Link
-                key={point.month}
-                href={`/transactions?cycle=${point.month}`}
-                aria-label={`${cycleKeyLabel(point.month)} — spent ${fmt(point.spending)}, income ${fmt(point.income)}`}
-                title={`${cycleKeyLabel(point.month)}: ${fmt(point.spending)}`}
-                className="group flex min-w-8 flex-1 flex-col items-center gap-1.5"
-              >
-                <span
-                  aria-hidden="true"
-                  className="relative h-32 w-full overflow-hidden rounded-sm bg-muted"
-                >
-                  <span
-                    className="absolute inset-x-0 bottom-0 rounded-sm bg-foreground/80 group-hover:bg-foreground"
-                    style={{ height: `${spendPct}%` }}
+        <>
+          <ChartContainer config={chartConfig} className="aspect-auto h-40 w-full">
+            <ComposedChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+              <XAxis
+                dataKey="label"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                fontSize={10}
+              />
+              <ChartTooltip
+                cursor={false}
+                content={
+                  <ChartTooltipContent
+                    labelFormatter={(_label, payload) => {
+                      const month = payload?.[0]?.payload?.month as string | undefined
+                      return month ? cycleKeyLabel(month) : ""
+                    }}
+                    formatter={(value, name) => {
+                      const label = chartConfig[name as keyof typeof chartConfig]?.label ?? name
+                      return (
+                        <span className="flex w-full items-center justify-between gap-3">
+                          <span className="text-muted-foreground">{label}</span>
+                          <span className="tabular-nums text-foreground">{fmt(Number(value))}</span>
+                        </span>
+                      )
+                    }}
                   />
-                  {point.income > 0 && (
-                    <span
-                      className="absolute inset-x-0 h-0.5 bg-emerald-500"
-                      style={{ bottom: incomeLineBottom(moneyPct) }}
-                    />
-                  )}
-                </span>
-                <span aria-hidden="true" className="text-[10px] tabular-nums text-muted-foreground">
-                  {shortCycleLabel(point.month)}
-                </span>
-              </Link>
-            )
-          })}
-        </div>
+                }
+              />
+              <Bar
+                dataKey="spending"
+                fill="var(--color-spending)"
+                radius={[2, 2, 0, 0]}
+                isAnimationActive={false}
+                cursor="pointer"
+                onClick={goToCycle}
+              />
+              <Line
+                dataKey="income"
+                type="monotone"
+                stroke="var(--color-income)"
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+              />
+            </ComposedChart>
+          </ChartContainer>
+
+          <ul className="sr-only">
+            {series.map((point) => (
+              <li key={point.month}>
+                <Link
+                  href={`/transactions?cycle=${point.month}`}
+                >{`${cycleKeyLabel(point.month)} — spent ${fmt(point.spending)}, income ${fmt(point.income)}`}</Link>
+              </li>
+            ))}
+          </ul>
+        </>
       ) : (
         <div className="flex h-32 flex-col items-center justify-center gap-1 rounded-lg bg-muted px-4 text-center text-sm text-muted-foreground">
           <p className="font-medium text-foreground">Not enough history yet.</p>
