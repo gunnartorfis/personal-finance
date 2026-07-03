@@ -90,23 +90,28 @@ export function LandingPage() {
   const t = useTranslations("landing")
 
   // Copy resolved with literal keys, then paired with its icon; keeps the render map declarative
-  // while satisfying next-intl's static key checking (no interpolated keys).
+  // while satisfying next-intl's static key checking (no interpolated keys). Each row carries a
+  // stable `id` so list `key`s don't depend on the (locale-varying) translated text.
   const steps: {
+    id: string
     icon: ComponentType<SVGProps<SVGSVGElement>>
     title: string
     body: string
   }[] = [
     {
+      id: "upload",
       icon: Upload,
       title: t("steps.upload.title"),
       body: t("steps.upload.body"),
     },
     {
+      id: "sort",
       icon: Sparkles,
       title: t("steps.sort.title"),
       body: t("steps.sort.body"),
     },
     {
+      id: "track",
       icon: TrendingUp,
       title: t("steps.track.title"),
       body: t("steps.track.body"),
@@ -114,36 +119,43 @@ export function LandingPage() {
   ]
 
   const features: {
+    id: string
     icon: ComponentType<SVGProps<SVGSVGElement>>
     title: string
     body: string
   }[] = [
     {
+      id: "ai",
       icon: Sparkles,
       title: t("features.ai.title"),
       body: t("features.ai.body"),
     },
     {
+      id: "net",
       icon: LineChart,
       title: t("features.net.title"),
       body: t("features.net.body"),
     },
     {
+      id: "household",
       icon: Users,
       title: t("features.household.title"),
       body: t("features.household.body"),
     },
     {
+      id: "rules",
       icon: SlidersHorizontal,
       title: t("features.rules.title"),
       body: t("features.rules.body"),
     },
     {
+      id: "override",
       icon: PenLine,
       title: t("features.override.title"),
       body: t("features.override.body"),
     },
     {
+      id: "cycles",
       icon: CalendarRange,
       title: t("features.cycles.title"),
       body: t("features.cycles.body"),
@@ -151,16 +163,16 @@ export function LandingPage() {
   ]
 
   const freeFeatures = [
-    t("pricing.free.f1"),
-    t("pricing.free.f2"),
-    t("pricing.free.f3"),
-    t("pricing.free.f4"),
+    { id: "f1", label: t("pricing.free.f1") },
+    { id: "f2", label: t("pricing.free.f2") },
+    { id: "f3", label: t("pricing.free.f3") },
+    { id: "f4", label: t("pricing.free.f4") },
   ]
   const premiumFeatures = [
-    t("pricing.premium.f1"),
-    t("pricing.premium.f2"),
-    t("pricing.premium.f3"),
-    t("pricing.premium.f4"),
+    { id: "f1", label: t("pricing.premium.f1") },
+    { id: "f2", label: t("pricing.premium.f2") },
+    { id: "f3", label: t("pricing.premium.f3") },
+    { id: "f4", label: t("pricing.premium.f4") },
   ]
 
   return (
@@ -244,10 +256,7 @@ export function LandingPage() {
               className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-3"
             >
               {steps.map((step, index) => (
-                <li
-                  key={step.title}
-                  className="flex flex-col items-start gap-3"
-                >
+                <li key={step.id} className="flex flex-col items-start gap-3">
                   <span className="flex items-center gap-3">
                     <span className="flex size-8 items-center justify-center rounded-full border border-border text-sm font-semibold text-muted-foreground tabular-nums">
                       {index + 1}
@@ -280,7 +289,7 @@ export function LandingPage() {
             </div>
             <dl className="mt-12 grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
               {features.map((feature) => (
-                <div key={feature.title} className="flex flex-col gap-2">
+                <div key={feature.id} className="flex flex-col gap-2">
                   <dt className="flex items-center gap-2 text-lg font-medium">
                     <feature.icon
                       className="size-5 shrink-0 text-primary"
@@ -331,14 +340,14 @@ export function LandingPage() {
                   <ul role="list" className="flex flex-col gap-3">
                     {freeFeatures.map((feature) => (
                       <li
-                        key={feature}
+                        key={feature.id}
                         className="flex items-start gap-2 text-base text-muted-foreground"
                       >
                         <Check
                           className="size-4 h-lh shrink-0 text-primary"
                           aria-hidden="true"
                         />
-                        {feature}
+                        {feature.label}
                       </li>
                     ))}
                   </ul>
@@ -375,14 +384,14 @@ export function LandingPage() {
                   <ul role="list" className="flex flex-col gap-3">
                     {premiumFeatures.map((feature) => (
                       <li
-                        key={feature}
+                        key={feature.id}
                         className="flex items-start gap-2 text-base text-muted-foreground"
                       >
                         <Check
                           className="size-4 h-lh shrink-0 text-primary"
                           aria-hidden="true"
                         />
-                        {feature}
+                        {feature.label}
                       </li>
                     ))}
                   </ul>
@@ -466,16 +475,19 @@ function ProductPreview() {
   // localized labels.
   const legend = [
     {
+      id: "fixed",
       label: t("legend.fixed"),
       amount: "305.000 kr",
       swatch: "bg-emerald-500",
     },
     {
+      id: "necessary",
       label: t("legend.necessary"),
       amount: "216.500 kr",
       swatch: "bg-amber-500",
     },
     {
+      id: "niceToHave",
       label: t("legend.niceToHave"),
       amount: "114.000 kr",
       swatch: "bg-rose-500",
@@ -522,7 +534,7 @@ function ProductPreview() {
         <ul role="list" className="flex flex-col gap-2">
           {legend.map((category) => (
             <li
-              key={category.label}
+              key={category.id}
               className="flex items-center justify-between gap-3 text-sm"
             >
               <span className="flex items-center gap-2">
