@@ -5,7 +5,9 @@ import { SavingsProgressCard } from "@/components/savings-progress-card"
 
 describe("SavingsProgressCard", () => {
   it("renders nothing without progress", () => {
-    const { container } = render(<SavingsProgressCard progress={null} />)
+    const { container } = render(
+      <SavingsProgressCard progress={null} locale="en" />
+    )
     expect(container).toBeEmptyDOMElement()
   })
 
@@ -13,6 +15,7 @@ describe("SavingsProgressCard", () => {
     render(
       <SavingsProgressCard
         progress={{ target: 1_200_000, saved: 500_000, percent: 42, currency: "ISK" }}
+        locale="en"
       />,
     )
     expect(screen.getByRole("link", { name: /savings goal/i })).toHaveAttribute(
@@ -29,6 +32,7 @@ describe("SavingsProgressCard", () => {
     render(
       <SavingsProgressCard
         progress={{ target: 1_200_000, saved: -300_000, percent: 0, currency: "ISK" }}
+        locale="en"
       />,
     )
     expect(screen.getByRole("meter")).toHaveAttribute("aria-valuenow", "0")

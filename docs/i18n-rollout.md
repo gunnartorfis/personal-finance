@@ -21,9 +21,15 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
   dynamic `<html lang>`, v0 locale resolution (cookie `NEXT_LOCALE` → `is`), and a
   test render helper wrapping the provider defaulting to `en`. Docs: add the
   no-hard-coded-strings rule to `AGENTS.md` + `CLAUDE.md`.
-- [ ] **2. Locale-aware formatters.** Refactor `lib/format/currency.ts`,
-  `lib/dashboard/cycle.ts`, and the inline `Intl.*` uses into `lib/format/*` helpers
-  that take a locale (`is-IS`/`en-US`). No component instantiates `Intl` directly.
+- [x] **2. Locale-aware currency formatter.** `lib/format/currency.ts` now takes a
+  `Locale` (`is-IS`/`en-US`, memoized per locale+currency) via `bcp47` in
+  `lib/i18n/config`; `locale` is threaded as a prop from the pages to the
+  currency-formatting components (savings cards, spend-share list & its callers).
+  **Scoped down from the original plan:** the remaining inline `Intl.*` (date/cycle
+  labels in `lib/dashboard/cycle.ts` and the other components) is migrated within each
+  screen slice below — where those components are already being touched for strings —
+  rather than in one sweeping formatter PR. The final enforcement slice's ESLint rule
+  bans direct `new Intl` in components, guaranteeing none are missed.
 - [ ] **3. Member locale + real resolution + switcher.** Drizzle `locale` column +
   migration; resolution precedence cookie → `member.locale` → Vercel geo (`IS`→`is`)
   → `Accept-Language` → `is`; locale switcher in the app-shell account menu
