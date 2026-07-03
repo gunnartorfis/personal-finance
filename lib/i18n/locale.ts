@@ -23,8 +23,14 @@ export async function resolveRequestLocale(): Promise<Locale> {
   // only need `LOCALE_COOKIE`/`normalizeLocale` from here.
   let memberLocale: Locale | null = null
   if (!toLocale(cookie)) {
-    const { currentMemberLocale } = await import("@/lib/i18n/member-locale")
-    memberLocale = await currentMemberLocale()
+    try {
+      const { currentMemberLocale } = await import("@/lib/i18n/member-locale")
+      memberLocale = await currentMemberLocale()
+    } catch {
+      // Locale is best-effort: a transient auth/DB error must never break a page
+      // render via next-intl's request config. Fall through to geo/Accept-Language.
+      memberLocale = null
+    }
   }
   return resolveLocale({
     cookie,

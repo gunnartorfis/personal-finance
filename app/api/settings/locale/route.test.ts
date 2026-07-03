@@ -13,6 +13,8 @@ vi.mock("@/lib/household/membership", () => ({
 vi.mock("@/lib/db", () => ({ getDb: () => ({}) }))
 vi.mock("next/headers", () => ({ cookies: async () => ({ set: cookieSet }) }))
 
+import { LOCALE_COOKIE } from "@/lib/i18n/locale"
+
 import { PUT } from "./route"
 
 const put = (body: unknown) =>
@@ -39,7 +41,7 @@ describe("PUT /api/settings/locale", () => {
     expect(await res.json()).toEqual({ locale: "en" })
     expect(updateMemberLocale).toHaveBeenCalledWith({}, "m1", "en")
     expect(cookieSet).toHaveBeenCalledWith(
-      "NEXT_LOCALE",
+      LOCALE_COOKIE,
       "en",
       expect.objectContaining({ path: "/", sameSite: "lax" })
     )
