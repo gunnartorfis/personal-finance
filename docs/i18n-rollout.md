@@ -103,8 +103,17 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
     delete aria-label, keyed add/delete errors (server `{error}` passed through),
     loading + empty states, guarded expense-type labels (`types.*`, canonical enum
     stays English) + the split-rule description.
-- [ ] **9. Migrate: landing + auth shell.** Bilingual landing (Vercel-geo default).
-  Neon Auth UI + OTP emails stay English (v1).
+- [ ] **9. Migrate: landing + auth shell + nav.** Bilingual landing (Vercel-geo
+  default). Neon Auth UI + OTP emails stay English (v1).
+  - [x] **9a. landing** (`app/page.tsx` metadata + `marketing/landing-page`) →
+    `landing` namespace: metadata (`generateMetadata`), nav/hero/steps/features/
+    pricing/final-CTA/footer copy, and the hero preview's labels (illustrative
+    figures stay literal). Arrays built in-component with literal `t()` keys.
+  - [ ] **9b. app-sidebar nav + brand** (`components/app-sidebar.tsx`,
+    `settings-nav`).
+  - [ ] **9c. auth shell chrome** (any of our own copy around the Neon Auth views).
+  - [ ] **9d. accounts bank-connection components** (ConnectBank / BankConnections /
+    ConnectionAlerts / bank-sync-gate / InitialSyncOnConnect) — deferred from 8b.
 - [ ] **10. Enforcement flip.** Blocking ESLint rule banning literal JSX strings in
   `app/**` + `components/**` (exclude API routes, `lib/`, tests, scripts, drizzle;
   ignore non-user-facing attrs); CI **key-parity** check (`keys(en) ≡ keys(is)`).

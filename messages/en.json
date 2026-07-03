@@ -259,5 +259,119 @@
       "niceToHave": "Nice to have",
       "splitNone": "Split / none"
     }
+  },
+  "landing": {
+    "metaTitle": "Finance — see where the money actually goes",
+    "metaDescription": "Upload your household's card statements and let AI sort every transaction into Fixed, Necessary, and Nice to have — then track your real net profit, statement cycle after statement cycle.",
+    "nav": {
+      "homeAria": "Homepage",
+      "signIn": "Sign in",
+      "getStarted": "Get started"
+    },
+    "hero": {
+      "badge": "Personal finance for households",
+      "title": "See where the money actually goes.",
+      "body": "Upload your card statements and let AI sort every transaction into Fixed, Necessary, and Nice to have — then watch your household's real net profit, statement cycle after statement cycle.",
+      "startFree": "Start for free",
+      "signIn": "Sign in",
+      "noCard": "Free for your first 50 classified transactions. No card required."
+    },
+    "steps": {
+      "eyebrow": "How it works",
+      "title": "From raw statement to real number in minutes.",
+      "upload": {
+        "title": "Upload your statement",
+        "body": "Export your card statement as CSV and drop it in. Map the columns once and every future upload just works."
+      },
+      "sort": {
+        "title": "Let AI sort it",
+        "body": "Claude reads every transaction and buckets it — Fixed, Necessary, or Nice to have — with a confidence score."
+      },
+      "track": {
+        "title": "Track your net",
+        "body": "Watch combined net profit across the whole household, statement cycle by statement cycle."
+      }
+    },
+    "features": {
+      "eyebrow": "Features",
+      "title": "Everything a household needs to stay honest with itself.",
+      "ai": {
+        "title": "AI classification",
+        "body": "Every transaction typed automatically, with the reasoning and confidence behind each call."
+      },
+      "net": {
+        "title": "Real net profit",
+        "body": "Income minus card spending minus fixed bills — one honest number per statement cycle."
+      },
+      "household": {
+        "title": "Shared by household",
+        "body": "One financial picture for a couple or family. Everyone uploads, everyone sees the whole."
+      },
+      "rules": {
+        "title": "Merchant rules",
+        "body": "Teach it once. A rule like “Netflix is Nice to have” sticks for every future upload."
+      },
+      "override": {
+        "title": "Your call always wins",
+        "body": "Disagree with a classification? Override any row and your choice takes precedence."
+      },
+      "cycles": {
+        "title": "Statement cycles",
+        "body": "Set your card's cutoff day so every total lines up with the statement you actually pay."
+      }
+    },
+    "pricing": {
+      "eyebrow": "Pricing",
+      "title": "Start free. Upgrade when it earns its keep.",
+      "subtitle": "The Free plan classifies your first 50 transactions for good. Premium keeps every statement cycle sorted.",
+      "recommended": "Recommended",
+      "free": {
+        "name": "Free",
+        "price": "0 kr",
+        "description": "For a first honest look at where the money goes.",
+        "f1": "Your first 50 classified transactions",
+        "f2": "Unlimited uploads and overrides",
+        "f3": "Net profit tracking",
+        "f4": "Household sharing",
+        "cta": "Start for free"
+      },
+      "premium": {
+        "name": "Premium",
+        "price": "1.990 kr",
+        "cadence": "/mo",
+        "description": "For staying on top of it, every single month.",
+        "f1": "Everything in Free",
+        "f2": "Up to ~25,000 classifications per month",
+        "f3": "Merchant rules for hands-off typing",
+        "f4": "Priority classification",
+        "cta": "Go Premium",
+        "note": "Save 30% billed annually."
+      }
+    },
+    "finalCta": {
+      "title": "Ready to see your real number?",
+      "body": "It takes one CSV and a couple of minutes to find out.",
+      "cta": "Start for free"
+    },
+    "footer": {
+      "tagline": "Personal finance for households.",
+      "signIn": "Sign in",
+      "getStarted": "Get started",
+      "github": "GitHub"
+    },
+    "preview": {
+      "month": "Jun 2026",
+      "cycle": "Statement cycle",
+      "netProfit": "Net profit",
+      "income": "Income",
+      "expenses": "Expenses",
+      "spendingByType": "Spending by type",
+      "total": "{amount} total",
+      "legend": {
+        "fixed": "Fixed",
+        "necessary": "Necessary",
+        "niceToHave": "Nice to have"
+      }
+    }
   }
 }
