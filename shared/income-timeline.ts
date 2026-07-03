@@ -7,10 +7,13 @@
  * also carry non-recurring one-off adjustments; this module resolves, per cycle, the effective
  * `monthlyIncome` and `offCardFixed` the downstream savings math (`shared/savings.ts`) consumes.
  *
- * Pure and self-contained so it can be unit-tested directly — no database or `lib/` wiring. Cycle
- * keys are fixed-width `YYYY-MM` strings, so "in force at cycle" is a lexicographic `<=` compare;
- * callers are responsible for passing well-formed keys (enforced by the DB CHECK and input
- * validation in later ADR-0015 slices).
+ * Pure and self-contained so it can be unit-tested directly — no database or `lib/` wiring. Two
+ * caller preconditions, both enforced upstream (DB CHECK + input validation in later ADR-0015
+ * slices), not re-checked here:
+ *   - cycle keys are well-formed fixed-width `YYYY-MM`, so "in force at cycle" is a lexicographic
+ *     `<=` compare;
+ *   - every amount is a non-negative whole billing-currency unit (0 is the floor — it ends a
+ *     source; a negative would silently drive `monthlyIncome`/`offCardFixed` below zero).
  */
 
 /** A Statement-cycle key, `YYYY-MM`. Compared lexicographically (valid because the width is fixed). */
@@ -18,7 +21,7 @@ export type CycleKey = string;
 
 /** One dated amount in a recurring source's timeline: the amount in force from `effectiveFrom` on. */
 export interface EffectiveAmount {
-  /** Whole billing-currency units; may be 0 to end a source (a job stops, a loan is cleared). */
+  /** Non-negative whole billing-currency units; 0 ends a source (a job stops, a loan is cleared). */
   amount: number;
   /** The Statement cycle this amount takes effect from, until a later version supersedes it. */
   effectiveFrom: CycleKey;
@@ -27,7 +30,7 @@ export interface EffectiveAmount {
 /** A non-recurring, single-cycle adjustment — a bonus/refund (income) or a one-time bill (cost). */
 export interface OneOffAdjustment {
   cycleKey: CycleKey;
-  /** Whole billing-currency units, added to that cycle's recurring base. */
+  /** Non-negative whole billing-currency units, added to that cycle's recurring base. */
   amount: number;
 }
 
