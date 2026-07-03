@@ -122,7 +122,8 @@ export function ShareControl({
           type="number"
           inputMode="numeric"
           min={1}
-          max={chargeMagnitude}
+          // Strictly less than the full charge (equal is a no-op), matching the parsedShare bound.
+          max={chargeMagnitude - 1}
           value={shareDraft}
           onChange={(event) => setShareDraft(event.target.value)}
           placeholder={`Your share of ${formatAmount(amount)}`}
