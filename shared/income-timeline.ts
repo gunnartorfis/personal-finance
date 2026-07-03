@@ -19,6 +19,26 @@
 /** A Statement-cycle key, `YYYY-MM`. Compared lexicographically (valid because the width is fixed). */
 export type CycleKey = string;
 
+/**
+ * Group recurring-source rows into per-source timelines for {@link resolveCycleAmounts} (ADR-0015):
+ * rows sharing a `name` are versions of ONE source (only the latest in force at a cycle counts),
+ * while distinct names are separate sources (summed). `amountOf` reads the row's amount column
+ * (income sources carry `amount`, off-card costs carry `monthlyAmount`), so one helper serves both.
+ */
+export function timelinesByName<T extends { name: string; effectiveFrom: CycleKey }>(
+  rows: readonly T[],
+  amountOf: (row: T) => number,
+): EffectiveAmount[][] {
+  const byName = new Map<string, EffectiveAmount[]>();
+  for (const row of rows) {
+    const version = { amount: amountOf(row), effectiveFrom: row.effectiveFrom };
+    const existing = byName.get(row.name);
+    if (existing) existing.push(version);
+    else byName.set(row.name, [version]);
+  }
+  return [...byName.values()];
+}
+
 /** One dated amount in a recurring source's timeline: the amount in force from `effectiveFrom` on. */
 export interface EffectiveAmount {
   /** Non-negative whole billing-currency units; 0 ends a source (a job stops, a loan is cleared). */
