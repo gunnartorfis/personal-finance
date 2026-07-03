@@ -140,7 +140,7 @@
   "join": {
     "srTitle": "Ganga í heimili",
     "chooseTitle": "Veldu heimili til að ganga í",
-    "pendingCount": "{count, plural, one {Þú ert með # boð í bið. Þú getur gengið í eitt.} other {Þú ert með # boð í bið. Þú getur gengið í eitt.}}",
+    "pendingCount": "Þú ert með {count} boð í bið. Þú getur gengið í eitt.",
     "invalidTitle": "Boðshlekkurinn er ekki lengur gildur",
     "invalidBody": "Þessi boðshlekkur kann að hafa verið notaður, afturkallaður eða útrunninn. Biddu þann sem bauð þér um nýjan.",
     "goDashboard": "Fara á yfirlit",

@@ -140,7 +140,7 @@
   "join": {
     "srTitle": "Join a household",
     "chooseTitle": "Choose a household to join",
-    "pendingCount": "{count, plural, one {You have # pending invitation. You can join one.} other {You have # pending invitations. You can join one.}}",
+    "pendingCount": "You have {count} pending invitations. You can join one.",
     "invalidTitle": "Invite link no longer valid",
     "invalidBody": "This invite link may have been used, revoked, or expired. Ask the person who invited you to send a new one.",
     "goDashboard": "Go to dashboard",
