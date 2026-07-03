@@ -624,9 +624,22 @@ export const savingsIncomeSources = pgTable(
     name: text("name").notNull(),
     /** Monthly amount in whole billing-currency units. */
     amount: integer("amount").notNull(),
+    /**
+     * The Statement cycle (`YYYY-MM`) this amount takes effect from, in force until a later version
+     * supersedes it (ADR-0015 **Effective cycle**). Defaults to the floor sentinel `0001-01` — a
+     * baseline in force from the start (`<=` every real cycle), which is how pre-ADR-0015 flat rows
+     * migrate. The savings resolver reads the latest version at or before each cycle.
+     */
+    effectiveFrom: text("effective_from").notNull().default("0001-01"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [check("savings_income_sources_amount_nonneg", sql`${t.amount} >= 0`)],
+  (t) => [
+    check("savings_income_sources_amount_nonneg", sql`${t.amount} >= 0`),
+    check(
+      "savings_income_sources_effective_from_format",
+      sql`${t.effectiveFrom} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`,
+    ),
+  ],
 );
 
 /** A recurring monthly Off-card fixed cost (rent, loan) not present on the uploaded cards (ADR-0007). */
@@ -640,7 +653,49 @@ export const savingsOffcardCosts = pgTable(
     name: text("name").notNull(),
     /** Monthly amount in whole billing-currency units. */
     monthlyAmount: integer("monthly_amount").notNull(),
+    /** Effective cycle (`YYYY-MM`) this cost takes effect from — see `savingsIncomeSources` (ADR-0015). */
+    effectiveFrom: text("effective_from").notNull().default("0001-01"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [check("savings_offcard_costs_monthly_amount_nonneg", sql`${t.monthlyAmount} >= 0`)],
+  (t) => [
+    check("savings_offcard_costs_monthly_amount_nonneg", sql`${t.monthlyAmount} >= 0`),
+    check(
+      "savings_offcard_costs_effective_from_format",
+      sql`${t.effectiveFrom} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`,
+    ),
+  ],
+);
+
+/** Whether a one-off adjustment adds to a cycle's income or its off-card cost (ADR-0015). */
+export const oneOffKindEnum = pgEnum("one_off_kind", ["income", "cost"]);
+
+/**
+ * A non-recurring, single-cycle adjustment to a Household's savings inputs (ADR-0015 **One-off
+ * adjustment**): a bonus/refund (`income`) or a one-time bill (`cost`), added to that cycle's
+ * recurring base and affecting only that cycle. Never carries forward.
+ */
+export const savingsOneOffAdjustments = pgTable(
+  "savings_one_off_adjustments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    /** The Statement cycle (`YYYY-MM`) this adjustment lands on. */
+    cycleKey: text("cycle_key").notNull(),
+    kind: oneOffKindEnum("kind").notNull(),
+    /** Whole billing-currency units, non-negative — added to that cycle's recurring base. */
+    amount: integer("amount").notNull(),
+    /** Optional human label (e.g. "Tax refund"); free text, exempt from net math. */
+    label: text("label"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("savings_one_off_adjustments_household_cycle_idx").on(t.householdId, t.cycleKey),
+    check("savings_one_off_adjustments_amount_nonneg", sql`${t.amount} >= 0`),
+    check(
+      "savings_one_off_adjustments_cycle_key_format",
+      sql`${t.cycleKey} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`,
+    ),
+  ],
 );
