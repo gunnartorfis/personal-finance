@@ -83,6 +83,14 @@ describe("PUT /api/transactions/[id]/share", () => {
     expect(h.setOwnShare).not.toHaveBeenCalled()
   })
 
+  it("400s a share equal to the full charge (a no-op, not a split)", async () => {
+    const h = householdWith({ id: ID, amount: -1_000, excluded: false })
+    requireHousehold.mockResolvedValue(h)
+    const res = await PUT(req("PUT", { ownShareAmount: -1_000 }), ctx(ID))
+    expect(res.status).toBe(400)
+    expect(h.setOwnShare).not.toHaveBeenCalled()
+  })
+
   it("sets the Own share on a debit and echoes it back", async () => {
     const h = householdWith({ id: ID, amount: -200_000, excluded: false })
     requireHousehold.mockResolvedValue(h)

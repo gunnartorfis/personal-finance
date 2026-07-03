@@ -15,9 +15,12 @@ a Shared expense takes it *partially* out. Persisted as one nullable
 
 DB CHECKs: `own_share_amount` is set only when `amount < 0` (debit-only); bounded
 `amount <= own_share_amount < 0` (a real, nonzero expense no larger than the charge — a
-share of zero is Excluded, a share equal to `amount` is a UI-prevented no-op); and
-mutually exclusive with `excluded` (`NOT (own_share_amount IS NOT NULL AND excluded)`).
-Excluding clears the share, symmetric with how excluding clears `income_marked` today.
+share of zero is Excluded); and mutually exclusive with `excluded`
+(`NOT (own_share_amount IS NOT NULL AND excluded)`). Excluding clears the share, symmetric
+with how excluding clears `income_marked` today. The DB CHECK permits a share *equal* to the
+charge as a structural bound, but the UI and the API route both reject it: it counts
+identically to no split (`effective_amount` resolves to `amount`), so it is a no-op, not a
+Shared expense — the product rule is a share strictly smaller than the charge.
 
 ## Considered Options
 

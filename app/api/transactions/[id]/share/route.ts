@@ -16,7 +16,8 @@ const UUID_RE =
  * The transaction is resolved through the household-scoped repo first, so another tenant's id is a
  * 404, never a silent write.
  *
- * - PUT    — body `{ ownShareAmount }` (negative integer, `amount <= ownShareAmount < 0`).
+ * - PUT    — body `{ ownShareAmount }` (negative integer, `amount < ownShareAmount < 0`; a share
+ *   equal to the charge is a no-op and is rejected).
  * - DELETE — clear the share, returning the row to its full charged amount.
  */
 async function readOwnShare(
@@ -75,10 +76,12 @@ export async function PUT(
       { status: 409 }
     )
   }
-  // The share can't be larger than the charge it comes from (magnitude bound, ADR-0014).
-  if (parsed.ownShareAmount < transaction.amount) {
+  // The share must be a real fraction of the charge: strictly less than the full amount. A share
+  // equal to (or larger than) the charge is rejected — equal counts identically to no split, which
+  // the ADR calls a no-op to prevent, and larger would exceed the charge (ADR-0014).
+  if (parsed.ownShareAmount <= transaction.amount) {
     return NextResponse.json(
-      { error: "ownShareAmount cannot exceed the charge" },
+      { error: "ownShareAmount must be less than the full charge" },
       { status: 400 }
     )
   }

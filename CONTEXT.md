@@ -65,7 +65,7 @@ A debit Transaction the Household only partly bears because it fronted the rest 
 _Avoid_: Split (a verb only, and implies breaking one row into many — the row is never split; only its effective magnitude shrinks), Group expense, Shared cost (collides with **Off-card fixed cost**)
 
 **Own share**:
-The portion of a **Shared expense** that counts as the Household's **Spending** — a negative amount with magnitude between zero (exclusive) and the charged **amount** (inclusive). Everywhere net math would use the charged amount for such a Transaction it uses Own share instead; the difference (amount − Own share) counts for nothing, exactly as if **Excluded**. Never mutates the charged **amount**, which stays the append-only source of truth (ADR-0003/0004).
+The portion of a **Shared expense** that counts as the Household's **Spending** — a negative amount whose magnitude is at least one unit and strictly less than the charged **amount** (a share equal to the whole charge is no split at all, and a share of zero is **Excluded**). Everywhere net math would use the charged amount for such a Transaction it uses Own share instead; the difference (amount − Own share) counts for nothing, exactly as if **Excluded**. Never mutates the charged **amount**, which stays the append-only source of truth (ADR-0003/0004).
 _Avoid_: Split amount, My part, Portion (unqualified)
 
 **Difference**:

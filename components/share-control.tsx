@@ -66,11 +66,13 @@ export function ShareControl({
     }
   }
 
-  // The parsed, in-bounds share magnitude, or null when the draft isn't a usable value yet.
+  // The parsed, in-bounds share magnitude, or null when the draft isn't a usable value yet. A share
+  // must be a real fraction of the charge: at least 1 and strictly less than the full charge — a
+  // share equal to the charge counts identically to no split, so it's rejected (ADR-0014).
   const parsedShare = (() => {
     const value = Math.round(Number(shareDraft))
     if (!shareDraft.trim() || !Number.isFinite(value)) return null
-    if (value < 1 || value > chargeMagnitude) return null
+    if (value < 1 || value >= chargeMagnitude) return null
     return value
   })()
 
