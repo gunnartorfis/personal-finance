@@ -112,9 +112,14 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
   - [x] **9b. app nav** (`lib/nav` labels → stable `labelKey` into a `nav`
     namespace; `app-sidebar`, `app-header` breadcrumb, `settings-nav` resolve via
     literal-key records). Brand "Finance" stays literal.
-  - [ ] **9c. auth shell chrome** (any of our own copy around the Neon Auth views).
-  - [ ] **9d. accounts bank-connection components** (ConnectBank / BankConnections /
-    ConnectionAlerts / bank-sync-gate / InitialSyncOnConnect) — deferred from 8b.
+  - [x] **9c. auth shell chrome** — N/A: `app/auth/[path]` renders only Neon Auth's
+    `AuthView` with no app-owned copy (Neon Auth UI stays English v1), so nothing to
+    migrate.
+  - [x] **9d. bank-connection components** (ConnectBank, BankConnections + status
+    labels, ConnectionAlerts reason copy, bank-sync-gate rich upgrade link,
+    InitialSyncOnConnect plural, disconnect/reconnect buttons) → `bankSync`
+    namespace: guarded status/reason switches, ICU `=0`/one/other import plural,
+    `{bank}`-interpolated aria/messages.
 - [ ] **10. Enforcement flip.** Blocking ESLint rule banning literal JSX strings in
   `app/**` + `components/**` (exclude API routes, `lib/`, tests, scripts, drizzle;
   ignore non-user-facing attrs); CI **key-parity** check (`keys(en) ≡ keys(is)`).

@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
 import { ConnectionAlerts } from "@/components/connection-alerts"
+import { renderWithIntl as render } from "@/lib/test/render"
 import type { ReconnectPrompt } from "@/lib/open-banking/reconnect"
 
 describe("ConnectionAlerts", () => {
@@ -17,9 +18,15 @@ describe("ConnectionAlerts", () => {
     ]
     render(<ConnectionAlerts prompts={prompts} />)
 
-    expect(screen.getByText(/consent for Landsbankinn has expired/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/consent for Landsbankinn has expired/i)
+    ).toBeInTheDocument()
     expect(screen.getByText(/sync failed for Arion/i)).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /reconnect landsbankinn/i })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /reconnect arion/i })).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: /reconnect landsbankinn/i })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: /reconnect arion/i })
+    ).toBeInTheDocument()
   })
 })

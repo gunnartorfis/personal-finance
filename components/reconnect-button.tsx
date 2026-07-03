@@ -1,6 +1,7 @@
 "use client"
 
 import { Loader2, RefreshCw } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -19,6 +20,7 @@ export function ReconnectButton({
   institutionName: string
   className?: string
 }) {
+  const t = useTranslations("bankSync.reconnect")
   const [busy, setBusy] = useState(false)
   const [errored, setErrored] = useState(false)
 
@@ -49,14 +51,14 @@ export function ReconnectButton({
         size="lg"
         onClick={() => void reconnect()}
         disabled={busy}
-        aria-label={`Reconnect ${institutionName}`}
+        aria-label={t("aria", { bank: institutionName })}
       >
         {busy ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-        {busy ? "Reconnecting…" : "Reconnect"}
+        {busy ? t("reconnecting") : t("reconnect")}
       </Button>
       {errored && (
         <p role="alert" className="text-xs text-destructive">
-          Couldn&apos;t start reconnect — try again.
+          {t("error")}
         </p>
       )}
     </div>

@@ -1,6 +1,7 @@
 "use client"
 
 import { Loader2 } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
@@ -18,6 +19,7 @@ export function DisconnectButton({
   connectionId: string
   institutionName: string
 }) {
+  const t = useTranslations("bankSync.disconnect")
   const router = useRouter()
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -27,9 +29,12 @@ export function DisconnectButton({
     setBusy(true)
     setErrored(false)
     try {
-      const res = await fetch(`/api/open-banking/connections/${connectionId}/disconnect`, {
-        method: "POST",
-      })
+      const res = await fetch(
+        `/api/open-banking/connections/${connectionId}/disconnect`,
+        {
+          method: "POST",
+        }
+      )
       if (!res.ok) throw new Error("disconnect failed")
       setConfirming(false)
       router.refresh()
@@ -47,9 +52,9 @@ export function DisconnectButton({
         variant="destructive"
         size="lg"
         onClick={() => setConfirming(true)}
-        aria-label={`Disconnect ${institutionName}`}
+        aria-label={t("aria", { bank: institutionName })}
       >
-        Disconnect
+        {t("action")}
       </Button>
     )
   }
@@ -67,7 +72,7 @@ export function DisconnectButton({
           }}
           disabled={busy}
         >
-          Cancel
+          {t("cancel")}
         </Button>
         <Button
           type="button"
@@ -75,15 +80,15 @@ export function DisconnectButton({
           size="lg"
           onClick={() => void disconnect()}
           disabled={busy}
-          aria-label={`Confirm disconnect ${institutionName}`}
+          aria-label={t("confirmAria", { bank: institutionName })}
         >
           {busy ? <Loader2 className="animate-spin" /> : null}
-          {busy ? "Disconnecting…" : "Confirm"}
+          {busy ? t("disconnecting") : t("confirm")}
         </Button>
       </div>
       {errored && (
         <p role="alert" className="text-xs text-destructive">
-          Couldn&apos;t disconnect — try again.
+          {t("error")}
         </p>
       )}
     </div>
