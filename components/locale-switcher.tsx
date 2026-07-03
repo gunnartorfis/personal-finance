@@ -28,12 +28,14 @@ export function LocaleSwitcher() {
 
   function switchLocale() {
     startTransition(async () => {
-      await fetch("/api/settings/locale", {
+      const res = await fetch("/api/settings/locale", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ locale: target }),
       })
-      router.refresh()
+      // Only re-render if the switch actually persisted; a failed request must not
+      // trigger a misleading no-op refresh (the control stays on the old locale).
+      if (res.ok) router.refresh()
     })
   }
 

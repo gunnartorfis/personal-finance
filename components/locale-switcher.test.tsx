@@ -68,4 +68,15 @@ describe("LocaleSwitcher", () => {
     renderSwitcher("en")
     expect(screen.getByRole("button", { name: /Íslenska/i })).toBeInTheDocument()
   })
+
+  it("does not refresh when the request fails", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false })
+    vi.stubGlobal("fetch", fetchMock)
+
+    renderSwitcher("is")
+    await userEvent.click(screen.getByRole("button", { name: /English/i }))
+
+    expect(fetchMock).toHaveBeenCalled()
+    expect(refresh).not.toHaveBeenCalled()
+  })
 })
