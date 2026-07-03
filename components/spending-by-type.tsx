@@ -1,5 +1,6 @@
 "use client"
 
+import { useLocale, useTranslations } from "next-intl"
 import { Bar, BarChart, XAxis, YAxis } from "recharts"
 
 import {
@@ -8,6 +9,9 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
+import { useCategoryLabels } from "@/lib/category-labels"
+import { currencyFormatter } from "@/lib/format/currency"
+import { defaultLocale, toLocale } from "@/lib/i18n/config"
 import type { NetSummary } from "@/lib/dashboard/net-summary"
 import { cn } from "@/lib/utils"
 
@@ -24,7 +28,10 @@ export const CATEGORIES = [
     slug: "fixed",
     label: "Fixed",
     swatch: "bg-emerald-500",
-    color: { light: "var(--color-emerald-500)", dark: "var(--color-emerald-500)" },
+    color: {
+      light: "var(--color-emerald-500)",
+      dark: "var(--color-emerald-500)",
+    },
   },
   {
     key: "Necessary",
@@ -74,12 +81,11 @@ export function SpendingByType({
   headingLevel?: 2 | 3
   className?: string
 }) {
-  const fmt = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount)
+  const t = useTranslations("spendingByType")
+  const locale = toLocale(useLocale()) ?? defaultLocale
+  const categoryLabels = useCategoryLabels()
+  const money = currencyFormatter(currency, locale)
+  const fmt = (amount: number) => money.format(amount)
 
   const totalExpense = Math.abs(summary.expense)
 
@@ -99,27 +105,36 @@ export function SpendingByType({
   const Heading = headingLevel === 3 ? "h3" : "h2"
 
   const chartConfig = Object.fromEntries(
-    breakdown.map((category) => [category.slug, { label: category.label, theme: category.color }])
+    breakdown.map((category) => [
+      category.slug,
+      { label: categoryLabels[category.key], theme: category.color },
+    ])
   ) satisfies ChartConfig
   // Denominator for the tooltip shares. `stackOffset="expand"` sizes each segment against the sum of
   // the rendered magnitudes, so the tooltip must use that same sum (not `totalExpense`, which can
   // diverge from it) for the percentages to match the bar widths and add up to 100%.
-  const breakdownTotal = breakdown.reduce((sum, category) => sum + category.magnitude, 0)
+  const breakdownTotal = breakdown.reduce(
+    (sum, category) => sum + category.magnitude,
+    0
+  )
   // One row; each present category is a stacked segment. `stackOffset="expand"` normalises the row
   // to 100%, so segment widths read as shares of total spend.
   const chartData = [
-    breakdown.reduce<Record<string, number | string>>((row, category) => {
-      row[category.slug] = category.magnitude
-      return row
-    }, { row: "spend" }),
+    breakdown.reduce<Record<string, number | string>>(
+      (row, category) => {
+        row[category.slug] = category.magnitude
+        return row
+      },
+      { row: "spend" }
+    ),
   ]
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
       <div className="flex items-baseline justify-between gap-4">
-        <Heading className="text-sm font-medium">Spending by type</Heading>
+        <Heading className="text-sm font-medium">{t("heading")}</Heading>
         <p className="text-sm text-muted-foreground tabular-nums">
-          {fmt(totalExpense)} total
+          {t("total", { amount: fmt(totalExpense) })}
         </p>
       </div>
 
@@ -142,11 +157,14 @@ export function SpendingByType({
                 hideLabel
                 formatter={(value, name) => {
                   const label = chartConfig[name as string]?.label ?? name
-                  const share = breakdownTotal > 0 ? (Number(value) / breakdownTotal) * 100 : 0
+                  const share =
+                    breakdownTotal > 0
+                      ? (Number(value) / breakdownTotal) * 100
+                      : 0
                   return (
                     <span className="flex w-full items-center justify-between gap-3">
                       <span className="text-muted-foreground">{label}</span>
-                      <span className="tabular-nums text-foreground">
+                      <span className="text-foreground tabular-nums">
                         {fmt(Number(value))} · {Math.round(share)}%
                       </span>
                     </span>
@@ -178,7 +196,9 @@ export function SpendingByType({
                 className={cn("size-2 shrink-0 rounded-full", category.swatch)}
                 aria-hidden="true"
               />
-              <span className="text-muted-foreground">{category.label}</span>
+              <span className="text-muted-foreground">
+                {categoryLabels[category.key]}
+              </span>
             </span>
             <span className="tabular-nums">{fmt(category.magnitude)}</span>
           </li>

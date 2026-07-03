@@ -1,4 +1,8 @@
+import { useLocale, useTranslations } from "next-intl"
+
 import { SpendingByType } from "@/components/spending-by-type"
+import { currencyFormatter } from "@/lib/format/currency"
+import { defaultLocale, toLocale } from "@/lib/i18n/config"
 import type { NetSummary } from "@/lib/dashboard/net-summary"
 import { cn } from "@/lib/utils"
 
@@ -17,12 +21,10 @@ export function NetSummaryCard({
   currency: string
   cycleLabel: string
 }) {
-  const fmt = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount)
+  const t = useTranslations("netSummary")
+  const locale = toLocale(useLocale()) ?? defaultLocale
+  const money = currencyFormatter(currency, locale)
+  const fmt = (amount: number) => money.format(amount)
 
   const isProfit = summary.net >= 0
 
@@ -30,17 +32,19 @@ export function NetSummaryCard({
     <section className="@container flex flex-col gap-6 rounded-xl border border-border bg-card p-6">
       <header className="flex items-baseline justify-between gap-4">
         <h2 className="text-base font-medium">{cycleLabel}</h2>
-        <span className="text-sm text-muted-foreground">Statement cycle</span>
+        <span className="text-sm text-muted-foreground">{t("cycle")}</span>
       </header>
 
       <div className="flex flex-col gap-1">
         <span className="text-sm text-muted-foreground">
-          {isProfit ? "Net profit" : "Net loss"}
+          {isProfit ? t("netProfit") : t("netLoss")}
         </span>
         <span
           className={cn(
             "text-3xl font-semibold tabular-nums",
-            isProfit ? "text-emerald-600 dark:text-emerald-500" : "text-destructive"
+            isProfit
+              ? "text-emerald-600 dark:text-emerald-500"
+              : "text-destructive"
           )}
         >
           {fmt(summary.net)}
@@ -49,13 +53,21 @@ export function NetSummaryCard({
 
       <dl className="grid grid-cols-1 divide-y divide-border @xs:grid-cols-2 @xs:divide-x @xs:divide-y-0">
         <div className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 @xs:px-4 @xs:py-0 @xs:first:pl-0 @xs:last:pr-0">
-          <dt className="truncate text-sm text-muted-foreground">Income</dt>
-          <dd className="text-lg font-semibold tabular-nums">{fmt(summary.income)}</dd>
+          <dt className="truncate text-sm text-muted-foreground">
+            {t("income")}
+          </dt>
+          <dd className="text-lg font-semibold tabular-nums">
+            {fmt(summary.income)}
+          </dd>
         </div>
         <div className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 @xs:px-4 @xs:py-0 @xs:first:pl-0 @xs:last:pr-0">
-          <dt className="truncate text-sm text-muted-foreground">Expenses</dt>
+          <dt className="truncate text-sm text-muted-foreground">
+            {t("expenses")}
+          </dt>
           {/* Magnitude, matching the breakdown rows — direction is conveyed by the label and net. */}
-          <dd className="text-lg font-semibold tabular-nums">{fmt(Math.abs(summary.expense))}</dd>
+          <dd className="text-lg font-semibold tabular-nums">
+            {fmt(Math.abs(summary.expense))}
+          </dd>
         </div>
       </dl>
 

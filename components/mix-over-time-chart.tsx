@@ -13,6 +13,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
+import { useCategoryLabels } from "@/lib/category-labels"
 import { currencyFormatter } from "@/lib/format/currency"
 import { formatCycleMonth } from "@/lib/format/date"
 import { defaultLocale, toLocale } from "@/lib/i18n/config"
@@ -90,6 +91,7 @@ export function MixOverTimeChart({
 }) {
   const t = useTranslations("charts.mixOverTime")
   const locale = toLocale(useLocale()) ?? defaultLocale
+  const categoryLabels = useCategoryLabels()
   const money = currencyFormatter(currency, locale)
   const fmt = (amount: number) => money.format(amount)
 
@@ -98,7 +100,7 @@ export function MixOverTimeChart({
   // surrounding sentence is localized here.
   function mixLabel(point: CategoryTrendPoint): string {
     const magnitudes = CATEGORIES.map((category) => ({
-      label: category.label,
+      label: categoryLabels[category.key],
       magnitude: magnitudeFor(point, category.key),
     }))
     const total = magnitudes.reduce((sum, item) => sum + item.magnitude, 0)
@@ -121,7 +123,7 @@ export function MixOverTimeChart({
   const chartConfig = Object.fromEntries(
     present.map((category) => [
       category.slug,
-      { label: category.label, theme: category.color },
+      { label: categoryLabels[category.key], theme: category.color },
     ])
   ) satisfies ChartConfig
 
