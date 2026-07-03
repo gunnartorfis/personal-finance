@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
@@ -28,6 +29,7 @@ export default async function JoinTokenPage({
   const user = await getCurrentUser()
   if (!user) redirect("/auth/sign-in")
 
+  const t = await getTranslations("join")
   const db = getDb()
   const preview = await getInvitePreviewByToken(db, token)
   const now = new Date()
@@ -37,13 +39,10 @@ export default async function JoinTokenPage({
   if (invalid) {
     return (
       <main className="mx-auto flex min-h-svh w-full max-w-md flex-col justify-center gap-4 px-6 py-12">
-        <h1 className="text-xl font-semibold tracking-tight">Invite link no longer valid</h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          This invite link may have been used, revoked, or expired. Ask the person who invited you to
-          send a new one.
-        </p>
+        <h1 className="text-xl font-semibold tracking-tight">{t("invalidTitle")}</h1>
+        <p className="text-sm text-pretty text-muted-foreground">{t("invalidBody")}</p>
         <Button variant="outline" className="self-start" render={<Link href="/dashboard" />}>
-          Go to dashboard
+          {t("goDashboard")}
         </Button>
       </main>
     )
@@ -64,7 +63,7 @@ export default async function JoinTokenPage({
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-md flex-col justify-center gap-4 px-6 py-12">
       {/* The card's h2 is the visible headline; keep an sr-only h1 for the document outline. */}
-      <h1 className="sr-only">Join a household</h1>
+      <h1 className="sr-only">{t("srTitle")}</h1>
       <InviteCard
         invitedEmail={preview.email}
         inviterName={details.inviterName}

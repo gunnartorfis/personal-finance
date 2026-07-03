@@ -136,5 +136,29 @@
       "generic": "Tókst ekki að samþykkja boðið."
     },
     "declineError": "Tókst ekki að hafna boðinu."
+  },
+  "join": {
+    "srTitle": "Ganga í heimili",
+    "chooseTitle": "Veldu heimili til að ganga í",
+    "pendingCount": "{count, plural, one {Þú ert með # boð í bið. Þú getur gengið í eitt.} other {Þú ert með # boð í bið. Þú getur gengið í eitt.}}",
+    "invalidTitle": "Boðshlekkurinn er ekki lengur gildur",
+    "invalidBody": "Þessi boðshlekkur kann að hafa verið notaður, afturkallaður eða útrunninn. Biddu þann sem bauð þér um nýjan.",
+    "goDashboard": "Fara á yfirlit",
+    "verify": {
+      "title": "Staðfestu netfangið þitt til að ganga í",
+      "body": "Þér hefur verið boðið að deila sameiginlegum fjármálum heimilis. Þar sem það nær yfir peninga allra þurfum við að staðfesta að þú eigir <strong>{email}</strong> áður en þú sérð þau. Opnaðu staðfestingarhlekkinn sem við sendum þér og haltu svo áfram.",
+      "alreadyClicked": "Smelltir þú þegar á hlekkinn?",
+      "continueBlurb": "Haltu áfram til að samþykkja boðið og opna sameiginlega heimilið.",
+      "continue": "Ég hef staðfest netfangið mitt",
+      "resend": {
+        "idle": "Senda staðfestingarpóst aftur",
+        "sending": "Sendi…",
+        "sent": "Sent — athugaðu pósthólfið"
+      },
+      "resendError": "Tókst ekki að senda nýjan póst. Notaðu hlekkinn úr upphaflega boðspóstinum, eða reyndu aftur fljótlega.",
+      "switching": "Skrái út…",
+      "switch": "Ekki þú? Skráðu þig inn með öðrum aðgangi",
+      "switchError": "Tókst ekki að skrá út. Reyndu aftur."
+    }
   }
 }
