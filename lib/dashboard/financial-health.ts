@@ -135,7 +135,8 @@ export function computeFinancialHealth(
 
 /**
  * Load the Household's financial-health metrics over the `count` most recent COMPLETED cycles ending
- * before the month containing `now` (default 12 look-back). Resolves each cycle's effective income /
+ * before the month containing `now` (default 12; the in-progress current month is always excluded,
+ * ADR-0014, so the look-back asks for one extra cycle). Resolves each cycle's effective income /
  * off-card cost from the dated source timelines plus one-off adjustments (ADR-0015) — the same
  * resolution the Savings math uses — and reads card debits from the per-cycle spend series in one
  * grouped query. Leading cycles with no income and no spend (before the Household's history begins)
@@ -147,7 +148,10 @@ export async function loadFinancialHealth(
   count = 12,
 ): Promise<FinancialHealth> {
   const currentKey = currentCycleKey(now);
-  const completedKeys = recentCycleKeys(now, count).filter((key) => key < currentKey);
+  // `count` is the number of COMPLETED cycles to consider. `recentCycleKeys` counts from the current
+  // (in-progress) month, so ask for one extra and drop the current month — leaving up to `count`
+  // completed cycles (fewer only when the Household's history is shorter), never `count − 1`.
+  const completedKeys = recentCycleKeys(now, count + 1).filter((key) => key < currentKey);
   if (completedKeys.length === 0) return computeFinancialHealth([]);
 
   const range = {

@@ -176,6 +176,30 @@ describe("loadFinancialHealth", () => {
     expect(health.streakConsidered).toBe(4);
   });
 
+  it("treats count as the number of completed cycles (excluding the current month is not off-by-one)", async () => {
+    // count === minCycles must still clear the history gate: three completed cycles of data, count=3.
+    const repo = await freshHousehold();
+    const [account] = await repo.accounts.create({ name: "Visa" });
+    const [upload] = await repo.uploads.create({
+      accountId: account.id,
+      fileName: "c.csv",
+      fileHash: "c",
+    });
+    const base = { accountId: account.id, uploadId: upload.id, rawCategory: "" };
+    await repo.transactions.createMany([
+      { ...base, date: "2025-12-10", amount: -100, merchant: "DEC", sourceRow: 0 },
+      { ...base, date: "2026-01-10", amount: -100, merchant: "JAN", sourceRow: 1 },
+      { ...base, date: "2026-02-10", amount: -100, merchant: "FEB", sourceRow: 2 },
+    ]);
+    await repo.savings.incomeSources.replace([
+      { name: "Salary", amount: 1000, effectiveFrom: "2025-12" },
+    ]);
+
+    const health = await loadFinancialHealth(repo, NOW, 3);
+    expect(health.completedCycles).toBe(3);
+    expect(health.hasEnoughHistory).toBe(true);
+  });
+
   it("never counts another household's transactions", async () => {
     const a = await freshHousehold();
     const b = await freshHousehold();
