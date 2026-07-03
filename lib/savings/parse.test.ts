@@ -159,6 +159,16 @@ describe("parseSavingsConfigInput", () => {
     });
   });
 
+  it("treats a null one-off label as absent, so a GET→PUT round-trip of DB rows doesn't 400", () => {
+    const result = parseSavingsConfigInput({
+      incomeSources: [],
+      offcardCosts: [],
+      oneOffAdjustments: [{ cycleKey: "2026-03", kind: "income", amount: 5, label: null }],
+    });
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.value.oneOffAdjustments![0].label).toBeUndefined();
+  });
+
   it("leaves oneOffAdjustments undefined when the body omits it (don't-touch semantics)", () => {
     const result = parseSavingsConfigInput({ incomeSources: [], offcardCosts: [] });
     expect(result.ok && result.value.oneOffAdjustments).toBeUndefined();

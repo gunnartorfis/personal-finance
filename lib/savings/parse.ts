@@ -144,7 +144,9 @@ function parseOneOff(
   if (typeof record.amount !== "number" || !Number.isInteger(record.amount) || record.amount < 0) {
     return { ok: false, error: "one-off adjustment amount must be a non-negative integer" };
   }
-  if (record.label !== undefined && typeof record.label !== "string") {
+  // `null` is treated as absent (SQL-null semantics), so a GET response — which serializes a missing
+  // label as `label: null` — round-trips back through PUT without a spurious 400.
+  if (record.label !== undefined && record.label !== null && typeof record.label !== "string") {
     return { ok: false, error: "one-off adjustment label must be a string" };
   }
   const label = typeof record.label === "string" ? record.label.trim() : "";
