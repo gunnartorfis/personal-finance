@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react"
+import { fireEvent, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -8,8 +8,15 @@ import { renderWithIntl } from "@/lib/test/render"
 afterEach(() => vi.unstubAllGlobals())
 
 type Config = {
-  incomeSources: Array<{ id?: string; name: string; amount: number }>
-  offcardCosts: Array<{ id?: string; name: string; monthlyAmount: number }>
+  incomeSources: Array<{ id?: string; name: string; amount: number; effectiveFrom: string }>
+  offcardCosts: Array<{ id?: string; name: string; monthlyAmount: number; effectiveFrom: string }>
+  oneOffAdjustments: Array<{
+    id?: string
+    cycleKey: string
+    kind: "income" | "cost"
+    amount: number
+    label: string | null
+  }>
 }
 
 function stubApi(initial: Config, opts: { putFails?: boolean } = {}) {
@@ -31,8 +38,14 @@ function stubApi(initial: Config, opts: { putFails?: boolean } = {}) {
 }
 
 const config: Config = {
-  incomeSources: [{ id: "s1", name: "Salary", amount: 700_000 }],
-  offcardCosts: [{ id: "c1", name: "Mortgage", monthlyAmount: 250_000 }],
+  incomeSources: [{ id: "s1", name: "Salary", amount: 700_000, effectiveFrom: "0001-01" }],
+  offcardCosts: [{ id: "c1", name: "Mortgage", monthlyAmount: 250_000, effectiveFrom: "0001-01" }],
+  oneOffAdjustments: [],
+}
+
+function putBody(fetchMock: ReturnType<typeof stubApi>) {
+  const call = fetchMock.mock.calls.find((c) => (c[1] as RequestInit)?.method === "PUT")!
+  return JSON.parse((call[1] as RequestInit).body as string)
 }
 
 describe("SavingsConfigForm", () => {
@@ -43,45 +56,95 @@ describe("SavingsConfigForm", () => {
     expect(screen.getByDisplayValue("Mortgage")).toBeInTheDocument()
   })
 
-  it("adds a row and saves the full lists", async () => {
+  it("shows an existing dated version as a 'from month' input (ADR-0015)", async () => {
+    stubApi({
+      ...config,
+      incomeSources: [
+        { id: "s1", name: "Salary", amount: 500_000, effectiveFrom: "0001-01" },
+        { id: "s2", name: "Salary", amount: 700_000, effectiveFrom: "2026-07" },
+      ],
+    })
+    renderWithIntl(<SavingsConfigForm />)
+    await screen.findByDisplayValue("Salary")
+    expect(screen.getByDisplayValue("2026-07")).toBeInTheDocument()
+  })
+
+  it("adds a dated change to a source and saves it as a second version sharing the name", async () => {
     const fetchMock = stubApi(config)
     renderWithIntl(<SavingsConfigForm />)
     await screen.findByDisplayValue("Salary")
 
     const income = screen.getByRole("group", { name: /income sources/i })
-    await userEvent.click(within(income).getByRole("button", { name: /add income source/i }))
-    const nameInputs = within(income).getAllByLabelText(/name/i)
-    const amountInputs = within(income).getAllByLabelText(/amount/i)
-    await userEvent.type(nameInputs[nameInputs.length - 1], "Rental")
-    await userEvent.type(amountInputs[amountInputs.length - 1], "150000")
-    await userEvent.click(screen.getByRole("button", { name: /save config/i }))
+    await userEvent.click(within(income).getByRole("button", { name: /add a change/i }))
+    const months = within(income).getAllByLabelText(/from month/i)
+    fireEvent.change(months[months.length - 1], { target: { value: "2026-07" } })
+    const amounts = within(income).getAllByLabelText(/amount \/ month/i)
+    fireEvent.change(amounts[amounts.length - 1], { target: { value: "800000" } })
 
+    await userEvent.click(screen.getByRole("button", { name: /save config/i }))
     expect(await screen.findByText(/config saved/i)).toBeInTheDocument()
-    const putCall = fetchMock.mock.calls.find((c) => (c[1] as RequestInit)?.method === "PUT")!
-    expect(JSON.parse((putCall[1] as RequestInit).body as string)).toEqual({
+
+    expect(putBody(fetchMock)).toEqual({
       incomeSources: [
-        { name: "Salary", amount: 700_000 },
-        { name: "Rental", amount: 150_000 },
+        { name: "Salary", amount: 700_000, effectiveFrom: "0001-01" },
+        { name: "Salary", amount: 800_000, effectiveFrom: "2026-07" },
       ],
-      offcardCosts: [{ name: "Mortgage", monthlyAmount: 250_000 }],
+      offcardCosts: [{ name: "Mortgage", monthlyAmount: 250_000, effectiveFrom: "0001-01" }],
+      oneOffAdjustments: [],
     })
   })
 
-  it("removes a row before saving", async () => {
+  it("adds a one-off adjustment and sends it in the PUT body", async () => {
     const fetchMock = stubApi(config)
     renderWithIntl(<SavingsConfigForm />)
     await screen.findByDisplayValue("Salary")
 
-    const costs = screen.getByRole("group", { name: /off-card costs/i })
-    await userEvent.click(within(costs).getByRole("button", { name: /remove/i }))
-    await userEvent.click(screen.getByRole("button", { name: /save config/i }))
+    const oneoffs = screen.getByRole("group", { name: /one-off adjustments/i })
+    await userEvent.click(within(oneoffs).getByRole("button", { name: /add one-off/i }))
+    fireEvent.change(within(oneoffs).getByLabelText(/^month$/i), { target: { value: "2026-03" } })
+    fireEvent.change(within(oneoffs).getByLabelText(/^amount$/i), { target: { value: "300000" } })
+    await userEvent.type(within(oneoffs).getByLabelText(/^label$/i), "Tax refund")
 
+    await userEvent.click(screen.getByRole("button", { name: /save config/i }))
     expect(await screen.findByText(/config saved/i)).toBeInTheDocument()
-    const putCall = fetchMock.mock.calls.find((c) => (c[1] as RequestInit)?.method === "PUT")!
-    expect(JSON.parse((putCall[1] as RequestInit).body as string)).toEqual({
-      incomeSources: [{ name: "Salary", amount: 700_000 }],
-      offcardCosts: [],
+
+    expect(putBody(fetchMock).oneOffAdjustments).toEqual([
+      { cycleKey: "2026-03", kind: "income", amount: 300_000, label: "Tax refund" },
+    ])
+  })
+
+  it("renders a migrated source (earliest version dated, no floor) with an editable month", async () => {
+    // ADR-0015 migration backfills existing rows to the goal's start cycle, not the floor — so the
+    // earliest version is dated and must stay editable, not be shown as an uneditable baseline.
+    stubApi({
+      ...config,
+      incomeSources: [{ id: "s1", name: "Salary", amount: 500_000, effectiveFrom: "2026-06" }],
     })
+    renderWithIntl(<SavingsConfigForm />)
+    await screen.findByDisplayValue("Salary")
+    const income = screen.getByRole("group", { name: /income sources/i })
+    expect(within(income).getByDisplayValue("2026-06")).toBeInTheDocument()
+    expect(within(income).queryByText(/from the start/i)).not.toBeInTheDocument()
+  })
+
+  it("blocks saving when two versions of a source share a month, without issuing a PUT", async () => {
+    const fetchMock = stubApi(config)
+    renderWithIntl(<SavingsConfigForm />)
+    await screen.findByDisplayValue("Salary")
+
+    const income = screen.getByRole("group", { name: /income sources/i })
+    await userEvent.click(within(income).getByRole("button", { name: /add a change/i }))
+    await userEvent.click(within(income).getByRole("button", { name: /add a change/i }))
+    const months = within(income).getAllByLabelText(/from month/i)
+    fireEvent.change(months[0], { target: { value: "2026-07" } })
+    fireEvent.change(months[1], { target: { value: "2026-07" } })
+    const amounts = within(income).getAllByLabelText(/amount \/ month/i)
+    fireEvent.change(amounts[1], { target: { value: "800000" } })
+    fireEvent.change(amounts[2], { target: { value: "900000" } })
+
+    await userEvent.click(screen.getByRole("button", { name: /save config/i }))
+    expect(await screen.findByRole("alert")).toHaveTextContent(/same month/i)
+    expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit)?.method === "PUT")).toBe(false)
   })
 
   it("surfaces an error when the save fails", async () => {
