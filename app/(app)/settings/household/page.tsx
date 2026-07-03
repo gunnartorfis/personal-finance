@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server"
+
 import { HouseholdManager } from "@/components/household-manager"
 import { getDb } from "@/lib/db"
 import { requireHousehold } from "@/lib/household/current"
@@ -15,6 +17,7 @@ export const dynamic = "force-dynamic"
  */
 export default async function HouseholdSettingsPage() {
   const { householdId, plan, repo, user } = await requireHousehold()
+  const t = await getTranslations("household")
   const [members, invites] = await Promise.all([
     listMembersWithIdentity(getDb(), householdId),
     repo.invites.listActive(),
@@ -23,10 +26,9 @@ export default async function HouseholdSettingsPage() {
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Household</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-sm text-pretty text-muted-foreground">
-          Everyone here shares one combined financial picture. Invite the people you share money
-          with — up to {MEMBER_CAP} in total.
+          {t("pageDescription", { cap: MEMBER_CAP })}
         </p>
       </header>
       <HouseholdManager

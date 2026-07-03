@@ -33,3 +33,16 @@ export function formatCycleMonth(
     timeZone: "UTC",
   }).format(date)
 }
+
+/**
+ * Format a full `Date` following the Locale (ADR-0013) — e.g. `Mar 15, 2026` (en) /
+ * `15. mar. 2026` (is). Defaults to a medium date style; the app locale drives the
+ * order and month names instead of the OS locale.
+ */
+export function formatDate(
+  date: Date,
+  locale: Locale,
+  options: Intl.DateTimeFormatOptions = { dateStyle: "medium" }
+): string {
+  return dateFormatter(locale, options).format(date)
+}

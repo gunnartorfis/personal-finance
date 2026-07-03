@@ -50,5 +50,50 @@
     "confirm": "Yes, reset my data",
     "cancel": "Cancel",
     "trigger": "Reset transaction data"
+  },
+  "household": {
+    "title": "Household",
+    "pageDescription": "Everyone here shares one combined financial picture. Invite the people you share money with — up to {cap} in total.",
+    "members": "Members",
+    "you": "You",
+    "memberFallback": "Member",
+    "invite": "Invite a member",
+    "inviteDescription": "They'll join your household when they sign in with this email. Send them the link yourself.",
+    "full": "Your household is full ({cap} members and pending invites).",
+    "emailLabel": "Email",
+    "emailPlaceholder": "name@example.com",
+    "createInvite": "Create invite",
+    "inviteError": {
+      "invalidEmail": "That doesn't look like a valid email.",
+      "capReached": "Your household is full.",
+      "notPremium": "Inviting members requires Premium.",
+      "emailRequired": "Enter an email to invite.",
+      "generic": "Couldn't create the invite."
+    },
+    "linkReady": "Invite link ready — share it with them",
+    "copy": "Copy",
+    "copied": "Copied",
+    "linkHint": "The link works once and only for this email. Creating another invite for the same email replaces it.",
+    "premiumTitle": "Inviting members is a Premium feature",
+    "premiumDescription": "Upgrade to Premium to share your household's financial picture with the people you split money with.",
+    "seePremium": "See Premium",
+    "pending": "Pending invites",
+    "expires": "Expires {date}",
+    "revoke": "Revoke",
+    "dangerZone": "Danger zone",
+    "leaveDescription": "Leave this household. You'll lose access to its data; it stays with the other members.",
+    "leaveError": {
+      "lastMember": "You're the only member — delete the household instead.",
+      "generic": "Couldn't leave. Please try again."
+    },
+    "leaveConfirmPrompt": "Leave this household?",
+    "leaveConfirm": "Yes, leave",
+    "cancel": "Cancel",
+    "leaveTrigger": "Leave household",
+    "deleteDescription": "Delete the household and <strong>all</strong> of its data — uploads, transactions, accounts, rules, and savings. This cannot be undone.",
+    "deleteError": "Couldn't delete the household. Please try again.",
+    "deleteConfirmPrompt": "Delete everything? This can't be undone.",
+    "deleteConfirm": "Yes, delete household",
+    "deleteTrigger": "Delete household"
   }
 }

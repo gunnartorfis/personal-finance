@@ -50,5 +50,50 @@
     "confirm": "Já, endurstilla gögnin mín",
     "cancel": "Hætta við",
     "trigger": "Endurstilla færslugögn"
+  },
+  "household": {
+    "title": "Heimili",
+    "pageDescription": "Öll hér deila einni sameiginlegri fjárhagsmynd. Bjóddu fólkinu sem þú deilir peningum með — allt að {cap} samtals.",
+    "members": "Meðlimir",
+    "you": "Þú",
+    "memberFallback": "Meðlimur",
+    "invite": "Bjóða meðlimi",
+    "inviteDescription": "Þau ganga í heimilið þegar þau skrá sig inn með þessu netfangi. Sendu þeim hlekkinn sjálf/ur.",
+    "full": "Heimilið þitt er fullt ({cap} meðlimir og boð í bið).",
+    "emailLabel": "Netfang",
+    "emailPlaceholder": "nafn@dæmi.is",
+    "createInvite": "Búa til boð",
+    "inviteError": {
+      "invalidEmail": "Þetta lítur ekki út eins og gilt netfang.",
+      "capReached": "Heimilið þitt er fullt.",
+      "notPremium": "Að bjóða meðlimum krefst Premium.",
+      "emailRequired": "Sláðu inn netfang til að bjóða.",
+      "generic": "Tókst ekki að búa til boðið."
+    },
+    "linkReady": "Boðshlekkur tilbúinn — deildu honum með þeim",
+    "copy": "Afrita",
+    "copied": "Afritað",
+    "linkHint": "Hlekkurinn virkar einu sinni og aðeins fyrir þetta netfang. Nýtt boð fyrir sama netfang kemur í staðinn.",
+    "premiumTitle": "Að bjóða meðlimum er Premium eiginleiki",
+    "premiumDescription": "Uppfærðu í Premium til að deila fjárhagsmynd heimilisins með fólkinu sem þú skiptir peningum með.",
+    "seePremium": "Sjá Premium",
+    "pending": "Boð í bið",
+    "expires": "Rennur út {date}",
+    "revoke": "Afturkalla",
+    "dangerZone": "Hættusvæði",
+    "leaveDescription": "Yfirgefa þetta heimili. Þú missir aðgang að gögnum þess; þau haldast hjá hinum meðlimunum.",
+    "leaveError": {
+      "lastMember": "Þú ert eini meðlimurinn — eyddu heimilinu í staðinn.",
+      "generic": "Tókst ekki að yfirgefa. Reyndu aftur."
+    },
+    "leaveConfirmPrompt": "Yfirgefa þetta heimili?",
+    "leaveConfirm": "Já, yfirgefa",
+    "cancel": "Hætta við",
+    "leaveTrigger": "Yfirgefa heimili",
+    "deleteDescription": "Eyða heimilinu og <strong>öllum</strong> gögnum þess — innhleðslum, færslum, reikningum, reglum og sparnaði. Þetta er ekki hægt að afturkalla.",
+    "deleteError": "Tókst ekki að eyða heimilinu. Reyndu aftur.",
+    "deleteConfirmPrompt": "Eyða öllu? Þetta er ekki hægt að afturkalla.",
+    "deleteConfirm": "Já, eyða heimili",
+    "deleteTrigger": "Eyða heimili"
   }
 }
