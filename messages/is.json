@@ -535,7 +535,15 @@
       "goalSection": "Markmið"
     }
   },
+  "periodSelector": {
+    "previous": "Fyrra tímabil",
+    "next": "Næsta tímabil",
+    "label": "Greiðslutímabil"
+  },
   "transactions": {
+    "pageTitle": "Færslur",
+    "pageSubtitle": "Farðu yfir og endurflokkaðu útgjöld fyrir valið tímabil.",
+    "upload": "Hlaða upp",
     "searchLabel": "Leita í færslum",
     "searchPlaceholder": "Leita að söluaðila",
     "filterLabel": "Sía eftir tegund",

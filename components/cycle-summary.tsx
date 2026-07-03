@@ -1,4 +1,8 @@
+import { useLocale, useTranslations } from "next-intl"
+
 import { SpendingByType } from "@/components/spending-by-type"
+import { currencyFormatter } from "@/lib/format/currency"
+import { defaultLocale, toLocale } from "@/lib/i18n/config"
 import type { NetSummary } from "@/lib/dashboard/net-summary"
 import { cn } from "@/lib/utils"
 
@@ -17,12 +21,10 @@ export function CycleSummary({
   currency: string
   className?: string
 }) {
-  const fmt = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount)
+  const t = useTranslations("netSummary")
+  const locale = toLocale(useLocale()) ?? defaultLocale
+  const money = currencyFormatter(currency, locale)
+  const fmt = (amount: number) => money.format(amount)
 
   const isProfit = summary.net >= 0
   const totalExpense = Math.abs(summary.expense)
@@ -31,20 +33,24 @@ export function CycleSummary({
     <section className={cn("@container flex flex-col gap-6", className)}>
       <dl className="grid grid-cols-1 divide-y divide-border @md:grid-cols-3 @md:divide-x @md:divide-y-0">
         <div className="flex flex-col gap-1 py-4 first:pt-0 last:pb-0 @md:px-6 @md:py-0 @md:first:pl-0 @md:last:pr-0">
-          <dt className="truncate text-sm text-muted-foreground">Income</dt>
+          <dt className="truncate text-sm text-muted-foreground">
+            {t("income")}
+          </dt>
           <dd className="text-xl font-semibold tabular-nums">
             {fmt(summary.income)}
           </dd>
         </div>
         <div className="flex flex-col gap-1 py-4 first:pt-0 last:pb-0 @md:px-6 @md:py-0 @md:first:pl-0 @md:last:pr-0">
-          <dt className="truncate text-sm text-muted-foreground">Expenses</dt>
+          <dt className="truncate text-sm text-muted-foreground">
+            {t("expenses")}
+          </dt>
           <dd className="text-xl font-semibold tabular-nums">
             {fmt(totalExpense)}
           </dd>
         </div>
         <div className="flex flex-col gap-1 py-4 first:pt-0 last:pb-0 @md:px-6 @md:py-0 @md:first:pl-0 @md:last:pr-0">
           <dt className="truncate text-sm text-muted-foreground">
-            {isProfit ? "Net profit" : "Net loss"}
+            {isProfit ? t("netProfit") : t("netLoss")}
           </dt>
           <dd
             className={cn(

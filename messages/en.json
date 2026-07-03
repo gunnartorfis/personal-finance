@@ -535,7 +535,15 @@
       "goalSection": "Goal"
     }
   },
+  "periodSelector": {
+    "previous": "Previous period",
+    "next": "Next period",
+    "label": "Statement period"
+  },
   "transactions": {
+    "pageTitle": "Transactions",
+    "pageSubtitle": "Review and reclassify spending for the selected period.",
+    "upload": "Upload",
     "searchLabel": "Search transactions",
     "searchPlaceholder": "Search merchant",
     "filterLabel": "Filter by type",
