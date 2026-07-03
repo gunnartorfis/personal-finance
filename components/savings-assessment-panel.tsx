@@ -3,6 +3,7 @@ import { CircleCheck, TriangleAlert } from "lucide-react"
 import { cycleKeyLabel } from "@/lib/dashboard/cycle"
 import type { SavingsAssessment, SavingsCycle } from "@/lib/savings/assessment"
 import { currencyFormatter } from "@/lib/format/currency"
+import type { Locale } from "@/lib/i18n/config"
 import { cn } from "@/lib/utils"
 
 /**
@@ -15,14 +16,16 @@ export function SavingsAssessmentPanel({
   assessment,
   cycles,
   currency,
+  locale,
   className,
 }: {
   assessment: SavingsAssessment
   cycles: SavingsCycle[]
   currency: string
+  locale: Locale
   className?: string
 }) {
-  const money = currencyFormatter(currency)
+  const money = currencyFormatter(currency, locale)
   // Newest cycle first for the breakdown; the loader returns oldest first for the cumulative math.
   const newestFirst = [...cycles].sort((a, b) => (a.cycleKey < b.cycleKey ? 1 : -1))
 

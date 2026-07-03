@@ -11,12 +11,12 @@ const MERCHANTS: MerchantSpend[] = [
 
 describe("TopMerchants", () => {
   it("renders nothing when there are no merchants", () => {
-    const { container } = render(<TopMerchants merchants={[]} currency="ISK" />)
+    const { container } = render(<TopMerchants merchants={[]} currency="ISK" locale="en" />)
     expect(container).toBeEmptyDOMElement()
   })
 
   it("lists each merchant with its amount and share", () => {
-    render(<TopMerchants merchants={MERCHANTS} currency="ISK" />)
+    render(<TopMerchants merchants={MERCHANTS} currency="ISK" locale="en" />)
     expect(screen.getByText("Top merchants")).toBeInTheDocument()
     const items = screen.getAllByRole("listitem")
     expect(items).toHaveLength(2)
