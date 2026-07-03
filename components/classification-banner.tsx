@@ -1,6 +1,7 @@
 "use client"
 
 import { Sparkles, TriangleAlert } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { usePathname } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 
@@ -29,6 +30,7 @@ const POLL_MS = 2500
  * Free cap has classification paused — a capped drain would skip every expense row anyway.
  */
 export function ClassificationBanner() {
+  const t = useTranslations("actionBand")
   const pathname = usePathname()
   const [status, setStatus] = useState<ClassifyStatus | null>(null)
 
@@ -47,7 +49,10 @@ export function ClassificationBanner() {
   // Pages that render their own classify control (dashboard ActionBand, transactions actions, the
   // upload form). Suppress the banner there so two resumable controls don't both auto-drive the same
   // queue on one page — the banner is the safety net for every *other* page.
-  const selfHandled = pathname === "/dashboard" || pathname === "/transactions" || pathname === "/upload"
+  const selfHandled =
+    pathname === "/dashboard" ||
+    pathname === "/transactions" ||
+    pathname === "/upload"
 
   // Refetch on first mount and on every client navigation (the layout keeps this mounted across
   // route changes, so pathname is the signal) — so a backlog created elsewhere surfaces as soon as
@@ -85,12 +90,15 @@ export function ClassificationBanner() {
       {showPending && (
         <div className="flex flex-col gap-2 rounded-lg border border-border bg-card px-4 py-3">
           <div className="flex items-center gap-3">
-            <Sparkles aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+            <Sparkles
+              aria-hidden="true"
+              className="size-4 shrink-0 text-muted-foreground"
+            />
             <p className="text-sm">
               <span className="font-medium">
-                {pending} transaction{pending === 1 ? "" : "s"} awaiting classification
+                {t("pending", { count: pending })}
               </span>
-              <span className="text-muted-foreground"> — run AI classification to bucket them.</span>
+              <span className="text-muted-foreground"> {t("pendingHint")}</span>
             </p>
           </div>
           <ClassifyTrigger pendingCount={pending} resumable />
@@ -109,9 +117,9 @@ export function ClassificationBanner() {
             />
             <p className="text-sm">
               <span className="font-medium">
-                {failed} classification{failed === 1 ? "" : "s"} failed
+                {t("failed", { count: failed })}
               </span>
-              <span className="text-muted-foreground"> — retry to finish bucketing them.</span>
+              <span className="text-muted-foreground"> {t("failedHint")}</span>
             </p>
           </div>
           <ClassifyTrigger failedCount={failed} retryOnly />

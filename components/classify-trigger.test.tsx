@@ -1,9 +1,10 @@
-import { act, render, screen } from "@testing-library/react"
+import { act, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { StrictMode } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ClassifyTrigger } from "@/components/classify-trigger"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -14,7 +15,9 @@ afterEach(() => {
 const ACTIVE_KEY = "classify:active"
 
 /** Queue of `POST /api/classify` responses, consumed in order (one per batch). */
-function stubClassify(batches: Array<{ classified: number; failed: number; capped: number }>) {
+function stubClassify(
+  batches: Array<{ classified: number; failed: number; capped: number }>
+) {
   let i = 0
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     expect(url).toBe("/api/classify")
@@ -35,7 +38,9 @@ describe("ClassifyTrigger", () => {
       { classified: 0, failed: 0, capped: 0 },
     ])
     render(<ClassifyTrigger />)
-    await userEvent.click(screen.getByRole("button", { name: /classify pending/i }))
+    await userEvent.click(
+      screen.getByRole("button", { name: /classify pending/i })
+    )
 
     expect(await screen.findByText(/30 classified/i)).toBeInTheDocument()
     expect(screen.getByText(/1 failed/i)).toBeInTheDocument()
@@ -50,9 +55,13 @@ describe("ClassifyTrigger", () => {
     ])
     render(<ClassifyTrigger pendingCount={10} />)
     // The baseline count is surfaced on the button so it's visible (and survives reload) pre-run.
-    await userEvent.click(screen.getByRole("button", { name: /classify pending \(10\)/i }))
+    await userEvent.click(
+      screen.getByRole("button", { name: /classify pending \(10\)/i })
+    )
 
-    const bar = await screen.findByRole("progressbar", { name: /classification progress/i })
+    const bar = await screen.findByRole("progressbar", {
+      name: /classification progress/i,
+    })
     await vi.waitFor(() => expect(bar).toHaveAttribute("aria-valuenow", "100"))
   })
 
@@ -62,18 +71,23 @@ describe("ClassifyTrigger", () => {
       "fetch",
       vi.fn(async (url: string, init?: RequestInit) => {
         expect(init?.method).toBe("POST")
-        if (url === "/api/classify/retry") return { ok: true, json: async () => ({ reset: 3 }) }
+        if (url === "/api/classify/retry")
+          return { ok: true, json: async () => ({ reset: 3 }) }
         const body = drained
           ? { classified: 0, failed: 0, capped: 0 }
           : { classified: 3, failed: 0, capped: 0 }
         drained = true
         return { ok: true, json: async () => body }
-      }),
+      })
     )
     render(<ClassifyTrigger failedCount={3} retryOnly />)
-    await userEvent.click(screen.getByRole("button", { name: /retry 3 failed/i }))
+    await userEvent.click(
+      screen.getByRole("button", { name: /retry 3 failed/i })
+    )
 
-    const bar = await screen.findByRole("progressbar", { name: /classification progress/i })
+    const bar = await screen.findByRole("progressbar", {
+      name: /classification progress/i,
+    })
     await vi.waitFor(() => expect(bar).toHaveAttribute("aria-valuenow", "100"))
   })
 
@@ -103,14 +117,20 @@ describe("ClassifyTrigger", () => {
       "fetch",
       vi.fn(async (_url: string, init?: RequestInit) => {
         signal = init?.signal ?? undefined
-        if (init?.signal?.aborted) throw new DOMException("aborted", "AbortError")
+        if (init?.signal?.aborted)
+          throw new DOMException("aborted", "AbortError")
         calls += 1
         // never-settling queue so the drain stays in flight across the re-renders below
-        return { ok: true, json: async () => ({ classified: 25, failed: 0, capped: 0 }) }
-      }),
+        return {
+          ok: true,
+          json: async () => ({ classified: 25, failed: 0, capped: 0 }),
+        }
+      })
     )
     window.localStorage.setItem(ACTIVE_KEY, "1")
-    const { rerender } = render(<ClassifyTrigger resumable pendingCount={100} />)
+    const { rerender } = render(
+      <ClassifyTrigger resumable pendingCount={100} />
+    )
     await vi.waitFor(() => expect(calls).toBeGreaterThan(0))
     const before = calls
 
@@ -127,7 +147,8 @@ describe("ClassifyTrigger", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (_url: string, init?: RequestInit) => {
-        if (init?.signal?.aborted) throw new DOMException("aborted", "AbortError")
+        if (init?.signal?.aborted)
+          throw new DOMException("aborted", "AbortError")
         calls += 1
         // First couple of batches make progress, then the queue reports empty so the drain finishes.
         return {
@@ -137,13 +158,13 @@ describe("ClassifyTrigger", () => {
               ? { classified: 1, failed: 0, capped: 0 }
               : { classified: 0, failed: 0, capped: 0 },
         }
-      }),
+      })
     )
     window.localStorage.setItem(ACTIVE_KEY, "1")
     render(
       <StrictMode>
         <ClassifyTrigger resumable pendingCount={50} />
-      </StrictMode>,
+      </StrictMode>
     )
     // With the old ref-guard, StrictMode aborted the first drain and never restarted it (stuck on
     // "Classifying…"). The totals line only appears if the remount actually re-drove to completion.
@@ -163,10 +184,14 @@ describe("ClassifyTrigger", () => {
       "fetch",
       vi.fn(async (_url: string, init?: RequestInit) => {
         signal = init?.signal ?? undefined
-        if (init?.signal?.aborted) throw new DOMException("aborted", "AbortError")
+        if (init?.signal?.aborted)
+          throw new DOMException("aborted", "AbortError")
         // never-settling queue so the drain is still in flight at unmount
-        return { ok: true, json: async () => ({ classified: 25, failed: 0, capped: 0 }) }
-      }),
+        return {
+          ok: true,
+          json: async () => ({ classified: 25, failed: 0, capped: 0 }),
+        }
+      })
     )
     window.localStorage.setItem(ACTIVE_KEY, "1")
     const { unmount } = render(<ClassifyTrigger resumable pendingCount={100} />)
@@ -179,8 +204,12 @@ describe("ClassifyTrigger", () => {
 
   it("hides the Classify-pending button in retryOnly mode, keeping only retry", () => {
     render(<ClassifyTrigger failedCount={2} retryOnly />)
-    expect(screen.queryByRole("button", { name: /classify pending/i })).not.toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /retry 2 failed/i })).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: /classify pending/i })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: /retry 2 failed/i })
+    ).toBeInTheDocument()
   })
 
   it("runs once automatically when autoRun is set", async () => {
@@ -193,20 +222,34 @@ describe("ClassifyTrigger", () => {
   })
 
   it("surfaces an error only after exhausting per-batch retries on a persistent 5xx", async () => {
-    const fetchMock = vi.fn(async () => ({ ok: false, status: 500, json: async () => ({}) }))
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    }))
     vi.stubGlobal("fetch", fetchMock)
     render(<ClassifyTrigger />)
-    await userEvent.click(screen.getByRole("button", { name: /classify pending/i }))
-    expect(await screen.findByRole("alert", {}, { timeout: 5000 })).toBeInTheDocument()
+    await userEvent.click(
+      screen.getByRole("button", { name: /classify pending/i })
+    )
+    expect(
+      await screen.findByRole("alert", {}, { timeout: 5000 })
+    ).toBeInTheDocument()
     // 3 attempts (with backoff) before the drain gives up for real.
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
   it("does not retry a 4xx — deterministic failures error out immediately", async () => {
-    const fetchMock = vi.fn(async () => ({ ok: false, status: 403, json: async () => ({}) }))
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 403,
+      json: async () => ({}),
+    }))
     vi.stubGlobal("fetch", fetchMock)
     render(<ClassifyTrigger />)
-    await userEvent.click(screen.getByRole("button", { name: /classify pending/i }))
+    await userEvent.click(
+      screen.getByRole("button", { name: /classify pending/i })
+    )
     expect(await screen.findByRole("alert")).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
@@ -223,13 +266,19 @@ describe("ClassifyTrigger", () => {
       expect(url).toBe("/api/classify")
       const next = responses[Math.min(i, responses.length - 1)]
       i += 1
-      return { ok: next.status === 200, status: next.status, json: async () => next.body ?? {} }
+      return {
+        ok: next.status === 200,
+        status: next.status,
+        json: async () => next.body ?? {},
+      }
     })
     vi.stubGlobal("fetch", fetchMock)
     window.localStorage.setItem(ACTIVE_KEY, "1")
     render(<ClassifyTrigger resumable pendingCount={5} />)
 
-    expect(await screen.findByText(/5 classified/i, undefined, { timeout: 5000 })).toBeInTheDocument()
+    expect(
+      await screen.findByText(/5 classified/i, undefined, { timeout: 5000 })
+    ).toBeInTheDocument()
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledTimes(4)
     // Clean finish after surviving the hiccup: the resume flag is cleared as usual.
@@ -244,8 +293,8 @@ describe("ClassifyTrigger", () => {
         () =>
           new Promise<never>((_resolve, reject) => {
             rejectFetch = reject
-          }),
-      ),
+          })
+      )
     )
     window.localStorage.setItem(ACTIVE_KEY, "1")
     render(<ClassifyTrigger resumable pendingCount={100} />)
@@ -272,7 +321,7 @@ describe("ClassifyTrigger", () => {
         calls += 1
         // First POST 5xxs → schedules a backoff; the page unloads during that sleep.
         return { ok: false, status: 500, json: async () => ({}) }
-      }),
+      })
     )
     window.localStorage.setItem(ACTIVE_KEY, "1")
     render(<ClassifyTrigger resumable pendingCount={100} />)
@@ -295,11 +344,13 @@ describe("ClassifyTrigger", () => {
       "fetch",
       vi.fn(async () => {
         throw new TypeError("Failed to fetch")
-      }),
+      })
     )
     window.localStorage.setItem(ACTIVE_KEY, "1")
     render(<ClassifyTrigger resumable pendingCount={10} />)
-    expect(await screen.findByRole("alert", {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(
+      await screen.findByRole("alert", {}, { timeout: 5000 })
+    ).toBeInTheDocument()
     expect(window.localStorage.getItem(ACTIVE_KEY)).toBeNull()
   })
 
@@ -309,10 +360,14 @@ describe("ClassifyTrigger", () => {
       "fetch",
       vi.fn(async (_url: string, init?: RequestInit) => {
         signal = init?.signal ?? undefined
-        if (init?.signal?.aborted) throw new DOMException("aborted", "AbortError")
+        if (init?.signal?.aborted)
+          throw new DOMException("aborted", "AbortError")
         // never-settling queue: every batch reports progress, so the loop would run forever
-        return { ok: true, json: async () => ({ classified: 25, failed: 0, capped: 0 }) }
-      }),
+        return {
+          ok: true,
+          json: async () => ({ classified: 25, failed: 0, capped: 0 }),
+        }
+      })
     )
     const { unmount } = render(<ClassifyTrigger autoRun />)
     await vi.waitFor(() => expect(signal).toBeDefined())
@@ -325,7 +380,9 @@ describe("ClassifyTrigger", () => {
   it("shows no retry button when there are no failed rows", () => {
     stubClassify([{ classified: 0, failed: 0, capped: 0 }])
     render(<ClassifyTrigger failedCount={0} />)
-    expect(screen.queryByRole("button", { name: /retry/i })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: /retry/i })
+    ).not.toBeInTheDocument()
   })
 
   it("requeues failed rows then drains them when Retry failed is clicked", async () => {
@@ -336,17 +393,20 @@ describe("ClassifyTrigger", () => {
       vi.fn(async (url: string, init?: RequestInit) => {
         expect(init?.method).toBe("POST")
         calls.push(url)
-        if (url === "/api/classify/retry") return { ok: true, json: async () => ({ reset: 3 }) }
+        if (url === "/api/classify/retry")
+          return { ok: true, json: async () => ({ reset: 3 }) }
         // First classify batch reports progress, the second reports none → loop ends.
         const body = drained
           ? { classified: 0, failed: 0, capped: 0 }
           : { classified: 3, failed: 0, capped: 0 }
         drained = true
         return { ok: true, json: async () => body }
-      }),
+      })
     )
     render(<ClassifyTrigger failedCount={3} />)
-    await userEvent.click(screen.getByRole("button", { name: /retry 3 failed/i }))
+    await userEvent.click(
+      screen.getByRole("button", { name: /retry 3 failed/i })
+    )
 
     expect(await screen.findByText(/3 classified/i)).toBeInTheDocument()
     expect(calls[0]).toBe("/api/classify/retry")
@@ -355,12 +415,15 @@ describe("ClassifyTrigger", () => {
 
   it("surfaces an error and does not drain when the retry reset fails", async () => {
     const fetchMock = vi.fn(async (url: string) => {
-      if (url === "/api/classify/retry") return { ok: false, status: 500, json: async () => ({}) }
+      if (url === "/api/classify/retry")
+        return { ok: false, status: 500, json: async () => ({}) }
       throw new Error("classify should not be called when reset fails")
     })
     vi.stubGlobal("fetch", fetchMock)
     render(<ClassifyTrigger failedCount={2} />)
-    await userEvent.click(screen.getByRole("button", { name: /retry 2 failed/i }))
+    await userEvent.click(
+      screen.getByRole("button", { name: /retry 2 failed/i })
+    )
 
     expect(await screen.findByRole("alert")).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -369,7 +432,9 @@ describe("ClassifyTrigger", () => {
   it("notes when the Free cap pauses classification", async () => {
     stubClassify([{ classified: 0, failed: 0, capped: 4 }])
     render(<ClassifyTrigger />)
-    await userEvent.click(screen.getByRole("button", { name: /classify pending/i }))
+    await userEvent.click(
+      screen.getByRole("button", { name: /classify pending/i })
+    )
     expect(await screen.findByText(/free plan limit/i)).toBeInTheDocument()
   })
 })
