@@ -107,6 +107,34 @@ describe("TransactionsTable", () => {
     ).toBeChecked()
   })
 
+  it("keeps the Include-only affordance on an already-excluded credit (ADR-0011)", () => {
+    // A credit excluded before this change (or one that was income-marked then excluded)
+    // must still be restorable — the row.excluded branch shows Include, not the Income toggle.
+    const excludedCredit: TransactionRow = {
+      id: "t4",
+      date: "2026-03-08",
+      merchant: "REFUND",
+      amount: 12345,
+      incomeMarked: false,
+      excluded: true,
+      exclusionNote: null,
+      classifiedType: "",
+      confidence: null,
+      reasoning: null,
+      overrideType: null,
+      classificationStatus: "classified",
+    }
+    render(<TransactionsTable rows={[excludedCredit]} currency="ISK" />)
+
+    const row = screen.getByRole("row", { name: /REFUND/ })
+    expect(
+      within(row).getByRole("button", { name: /include/i })
+    ).toBeInTheDocument()
+    expect(
+      within(row).queryByRole("checkbox", { name: /income/i })
+    ).not.toBeInTheDocument()
+  })
+
   it("persists an override change and reflects it on the row", async () => {
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }))
     vi.stubGlobal("fetch", fetchMock)
