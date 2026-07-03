@@ -57,15 +57,23 @@ A period's credits (`amount > 0`) that a Member manually marked as real income (
 _Avoid_: Money in (pre-ADR-0009 all-credits sum), Revenue, Earnings
 
 **Excluded**:
-A Transaction a Member manually dropped from every calculation — it is neither **Spending** nor **Income (marked)**, contributes nothing to net math, spend series, expense-type buckets, or savings. For a debit this is the only way out of **Spending** (debits otherwise always count); for a credit it is redundant with the ADR-0009 default but records the intent explicitly (e.g. flagging both legs of a reimbursement). A Member excludes a Transaction when it is not true household spending — reimbursed by someone else, a mistaken charge, or a cost fronted for another party (the "grandma's vacuum" case: buy a vacuum, she transfers the money back next day). Any Transaction regardless of sign can be Excluded; mutually exclusive with **Income (marked)** (a row is exactly one of: counts as Spending / counts as Income / Excluded).
+A Transaction a Member manually dropped from every calculation — it is neither **Spending** nor **Income (marked)**, contributes nothing to net math, spend series, expense-type buckets, or savings. For a debit this is the only way out of **Spending** (debits otherwise always count); for a credit it is redundant with the ADR-0009 default but records the intent explicitly (e.g. flagging both legs of a reimbursement). A Member excludes a Transaction when it is not true household spending — reimbursed by someone else, a mistaken charge, or a cost fronted for another party (the "grandma's vacuum" case: buy a vacuum, she transfers the money back next day). Any Transaction regardless of sign can be Excluded; mutually exclusive with **Income (marked)** (a row is exactly one of: counts as Spending / counts as Income / Excluded). When the Household bears *part* of a debit rather than none, that is a **Shared expense** (a nonzero **Own share**), not Excluded — Excluded is the share-of-zero limit.
 _Avoid_: Reconciled, Afstemt (imply matching/pairing — this is a per-Transaction flag, not a link), Voided (implies deletion/reversal — the row is kept, only dropped from math), Reimbursed (too narrow — only one reason among several)
+
+**Shared expense**:
+A debit Transaction the Household only partly bears because it fronted the rest for other parties (e.g. one card charge for a group gift split across several couples). Only the Household's **Own share** counts as **Spending**; the remainder behaves like the fronted-for-others part of **Excluded** — it drops from all math. A generalisation of **Excluded**, which is the degenerate case of a share of zero. The incoming paybacks from the other parties need no handling: as unmarked credits they already count for nothing (ADR-0009), so nothing double-counts.
+_Avoid_: Split (a verb only, and implies breaking one row into many — the row is never split; only its effective magnitude shrinks), Group expense, Shared cost (collides with **Off-card fixed cost**)
+
+**Own share**:
+The portion of a **Shared expense** that counts as the Household's **Spending** — a negative amount with magnitude between zero (exclusive) and the charged **amount** (inclusive). Everywhere net math would use the charged amount for such a Transaction it uses Own share instead; the difference (amount − Own share) counts for nothing, exactly as if **Excluded**. Never mutates the charged **amount**, which stays the append-only source of truth (ADR-0003/0004).
+_Avoid_: Split amount, My part, Portion (unqualified)
 
 **Difference**:
 `Income (marked) − Spending` for a period. Not true P&L; the dashboard intentionally does NOT net against configured **Monthly income** (ADR-0008).
 _Avoid_: Net profit, Net loss, Net (unqualified), Cash flow
 
 **Expense type**:
-The spending bucket assigned to a Transaction — `Fixed`, `Necessary`, `Nice to have`, or `""` (not bucketed: credits and shared/split payments).
+The spending bucket assigned to a Transaction — `Fixed`, `Necessary`, `Nice to have`, or `""` (not bucketed: credits). A **Shared expense** is bucketed like any debit; only its **Own share** magnitude lands in the bucket.
 _Avoid_: Category (reserved for the merchant-supplied category on the raw row)
 
 **Classification**:
@@ -132,6 +140,7 @@ Cumulative Inferred saving to date ≥ cumulative Required saving to date.
 - A **Member** uploads **Transactions** (recorded as provenance); visibility is household-wide.
 - A **Transaction**'s effective Expense type follows a precedence: manual **Override** > **Merchant rule** > AI **Classification**.
 - A **Transaction** is in exactly one net state: counts as **Spending** (a debit, default), counts as **Income (marked)** (a credit a Member marked), or **Excluded** (any Transaction a Member dropped from all math). **Excluded** and **Income (marked)** are mutually exclusive.
+- A **Spending** debit may be a **Shared expense**: only its **Own share** counts, the rest drops like **Excluded**. This is a modifier on a Spending row, not a fourth net state; mutually exclusive with **Excluded** (excluding clears the share) and inapplicable to credits. **Own share** substitutes for the charged **amount** in all spend/bucket/savings math, but never in classification, **Merchant rule** matching (incl. the split threshold), or the displayed charge — those read the true **amount** (ADR-0014).
 - A **Household** has zero or more **Merchant rules**; adding one (re-)types all matching Transactions except those with a manual **Override**, and applies to future Uploads.
 - A **Household** has zero or one active **Savings goal** (v1), plus its **Monthly income** and **Off-card fixed cost** config.
 - **Inferred saving** for a **Statement cycle** = **Monthly income** − **Off-card fixed costs** − net card debits (the cycle's **Transactions** with a negative amount; positive lines ignored).

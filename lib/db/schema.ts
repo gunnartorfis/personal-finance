@@ -323,6 +323,23 @@ export const transactions = pgTable(
     date: date("date").notNull(),
     /** Charged amount in the Household's billing currency; negative = expense. */
     amount: integer("amount").notNull(),
+    /**
+     * The Household's Own share of a Shared expense (ADR-0014): the portion of a debit it actually
+     * bears when it fronted the rest for other parties (a group gift split across couples). Negative,
+     * with `amount <= own_share_amount < 0`. Null on an ordinary Transaction. Never mutates the
+     * charged `amount` (the append-only source of truth); it only shrinks how much counts as spend.
+     */
+    ownShareAmount: integer("own_share_amount"),
+    /**
+     * The amount that counts as spend: the Own share when set, else the charged `amount` (ADR-0014).
+     * A STORED generated column so every spend/net/savings aggregation reads one DB-computed value
+     * and can't drift. Equals `amount` for all credits and non-shared debits (Own share is null),
+     * so switching a spend query to it is always safe. NOT used for classification, Merchant-rule
+     * matching, the review queue, or the displayed charge — those read the true `amount`.
+     */
+    effectiveAmount: integer("effective_amount")
+      .notNull()
+      .generatedAlwaysAs(sql`coalesce(own_share_amount, amount)`),
     /** Foreign pre-conversion amount, display-only; never summed into net. */
     originalAmount: numeric("original_amount"),
     originalCurrency: text("original_currency"),
@@ -381,6 +398,18 @@ export const transactions = pgTable(
     check(
       "transactions_classified_has_type",
       sql`(${t.classificationStatus} = 'classified') = (${t.expenseType} IS NOT NULL)`,
+    ),
+    // Own share (ADR-0014) is a debit-only, nonzero portion no larger than the charge: when set,
+    // amount < 0 and amount <= own_share_amount < 0. A share of 0 is Excluded instead.
+    check(
+      "transactions_own_share_debit_bounds",
+      sql`${t.ownShareAmount} IS NULL OR (${t.amount} < 0 AND ${t.ownShareAmount} >= ${t.amount} AND ${t.ownShareAmount} < 0)`,
+    ),
+    // A Shared expense and Excluded are mutually exclusive: excluding drops the whole row, so it
+    // clears any Own share (ADR-0011/0014), mirroring how excluding clears income_marked.
+    check(
+      "transactions_own_share_not_excluded",
+      sql`NOT (${t.ownShareAmount} IS NOT NULL AND ${t.excluded})`,
     ),
     // Expense type, when set, is one of the known buckets ("" = not bucketed).
     check(

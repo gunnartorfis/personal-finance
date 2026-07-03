@@ -19,6 +19,7 @@ const ROWS: TransactionRow[] = [
     date: "2026-03-15",
     merchant: "NETFLIX",
     amount: -1990,
+    ownShareAmount: null,
     incomeMarked: false,
     excluded: false,
     exclusionNote: null,
@@ -33,6 +34,7 @@ const ROWS: TransactionRow[] = [
     date: "2026-03-12",
     merchant: "GYM",
     amount: -5000,
+    ownShareAmount: null,
     incomeMarked: false,
     excluded: false,
     exclusionNote: null,
@@ -47,6 +49,7 @@ const ROWS: TransactionRow[] = [
     date: "2026-03-10",
     merchant: "SALARY",
     amount: 500000,
+    ownShareAmount: null,
     incomeMarked: false,
     excluded: false,
     exclusionNote: null,
@@ -115,6 +118,7 @@ describe("TransactionsTable", () => {
       date: "2026-03-08",
       merchant: "REFUND",
       amount: 12345,
+      ownShareAmount: null,
       incomeMarked: false,
       excluded: true,
       exclusionNote: null,
@@ -162,6 +166,7 @@ describe("TransactionsTable", () => {
         date: "2026-03-12",
         merchant: "PENDING CO",
         amount: -100,
+        ownShareAmount: null,
         incomeMarked: false,
         excluded: false,
         exclusionNote: null,
@@ -176,6 +181,7 @@ describe("TransactionsTable", () => {
         date: "2026-03-11",
         merchant: "SPLIT CO",
         amount: -200,
+        ownShareAmount: null,
         incomeMarked: false,
         excluded: false,
         exclusionNote: null,
@@ -255,5 +261,70 @@ describe("TransactionsTable", () => {
     )
     expect(screen.getByText("NETFLIX")).toBeInTheDocument()
     expect(screen.getByText("SALARY")).toBeInTheDocument()
+  })
+})
+
+describe("TransactionsTable — shared expenses (ADR-0014)", () => {
+  const lastBody = (fetchMock: ReturnType<typeof vi.fn>) =>
+    JSON.parse(fetchMock.mock.calls.at(-1)![1].body as string)
+
+  it("sets an Own share by typing an amount", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }))
+    vi.stubGlobal("fetch", fetchMock)
+    render(<TransactionsTable rows={ROWS} currency="ISK" />)
+
+    const row = screen.getByRole("row", { name: /NETFLIX/ })
+    await userEvent.click(within(row).getByRole("button", { name: /^split$/i }))
+    await userEvent.type(within(row).getByLabelText(/your share/i), "500")
+    await userEvent.click(within(row).getByRole("button", { name: /^save$/i }))
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/transactions/t1/share",
+      expect.objectContaining({ method: "PUT" })
+    )
+    expect(lastBody(fetchMock)).toEqual({ ownShareAmount: -500 })
+    // Shown twice after saving: the control badge and the amount-cell sub-line.
+    expect(within(row).getAllByText(/your share/i).length).toBeGreaterThan(0)
+  })
+
+  it("fills the share from an even split by headcount", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: true, json: async () => ({}) }))
+    )
+    render(<TransactionsTable rows={ROWS} currency="ISK" />)
+
+    // NETFLIX is -1990; split 2 ways → 995.
+    const row = screen.getByRole("row", { name: /NETFLIX/ })
+    await userEvent.click(within(row).getByRole("button", { name: /^split$/i }))
+    await userEvent.type(within(row).getByLabelText(/split evenly/i), "2")
+
+    expect(within(row).getByLabelText<HTMLInputElement>(/your share/i).value).toBe(
+      "995"
+    )
+  })
+
+  it("shows the badge, the share, and clears it", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }))
+    vi.stubGlobal("fetch", fetchMock)
+    const shared: TransactionRow = {
+      ...ROWS[0],
+      id: "t9",
+      merchant: "GROUP GIFT",
+      amount: -200_000,
+      ownShareAmount: -28_571,
+    }
+    render(<TransactionsTable rows={[shared]} currency="ISK" />)
+
+    const row = screen.getByRole("row", { name: /GROUP GIFT/ })
+    expect(within(row).getByText(/shared/i)).toBeInTheDocument()
+    // The full charge shows, plus a "your share" annotation (control + amount sub-line).
+    expect(within(row).getAllByText(/your share/i).length).toBeGreaterThan(0)
+
+    await userEvent.click(within(row).getByRole("button", { name: /^clear$/i }))
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/transactions/t9/share",
+      expect.objectContaining({ method: "DELETE" })
+    )
   })
 })

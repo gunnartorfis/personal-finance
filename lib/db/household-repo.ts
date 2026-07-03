@@ -11,6 +11,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  lte,
   max,
   ne,
   notInArray,
@@ -461,15 +462,17 @@ export function householdRepo(db: Db, householdId: string) {
         }
       },
       /**
-       * Rows needed to compute a net summary over a half-open date range `[from, to)`: the charged
-       * `amount`, the classified `expenseType`, and any manual `overrideType` (left-joined). The
-       * dashboard resolves the effective type as `overrideType ?? classifiedType`. Scoped to the
-       * household on both the transactions filter and the override join.
+       * Rows needed to compute a net summary over a half-open date range `[from, to)`: the spend
+       * `amount` (the Own share when a Shared expense, else the charge — ADR-0014), the classified
+       * `expenseType`, and any manual `overrideType` (left-joined). The dashboard resolves the
+       * effective type as `overrideType ?? classifiedType`. `effectiveAmount` equals the charge for
+       * credits and non-shared debits, so income detection (`amount > 0`) is unaffected. Scoped to
+       * the household on both the transactions filter and the override join.
        */
       summaryRows: (range: { from: string; to: string }) =>
         db
           .select({
-            amount: transactions.amount,
+            amount: transactions.effectiveAmount,
             incomeMarked: transactions.incomeMarked,
             classifiedType: transactions.expenseType,
             overrideType: overrides.expenseType,
@@ -494,8 +497,10 @@ export function householdRepo(db: Db, householdId: string) {
       /**
        * Rows for the transactions list over a half-open date range `[from, to)`: the display fields
        * plus the classified `expenseType` and any manual `overrideType` (left-joined), newest first.
-       * The effective type is `overrideType ?? classifiedType`. Scoped to the household on both the
-       * transactions filter and the override join.
+       * The effective type is `overrideType ?? classifiedType`. The list shows the true charged
+       * `amount`; `ownShareAmount` (ADR-0014) rides along so a Shared expense can annotate its share
+       * without changing the displayed face value. Scoped to the household on both the transactions
+       * filter and the override join.
        */
       listWithOverrides: (range: { from: string; to: string }) =>
         db
@@ -504,6 +509,7 @@ export function householdRepo(db: Db, householdId: string) {
             date: transactions.date,
             merchant: transactions.merchant,
             amount: transactions.amount,
+            ownShareAmount: transactions.ownShareAmount,
             incomeMarked: transactions.incomeMarked,
             excluded: transactions.excluded,
             exclusionNote: transactions.exclusionNote,
@@ -539,7 +545,9 @@ export function householdRepo(db: Db, householdId: string) {
        */
       monthlySpendSeries: async (range: { from: string; to: string }) => {
         const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`;
-        const spending = sql<string>`coalesce(sum(case when ${transactions.amount} < 0 then -${transactions.amount} else 0 end), 0)`;
+        // Spend counts the Own share on a Shared expense (effective_amount), never the full charge
+        // (ADR-0014); income is unaffected — effective_amount equals amount for credits.
+        const spending = sql<string>`coalesce(sum(case when ${transactions.amount} < 0 then -${transactions.effectiveAmount} else 0 end), 0)`;
         const income = sql<string>`coalesce(sum(case when ${transactions.amount} > 0 and ${transactions.incomeMarked} then ${transactions.amount} else 0 end), 0)`;
         const rows = await db
           .select({ month, spending, income })
@@ -571,7 +579,8 @@ export function householdRepo(db: Db, householdId: string) {
        * coerced to a number.
        */
       topMerchants: async (range: { from: string; to: string }) => {
-        const spending = sql<string>`sum(-${transactions.amount})`;
+        // Own share, not the full charge, on a Shared expense (ADR-0014); equal for ordinary rows.
+        const spending = sql<string>`sum(-${transactions.effectiveAmount})`;
         const rows = await db
           .select({ merchant: transactions.merchant, spending })
           .from(transactions)
@@ -609,7 +618,8 @@ export function householdRepo(db: Db, householdId: string) {
         const effectiveType = sql<
           string | null
         >`coalesce(${overrides.expenseType}, ${transactions.expenseType})`;
-        const spending = sql<string>`sum(-${transactions.amount})`;
+        // Own share, not the full charge, on a Shared expense (ADR-0014); equal for ordinary rows.
+        const spending = sql<string>`sum(-${transactions.effectiveAmount})`;
         const rows = await db
           .select({ month, effectiveType, spending })
           .from(transactions)
@@ -647,7 +657,8 @@ export function householdRepo(db: Db, householdId: string) {
        */
       monthlyMerchantSpend: async (range: { from: string; to: string }) => {
         const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`;
-        const spending = sql<string>`sum(-${transactions.amount})`;
+        // Own share, not the full charge, on a Shared expense (ADR-0014); equal for ordinary rows.
+        const spending = sql<string>`sum(-${transactions.effectiveAmount})`;
         const rows = await db
           .select({ month, merchant: transactions.merchant, spending })
           .from(transactions)
@@ -678,15 +689,16 @@ export function householdRepo(db: Db, householdId: string) {
         }));
       },
       /**
-       * The single largest charge (most-negative debit) over a half-open range `[from, to)` — the
-       * dashboard hero's "largest charge this cycle" info line. Returns the merchant plus the charge
-       * magnitude (positive), or `undefined` when the range has no debits. Transactions whose effective
-       * type (`coalesce(override, classified)`) is "" — the not-bucketed / split type — are excluded.
-       * Scoped to the household.
+       * The single largest counted charge over a half-open range `[from, to)` — the dashboard hero's
+       * "largest charge this cycle" info line. Ranks and reports by the Own share on a Shared expense
+       * (effective_amount), not the full charge, so the spending hero stays consistent (ADR-0014).
+       * Returns the merchant plus the spend magnitude (positive), or `undefined` when the range has no
+       * debits. Transactions whose effective type (`coalesce(override, classified)`) is "" — the
+       * not-bucketed type — are excluded. Scoped to the household.
        */
       largestCharge: async (range: { from: string; to: string }) => {
         const [row] = await db
-          .select({ merchant: transactions.merchant, amount: transactions.amount })
+          .select({ merchant: transactions.merchant, amount: transactions.effectiveAmount })
           .from(transactions)
           .leftJoin(
             overrides,
@@ -706,7 +718,7 @@ export function householdRepo(db: Db, householdId: string) {
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
             )
           )
-          .orderBy(asc(transactions.amount))
+          .orderBy(asc(transactions.effectiveAmount))
           .limit(1);
         return row ? { merchant: row.merchant, amount: -row.amount } : undefined;
       },
@@ -719,7 +731,8 @@ export function householdRepo(db: Db, householdId: string) {
        * don't appear. `sum(...)` is coerced from the driver string. Scoped to the household.
        */
       spendByAccount: async (range: { from: string; to: string }) => {
-        const spending = sql<string>`sum(-${transactions.amount})`;
+        // Own share, not the full charge, on a Shared expense (ADR-0014); equal for ordinary rows.
+        const spending = sql<string>`sum(-${transactions.effectiveAmount})`;
         const rows = await db
           .select({ accountId: accounts.id, name: accounts.name, spending })
           .from(transactions)
@@ -826,6 +839,9 @@ export function householdRepo(db: Db, householdId: string) {
             date: transactions.date,
             merchant: transactions.merchant,
             amount: transactions.amount,
+            // Carried so the row shape stays identical to listWithOverrides for <ReviewMode>; a
+            // queued debit may already be a Shared expense (ADR-0014).
+            ownShareAmount: transactions.ownShareAmount,
             // Always false here (the queue is debits only) but selected so the row shape stays
             // identical to listWithOverrides for <ReviewMode>.
             incomeMarked: transactions.incomeMarked,
@@ -993,20 +1009,53 @@ export function householdRepo(db: Db, householdId: string) {
           .returning(),
       /**
        * Exclude (or re-include) a Transaction from every calculation (ADR-0011). Scoped to the
-       * household. Any sign qualifies — unlike income marking. Excluding clears `incomeMarked` (the
-       * two states are mutually exclusive) and stores the optional `note`; re-including clears the
-       * note. A missing id updates nothing (returns []), so the caller can 404 on an empty result.
+       * household. Any sign qualifies — unlike income marking. Excluding clears `incomeMarked` AND
+       * any Own share (excluding drops the whole row, so a partial Shared expense can't coexist —
+       * ADR-0014; both would otherwise trip a DB CHECK) and stores the optional `note`; re-including
+       * clears the note. A missing id updates nothing (returns []), so the caller can 404 on empty.
        */
       setExcluded: (id: string, excluded: boolean, note?: string | null) =>
         db
           .update(transactions)
           .set(
             excluded
-              ? { excluded: true, incomeMarked: false, exclusionNote: note ?? null }
+              ? {
+                  excluded: true,
+                  incomeMarked: false,
+                  ownShareAmount: null,
+                  exclusionNote: note ?? null,
+                }
               : { excluded: false, exclusionNote: null }
           )
           .where(
             and(eq(transactions.id, id), eq(transactions.householdId, householdId))
+          )
+          .returning(),
+      /**
+       * Set (or clear) a Transaction's Own share — the portion of a Shared expense that counts as
+       * spend (ADR-0014). Scoped to the household. Setting is guarded to a non-excluded debit whose
+       * share stays within the charge (`amount < 0`, `excluded = false`, `amount <= ownShareAmount`),
+       * so a credit, excluded, or out-of-bounds request updates nothing (returns []) — the caller
+       * 404/409s on the empty result — rather than tripping a DB CHECK with an unhandled 500. The
+       * route also validates `ownShareAmount < 0`. Clearing (`null`) carries no guards and is always
+       * safe, returning the row to its full charged amount.
+       */
+      setOwnShare: (id: string, ownShareAmount: number | null) =>
+        db
+          .update(transactions)
+          .set({ ownShareAmount })
+          .where(
+            and(
+              eq(transactions.id, id),
+              eq(transactions.householdId, householdId),
+              ...(ownShareAmount === null
+                ? []
+                : [
+                    lt(transactions.amount, 0),
+                    eq(transactions.excluded, false),
+                    lte(transactions.amount, ownShareAmount),
+                  ])
+            )
           )
           .returning(),
       /** Mark a pending transaction as failed (e.g. the model errored); leaves it unbucketed. */
