@@ -178,7 +178,24 @@
     "cancelTrigger": "Cancel subscription",
     "onFree": "You're on the Free plan.",
     "cancelledFree": "Your subscription is cancelled — you're on the Free plan.",
-    "cancelError": "Couldn't cancel — please try again."
+    "cancelError": "Couldn't cancel — please try again.",
+    "checkout": {
+      "periodLabel": "Billing period",
+      "period": {
+        "monthly": "Monthly",
+        "annual": "Annual (save 30%)"
+      },
+      "perMonth": "/mo",
+      "perYear": "/yr",
+      "upgrade": "Upgrade to Premium",
+      "starting": "Starting…",
+      "active": "Premium is active — thanks for subscribing!",
+      "confirming": "Confirming your payment…",
+      "submitted": "Payment submitted — we'll activate your plan once it's confirmed.",
+      "errorPayment": "Payment wasn't completed. Please try again.",
+      "errorGeneric": "Something went wrong with the payment. Please try again.",
+      "errorStart": "Couldn't start checkout — please try again."
+    }
   },
   "freeCap": {
     "pausedTitle": "AI classification paused",
