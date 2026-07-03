@@ -163,6 +163,9 @@ function SourceList({
         >
           {sources.map((source, si) => {
             const primary = source.versions[0]
+            // A grouped source always carries ≥1 version; guard the deref so a malformed payload
+            // degrades to an empty row instead of throwing and blanking the whole form.
+            if (!primary) return null
             const isTimeline = source.versions.length > 1
             const patchVersion = (vi: number, patch: Partial<VersionRow>) =>
               patchSource(si, {
