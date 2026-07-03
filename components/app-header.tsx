@@ -1,6 +1,5 @@
 "use client"
 
-import { useTranslations } from "next-intl"
 import { usePathname } from "next/navigation"
 
 import {
@@ -11,27 +10,13 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import { currentNavLabelKey, type NavLabelKey } from "@/lib/nav"
+import { useNavLabels } from "@/lib/nav-labels"
+import { currentNavLabelKey } from "@/lib/nav"
 
 /** Inset header content: the sidebar toggle and a breadcrumb for the current page. */
 export function AppHeader() {
   const pathname = usePathname()
-  const t = useTranslations("nav")
-  // Resolve with literal keys (keeps next-intl static checking), then index by the current key.
-  const labels: Record<NavLabelKey, string> = {
-    dashboard: t("dashboard"),
-    accounts: t("accounts"),
-    transactions: t("transactions"),
-    savings: t("savings"),
-    settings: t("settings"),
-    upload: t("upload"),
-    rules: t("rules"),
-    income: t("income"),
-    household: t("household"),
-    billing: t("billing"),
-    account: t("account"),
-    security: t("security"),
-  }
+  const labels = useNavLabels()
   const key = currentNavLabelKey(pathname)
 
   return (

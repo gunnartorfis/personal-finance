@@ -2,7 +2,6 @@
 
 import { UserButton } from "@neondatabase/auth-ui"
 import { PiggyBank, Settings } from "lucide-react"
-import { useTranslations } from "next-intl"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -18,7 +17,8 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { isActivePath, NAV_ITEMS, type NavLabelKey } from "@/lib/nav"
+import { useNavLabels } from "@/lib/nav-labels"
+import { isActivePath, NAV_ITEMS } from "@/lib/nav"
 
 /**
  * Left app sidebar for signed-in users (ADR Phase H): brand, primary navigation that collapses to
@@ -27,23 +27,7 @@ import { isActivePath, NAV_ITEMS, type NavLabelKey } from "@/lib/nav"
  */
 export function AppSidebar() {
   const pathname = usePathname()
-  const t = useTranslations("nav")
-  // Resolve nav labels with literal keys (keeps next-intl's static checking), then index by the
-  // item's stable labelKey.
-  const labels: Record<NavLabelKey, string> = {
-    dashboard: t("dashboard"),
-    accounts: t("accounts"),
-    transactions: t("transactions"),
-    savings: t("savings"),
-    settings: t("settings"),
-    upload: t("upload"),
-    rules: t("rules"),
-    income: t("income"),
-    household: t("household"),
-    billing: t("billing"),
-    account: t("account"),
-    security: t("security"),
-  }
+  const labels = useNavLabels()
 
   return (
     <TooltipProvider>

@@ -8,11 +8,11 @@ import {
   Users,
   Wallet,
 } from "lucide-react"
-import { useTranslations } from "next-intl"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { ComponentType, SVGProps } from "react"
 
+import { useNavLabels } from "@/lib/nav-labels"
 import { isActivePath, type NavLabelKey } from "@/lib/nav"
 import { cn } from "@/lib/utils"
 
@@ -38,25 +38,10 @@ const SETTINGS_NAV: ReadonlyArray<{
  */
 export function SettingsNav() {
   const pathname = usePathname()
-  const t = useTranslations("nav")
-  // Resolve with literal keys (keeps next-intl static checking), then index by each item's labelKey.
-  const labels: Record<NavLabelKey, string> = {
-    dashboard: t("dashboard"),
-    accounts: t("accounts"),
-    transactions: t("transactions"),
-    savings: t("savings"),
-    settings: t("settings"),
-    upload: t("upload"),
-    rules: t("rules"),
-    income: t("income"),
-    household: t("household"),
-    billing: t("billing"),
-    account: t("account"),
-    security: t("security"),
-  }
+  const labels = useNavLabels()
   return (
     <nav
-      aria-label={t("settings")}
+      aria-label={labels.settings}
       className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:w-56 lg:shrink-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0"
     >
       {SETTINGS_NAV.map((item) => {
