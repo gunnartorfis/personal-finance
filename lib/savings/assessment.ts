@@ -9,6 +9,10 @@ import type { HouseholdRepo } from "@/lib/db/household-repo";
 import { buildSavingsProgress, type SavingsProgress } from "@/lib/savings/progress";
 import { loadExpectedSpend } from "@/lib/savings/expected-spend";
 import {
+  resolveCycleAmounts,
+  type EffectiveAmount,
+} from "@/shared/income-timeline";
+import {
   allowedNiceToHave,
   correctivePerCycle,
   inferredSaving,
@@ -17,11 +21,32 @@ import {
 } from "@/shared/savings";
 
 /**
+ * Group recurring-source rows into per-source timelines for the resolver (ADR-0015): rows sharing a
+ * `name` are versions of ONE source (only the latest in force at a cycle counts), while distinct
+ * names are separate sources (summed). `amountOf` reads the row's amount column (income vs cost).
+ */
+function timelinesByName<T extends { name: string; effectiveFrom: string }>(
+  rows: readonly T[],
+  amountOf: (row: T) => number,
+): EffectiveAmount[][] {
+  const byName = new Map<string, EffectiveAmount[]>();
+  for (const row of rows) {
+    const version = { amount: amountOf(row), effectiveFrom: row.effectiveFrom };
+    const existing = byName.get(row.name);
+    if (existing) existing.push(version);
+    else byName.set(row.name, [version]);
+  }
+  return [...byName.values()];
+}
+
+/**
  * Savings progress is now DERIVED, not checked-in (ADR-0007, superseding the manual ritual): for
  * every Statement cycle from the goal's start cycle through the current one, saving is
- * `Monthly income − Off-card fixed − card debits`, with income/off-card read from the current
- * config and card debits read straight from the cycle's transactions. There is no frozen history —
- * config edits re-flow through every cycle. Only COMPLETED cycles count toward cumulative saved; the
+ * `Monthly income − Off-card fixed − card debits`. Income/off-card are resolved PER CYCLE from the
+ * effective-dated source timelines plus any one-off adjustments on that cycle (ADR-0015) — no longer
+ * one flat figure applied to all cycles — while card debits are read straight from the cycle's
+ * transactions. There is still no frozen history: config edits (including correcting a past cycle's
+ * income) re-flow through every cycle. Only COMPLETED cycles count toward cumulative saved; the
  * current (in-progress) cycle is excluded until its month closes (ADR-0014) — it is shown in the
  * breakdown as the cycle being budgeted, not yet counted.
  */
@@ -90,11 +115,12 @@ function cycleKeysInclusive(startCycle: string, endCycle: string): string[] {
 }
 
 /**
- * Derive each elapsed cycle's saving from the current config + spend. Reads the income sources,
- * off-card costs, and the per-cycle card-debit series in one pass (the series is a single grouped
- * query over the whole `[start, current]` range), then computes `inferredSaving` per cycle.
- * `cycles` is empty before the start cycle; `monthlyIncome`/`offCardFixed` still reflect the config
- * so the assessment can reason about the goal even then.
+ * Derive each elapsed cycle's saving from the effective-dated config + spend (ADR-0015). Reads the
+ * income sources, off-card costs, one-off adjustments, and the per-cycle card-debit series in one
+ * pass (the series is a single grouped query over the whole `[start, current]` range), resolves the
+ * in-force income/cost per cycle, then computes `inferredSaving` per cycle. `cycles` is empty before
+ * the start cycle; the returned `monthlyIncome`/`offCardFixed` are the CURRENT cycle's resolved
+ * amounts (the coming cycle's budget anchor) so the assessment can reason about the goal even then.
  */
 async function deriveCycles(
   repo: HouseholdRepo,
@@ -104,9 +130,10 @@ async function deriveCycles(
   const cycleKey = currentCycleKey(now);
   const keys = cycleKeysInclusive(goal.startCycle, cycleKey);
 
-  const [sources, costs, series] = await Promise.all([
+  const [sources, costs, oneOffs, series] = await Promise.all([
     repo.savings.incomeSources.list(),
     repo.savings.offcardCosts.list(),
+    repo.savings.oneOffAdjustments.list(),
     keys.length === 0
       ? Promise.resolve([])
       : repo.transactions.monthlySpendSeries({
@@ -115,13 +142,31 @@ async function deriveCycles(
         }),
   ]);
 
-  const monthlyIncome = sources.reduce((total, s) => total + s.amount, 0);
-  const offCardFixed = costs.reduce((total, c) => total + c.monthlyAmount, 0);
+  // Resolve each cycle's effective income/cost from the dated source timelines + one-off
+  // adjustments (ADR-0015), replacing the old single flat sum applied to every cycle. Always
+  // resolve the current cycle too — it anchors the coming cycle's Allowed nice-to-have even when
+  // the goal's range is empty (start cycle in the future).
+  const resolveKeys = keys.length === 0 ? [cycleKey] : keys;
+  const resolved = resolveCycleAmounts(
+    {
+      incomeSources: timelinesByName(sources, (s) => s.amount),
+      offcardCostSources: timelinesByName(costs, (c) => c.monthlyAmount),
+      incomeOneOffs: oneOffs
+        .filter((o) => o.kind === "income")
+        .map((o) => ({ cycleKey: o.cycleKey, amount: o.amount })),
+      costOneOffs: oneOffs
+        .filter((o) => o.kind === "cost")
+        .map((o) => ({ cycleKey: o.cycleKey, amount: o.amount })),
+    },
+    resolveKeys,
+  );
+
   // `spending` is the debit magnitude with excluded rows dropped (ADR-0011) — exactly ADR-0007's
   // debits-only card spend. Months with no rows are absent, so default to 0.
   const debitsByCycle = new Map(series.map((row) => [row.month, row.spending]));
 
   const cycles = keys.map((key) => {
+    const { monthlyIncome, offCardFixed } = resolved.get(key)!;
     const cardDebits = debitsByCycle.get(key) ?? 0;
     return {
       cycleKey: key,
@@ -132,7 +177,13 @@ async function deriveCycles(
       inProgress: key === cycleKey,
     };
   });
-  return { cycles, monthlyIncome, offCardFixed };
+
+  // The coming/budgeted cycle is the current in-progress one (ADR-0014); its resolved amounts drive
+  // Allowed nice-to-have, so return them rather than a flat all-sources sum. `cycleKey` is always in
+  // `resolveKeys` (it is the last of `keys`, or the sole key when the range is empty), so the lookup
+  // never misses.
+  const current = resolved.get(cycleKey)!;
+  return { cycles, monthlyIncome: current.monthlyIncome, offCardFixed: current.offCardFixed };
 }
 
 /**
