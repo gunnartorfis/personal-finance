@@ -36,8 +36,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "unknown account" }, { status: 400 })
   }
 
-  for (const entry of parsed) {
-    await repo.accounts.balances.insert({ accountId: entry.accountId, balance: entry.balance })
-  }
+  // One atomic multi-row insert, so a mid-batch failure can't leave net worth reflecting a partial
+  // update (some Accounts' snapshots committed, others not).
+  await repo.accounts.balances.insertMany(parsed)
   return NextResponse.json({ ok: true }, { status: 201 })
 }

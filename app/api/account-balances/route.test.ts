@@ -23,13 +23,13 @@ describe("POST /api/account-balances", () => {
     expect(requireHousehold).not.toHaveBeenCalled();
   });
 
-  it("inserts a rounded snapshot per known account and returns 201", async () => {
-    const insert = vi.fn().mockResolvedValue([]);
+  it("inserts rounded snapshots for known accounts atomically and returns 201", async () => {
+    const insertMany = vi.fn().mockResolvedValue([]);
     requireHousehold.mockResolvedValue({
       repo: {
         accounts: {
           list: vi.fn().mockResolvedValue([{ id: "a1" }, { id: "a2" }]),
-          balances: { insert },
+          balances: { insertMany },
         },
       },
     });
@@ -43,18 +43,21 @@ describe("POST /api/account-balances", () => {
       }),
     );
     expect(res.status).toBe(201);
-    expect(insert).toHaveBeenCalledTimes(2);
-    expect(insert).toHaveBeenCalledWith({ accountId: "a1", balance: 120_001 });
-    expect(insert).toHaveBeenCalledWith({ accountId: "a2", balance: -5_000 });
+    // One atomic multi-row insert, not a row-at-a-time loop.
+    expect(insertMany).toHaveBeenCalledTimes(1);
+    expect(insertMany).toHaveBeenCalledWith([
+      { accountId: "a1", balance: 120_001 },
+      { accountId: "a2", balance: -5_000 },
+    ]);
   });
 
   it("400s and inserts nothing when any account id is not in the household", async () => {
-    const insert = vi.fn().mockResolvedValue([]);
+    const insertMany = vi.fn().mockResolvedValue([]);
     requireHousehold.mockResolvedValue({
       repo: {
         accounts: {
           list: vi.fn().mockResolvedValue([{ id: "a1" }]),
-          balances: { insert },
+          balances: { insertMany },
         },
       },
     });
@@ -63,6 +66,6 @@ describe("POST /api/account-balances", () => {
       postReq({ balances: [{ accountId: "a1", balance: 1 }, { accountId: "intruder", balance: 1 }] }),
     );
     expect(res.status).toBe(400);
-    expect(insert).not.toHaveBeenCalled();
+    expect(insertMany).not.toHaveBeenCalled();
   });
 });

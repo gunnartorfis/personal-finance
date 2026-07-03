@@ -31,6 +31,12 @@ export function BalanceEntryForm({
 
   const hasAnyBalance = accounts.some((account) => account.balance !== null)
 
+  // Toggle open/closed, always clearing a prior error so a stale banner never greets the next open.
+  function setFormOpen(next: boolean) {
+    setErrored(false)
+    setOpen(next)
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
@@ -74,7 +80,7 @@ export function BalanceEntryForm({
         variant="outline"
         size="sm"
         className={cn("self-start", className)}
-        onClick={() => setOpen(true)}
+        onClick={() => setFormOpen(true)}
       >
         {hasAnyBalance ? t("updateBalances") : t("addBalances")}
       </Button>
@@ -114,7 +120,7 @@ export function BalanceEntryForm({
           type="button"
           size="sm"
           variant="ghost"
-          onClick={() => setOpen(false)}
+          onClick={() => setFormOpen(false)}
           disabled={pending}
         >
           {t("cancelBalances")}

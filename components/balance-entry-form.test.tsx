@@ -57,4 +57,15 @@ describe("BalanceEntryForm", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/Couldn't save/i)
     expect(refresh).not.toHaveBeenCalled()
   })
+
+  it("clears a stale error banner when the form is closed and reopened", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 500 }))
+    openForm()
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+    expect(await screen.findByRole("alert")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    fireEvent.click(screen.getByRole("button", { name: "Update balances" }))
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
 })

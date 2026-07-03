@@ -229,6 +229,16 @@ export function householdRepo(db: Db, householdId: string) {
             .values({ ...value, householdId })
             .returning(),
         /**
+         * Record several Accounts' balances in one atomic multi-row insert — the manual-entry form
+         * saves every field at once, so a mid-batch failure must not leave net worth reflecting a
+         * partial update (some Accounts' new snapshots committed, others not).
+         */
+        insertMany: (values: Array<Omit<typeof accountBalances.$inferInsert, "householdId">>) =>
+          db
+            .insert(accountBalances)
+            .values(values.map((value) => ({ ...value, householdId })))
+            .returning(),
+        /**
          * The latest snapshot per Account for the Household — newest `asOf` wins (created_at breaks a
          * tie). One row per Account with any snapshot; Accounts without one are simply absent. This is
          * what net worth sums ({@link import("@/lib/dashboard/net-worth").computeNetWorth}).
