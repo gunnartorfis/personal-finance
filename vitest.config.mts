@@ -12,6 +12,9 @@ export default defineConfig({
       "**/legacy/**",
       "**/dist/**",
       "**/.next/**",
+      // Agent worktrees checked out under .claude/ are separate copies of the repo — running their
+      // test files from here double-runs everything against the wrong module graph.
+      "**/.claude/**",
     ],
   },
 })
