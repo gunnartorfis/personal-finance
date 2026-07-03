@@ -488,6 +488,33 @@
     "income": "Tekjur",
     "expenses": "Gjöld"
   },
+  "transactions": {
+    "searchLabel": "Leita í færslum",
+    "searchPlaceholder": "Leita að söluaðila",
+    "filterLabel": "Sía eftir tegund",
+    "filter": {
+      "all": "Allar tegundir",
+      "fixed": "Fast",
+      "necessary": "Nauðsynlegt",
+      "niceToHave": "Gott að hafa",
+      "splitNone": "Skipt / ekkert",
+      "unclassified": "Óflokkað",
+      "credits": "Innborganir",
+      "excluded": "Undanskilið"
+    },
+    "showingCount": "{visible} af {total} færslum",
+    "empty": "Engar færslur á þessu tímabili",
+    "emptyBacklog": "{count, plural, one {# færsla á öðrum tímabilum þarf enn yfirferð} other {# færslur á öðrum tímabilum þurfa enn yfirferð}} — notaðu Hraðyfirferð að ofan, eða veldu annað tímabil.",
+    "emptyCta": "Veldu annað tímabil eða <link>hladdu upp yfirliti</link>.",
+    "noMatch": "Engar færslur passa",
+    "noMatchBody": "Engar færslur á þessu tímabili passa við leitina eða síuna.",
+    "clearFilters": "Hreinsa síur",
+    "colDate": "Dagsetning",
+    "colMerchant": "Söluaðili",
+    "colAmount": "Upphæð",
+    "colType": "Tegund",
+    "yourShare": "þinn hluti {amount}"
+  },
   "charts": {
     "spendingTrend": {
       "title": "Eyðsluþróun",

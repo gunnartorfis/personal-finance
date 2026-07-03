@@ -1,11 +1,15 @@
 "use client"
 
 import { ChevronDown, ChevronsUpDown, ChevronUp, Search } from "lucide-react"
+import { useLocale, useTranslations } from "next-intl"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useId, useMemo, useState } from "react"
 
 import { RowTypeControl } from "@/components/row-type-control"
+import { currencyFormatter } from "@/lib/format/currency"
+import { formatDate } from "@/lib/format/date"
+import { defaultLocale, toLocale } from "@/lib/i18n/config"
 import { cn } from "@/lib/utils"
 import type { ExpenseType } from "@/shared/types"
 
@@ -18,15 +22,16 @@ type TypeFilter = TypeBucket | "all"
 type SortKey = "date" | "merchant" | "amount"
 type SortDir = "asc" | "desc"
 
-const TYPE_FILTERS: { value: TypeFilter; label: string }[] = [
-  { value: "all", label: "All types" },
-  { value: "Fixed", label: "Fixed" },
-  { value: "Necessary", label: "Necessary" },
-  { value: "Nice to have", label: "Nice to have" },
-  { value: "", label: "Split / none" },
-  { value: "unclassified", label: "Unclassified" },
-  { value: "credit", label: "Credits" },
-  { value: "excluded", label: "Excluded" },
+/** Filter options in display order; labels are localized in the component via `filter.*` keys. */
+const TYPE_FILTER_VALUES: TypeFilter[] = [
+  "all",
+  "Fixed",
+  "Necessary",
+  "Nice to have",
+  "",
+  "unclassified",
+  "credit",
+  "excluded",
 ]
 
 /** The bucket a row falls in, mirroring the display logic (excluded wins; credit → income; unreviewed debit → its status). */
@@ -88,12 +93,26 @@ export function TransactionsTable({
   /** Whole-household expenses still needing review — used only to explain an empty period. */
   backlogElsewhere?: number
 }) {
+  const t = useTranslations("transactions")
+  const locale = toLocale(useLocale()) ?? defaultLocale
   const [rows, setRows] = useState(initial)
   const [query, setQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all")
   const [sortKey, setSortKey] = useState<SortKey>("date")
   const [sortDir, setSortDir] = useState<SortDir>("desc")
   const router = useRouter()
+
+  // Filter labels resolved with literal keys, indexed by the filter value.
+  const filterLabels: Record<TypeFilter, string> = {
+    all: t("filter.all"),
+    Fixed: t("filter.fixed"),
+    Necessary: t("filter.necessary"),
+    "Nice to have": t("filter.niceToHave"),
+    "": t("filter.splitNone"),
+    unclassified: t("filter.unclassified"),
+    credit: t("filter.credits"),
+    excluded: t("filter.excluded"),
+  }
 
   // Unique per instance so IDs / label associations don't collide if two tables ever mount together.
   const searchId = useId()
@@ -138,19 +157,15 @@ export function TransactionsTable({
     setTypeFilter("all")
   }
 
-  const fmtAmount = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount)
+  const money = currencyFormatter(currency, locale)
+  const fmtAmount = (amount: number) => money.format(amount)
 
   const fmtDate = (date: string) =>
-    new Intl.DateTimeFormat("en-US", {
+    formatDate(new Date(date), locale, {
       month: "short",
       day: "numeric",
       timeZone: "UTC",
-    }).format(new Date(date))
+    })
 
   function handleChanged(
     id: string,
@@ -219,22 +234,20 @@ export function TransactionsTable({
           className
         )}
       >
-        <p className="text-sm font-medium">No transactions in this period</p>
+        <p className="text-sm font-medium">{t("empty")}</p>
         <p className="text-sm text-pretty text-muted-foreground">
-          {backlogElsewhere > 0 ? (
-            `${backlogElsewhere} transaction${backlogElsewhere === 1 ? "" : "s"} in other periods still need review — use Rapid review above, or pick another period.`
-          ) : (
-            <>
-              Pick another period or{" "}
-              <Link
-                href="/upload"
-                className="font-medium text-foreground underline underline-offset-4"
-              >
-                upload a statement
-              </Link>
-              .
-            </>
-          )}
+          {backlogElsewhere > 0
+            ? t("emptyBacklog", { count: backlogElsewhere })
+            : t.rich("emptyCta", {
+                link: (chunks) => (
+                  <Link
+                    href="/upload"
+                    className="font-medium text-foreground underline underline-offset-4"
+                  >
+                    {chunks}
+                  </Link>
+                ),
+              })}
         </p>
       </div>
     )
@@ -259,7 +272,7 @@ export function TransactionsTable({
             aria-hidden
           />
           <label className="sr-only" htmlFor={searchId}>
-            Search transactions
+            {t("searchLabel")}
           </label>
           <input
             id={searchId}
@@ -267,14 +280,14 @@ export function TransactionsTable({
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search merchant"
+            placeholder={t("searchPlaceholder")}
             className="h-8 w-full min-w-0 rounded-md border border-input bg-input/20 pr-2 pl-7 text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:text-base/relaxed md:text-sm dark:bg-input/30"
           />
         </div>
 
         <div className="relative inline-grid h-8 grid-cols-[1fr_1.75rem] items-center rounded-md border border-border">
           <label className="sr-only" htmlFor={typeFilterId}>
-            Filter by type
+            {t("filterLabel")}
           </label>
           <select
             id={typeFilterId}
@@ -285,9 +298,9 @@ export function TransactionsTable({
             }
             className="col-span-full row-start-1 appearance-none bg-transparent py-1 pr-7 pl-2.5 text-sm font-medium outline-none"
           >
-            {TYPE_FILTERS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            {TYPE_FILTER_VALUES.map((value) => (
+              <option key={value} value={value}>
+                {filterLabels[value]}
               </option>
             ))}
           </select>
@@ -306,22 +319,22 @@ export function TransactionsTable({
 
       {filtering && (
         <p className="text-xs text-muted-foreground" aria-live="polite">
-          {visible.length} of {rows.length} transactions
+          {t("showingCount", { visible: visible.length, total: rows.length })}
         </p>
       )}
 
       {visible.length === 0 ? (
         <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed border-border px-6 py-12 text-center">
-          <p className="text-sm font-medium">No matching transactions</p>
+          <p className="text-sm font-medium">{t("noMatch")}</p>
           <p className="text-sm text-pretty text-muted-foreground">
-            No transactions in this period match your search or filter.
+            {t("noMatchBody")}
           </p>
           <button
             type="button"
             onClick={clearFilters}
             className="mt-1 text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
           >
-            Clear filters
+            {t("clearFilters")}
           </button>
         </div>
       ) : (
@@ -349,7 +362,7 @@ export function TransactionsTable({
                         sortKey === "date" && "text-foreground"
                       )}
                     >
-                      Date
+                      {t("colDate")}
                       {sortIndicator("date")}
                     </button>
                   </th>
@@ -372,7 +385,7 @@ export function TransactionsTable({
                         sortKey === "merchant" && "text-foreground"
                       )}
                     >
-                      Merchant
+                      {t("colMerchant")}
                       {sortIndicator("merchant")}
                     </button>
                   </th>
@@ -395,7 +408,7 @@ export function TransactionsTable({
                         sortKey === "amount" && "text-foreground"
                       )}
                     >
-                      Amount
+                      {t("colAmount")}
                       {sortIndicator("amount")}
                     </button>
                   </th>
@@ -403,7 +416,7 @@ export function TransactionsTable({
                     scope="col"
                     className="py-2 font-medium whitespace-nowrap"
                   >
-                    Type
+                    {t("colType")}
                   </th>
                 </tr>
               </thead>
@@ -441,7 +454,9 @@ export function TransactionsTable({
                             beneath, so the face value is never hidden (ADR-0014). */}
                         {row.ownShareAmount !== null && !row.excluded && (
                           <div className="text-xs font-normal text-muted-foreground">
-                            your share {fmtAmount(row.ownShareAmount)}
+                            {t("yourShare", {
+                              amount: fmtAmount(row.ownShareAmount),
+                            })}
                           </div>
                         )}
                       </td>
