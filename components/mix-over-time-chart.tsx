@@ -39,6 +39,7 @@ function mixLabel(month: CycleKey, point: CategoryTrendPoint): string {
 }
 
 /** Geometry + row payload Recharts hands a Bar's `shape` callback for each rendered segment. */
+/** Geometry + row payload Recharts hands a Bar's `shape` callback for each rendered segment. */
 type SegmentShapeProps = {
   x?: number
   y?: number
@@ -51,17 +52,20 @@ type SegmentShapeProps = {
 /**
  * Round only the segments that are actually the top/bottom of the stack *for their own month*.
  * A per-Bar `radius` can't do this: the topmost category varies month to month (a month with no
- * "Other" is capped by "Nice to have"), so we decide per rendered rectangle from its row payload.
- * `presentSlugs` is the stack order; the first/last nonzero entry in a row is that month's base/cap.
+ * "Other" is capped by "Nice to have"), so each segment reads its row's precomputed `__top`/`__bottom`
+ * slug (see the data build below). Shapes are cached per slug at module scope — there are only a
+ * handful of category slugs — so mapping the Bars on each render reuses stable component references.
  */
-function roundedSegment(slug: string, presentSlugs: string[]) {
-  return function Segment(props: SegmentShapeProps): ReactElement {
+const segmentShapes = new Map<string, (props: SegmentShapeProps) => ReactElement>()
+function segmentShapeFor(slug: string) {
+  const cached = segmentShapes.get(slug)
+  if (cached) return cached
+  const Segment = (props: SegmentShapeProps): ReactElement => {
     const { height = 0, payload } = props
     if (height <= 0 || !payload) return <g />
-    const nonzero = presentSlugs.filter((candidate) => Number(payload[candidate]) > 0)
     const r = 4
-    const isTop = slug === nonzero[nonzero.length - 1]
-    const isBottom = slug === nonzero[0]
+    const isTop = payload.__top === slug
+    const isBottom = payload.__bottom === slug
     return (
       <Rectangle
         {...props}
@@ -69,6 +73,8 @@ function roundedSegment(slug: string, presentSlugs: string[]) {
       />
     )
   }
+  segmentShapes.set(slug, Segment)
+  return Segment
 }
 
 /**
@@ -101,14 +107,19 @@ export function MixOverTimeChart({
     present.map((category) => [category.slug, { label: category.label, theme: category.color }])
   ) satisfies ChartConfig
 
-  const presentSlugs = present.map((category) => category.slug)
-
   const data = categoryTrend.map((point) => {
     const row: Record<string, number | string> = {
       month: point.month,
       label: shortCycleLabel(point.month),
     }
     for (const category of present) row[category.slug] = magnitudeFor(point, category.key)
+    // Precompute which categories are the visible base/cap of *this* month's stack so each segment
+    // shape can round the true ends without knowing the whole stack.
+    const nonzero = present.filter((category) => Number(row[category.slug]) > 0)
+    if (nonzero.length > 0) {
+      row.__bottom = nonzero[0].slug
+      row.__top = nonzero[nonzero.length - 1].slug
+    }
     return row
   })
 
@@ -143,7 +154,7 @@ export function MixOverTimeChart({
               dataKey={category.slug}
               stackId="mix"
               fill={`var(--color-${category.slug})`}
-              shape={roundedSegment(category.slug, presentSlugs)}
+              shape={segmentShapeFor(category.slug)}
               isAnimationActive={false}
             />
           ))}
