@@ -388,6 +388,25 @@
     "account": "Account",
     "security": "Security"
   },
+  "charts": {
+    "spendingTrend": {
+      "title": "Spending trend",
+      "spending": "Spending",
+      "income": "Income",
+      "srLink": "{label} — spent {spending}, income {income}",
+      "notEnoughTitle": "Not enough history yet.",
+      "notEnoughBody": "Keep uploading — {completed}/{min} months so far. Your spending trend appears once there's a bit of history."
+    },
+    "categoryMix": {
+      "title": "Where it goes",
+      "unclassifiedNudge": "Most of your spending isn't classified yet. <link>Classify transactions</link> to unlock category insights."
+    },
+    "mixOverTime": {
+      "title": "Mix over time",
+      "mix": "{label} spending mix: {parts}",
+      "noSpending": "{label}: no spending recorded"
+    }
+  },
   "bankSync": {
     "connect": {
       "regionLabel": "Connect a bank",

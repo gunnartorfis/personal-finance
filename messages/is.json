@@ -388,6 +388,25 @@
     "account": "Aðgangur",
     "security": "Öryggi"
   },
+  "charts": {
+    "spendingTrend": {
+      "title": "Eyðsluþróun",
+      "spending": "Eyðsla",
+      "income": "Tekjur",
+      "srLink": "{label} — eytt {spending}, tekjur {income}",
+      "notEnoughTitle": "Ekki næg saga ennþá.",
+      "notEnoughBody": "Haltu áfram að hlaða upp — {completed}/{min} mánuðir hingað til. Eyðsluþróunin birtist þegar komin er smá saga."
+    },
+    "categoryMix": {
+      "title": "Hvert það fer",
+      "unclassifiedNudge": "Mest af eyðslunni þinni er ekki flokkað ennþá. <link>Flokkaðu færslur</link> til að opna innsýn eftir flokkum."
+    },
+    "mixOverTime": {
+      "title": "Skipting yfir tíma",
+      "mix": "{label} eyðsluskipting: {parts}",
+      "noSpending": "{label}: engin eyðsla skráð"
+    }
+  },
   "bankSync": {
     "connect": {
       "regionLabel": "Tengja banka",

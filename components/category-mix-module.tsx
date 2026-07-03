@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl"
 import Link from "next/link"
 
 import { MixOverTimeChart } from "@/components/mix-over-time-chart"
@@ -14,7 +15,13 @@ import { cn } from "@/lib/utils"
  */
 function pointToNetSummary(point: CategoryTrendPoint): NetSummary {
   const byType = point.byExpenseType
-  const expense = -(byType.Fixed + byType.Necessary + byType["Nice to have"] + byType[""] + point.unclassified)
+  const expense = -(
+    byType.Fixed +
+    byType.Necessary +
+    byType["Nice to have"] +
+    byType[""] +
+    point.unclassified
+  )
   return {
     income: 0,
     expense,
@@ -48,26 +55,41 @@ export function CategoryMixModule({
   currency: string
   className?: string
 }) {
-  const current = categoryTrend.find((point) => point.month === currentMonth) ?? null
+  const t = useTranslations("charts.categoryMix")
+  const current =
+    categoryTrend.find((point) => point.month === currentMonth) ?? null
 
   return (
-    <section className={cn("flex flex-col gap-4 rounded-xl border border-border bg-card p-6", className)}>
-      <h2 className="text-base font-medium">Where it goes</h2>
+    <section
+      className={cn(
+        "flex flex-col gap-4 rounded-xl border border-border bg-card p-6",
+        className
+      )}
+    >
+      <h2 className="text-base font-medium">{t("title")}</h2>
 
       {mostlyUnclassified && (
         <div className="rounded-lg bg-muted px-4 py-3 text-sm text-muted-foreground">
-          Most of your spending isn&apos;t classified yet.{" "}
-          <Link
-            href="/transactions"
-            className="font-medium text-foreground underline underline-offset-4"
-          >
-            Classify transactions
-          </Link>{" "}
-          to unlock category insights.
+          {t.rich("unclassifiedNudge", {
+            link: (chunks) => (
+              <Link
+                href="/transactions"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                {chunks}
+              </Link>
+            ),
+          })}
         </div>
       )}
 
-      {current && <SpendingByType summary={pointToNetSummary(current)} currency={currency} headingLevel={3} />}
+      {current && (
+        <SpendingByType
+          summary={pointToNetSummary(current)}
+          currency={currency}
+          headingLevel={3}
+        />
+      )}
 
       <MixOverTimeChart categoryTrend={categoryTrend} currency={currency} />
     </section>
