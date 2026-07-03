@@ -10,7 +10,8 @@ import { cn } from "@/lib/utils"
  * The Savings assessment (ADR-0007): progress is DERIVED from spend, so this is read-only — no
  * check-in button. It shows whether the goal is on track, the coming cycle's corrective pace, and
  * how much `Nice to have` is still affordable, then a per-cycle breakdown newest-first. The current
- * cycle is in progress, so its numbers are flagged provisional.
+ * in-progress cycle is shown in the breakdown but excluded from the total (ADR-0014) — its row reads
+ * "not yet counted" rather than a saved amount.
  */
 export function SavingsAssessmentPanel({
   assessment,
@@ -99,8 +100,7 @@ export function SavingsAssessmentPanel({
         {assessment.provisional && (
           <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
-            Provisional — this cycle is still in progress; the numbers update as more transactions
-            land.
+            This month isn&rsquo;t in your total yet — it counts once the calendar month closes.
           </p>
         )}
       </div>
@@ -135,8 +135,18 @@ export function SavingsAssessmentPanel({
               </thead>
               <tbody>
                 {newestFirst.map((row) => (
-                  <tr key={row.cycleKey} className="border-b border-border/50">
-                    <td className="py-2 pr-4">{cycleKeyLabel(row.cycleKey)}</td>
+                  <tr
+                    key={row.cycleKey}
+                    className={cn(
+                      "border-b border-border/50",
+                      // The in-progress cycle is shown but excluded from the total (ADR-0014).
+                      row.inProgress && "text-muted-foreground",
+                    )}
+                  >
+                    <td className="py-2 pr-4">
+                      {cycleKeyLabel(row.cycleKey)}
+                      {row.inProgress && " (this month)"}
+                    </td>
                     <td className="px-4 py-2 text-right tabular-nums">
                       {money.format(row.monthlyIncome)}
                     </td>
@@ -146,14 +156,18 @@ export function SavingsAssessmentPanel({
                     <td className="px-4 py-2 text-right tabular-nums">
                       {money.format(row.cardDebits)}
                     </td>
-                    <td
-                      className={cn(
-                        "py-2 pl-4 text-right font-medium tabular-nums",
-                        row.inferredSaving < 0 && "text-destructive",
-                      )}
-                    >
-                      {money.format(row.inferredSaving)}
-                    </td>
+                    {row.inProgress ? (
+                      <td className="py-2 pl-4 text-right text-xs italic">Not yet counted</td>
+                    ) : (
+                      <td
+                        className={cn(
+                          "py-2 pl-4 text-right font-medium tabular-nums",
+                          row.inferredSaving < 0 && "text-destructive",
+                        )}
+                      >
+                        {money.format(row.inferredSaving)}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
