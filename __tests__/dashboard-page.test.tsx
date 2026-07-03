@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react"
+import { NextIntlClientProvider } from "next-intl"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { DashboardView } from "@/lib/dashboard/dashboard-view"
+import en from "@/messages/en.json"
 
 // Mock the tenant guard (keeps Neon Auth / next/headers out of jsdom) and the data loader, so the
 // page test exercises pure assembly of the already-tested modules.
@@ -18,6 +20,22 @@ vi.mock("@/lib/savings/assessment", () => ({ loadSavingsProgress }))
 vi.mock("@/lib/i18n/locale", () => ({
   resolveRequestLocale: () => Promise.resolve("en"),
 }))
+// getTranslations reads the request config (unavailable in jsdom); back it with
+// the en catalog so the page's title/subtitle render in English.
+vi.mock("next-intl/server", () => ({
+  getTranslations: async (ns: keyof typeof en) => (key: string) =>
+    (en[ns] as Record<string, string>)[key] ?? `${ns}.${key}`,
+}))
+
+// The page tree includes Client-Component descendants that call useTranslations
+// (e.g. ThisMonthHero); provide the catalog so they render under the same locale.
+async function renderPage() {
+  return render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      {await DashboardPage()}
+    </NextIntlClientProvider>
+  )
+}
 
 import DashboardPage from "@/app/(app)/dashboard/page"
 
@@ -81,7 +99,7 @@ describe("DashboardPage", () => {
   })
 
   it("assembles the action band, hero, and the over-time modules in order", async () => {
-    render(await DashboardPage())
+    await renderPage()
 
     expect(screen.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument()
     // Action band: all-clear (nothing pending/failed, Premium).
@@ -111,7 +129,7 @@ describe("DashboardPage", () => {
       currency: "ISK",
     })
 
-    render(await DashboardPage())
+    await renderPage()
 
     const card = screen.getByRole("link", { name: /savings goal/i })
     expect(card).toHaveAttribute("href", "/savings")
@@ -131,7 +149,7 @@ describe("DashboardPage", () => {
       actionBand: { ...VIEW.actionBand, reviewBacklog: 3, allClear: false },
     })
 
-    render(await DashboardPage())
+    await renderPage()
 
     expect(screen.getByText("Spending by account")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: /3 expenses need review/i })).toBeInTheDocument()

@@ -48,8 +48,16 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
   next-intl (`localeSwitcher` namespace, both catalogs). Built on the existing
   `Sidebar` primitives (design-system-consistent); a full `/design` pass can refine
   the visual treatment later.
-- [ ] **4. Migrate: dashboard.** All strings in `app/(app)/dashboard` + its modules
-  → catalogs (both locales).
+- [x] **4a. Migrate: dashboard page + hero.** `dashboard/page.tsx` (title/subtitle via
+  `getTranslations`) and `ThisMonthHero` (`useTranslations`/`useLocale`, locale-aware
+  currency + the new `formatCycleMonth` date helper) → `dashboard` namespace. Established
+  the pattern: sync Server Components call `useTranslations`/`useLocale` (work in RSC and
+  under `renderWithIntl` in tests); async pages use `getTranslations`.
+- [ ] **4b. Migrate: remaining dashboard modules.** `action-band`, `spending-trend-chart`,
+  `category-mix-module`, `biggest-movers`, `net-summary-card`, `top-merchants`,
+  `account-breakdown` headings/labels → `dashboard` namespace; replace their inline
+  `Intl.*`/`cycleKeyLabel` with `lib/format/*` (locale-aware). Once no caller of
+  `cycleKeyLabel`/`shortCycleLabel` remains (also savings, slice 6), delete them.
 - [ ] **5. Migrate: transactions.** Table, review-mode, override, income; expense-type
   labels via catalog (canonical enum stays English). AI `reasoning` stays English (data).
 - [ ] **6. Migrate: savings.** Goal, config, check-in surfaces.
