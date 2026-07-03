@@ -93,7 +93,7 @@ describe("parseSavingsConfigInput", () => {
     offcardCosts: [{ name: "Mortgage", monthlyAmount: 250_000 }],
   };
 
-  it("accepts valid income sources and off-card costs, trimming names", () => {
+  it("accepts valid income sources and off-card costs, trimming names, defaulting the effective cycle", () => {
     expect(
       parseSavingsConfigInput({
         incomeSources: [{ name: "  Salary A ", amount: 700_000 }],
@@ -102,10 +102,34 @@ describe("parseSavingsConfigInput", () => {
     ).toEqual({
       ok: true,
       value: {
-        incomeSources: [{ name: "Salary A", amount: 700_000 }],
-        offcardCosts: [{ name: "Mortgage", monthlyAmount: 250_000 }],
+        // effectiveFrom defaults to the floor sentinel (ADR-0015) — the pre-dated baseline.
+        incomeSources: [{ name: "Salary A", amount: 700_000, effectiveFrom: "0001-01" }],
+        offcardCosts: [{ name: "Mortgage", monthlyAmount: 250_000, effectiveFrom: "0001-01" }],
       },
     });
+  });
+
+  it("accepts an explicit effective cycle on income and off-card entries (ADR-0015)", () => {
+    const result = parseSavingsConfigInput({
+      incomeSources: [{ name: "Salary", amount: 600_000, effectiveFrom: "2026-07" }],
+      offcardCosts: [{ name: "Rent", monthlyAmount: 320_000, effectiveFrom: "2026-07" }],
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        incomeSources: [{ effectiveFrom: "2026-07" }],
+        offcardCosts: [{ effectiveFrom: "2026-07" }],
+      },
+    });
+  });
+
+  it("rejects a malformed effective cycle", () => {
+    expect(
+      parseSavingsConfigInput({
+        incomeSources: [{ name: "Salary", amount: 1, effectiveFrom: "2026-13" }],
+        offcardCosts: [],
+      }),
+    ).toMatchObject({ ok: false });
   });
 
   it("accepts empty lists (clearing the config)", () => {
@@ -113,6 +137,46 @@ describe("parseSavingsConfigInput", () => {
       ok: true,
       value: { incomeSources: [], offcardCosts: [] },
     });
+  });
+
+  it("parses one-off adjustments (income + cost, optional label)", () => {
+    const result = parseSavingsConfigInput({
+      incomeSources: [],
+      offcardCosts: [],
+      oneOffAdjustments: [
+        { cycleKey: "2026-03", kind: "income", amount: 300_000, label: "  Tax refund " },
+        { cycleKey: "2026-04", kind: "cost", amount: 90_000 },
+      ],
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        oneOffAdjustments: [
+          { cycleKey: "2026-03", kind: "income", amount: 300_000, label: "Tax refund" },
+          { cycleKey: "2026-04", kind: "cost", amount: 90_000 },
+        ],
+      },
+    });
+  });
+
+  it("leaves oneOffAdjustments undefined when the body omits it (don't-touch semantics)", () => {
+    const result = parseSavingsConfigInput({ incomeSources: [], offcardCosts: [] });
+    expect(result.ok && result.value.oneOffAdjustments).toBeUndefined();
+  });
+
+  it("rejects one-off adjustments that aren't an array, or with a bad kind / cycle / amount", () => {
+    expect(
+      parseSavingsConfigInput({ incomeSources: [], offcardCosts: [], oneOffAdjustments: {} }),
+    ).toMatchObject({ ok: false });
+    for (const bad of [
+      { cycleKey: "2026-13", kind: "income", amount: 1 },
+      { cycleKey: "2026-03", kind: "bogus", amount: 1 },
+      { cycleKey: "2026-03", kind: "income", amount: -1 },
+    ]) {
+      expect(
+        parseSavingsConfigInput({ incomeSources: [], offcardCosts: [], oneOffAdjustments: [bad] }),
+      ).toMatchObject({ ok: false });
+    }
   });
 
   it("rejects a non-object body or missing lists", () => {

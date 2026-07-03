@@ -1,11 +1,27 @@
 import { isValidCycleKey } from "@/lib/dashboard/cycle";
 import type { savingsGoals } from "@/lib/db/schema";
 
-/** The Savings config lists a household replaces in one save (ADR-0007). */
+/** The Savings config lists a household replaces in one save (ADR-0007, extended by ADR-0015). */
 export interface SavingsConfigInput {
-  incomeSources: Array<{ name: string; amount: number }>;
-  offcardCosts: Array<{ name: string; monthlyAmount: number }>;
+  incomeSources: Array<{ name: string; amount: number; effectiveFrom: string }>;
+  offcardCosts: Array<{ name: string; monthlyAmount: number; effectiveFrom: string }>;
+  /**
+   * Per-cycle One-off adjustments (ADR-0015). `undefined` when the body omits the key entirely —
+   * the caller then leaves existing one-offs untouched; an empty array clears them.
+   */
+  oneOffAdjustments?: Array<{
+    cycleKey: string;
+    kind: "income" | "cost";
+    amount: number;
+    label?: string;
+  }>;
 }
+
+/** One validated One-off adjustment (ADR-0015). */
+type OneOffInput = NonNullable<SavingsConfigInput["oneOffAdjustments"]>[number];
+
+/** The floor sentinel effective cycle — a baseline in force from the start (ADR-0015). */
+const EFFECTIVE_FROM_FLOOR = "0001-01";
 
 export type ConfigParseResult =
   | { ok: true; value: SavingsConfigInput }
@@ -80,12 +96,18 @@ export function parseSavingsGoalInput(body: unknown): GoalParseResult {
   };
 }
 
-/** Validate one named-amount entry; returns the trimmed name + integer amount, or an error. */
+/**
+ * Validate one named-amount entry; returns the trimmed name, integer amount, and Effective cycle
+ * (ADR-0015 — defaults to the floor sentinel when omitted, so a client that doesn't send dates gets
+ * the baseline), or an error. Mirrors the DB CHECKs (non-negative amount, well-formed cycle key).
+ */
 function parseEntry(
   entry: unknown,
   amountKey: "amount" | "monthlyAmount",
   label: string,
-): { ok: true; name: string; amount: number } | { ok: false; error: string } {
+):
+  | { ok: true; name: string; amount: number; effectiveFrom: string }
+  | { ok: false; error: string } {
   if (typeof entry !== "object" || entry === null) {
     return { ok: false, error: `each ${label} must be an object` };
   }
@@ -98,7 +120,43 @@ function parseEntry(
   if (typeof amount !== "number" || !Number.isInteger(amount) || amount < 0) {
     return { ok: false, error: `${label} ${amountKey} must be a non-negative integer` };
   }
-  return { ok: true, name, amount };
+  const effectiveFrom = record.effectiveFrom === undefined ? EFFECTIVE_FROM_FLOOR : record.effectiveFrom;
+  if (typeof effectiveFrom !== "string" || !isValidCycleKey(effectiveFrom)) {
+    return { ok: false, error: `${label} effectiveFrom must be a YYYY-MM cycle key` };
+  }
+  return { ok: true, name, amount, effectiveFrom };
+}
+
+/** Validate one One-off adjustment entry (ADR-0015); mirrors the DB CHECKs + enum. */
+function parseOneOff(
+  entry: unknown,
+): { ok: true; value: OneOffInput } | { ok: false; error: string } {
+  if (typeof entry !== "object" || entry === null) {
+    return { ok: false, error: "each one-off adjustment must be an object" };
+  }
+  const record = entry as Record<string, unknown>;
+  if (typeof record.cycleKey !== "string" || !isValidCycleKey(record.cycleKey)) {
+    return { ok: false, error: "one-off adjustment cycleKey must be a YYYY-MM cycle key" };
+  }
+  if (record.kind !== "income" && record.kind !== "cost") {
+    return { ok: false, error: "one-off adjustment kind must be 'income' or 'cost'" };
+  }
+  if (typeof record.amount !== "number" || !Number.isInteger(record.amount) || record.amount < 0) {
+    return { ok: false, error: "one-off adjustment amount must be a non-negative integer" };
+  }
+  if (record.label !== undefined && typeof record.label !== "string") {
+    return { ok: false, error: "one-off adjustment label must be a string" };
+  }
+  const label = typeof record.label === "string" ? record.label.trim() : "";
+  return {
+    ok: true,
+    value: {
+      cycleKey: record.cycleKey,
+      kind: record.kind,
+      amount: record.amount,
+      ...(label === "" ? {} : { label }),
+    },
+  };
 }
 
 /**
@@ -119,15 +177,34 @@ export function parseSavingsConfigInput(body: unknown): ConfigParseResult {
   for (const entry of input.incomeSources) {
     const parsed = parseEntry(entry, "amount", "income source");
     if (!parsed.ok) return parsed;
-    incomeSources.push({ name: parsed.name, amount: parsed.amount });
+    incomeSources.push({ name: parsed.name, amount: parsed.amount, effectiveFrom: parsed.effectiveFrom });
   }
 
   const offcardCosts = [];
   for (const entry of input.offcardCosts) {
     const parsed = parseEntry(entry, "monthlyAmount", "off-card cost");
     if (!parsed.ok) return parsed;
-    offcardCosts.push({ name: parsed.name, monthlyAmount: parsed.amount });
+    offcardCosts.push({
+      name: parsed.name,
+      monthlyAmount: parsed.amount,
+      effectiveFrom: parsed.effectiveFrom,
+    });
   }
 
-  return { ok: true, value: { incomeSources, offcardCosts } };
+  // One-offs are optional: omit the key to leave existing ones untouched (the repo's replaceConfig
+  // does the same); an empty array clears them. A present-but-non-array value is a bad request.
+  let oneOffAdjustments: OneOffInput[] | undefined;
+  if (input.oneOffAdjustments !== undefined) {
+    if (!Array.isArray(input.oneOffAdjustments)) {
+      return { ok: false, error: "oneOffAdjustments must be an array" };
+    }
+    oneOffAdjustments = [];
+    for (const entry of input.oneOffAdjustments) {
+      const parsed = parseOneOff(entry);
+      if (!parsed.ok) return parsed;
+      oneOffAdjustments.push(parsed.value);
+    }
+  }
+
+  return { ok: true, value: { incomeSources, offcardCosts, oneOffAdjustments } };
 }
