@@ -13,9 +13,11 @@ const { requireHousehold, loadDashboardView, loadSavingsProgress } = vi.hoisted(
 vi.mock("@/lib/household/current", () => ({ requireHousehold }))
 vi.mock("@/lib/dashboard/dashboard-view", () => ({ loadDashboardView }))
 vi.mock("@/lib/savings/assessment", () => ({ loadSavingsProgress }))
-// getLocale reads the request scope (unavailable in jsdom); pin it to en so the
-// currency assertions below stay en-US.
-vi.mock("next-intl/server", () => ({ getLocale: () => Promise.resolve("en") }))
+// resolveRequestLocale reads cookies() (request scope, unavailable in jsdom); pin
+// it to en so the currency assertions below stay en-US.
+vi.mock("@/lib/i18n/locale", () => ({
+  resolveRequestLocale: () => Promise.resolve("en"),
+}))
 
 import DashboardPage from "@/app/(app)/dashboard/page"
 

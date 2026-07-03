@@ -1,10 +1,9 @@
-import { getLocale } from "next-intl/server"
 import Link from "next/link"
 
 import { SavingsAssessmentPanel } from "@/components/savings-assessment-panel"
 import { SavingsGoalForm } from "@/components/savings-goal-form"
-import type { Locale } from "@/lib/i18n/config"
 import { requireHousehold } from "@/lib/household/current"
+import { resolveRequestLocale } from "@/lib/i18n/locale"
 import { loadSavingsSnapshot } from "@/lib/savings/assessment"
 
 // Auth- and tenant-scoped per-request data.
@@ -17,7 +16,7 @@ export const dynamic = "force-dynamic"
  */
 export default async function SavingsPage() {
   const { repo, billingCurrency } = await requireHousehold()
-  const locale = (await getLocale()) as Locale
+  const locale = await resolveRequestLocale()
   const snapshot = await loadSavingsSnapshot(repo, new Date())
 
   return (

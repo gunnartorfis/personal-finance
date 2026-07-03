@@ -6,12 +6,10 @@ import { SavingsProgressCard } from "@/components/savings-progress-card"
 import { SpendingTrendChart } from "@/components/spending-trend-chart"
 import { ThisMonthHero } from "@/components/this-month-hero"
 import { TopMerchants } from "@/components/top-merchants"
-import { getLocale } from "next-intl/server"
-
-import type { Locale } from "@/lib/i18n/config"
 import { loadDashboardView } from "@/lib/dashboard/dashboard-view"
 import { loadSavingsProgress } from "@/lib/savings/assessment"
 import { requireHousehold } from "@/lib/household/current"
+import { resolveRequestLocale } from "@/lib/i18n/locale"
 import { cn } from "@/lib/utils"
 
 // Auth- and tenant-scoped, per-request data: always render dynamically (no static prerender).
@@ -27,7 +25,7 @@ export const dynamic = "force-dynamic"
  */
 export default async function DashboardPage() {
   const { repo, plan, billingCurrency } = await requireHousehold()
-  const locale = (await getLocale()) as Locale
+  const locale = await resolveRequestLocale()
   const now = new Date()
   const [view, savingsProgress] = await Promise.all([
     loadDashboardView(repo, now, { plan }),
