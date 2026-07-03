@@ -21,8 +21,9 @@ import {
  * every Statement cycle from the goal's start cycle through the current one, saving is
  * `Monthly income − Off-card fixed − card debits`, with income/off-card read from the current
  * config and card debits read straight from the cycle's transactions. There is no frozen history —
- * config edits re-flow through every cycle. The current (in-progress) cycle is partial, so its
- * derived saving is provisional until the month completes.
+ * config edits re-flow through every cycle. Only COMPLETED cycles count toward cumulative saved; the
+ * current (in-progress) cycle is excluded until its month closes (ADR-0014) — it is shown in the
+ * breakdown as the cycle being budgeted, not yet counted.
  */
 
 /** One cycle's derived saving — the Savings page's per-cycle breakdown table. */
@@ -33,6 +34,12 @@ export interface SavingsCycle {
   /** Card debit magnitude for the cycle (positive), from the transactions. */
   cardDebits: number;
   inferredSaving: number;
+  /**
+   * True only for the current, still-open calendar month (ADR-0014). Its `inferredSaving` is shown
+   * in the breakdown but NOT folded into cumulative saved — mid-month it carries full income against
+   * near-zero spend and would overstate savings. It is the cycle being budgeted, not yet counted.
+   */
+  inProgress: boolean;
 }
 
 /** The goal assessment the Savings page renders — mirrors the old check-in assessment, sans freeze. */
@@ -52,11 +59,9 @@ export interface SavingsAssessment {
   expectedSource: "history" | "manual" | "none";
   allowedNiceToHave: number;
   /**
-   * True whenever the current (in-progress) cycle is counted — i.e. from the goal's start cycle
-   * onward. Deliberate and effectively always-on for an active goal: unlike the old check-in
-   * (which froze a completed cycle and only flagged unclassified rows), progress here always
-   * includes the current month, whose spend keeps changing until the cycle closes. The panel uses
-   * it to tell the user the latest cycle's numbers are not yet final.
+   * True when an in-progress current cycle is present (goal's start cycle reached). It is shown in
+   * the breakdown but excluded from cumulative saved (ADR-0014); the panel uses it to tell the user
+   * this month is not yet in the total — it counts once the calendar month closes.
    */
   provisional: boolean;
 }
@@ -124,6 +129,7 @@ async function deriveCycles(
       offCardFixed,
       cardDebits,
       inferredSaving: inferredSaving({ monthlyIncome, offCardFixed, cardDebits }),
+      inProgress: key === cycleKey,
     };
   });
   return { cycles, monthlyIncome, offCardFixed };
@@ -140,7 +146,12 @@ export async function loadSavingsProgress(
   const goal = await repo.savings.goal.get();
   if (!goal) return null;
   const { cycles } = await deriveCycles(repo, goal, now);
-  return buildSavingsProgress(goal, cycles.map((c) => c.inferredSaving));
+  return buildSavingsProgress(goal, completedSavings(cycles));
+}
+
+/** Each completed cycle's saving — the current in-progress cycle is excluded (ADR-0014). */
+function completedSavings(cycles: ReadonlyArray<SavingsCycle>): number[] {
+  return cycles.filter((c) => !c.inProgress).map((c) => c.inferredSaving);
 }
 
 /**
@@ -160,9 +171,11 @@ export async function loadSavingsSnapshot(
     loadExpectedSpend(repo, now),
   ]);
 
-  const progress = buildSavingsProgress(goal, cycles.map((c) => c.inferredSaving))!;
+  const progress = buildSavingsProgress(goal, completedSavings(cycles))!;
   const cycleKey = currentCycleKey(now);
-  const cyclesElapsed = Math.max(0, cyclesBetweenInclusive(goal.startCycle, cycleKey));
+  // Only completed cycles count toward saved and the on-track baseline (ADR-0014); the current
+  // in-progress cycle (if any) is the one being budgeted, not yet elapsed.
+  const cyclesElapsed = cycles.filter((c) => !c.inProgress).length;
 
   // The date column maps to a YYYY-MM-DD string; guard the derived month key so a driver/mapping
   // change fails loudly here instead of silently skewing totalCycles.
@@ -199,8 +212,8 @@ export async function loadSavingsSnapshot(
         expectedFixed: expected.expectedFixed,
         expectedNecessary: expected.expectedNecessary,
       }),
-      // The current cycle is always the last derived one and is still in progress.
-      provisional: cyclesElapsed >= 1,
+      // True when an in-progress current cycle is on screen but not yet in the total (ADR-0014).
+      provisional: cycles.some((c) => c.inProgress),
     },
   };
 }

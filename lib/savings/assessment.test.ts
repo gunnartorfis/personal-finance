@@ -64,8 +64,9 @@ describe("loadSavingsProgress", () => {
       }),
       NOW,
     );
-    // per cycle: 1,000,000 − 200,000 − debits → 300k, 500k, 800k = 1,600,000; +100k starting.
-    expect(progress).toMatchObject({ saved: 1_700_000, target: 3_000_000, currency: "ISK" });
+    // Completed cycles only (ADR-0014): 2026-06 → 300k, 2026-07 → 500k = 800,000; +100k starting.
+    // The in-progress 2026-08 cycle (800k) is excluded from saved.
+    expect(progress).toMatchObject({ saved: 900_000, target: 3_000_000, currency: "ISK" });
   });
 });
 
@@ -81,17 +82,35 @@ describe("loadSavingsSnapshot", () => {
       NOW,
     );
     expect(snapshot).not.toBeNull();
-    expect(snapshot!.assessment.cyclesElapsed).toBe(3);
+    // Completed cycles only: 2026-06 and 2026-07 (2026-08 is in progress) → 2 (ADR-0014).
+    expect(snapshot!.assessment.cyclesElapsed).toBe(2);
     // The current (last) cycle is still in progress.
     expect(snapshot!.assessment.provisional).toBe(true);
-    // Breakdown covers 2026-06..2026-08 oldest-first.
+    // Breakdown still covers 2026-06..2026-08 oldest-first; only the last is flagged in-progress.
     expect(snapshot!.cycles.map((c) => c.cycleKey)).toEqual(["2026-06", "2026-07", "2026-08"]);
+    expect(snapshot!.cycles.map((c) => c.inProgress)).toEqual([false, false, true]);
     // Expected spend comes from the stubbed estimator.
     expect(snapshot!.assessment.expectedFixed).toBe(120_000);
   });
 
   it("is null without a goal", async () => {
     expect(await loadSavingsSnapshot(fakeRepo({}), NOW)).toBeNull();
+  });
+
+  // Regression (ADR-0014): on the 1st of a month the current cycle carries full Monthly income
+  // against ~zero spend, which previously inflated saved to startingSaved + the whole income.
+  it("excludes the current in-progress cycle's income from saved until its month closes", async () => {
+    const july1 = new Date("2026-07-01T00:00:00Z");
+    const progress = await loadSavingsProgress(
+      fakeRepo({
+        goal: { ...GOAL, startCycle: "2026-07" }, // the only cycle is the in-progress one
+        income: [{ amount: 1_000_000 }],
+        series: [], // no spend logged yet this month
+      }),
+      july1,
+    );
+    // Current month not counted → only the starting balance, NOT startingSaved + 1,000,000.
+    expect(progress!.saved).toBe(GOAL.startingSaved);
   });
 
   it("handles a goal whose start cycle is still in the future", async () => {
