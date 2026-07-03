@@ -59,13 +59,17 @@ export function useThemeMenuItems(): React.ReactNode[] {
   const t = useTranslations("theme")
   const { theme, setTheme } = useTheme()
 
-  return OPTIONS.map(({ value, icon }) => (
-    <ThemeMenuOption
-      key={value}
-      icon={icon}
-      label={t(value)}
-      active={theme === value}
-      onSelectTheme={() => setTheme(value)}
-    />
-  ))
+  return React.useMemo(
+    () =>
+      OPTIONS.map(({ value, icon }) => (
+        <ThemeMenuOption
+          key={value}
+          icon={icon}
+          label={t(value)}
+          active={theme === value}
+          onSelectTheme={() => setTheme(value)}
+        />
+      )),
+    [t, theme, setTheme],
+  )
 }
