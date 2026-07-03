@@ -1,4 +1,6 @@
 import { NeonAuthUIProvider } from "@neondatabase/auth-ui"
+import { NextIntlClientProvider } from "next-intl"
+import { getLocale } from "next-intl/server"
 import { Geist_Mono, Inter } from "next/font/google"
 
 import "./globals.css"
@@ -13,31 +15,43 @@ const fontMono = Geist_Mono({
   variable: "--font-mono",
 })
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const locale = await getLocale()
+
   return (
     <html
-      lang="en"
+      lang={locale}
       suppressHydrationWarning
-      className={cn("antialiased", fontMono.variable, "font-sans", inter.variable)}
+      className={cn(
+        "antialiased",
+        fontMono.variable,
+        "font-sans",
+        inter.variable
+      )}
     >
       <body>
-        <ThemeProvider>
-          {/* Account-scoped views (profile, security) live under the app Settings hub rather than a
+        <NextIntlClientProvider>
+          <ThemeProvider>
+            {/* Account-scoped views (profile, security) live under the app Settings hub rather than a
               standalone /account tree: basePath "/settings" + the SETTINGS view path "account" put
               them at /settings/account and /settings/security, and Neon Auth's own tab links resolve
               there too. */}
-          <NeonAuthUIProvider
-            authClient={authClient}
-            emailOTP
-            account={{ basePath: "/settings", viewPaths: { SETTINGS: "account" } }}
-          >
-            {children}
-          </NeonAuthUIProvider>
-        </ThemeProvider>
+            <NeonAuthUIProvider
+              authClient={authClient}
+              emailOTP
+              account={{
+                basePath: "/settings",
+                viewPaths: { SETTINGS: "account" },
+              }}
+            >
+              {children}
+            </NeonAuthUIProvider>
+          </ThemeProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   )

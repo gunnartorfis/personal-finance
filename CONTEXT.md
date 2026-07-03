@@ -14,6 +14,10 @@ _Avoid_: Account, Organization, Team, Workspace
 A signed-in user who belongs to a Household.
 _Avoid_: User (when the household-scoped meaning matters)
 
+**Locale**:
+A Member's chosen language *and* regional formatting rules — `is` (Icelandic, the default) or `en` (English). Per-Member (a mixed-language Household is allowed), stored on the member row and mirrored to a cookie; drives both UI text (via message catalogs) and all number/date formatting. A logged-out visitor's Locale is resolved by: `NEXT_LOCALE` cookie → Vercel geolocation (country `IS` → `is`) → `Accept-Language` → `is`.
+_Avoid_: Language (elides the formatting half), Region, Culture
+
 **Invite**:
 A pending, email-addressed offer to join an existing Household as a Member. Created by a Member of a **Premium** Household, redeemed by the invitee when signed in with the matching email; on redemption a new Member row is added to the *existing* Household (never a new one). A user who already belongs to a Household must leave it before redeeming (one Household per Member, v1). Expires if unredeemed.
 _Avoid_: Membership request (the invitee doesn't request; the Household offers), Seat
@@ -121,6 +125,7 @@ Cumulative Inferred saving to date ≥ cumulative Required saving to date.
 
 ## Relationships
 
+- A **Member** has one **Locale** (their own, not the Household's); two Members of one Household may differ.
 - A **Household** has one or more **Members**; one Household per Member (v1). All Members are equal — any can upload, edit, manage the subscription, invite/remove Members, or delete the Household. A Member who leaves loses access; the Household's data stays with the rest.
 - A **Household** grows only by **Invite**: any Member of a **Premium** Household may invite by email, up to a cap (10 Members incl. pending Invites). Redeeming adds a Member to that same Household; it never creates or merges Households, and carries no classification budget of its own (the joined Household's Plan governs). A user with an existing Household must leave it first — joining a second is rejected, not auto-resolved.
 - A **Household** owns its **Transactions**, **Overrides**, and income/net config.
@@ -139,4 +144,5 @@ Cumulative Inferred saving to date ≥ cumulative Required saving to date.
 - "category" vs **Expense type**: the raw row's merchant category (`Tegund`) is an input hint; the assigned bucket is the **Expense type**. Don't conflate.
 - "income" is two things: the dashboard's **Income (marked)** (credits a Member marked as real income; all other credits count for nothing — ADR-0009) vs configured **Monthly income** (the off-card savings anchor). Never sum them. Resolution: **Inferred saving** counts only card DEBITS (negative amounts) as spend and ignores all positive card lines — so a bank-account **Account** with salary credits cannot double-count with **Monthly income** (refunds are also ignored; accepted v1 simplification). The dashboard leads with **Spending**; wiring **Difference** to **Monthly income** for a true net stays deferred (ADR-0008).
 - "savings" is **Inferred saving** (computed from spend), never an entered balance — chosen over a tracked-balance model.
+- "language" vs **Locale**: the product setting is a **Locale** (`is`/`en`) — it governs both translated text and number/date formatting together, not just words. Reserve "language" for informal use. AI **Classification** `reasoning` is Household-shared data generated once, so it is NOT localized (v1): it stays English and is shown as-is in both UIs (dynamic data, exempt from catalogs/lint). An Icelandic-UI Member seeing English reasoning is an accepted v1 limitation.
 - "reconcile"/"afstemma" is NOT a domain term here: the user-facing gesture of cancelling out a reimbursed purchase is modelled as a per-Transaction **Excluded** flag, not a link between two rows. "reconciliation" already names an internal math invariant in `lib/dashboard/net-summary.ts` (`sum(byExpenseType) + unclassified === expense`); do not reuse it for the Excluded feature. Pairing/matching a debit to its funding credit stays deferred (transfer detection, issue #97).

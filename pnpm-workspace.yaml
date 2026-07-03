@@ -5,6 +5,9 @@ allowBuilds:
   msw: false
   # core-js's postinstall is only a funding/ad notice — not needed, so don't run it.
   core-js: false
+  # Optional native accelerators (transitive); packages fall back without them.
+  '@parcel/watcher': false
+  '@swc/core': false
 # Supply-chain hardening:
 # - minimumReleaseAge delays installs of freshly published versions (7 days) so
 #   malware caught and unpublished within hours never reaches us.
