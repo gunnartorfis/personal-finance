@@ -161,10 +161,16 @@ export function ReviewMode({
 
             <div className="flex flex-col gap-1 border-t border-border pt-4">
               <span className="text-sm text-muted-foreground">
-                {cur.classificationStatus === "classified"
+                {/* A classified card is only ever a low-confidence one here (the queue filters out
+                    confident rows), and the filter guarantees a non-null type and confidence — guard
+                    on both rather than papering over a null with a fallback, so a malformed row falls
+                    through to the neutral status instead of showing a fabricated "0% confident" guess. */}
+                {cur.classificationStatus === "classified" &&
+                cur.classifiedType !== null &&
+                cur.confidence !== null
                   ? t("statusLowConfidence", {
-                      type: typeLabels[cur.classifiedType ?? ""],
-                      confidence: Math.round((cur.confidence ?? 0) * 100),
+                      type: typeLabels[cur.classifiedType],
+                      confidence: Math.round(cur.confidence * 100),
                     })
                   : cur.classificationStatus === "failed"
                     ? t("statusFailed")
