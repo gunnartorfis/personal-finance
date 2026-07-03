@@ -169,6 +169,13 @@
       "when": 1783092794657,
       "tag": "0023_cynical_manta",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1783121095588,
+      "tag": "0024_daily_stardust",
+      "breakpoints": true
     }
   ]
 }

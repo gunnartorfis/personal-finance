@@ -25,6 +25,7 @@ import { applyMerchantRules, toMerchantRule } from "@/shared/merchant-rules"
 import type { ExpenseType } from "@/shared/types"
 
 import {
+  accountBalances,
   accounts,
   bankConnections,
   householdInvites,
@@ -218,6 +219,30 @@ export function householdRepo(db: Db, householdId: string) {
             )
           )
         return row
+      },
+      /** Append-only Account balance snapshots for net worth (ADR-0016). */
+      balances: {
+        /** Record one balance observation for an Account (manual entry or a bank sync). */
+        insert: (value: Omit<typeof accountBalances.$inferInsert, "householdId">) =>
+          db
+            .insert(accountBalances)
+            .values({ ...value, householdId })
+            .returning(),
+        /**
+         * The latest snapshot per Account for the Household — newest `asOf` wins (created_at breaks a
+         * tie). One row per Account with any snapshot; Accounts without one are simply absent. This is
+         * what net worth sums ({@link import("@/lib/dashboard/net-worth").computeNetWorth}).
+         */
+        latestPerAccount: () =>
+          db
+            .selectDistinctOn([accountBalances.accountId])
+            .from(accountBalances)
+            .where(eq(accountBalances.householdId, householdId))
+            .orderBy(
+              accountBalances.accountId,
+              desc(accountBalances.asOf),
+              desc(accountBalances.createdAt)
+            ),
       },
     },
     bankConnections: {
