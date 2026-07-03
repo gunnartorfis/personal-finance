@@ -76,7 +76,11 @@ export default async function DashboardPage() {
             currency={billingCurrency}
             locale={locale}
           />
-          <BiggestMovers movers={view.modules.movers} currency={billingCurrency} />
+          <BiggestMovers
+            movers={view.modules.movers}
+            currency={billingCurrency}
+            locale={locale}
+          />
         </div>
       )}
       <AccountBreakdown

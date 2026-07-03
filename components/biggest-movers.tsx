@@ -1,9 +1,9 @@
 import { ArrowUpRight } from "lucide-react"
-import { useLocale, useTranslations } from "next-intl"
+import { useTranslations } from "next-intl"
 
 import { currencyFormatter } from "@/lib/format/currency"
 import type { Mover } from "@/lib/dashboard/movers"
-import { defaultLocale, toLocale } from "@/lib/i18n/config"
+import type { Locale } from "@/lib/i18n/config"
 import { cn } from "@/lib/utils"
 
 /** A titled list of risers (merchants or categories) with each one's increase vs its baseline. */
@@ -47,14 +47,15 @@ function MoverList({
 export function BiggestMovers({
   movers,
   currency,
+  locale,
   className,
 }: {
   movers: { merchants: Mover[]; categories: Mover[] }
   currency: string
+  locale: Locale
   className?: string
 }) {
   const t = useTranslations("dashboard.movers")
-  const locale = toLocale(useLocale()) ?? defaultLocale
   const { merchants, categories } = movers
   if (merchants.length === 0 && categories.length === 0) return null
 

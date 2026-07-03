@@ -16,13 +16,13 @@ const MOVERS: { merchants: Mover[]; categories: Mover[] } = {
 describe("BiggestMovers", () => {
   it("renders nothing when there are no movers", () => {
     const { container } = render(
-      <BiggestMovers movers={{ merchants: [], categories: [] }} currency="ISK" />,
+      <BiggestMovers movers={{ merchants: [], categories: [] }} currency="ISK" locale="en" />,
     )
     expect(container).toBeEmptyDOMElement()
   })
 
   it("lists merchant and category risers with their delta and percent", () => {
-    render(<BiggestMovers movers={MOVERS} currency="ISK" />)
+    render(<BiggestMovers movers={MOVERS} currency="ISK" locale="en" />)
     expect(screen.getByText("Biggest movers")).toBeInTheDocument()
     expect(screen.getByText("Merchants")).toBeInTheDocument()
     expect(screen.getByText("Categories")).toBeInTheDocument()
@@ -36,7 +36,7 @@ describe("BiggestMovers", () => {
   })
 
   it("omits a section that has no risers", () => {
-    render(<BiggestMovers movers={{ merchants: MOVERS.merchants, categories: [] }} currency="ISK" />)
+    render(<BiggestMovers movers={{ merchants: MOVERS.merchants, categories: [] }} currency="ISK" locale="en" />)
     expect(screen.getByText("Merchants")).toBeInTheDocument()
     expect(screen.queryByText("Categories")).not.toBeInTheDocument()
   })
