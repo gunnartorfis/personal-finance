@@ -293,7 +293,13 @@ export const accountBalances = pgTable(
       name: "account_balances_account_household_fk",
     }),
     // Backs the latest-per-account lookup (DISTINCT ON account, newest first) for net worth.
-    index("account_balances_latest_idx").on(t.householdId, t.accountId, t.asOf.desc()),
+    // Includes created_at so the exact-`as_of`-tie tiebreak stays a pure index scan (no heap fetch).
+    index("account_balances_latest_idx").on(
+      t.householdId,
+      t.accountId,
+      t.asOf.desc(),
+      t.createdAt.desc(),
+    ),
   ],
 );
 

@@ -11,4 +11,4 @@ CREATE TABLE "account_balances" (
 --> statement-breakpoint
 ALTER TABLE "account_balances" ADD CONSTRAINT "account_balances_household_id_households_id_fk" FOREIGN KEY ("household_id") REFERENCES "public"."households"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "account_balances" ADD CONSTRAINT "account_balances_account_household_fk" FOREIGN KEY ("household_id","account_id") REFERENCES "public"."accounts"("household_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "account_balances_latest_idx" ON "account_balances" USING btree ("household_id","account_id","as_of" DESC NULLS LAST);
+CREATE INDEX "account_balances_latest_idx" ON "account_balances" USING btree ("household_id","account_id","as_of" DESC NULLS LAST,"created_at" DESC NULLS LAST);

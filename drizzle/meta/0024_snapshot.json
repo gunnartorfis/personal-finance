@@ -1,5 +1,5 @@
 {
-  "id": "749bf22e-73e7-4163-9088-66bf025578c1",
+  "id": "4f61a664-6f50-4098-bb17-b9f74c230f12",
   "prevId": "c49c6181-9808-4f96-b876-0a1785396980",
   "version": "7",
   "dialect": "postgresql",
@@ -74,6 +74,12 @@
             },
             {
               "expression": "as_of",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
               "isExpression": false,
               "asc": false,
               "nulls": "last"

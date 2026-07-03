@@ -30,10 +30,14 @@ export interface NetWorth {
 }
 
 /**
- * Fold balance snapshots into {@link NetWorth}: keep the latest snapshot per Account (newest `asOf`;
- * a later entry in the list breaks an exact tie, matching the repo's `created_at` tiebreak), then sum
- * their balances. `null` for no snapshots. Accepts multiple snapshots per Account and dedupes them,
- * so it is correct whether fed raw history or the repo's already-latest-per-account rows.
+ * Fold balance snapshots into {@link NetWorth}: keep the latest snapshot per Account (newest `asOf`),
+ * then sum their balances. `null` for no snapshots. Accepts multiple snapshots per Account and
+ * dedupes them, so it is correct whether fed the repo's already-latest-per-account rows (the sole
+ * caller today) or raw history.
+ *
+ * On an exact `asOf` tie the later entry in `snapshots` wins. For raw history that means the caller
+ * must order snapshots oldest-first (the repo's `latestPerAccount` already resolves ties by
+ * `created_at`, so its output — at most one row per Account — is unaffected by this rule).
  */
 export function computeNetWorth(snapshots: ReadonlyArray<BalanceSnapshot>): NetWorth | null {
   if (snapshots.length === 0) return null;
