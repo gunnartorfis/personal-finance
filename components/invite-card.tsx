@@ -1,4 +1,5 @@
 import { Clock, TriangleAlert, Users } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 import { AcceptInvite, type InviteConsequence } from "@/components/accept-invite"
 import { cn } from "@/lib/utils"
@@ -31,13 +32,26 @@ export function InviteCard({
   locator,
   consequence = "none",
 }: InviteCardProps) {
+  const t = useTranslations("invites")
   const displayName = inviterName?.trim() || inviterEmail?.trim() || null
   const firstName = inviterName?.trim().split(/\s+/)[0]
-  const headline = firstName
-    ? `${firstName} invited you to their household`
-    : "You’ve been invited to a household"
+  const headline = firstName ? t("headlineNamed", { name: firstName }) : t("headlineGeneric")
   const now = new Date()
-  const expiry = formatExpiry(new Date(expiresAt), now)
+  const expiry = expiryState(new Date(expiresAt), now)
+  const expiryLabel = (() => {
+    switch (expiry.kind) {
+      case "expired":
+        return t("expiry.expired")
+      case "withinHour":
+        return t("expiry.withinHour")
+      case "hours":
+        return t("expiry.inHours", { hours: expiry.value })
+      case "tomorrow":
+        return t("expiry.tomorrow")
+      case "days":
+        return t("expiry.inDays", { days: expiry.value })
+    }
+  })()
 
   return (
     <div className="flex flex-col gap-5 rounded-xl border border-border bg-card p-5 sm:p-6">
@@ -49,7 +63,7 @@ export function InviteCard({
           {initialsFor(inviterName, inviterEmail)}
         </span>
         <div className="flex min-w-0 flex-col">
-          <p className="truncate text-sm font-medium">{displayName ?? "A household member"}</p>
+          <p className="truncate text-sm font-medium">{displayName ?? t("fallbackMember")}</p>
           {inviterName && inviterEmail && (
             <p className="truncate text-xs text-muted-foreground">{inviterEmail}</p>
           )}
@@ -60,18 +74,13 @@ export function InviteCard({
         <h2 className="max-w-[28ch] text-lg font-semibold tracking-tight text-balance">
           {headline}
         </h2>
-        <p className="text-sm text-pretty text-muted-foreground">
-          Join to share one combined view of your money — accounts, transactions, and savings, all in
-          one place.
-        </p>
+        <p className="text-sm text-pretty text-muted-foreground">{t("joinBlurb")}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <MetaBadge icon={Users}>
-          {memberCount === 1 ? "1 member" : `${memberCount} members`}
-        </MetaBadge>
+        <MetaBadge icon={Users}>{t("memberCount", { count: memberCount })}</MetaBadge>
         <MetaBadge icon={Clock} urgent={expiry.urgent}>
-          {expiry.label}
+          {expiryLabel}
         </MetaBadge>
       </div>
 
@@ -82,8 +91,11 @@ export function InviteCard({
       <div className="flex flex-col gap-3">
         <AcceptInvite {...locator} consequence={consequence} />
         <p className="text-xs text-pretty text-muted-foreground">
-          This invite is for <span className="font-medium text-foreground">{invitedEmail}</span>.
-          {consequence === "none" && " You can belong to one household at a time."}
+          {t.rich("inviteFor", {
+            email: invitedEmail,
+            address: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+          })}
+          {consequence === "none" && ` ${t("oneHouseholdNote")}`}
         </p>
       </div>
     </div>
@@ -96,11 +108,10 @@ export function InviteCard({
  * for others); `discard-empty` is a quiet aside (a pristine starter household costs nothing to drop).
  */
 function ConsequenceNotice({ consequence }: { consequence: InviteConsequence }) {
+  const t = useTranslations("invites")
   if (consequence === "discard-empty") {
     return (
-      <p className="text-sm text-pretty text-muted-foreground">
-        You’ll join with a clean slate — your empty starter household will be removed.
-      </p>
+      <p className="text-sm text-pretty text-muted-foreground">{t("consequence.discardEmpty")}</p>
     )
   }
 
@@ -117,18 +128,11 @@ function ConsequenceNotice({ consequence }: { consequence: InviteConsequence }) 
     >
       <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
       <p className="text-pretty">
-        {isDelete ? (
-          <>
-            You’re the only member of your current household. Accepting{" "}
-            <span className="font-medium">permanently deletes it and all its data</span> —
-            transactions, accounts, rules, and savings. This can’t be undone.
-          </>
-        ) : (
-          <>
-            You’ll leave your current household to join this one. It stays with its other members;
-            you’ll lose access to it.
-          </>
-        )}
+        {isDelete
+          ? t.rich("consequence.deleteWarning", {
+              strong: (chunks) => <span className="font-medium">{chunks}</span>,
+            })
+          : t("consequence.leaveWarning")}
       </p>
     </div>
   )
@@ -167,15 +171,26 @@ function initialsFor(name: string | null, email: string | null): string {
   return source.slice(0, 2).toUpperCase()
 }
 
-/** Relative expiry copy; `urgent` (< 24h left) drives the warning-tinted badge. */
-function formatExpiry(expiresAt: Date, now: Date): { label: string; urgent: boolean } {
+type ExpiryState =
+  | { kind: "expired" | "withinHour" | "tomorrow"; urgent: boolean }
+  | { kind: "hours" | "days"; value: number; urgent: boolean }
+
+/**
+ * Relative-expiry state; `urgent` (< 24h left) drives the warning-tinted badge. Copy is localized by
+ * the caller, so this stays a pure time computation.
+ */
+function expiryState(expiresAt: Date, now: Date): ExpiryState {
   const ms = expiresAt.getTime() - now.getTime()
-  if (ms <= 0) return { label: "Expired", urgent: true }
+  if (ms <= 0) return { kind: "expired", urgent: true }
 
   const hours = Math.floor(ms / 3_600_000)
   if (hours < 24) {
-    return { label: hours <= 1 ? "Expires within the hour" : `Expires in ${hours} hours`, urgent: true }
+    return hours <= 1
+      ? { kind: "withinHour", urgent: true }
+      : { kind: "hours", value: hours, urgent: true }
   }
   const days = Math.floor(hours / 24)
-  return { label: days === 1 ? "Expires tomorrow" : `Expires in ${days} days`, urgent: false }
+  return days === 1
+    ? { kind: "tomorrow", urgent: false }
+    : { kind: "days", value: days, urgent: false }
 }

@@ -78,7 +78,9 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
   - [x] **7b. household page + household-manager** (members, invite form, premium upsell,
     pending invites, danger zone leave/delete) → `household` namespace; ICU cap
     interpolation, invite/leave error-code maps, `t.rich` delete description.
-  - [ ] **7c. invites**: invite-card, accept-invite, verify-email-gate, `app/join/*`.
+  - [x] **7c. invite acceptance card**: invite-card (locale-aware relative expiry +
+    member-count plural + `t.rich`) + accept-invite (labels, static error map) → `invites`.
+  - [ ] **7c-2. join flow**: verify-email-gate + `app/join/page.tsx` + `app/join/[token]/page.tsx`.
   - [ ] **7d. billing**: billing page, manage-subscription, premium-checkout, free-cap.
 - [ ] **8. Migrate: upload + accounts + rules.**
 - [ ] **9. Migrate: landing + auth shell.** Bilingual landing (Vercel-geo default).
