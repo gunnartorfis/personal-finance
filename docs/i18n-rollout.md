@@ -73,10 +73,17 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
   from `CATEGORIES` (owned by transactions/spending-by-type, slice 5) — they localize
   there. `cycleKeyLabel`/`shortCycleLabel` are now only used by savings/transactions
   (deferred) + `lib/dashboard/cycle`; delete once those migrate.
-- [ ] **5. Migrate: transactions.** DEFERRED (concurrent refactor). Table, review-mode,
-  override, income, net-summary-card, spending-by-type; expense-type labels via catalog
-  (canonical enum stays English). AI `reasoning` stays English (data).
-- [ ] **6. Migrate: savings.** DEFERRED (concurrent refactor). Goal, config, check-in.
+- [ ] **5. Migrate: transactions.** (Resumed — area settled.) Income done in #204.
+  - [x] **5a. spend breakdown** (`net-summary-card` + `spending-by-type` + the mix chart's
+    category labels) → `netSummary` + `spendingByType` + shared `expenseCategory`
+    namespaces via a `useCategoryLabels()` hook (canonical `CATEGORIES` keys stay English;
+    labels localize at the presentation layer). `renderWithIntl` now uses the RTL `wrapper`
+    option so `rerender` re-applies the provider.
+  - [ ] **5b. transactions table + row-type control** (Type pill/menu, review-mode,
+    override) — next.
+- [ ] **6. Migrate: savings.** DEFERRED — handled by the concurrent ADR-0015 stream
+  (income/config already localized under `incomeSettings` in #204/#206). Goal + check-in
+  remain to that stream.
 - [ ] **7. Migrate: household + invites + billing** (COLD — in progress).
   - [x] **7a. household-reset** ("danger zone" data-reset control) → `householdReset`.
   - [x] **7b. household page + household-manager** (members, invite form, premium upsell,

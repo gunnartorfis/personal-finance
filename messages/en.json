@@ -422,6 +422,24 @@
     "account": "Account",
     "security": "Security"
   },
+  "expenseCategory": {
+    "fixed": "Fixed",
+    "necessary": "Necessary",
+    "niceToHave": "Nice to have",
+    "other": "Other",
+    "unclassified": "Unclassified"
+  },
+  "spendingByType": {
+    "heading": "Spending by type",
+    "total": "{amount} total"
+  },
+  "netSummary": {
+    "cycle": "Statement cycle",
+    "netProfit": "Net profit",
+    "netLoss": "Net loss",
+    "income": "Income",
+    "expenses": "Expenses"
+  },
   "charts": {
     "spendingTrend": {
       "title": "Spending trend",
