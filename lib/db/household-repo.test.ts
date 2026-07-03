@@ -487,6 +487,103 @@ describe("householdRepo", () => {
       // no-op instead (empty result → the route 404s rather than 500ing on a concurrent exclude).
       expect(await a.transactions.setIncomeMarked(credit.id, true)).toHaveLength(0);
     });
+
+    it("excluding a Shared expense clears its Own share (ADR-0014, no CHECK trip)", async () => {
+      const { a } = await twoHouseholds();
+      const { accountId, uploadId } = await seed(a);
+      const [txn] = await a.transactions.create({
+        accountId,
+        uploadId,
+        date: "2026-03-10",
+        amount: -200_000,
+        merchant: "GROUP GIFT",
+        rawCategory: "",
+        sourceRow: 0,
+        ownShareAmount: -28_571,
+      });
+      const [excluded] = await a.transactions.setExcluded(txn.id, true);
+      expect(excluded.excluded).toBe(true);
+      expect(excluded.ownShareAmount).toBeNull();
+    });
+  });
+
+  describe("transactions.setOwnShare (ADR-0014)", () => {
+    const range = { from: "2026-03-01", to: "2026-04-01" };
+    async function seedDebit(
+      a: Awaited<ReturnType<typeof twoHouseholds>>["a"],
+      amount: number
+    ) {
+      const [account] = await a.accounts.create({ name: "Visa" });
+      const [upload] = await a.uploads.create({
+        accountId: account.id,
+        fileName: "s.csv",
+        fileHash: `share-${account.id}`,
+      });
+      const [txn] = await a.transactions.create({
+        accountId: account.id,
+        uploadId: upload.id,
+        date: "2026-03-10",
+        amount,
+        merchant: "GROUP GIFT",
+        rawCategory: "",
+        sourceRow: 0,
+        classificationStatus: "classified",
+        expenseType: "Nice to have",
+      });
+      return { accountId: account.id, txn };
+    }
+
+    it("counts only the Own share in spend, not the full charge", async () => {
+      const { a } = await twoHouseholds();
+      const { txn } = await seedDebit(a, -200_000);
+
+      // Before splitting, the full charge counts.
+      expect((await a.transactions.monthlySpendSeries(range))[0].spending).toBe(200_000);
+
+      const [shared] = await a.transactions.setOwnShare(txn.id, -28_571);
+      expect(shared.ownShareAmount).toBe(-28_571);
+
+      // Spend, the net-summary row, top-merchants, and largest-charge all follow the share.
+      expect((await a.transactions.monthlySpendSeries(range))[0].spending).toBe(28_571);
+      const [summaryRow] = await a.transactions.summaryRows(range);
+      expect(summaryRow.amount).toBe(-28_571);
+      expect((await a.transactions.topMerchants(range))[0].spending).toBe(28_571);
+      expect((await a.transactions.largestCharge(range))?.amount).toBe(28_571);
+    });
+
+    it("clearing returns the row to its full charged amount", async () => {
+      const { a } = await twoHouseholds();
+      const { txn } = await seedDebit(a, -200_000);
+      await a.transactions.setOwnShare(txn.id, -28_571);
+      const [cleared] = await a.transactions.setOwnShare(txn.id, null);
+      expect(cleared.ownShareAmount).toBeNull();
+      expect((await a.transactions.monthlySpendSeries(range))[0].spending).toBe(200_000);
+    });
+
+    it("no-ops on a credit (debit-only, no CHECK trip)", async () => {
+      const { a } = await twoHouseholds();
+      const { txn } = await seedDebit(a, 5_000);
+      expect(await a.transactions.setOwnShare(txn.id, -1_000)).toHaveLength(0);
+    });
+
+    it("no-ops when the share exceeds the charge magnitude", async () => {
+      const { a } = await twoHouseholds();
+      const { txn } = await seedDebit(a, -1_000);
+      expect(await a.transactions.setOwnShare(txn.id, -2_000)).toHaveLength(0);
+    });
+
+    it("no-ops on an excluded row (mutually exclusive)", async () => {
+      const { a } = await twoHouseholds();
+      const { txn } = await seedDebit(a, -1_000);
+      await a.transactions.setExcluded(txn.id, true);
+      expect(await a.transactions.setOwnShare(txn.id, -500)).toHaveLength(0);
+    });
+
+    it("scopes the update to the bound household", async () => {
+      const { a, b } = await twoHouseholds();
+      const { txn } = await seedDebit(a, -1_000);
+      expect(await b.transactions.setOwnShare(txn.id, -500)).toHaveLength(0);
+    });
   });
 
   describe("transactions.progress", () => {

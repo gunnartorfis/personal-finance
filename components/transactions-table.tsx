@@ -8,6 +8,7 @@ import { useId, useMemo, useState } from "react"
 import { ExcludeControl } from "@/components/exclude-control"
 import { IncomeToggle } from "@/components/income-toggle"
 import { OverrideControl } from "@/components/override-control"
+import { ShareControl } from "@/components/share-control"
 import { cn } from "@/lib/utils"
 import type { ExpenseType } from "@/shared/types"
 
@@ -48,6 +49,12 @@ export interface TransactionRow {
   date: string
   merchant: string
   amount: number
+  /**
+   * The Household's Own share of a Shared expense (ADR-0014): the negative portion of this debit it
+   * actually bears, `amount <= ownShareAmount < 0`. Null on an ordinary Transaction. The row always
+   * displays the full `amount`; this only annotates it and drives what counts as spend.
+   */
+  ownShareAmount: number | null
   /** Manually marked as real income (credits only, ADR-0009); unmarked credits count for nothing. */
   incomeMarked: boolean
   /** Manually excluded from every calculation (ADR-0011); any sign. */
@@ -183,15 +190,26 @@ export function TransactionsTable({
               ...row,
               excluded: next.excluded,
               exclusionNote: next.note,
-              // Excluding clears any income mark (mutually exclusive, ADR-0011); the server does the
-              // same, so mirror it locally to keep the row consistent without a round-trip.
+              // Excluding clears any income mark (ADR-0011) and any Own share (ADR-0014) — both are
+              // mutually exclusive with Excluded; the server does the same, so mirror it locally to
+              // keep the row consistent without a round-trip.
               incomeMarked: next.excluded ? false : row.incomeMarked,
+              ownShareAmount: next.excluded ? null : row.ownShareAmount,
             }
           : row
       )
     )
     // Excluding/including changes server-derived Spending, Income, Difference, and the whole-household
     // review backlog — refresh to recompute them, as the other inline controls do.
+    router.refresh()
+  }
+
+  function handleShareChanged(id: string, ownShareAmount: number | null) {
+    setRows((current) =>
+      current.map((row) => (row.id === id ? { ...row, ownShareAmount } : row))
+    )
+    // Setting/clearing an Own share changes server-derived Spending (only the share counts) and the
+    // expense-type buckets it feeds — refresh to recompute them, as the other inline controls do.
     router.refresh()
   }
 
@@ -428,6 +446,13 @@ export function TransactionsTable({
                         )}
                       >
                         {fmtAmount(row.amount)}
+                        {/* A Shared expense shows the full charge above and the counted Own share
+                            beneath, so the face value is never hidden (ADR-0014). */}
+                        {row.ownShareAmount !== null && !row.excluded && (
+                          <div className="text-xs font-normal text-muted-foreground">
+                            your share {fmtAmount(row.ownShareAmount)}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3">
                         {row.excluded ? (
@@ -483,6 +508,17 @@ export function TransactionsTable({
                                   note={null}
                                   onChanged={(next) =>
                                     handleExcludeChanged(row.id, next)
+                                  }
+                                />
+                                {/* Split reduces a debit to the Household's Own share when it fronted
+                                    the rest for others (ADR-0014); the full charge still shows. */}
+                                <ShareControl
+                                  transactionId={row.id}
+                                  amount={row.amount}
+                                  ownShareAmount={row.ownShareAmount}
+                                  formatAmount={fmtAmount}
+                                  onChanged={(next) =>
+                                    handleShareChanged(row.id, next)
                                   }
                                 />
                               </>
