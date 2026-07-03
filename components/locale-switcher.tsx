@@ -28,14 +28,20 @@ export function LocaleSwitcher() {
 
   function switchLocale() {
     startTransition(async () => {
-      const res = await fetch("/api/settings/locale", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ locale: target }),
-      })
-      // Only re-render if the switch actually persisted; a failed request must not
-      // trigger a misleading no-op refresh (the control stays on the old locale).
-      if (res.ok) router.refresh()
+      try {
+        const res = await fetch("/api/settings/locale", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ locale: target }),
+        })
+        // Only re-render if the switch actually persisted; a failed request must
+        // not trigger a misleading no-op refresh (control stays on the old locale).
+        if (res.ok) router.refresh()
+      } catch {
+        // Network-level failure: leave the current locale in place. Must be caught
+        // here — an async-transition throw would route to the nearest Error Boundary
+        // (React 19) and take down surrounding UI over a best-effort preference.
+      }
     })
   }
 

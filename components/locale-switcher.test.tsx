@@ -79,4 +79,16 @@ describe("LocaleSwitcher", () => {
     expect(fetchMock).toHaveBeenCalled()
     expect(refresh).not.toHaveBeenCalled()
   })
+
+  it("swallows a network error instead of throwing to an error boundary", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("network down"))
+    vi.stubGlobal("fetch", fetchMock)
+
+    renderSwitcher("is")
+    // Must not throw out of the transition (React 19 would route it to an Error Boundary).
+    await userEvent.click(screen.getByRole("button", { name: /English/i }))
+
+    expect(fetchMock).toHaveBeenCalled()
+    expect(refresh).not.toHaveBeenCalled()
+  })
 })
