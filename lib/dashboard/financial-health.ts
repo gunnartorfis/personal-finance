@@ -186,11 +186,14 @@ export async function loadFinancialHealth(
   });
 
   // Trim only the LEADING cycles from before the Household's history began — those with no income
-  // configured and no spend recorded, gap-filled to zero, which would otherwise fake up history and
-  // drag the averages down. A drop-while, not a blanket filter: once history has started, a later
-  // cycle with zero income but real off-card costs (e.g. a spell between jobs) is a genuine LOSING
+  // configured, no off-card cost configured, and no spend recorded, gap-filled to zero, which would
+  // otherwise fake up history and drag the averages down. A drop-while, not a blanket filter: once
+  // history has started (by ANY of the three, e.g. rent configured before the first paycheck), a
+  // later cycle with zero income but real off-card costs (a spell between jobs) is a genuine LOSING
   // cycle and must stay in, or the averages would flatter a period of income disruption.
-  const firstActive = resolvedCycles.findIndex((c) => c.cardDebits > 0 || c.monthlyIncome > 0);
+  const firstActive = resolvedCycles.findIndex(
+    (c) => c.cardDebits > 0 || c.monthlyIncome > 0 || c.offCardFixed > 0,
+  );
   const cycles = firstActive === -1 ? [] : resolvedCycles.slice(firstActive);
 
   return computeFinancialHealth(cycles);

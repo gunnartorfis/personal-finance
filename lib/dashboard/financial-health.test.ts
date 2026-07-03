@@ -176,6 +176,24 @@ describe("loadFinancialHealth", () => {
     expect(health.streakConsidered).toBe(4);
   });
 
+  it("counts off-card costs configured before any income as the start of history", async () => {
+    // Onboarding order: rent set up before the first paycheck. That leading rent-only cycle is a
+    // real losing cycle and must anchor history, not be trimmed as a gap-filled empty.
+    const repo = await freshHousehold();
+    await repo.savings.offcardCosts.replace([
+      { name: "Rent", monthlyAmount: 300, effectiveFrom: "2025-12" },
+    ]);
+    await repo.savings.incomeSources.replace([
+      { name: "Salary", amount: 1000, effectiveFrom: "2026-01" },
+    ]);
+
+    const health = await loadFinancialHealth(repo, NOW);
+    // Dec(-300, rent only) Jan(+700) Feb(+700): the leading rent-only cycle is kept.
+    expect(health.completedCycles).toBe(3);
+    expect(health.hasEnoughHistory).toBe(true);
+    expect(health.avgMonthlySaving).toBe(367); // mean(-300, 700, 700)
+  });
+
   it("treats count as the number of completed cycles (excluding the current month is not off-by-one)", async () => {
     // count === minCycles must still clear the history gate: three completed cycles of data, count=3.
     const repo = await freshHousehold();
