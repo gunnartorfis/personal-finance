@@ -539,13 +539,13 @@
     "classifying": "Classifying…",
     "pending": "Classify pending",
     "pendingCount": "Classify pending ({count})",
-    "retryFailed": "Retry {count} failed",
+    "retryFailed": "Retry {count, plural, one {# failed} other {# failed}}",
     "progressBusy": "Classifying… {settled} of {total}",
     "progressComplete": "Classification complete",
     "progressLabel": "Classification progress",
     "error": "Couldn't classify — try again.",
-    "resultClassified": "{count} classified",
-    "resultFailedSuffix": ", {count} failed",
+    "resultClassified": "{count, plural, one {# classified} other {# classified}}",
+    "resultFailedSuffix": ", {count, plural, one {# failed} other {# failed}}",
     "resultCapped": " Some transactions are paused by your Free plan limit."
   },
   "rapidReview": {

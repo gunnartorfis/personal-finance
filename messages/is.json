@@ -539,13 +539,13 @@
     "classifying": "Flokka…",
     "pending": "Flokka í bið",
     "pendingCount": "Flokka í bið ({count})",
-    "retryFailed": "Reyna aftur {count} sem mistókust",
+    "retryFailed": "Reyna aftur {count, plural, one {# sem mistókst} other {# sem mistókust}}",
     "progressBusy": "Flokka… {settled} af {total}",
     "progressComplete": "Flokkun lokið",
     "progressLabel": "Framvinda flokkunar",
     "error": "Tókst ekki að flokka — reyndu aftur.",
-    "resultClassified": "{count} flokkaðar",
-    "resultFailedSuffix": ", {count} mistókust",
+    "resultClassified": "{count, plural, one {# flokkuð} other {# flokkaðar}}",
+    "resultFailedSuffix": ", {count, plural, one {# mistókst} other {# mistókust}}",
     "resultCapped": " Sumar færslur eru í bið vegna takmarka ókeypis áætlunar."
   },
   "rapidReview": {
