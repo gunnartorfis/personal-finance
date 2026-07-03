@@ -91,6 +91,16 @@ const VIEW: DashboardView = {
     reconnect: [],
     allClear: true,
   },
+  financialHealth: {
+    completedCycles: 3,
+    hasEnoughHistory: true,
+    avgMonthlySaving: 50000,
+    avgMonthlyIncome: 250000,
+    savingsRate: 0.2,
+    monthlyBurn: 200000,
+    profitableCount: 3,
+    streakConsidered: 3,
+  },
 }
 
 describe("DashboardPage", () => {
@@ -116,6 +126,9 @@ describe("DashboardPage", () => {
     expect(screen.getByText(/all caught up/i)).toBeInTheDocument()
     // Hero.
     expect(screen.getByText(/Spending so far/i)).toBeInTheDocument()
+    // Financial health section.
+    expect(screen.getByText("Financial health")).toBeInTheDocument()
+    expect(screen.getByText("20%")).toBeInTheDocument()
     // Modules.
     expect(screen.getByText("Spending trend")).toBeInTheDocument()
     expect(screen.getByText("Where it goes")).toBeInTheDocument()

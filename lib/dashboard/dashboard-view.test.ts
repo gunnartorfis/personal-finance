@@ -60,6 +60,16 @@ function baseInputs(overrides: Partial<DashboardInputs> = {}): DashboardInputs {
     largestCharge: { merchant: "BIGSHOP", amount: 50000 },
     accountBreakdown: [{ accountId: "a1", name: "Visa", spending: 100000, share: 1 }],
     accountCount: 2,
+    financialHealth: {
+      completedCycles: 3,
+      hasEnoughHistory: true,
+      avgMonthlySaving: 50000,
+      avgMonthlyIncome: 250000,
+      savingsRate: 0.2,
+      monthlyBurn: 200000,
+      profitableCount: 3,
+      streakConsidered: 3,
+    },
     reviewBacklog: 5,
     pendingCount: 0,
     failedCount: 0,
@@ -87,6 +97,9 @@ describe("assembleDashboardView", () => {
     const view = assembleDashboardView(baseInputs());
     expect(view.modules.hasEnoughHistory).toBe(true); // 3 completed months with data
     expect(view.modules.completedMonths).toBe(3);
+    // Financial-health block is passed through verbatim for the section to render.
+    expect(view.financialHealth.savingsRate).toBe(0.2);
+    expect(view.financialHealth.hasEnoughHistory).toBe(true);
     // 40000 unclassified vs 60000 classified -> not "mostly" unclassified
     expect(view.modules.categoryMostlyUnclassified).toBe(false);
     expect(view.modules.accounts).not.toBeNull();
