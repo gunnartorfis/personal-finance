@@ -1,10 +1,12 @@
 "use client"
 
-import { Bar, BarChart, XAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
 
 import { CATEGORIES } from "@/components/spending-by-type"
 import {
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
@@ -35,11 +37,21 @@ function mixLabel(month: CycleKey, point: CategoryTrendPoint): string {
   return `${label} spending mix: ${parts.join(", ")}`
 }
 
+/** Rounded outer corners for a stacked bar: bottom segment rounds its base, top segment its cap. */
+function stackRadius(index: number, count: number): [number, number, number, number] {
+  const isBottom = index === 0
+  const isTop = index === count - 1
+  if (isBottom && isTop) return [4, 4, 4, 4]
+  if (isTop) return [4, 4, 0, 0]
+  if (isBottom) return [0, 0, 4, 4]
+  return [0, 0, 0, 0]
+}
+
 /**
  * The 100%-normalized "mix over time" chart: one stacked bar per month showing how the spending mix
- * shifts, drawn with Recharts (`stackOffset="expand"`). The colour-keyed HTML legend and the
- * screen-reader-only per-month composition summary live outside the SVG so the mix is legible without
- * a pointer and testable without a laid-out chart. Prop-driven off the dashboard view-model's trend.
+ * shifts, drawn with Recharts (`stackOffset="expand"`) following shadcn's stacked-bar setup
+ * (`accessibilityLayer`, `CartesianGrid`, `ChartLegend`). The screen-reader-only per-month composition
+ * summary lives outside the SVG so the mix is legible without a pointer. Prop-driven off the trend.
  */
 export function MixOverTimeChart({
   categoryTrend,
@@ -78,36 +90,10 @@ export function MixOverTimeChart({
     <div className="flex flex-col gap-2">
       <h3 className="text-sm font-medium text-muted-foreground">Mix over time</h3>
 
-      {present.length > 0 && (
-        <ul role="list" className="flex flex-wrap gap-x-3 gap-y-1">
-          {present.map((category) => (
-            <li
-              key={category.key}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground"
-            >
-              <span
-                className={`size-2 shrink-0 rounded-full ${category.swatch}`}
-                aria-hidden="true"
-              />
-              {category.label}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <ChartContainer config={chartConfig} className="aspect-auto h-28 w-full">
-        <BarChart
-          data={data}
-          stackOffset="expand"
-          margin={{ top: 4, right: 0, bottom: 0, left: 0 }}
-        >
-          <XAxis
-            dataKey="label"
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            fontSize={10}
-          />
+      <ChartContainer config={chartConfig} className="aspect-auto h-44 w-full">
+        <BarChart accessibilityLayer data={data} stackOffset="expand">
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="label" tickLine={false} tickMargin={10} axisLine={false} />
           <ChartTooltip
             cursor={false}
             content={
@@ -124,13 +110,14 @@ export function MixOverTimeChart({
               />
             }
           />
+          <ChartLegend content={<ChartLegendContent />} />
           {present.map((category, index) => (
             <Bar
               key={category.slug}
               dataKey={category.slug}
               stackId="mix"
               fill={`var(--color-${category.slug})`}
-              radius={index === present.length - 1 ? [2, 2, 0, 0] : 0}
+              radius={stackRadius(index, present.length)}
               isAnimationActive={false}
             />
           ))}
