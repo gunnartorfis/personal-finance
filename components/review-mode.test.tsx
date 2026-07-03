@@ -1,8 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
 import { ReviewMode } from "@/components/review-mode"
 import type { TransactionRow } from "@/components/transactions-table"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 function row(
   partial: Partial<TransactionRow> & Pick<TransactionRow, "id">
