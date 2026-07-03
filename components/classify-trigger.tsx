@@ -1,6 +1,7 @@
 "use client"
 
 import { Loader2, RefreshCw, Sparkles } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -42,10 +43,13 @@ function backoff(attempt: number, signal: AbortSignal) {
       reject(new DOMException("aborted", "AbortError"))
       return
     }
-    const timer = setTimeout(() => {
-      signal.removeEventListener("abort", onAbort)
-      resolve()
-    }, RETRY_BASE_DELAY_MS * 2 ** (attempt - 1))
+    const timer = setTimeout(
+      () => {
+        signal.removeEventListener("abort", onAbort)
+        resolve()
+      },
+      RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)
+    )
     function onAbort() {
       clearTimeout(timer)
       reject(new DOMException("aborted", "AbortError"))
@@ -62,18 +66,20 @@ function backoff(attempt: number, signal: AbortSignal) {
 async function postWithRetry(
   url: string,
   signal: AbortSignal,
-  interrupted: () => boolean,
+  interrupted: () => boolean
 ): Promise<Response> {
   for (let attempt = 1; ; attempt++) {
     // Re-check before every request, not just at the retry decision: if the page began unloading
     // while backoff() was sleeping (its timer isn't tied to `signal`, which stays un-aborted on a
     // refresh), the loop would otherwise dispatch one more POST into the dying page.
-    if (signal.aborted || interrupted()) throw new DOMException("aborted", "AbortError")
+    if (signal.aborted || interrupted())
+      throw new DOMException("aborted", "AbortError")
     let res: Response
     try {
       res = await fetch(url, { method: "POST", signal })
     } catch (error) {
-      if (attempt >= BATCH_ATTEMPTS || signal.aborted || interrupted()) throw error
+      if (attempt >= BATCH_ATTEMPTS || signal.aborted || interrupted())
+        throw error
       await backoff(attempt, signal)
       continue
     }
@@ -139,6 +145,7 @@ export function ClassifyTrigger({
   retryOnly?: boolean
   className?: string
 }) {
+  const t = useTranslations("classify")
   const [busy, setBusy] = useState(false)
   const [totals, setTotals] = useState<ClassifyTotals | null>(null)
   const [errored, setErrored] = useState(false)
@@ -177,10 +184,11 @@ export function ClassifyTrigger({
   // effect's cleanup and abort the very drain it's meant to keep alive. Synced in an effect (below)
   // rather than during render, and initialised eagerly so the first paint's value is available.
   const baselineSourceRef = useRef<number | undefined>(
-    pendingCount ?? (retryOnly ? failedCount : undefined),
+    pendingCount ?? (retryOnly ? failedCount : undefined)
   )
   useEffect(() => {
-    baselineSourceRef.current = pendingCount ?? (retryOnly ? failedCount : undefined)
+    baselineSourceRef.current =
+      pendingCount ?? (retryOnly ? failedCount : undefined)
   }, [pendingCount, retryOnly, failedCount])
 
   const classify = useCallback(async () => {
@@ -199,7 +207,7 @@ export function ClassifyTrigger({
         const res = await postWithRetry(
           "/api/classify",
           controller.signal,
-          () => unloadingRef.current,
+          () => unloadingRef.current
         )
         const result = (await res.json()) as ClassifyTotals
         run.classified += result.classified
@@ -238,7 +246,10 @@ export function ClassifyTrigger({
     setTotals(null) // clear any prior run's totals so they don't linger during the reset POST
     if (resumable) setDrainActive(true)
     try {
-      const res = await fetch("/api/classify/retry", { method: "POST", signal: controller.signal })
+      const res = await fetch("/api/classify/retry", {
+        method: "POST",
+        signal: controller.signal,
+      })
       if (!res.ok) throw new Error("retry failed")
     } catch {
       // Intentional interruption (unmount abort or page teardown), not a failure — see classify().
@@ -258,7 +269,10 @@ export function ClassifyTrigger({
   const driveStartedRef = useRef(false)
   useEffect(() => {
     const shouldResume =
-      resumable && !retryOnly && (baselineSourceRef.current ?? 0) > 0 && isDrainActive()
+      resumable &&
+      !retryOnly &&
+      (baselineSourceRef.current ?? 0) > 0 &&
+      isDrainActive()
     if (!driveStartedRef.current && (autoRun || shouldResume)) {
       driveStartedRef.current = true
       void classify()
@@ -276,9 +290,12 @@ export function ClassifyTrigger({
   // baseline; capped rows stay pending and legitimately leave it short of 100%.
   const settled = totals ? totals.classified + totals.failed : 0
   const percent =
-    baseline && baseline > 0 ? Math.min(100, Math.round((settled / baseline) * 100)) : 0
+    baseline && baseline > 0
+      ? Math.min(100, Math.round((settled / baseline) * 100))
+      : 0
   const complete = !busy && totals !== null && !errored
-  const showProgress = baseline !== undefined && baseline > 0 && (busy || complete)
+  const showProgress =
+    baseline !== undefined && baseline > 0 && (busy || complete)
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
@@ -287,10 +304,10 @@ export function ClassifyTrigger({
           <Button type="button" onClick={() => void classify()} disabled={busy}>
             {busy ? <Loader2 className="animate-spin" /> : <Sparkles />}
             {busy
-              ? "Classifying…"
+              ? t("classifying")
               : pendingCount !== undefined
-                ? `Classify pending (${pendingCount})`
-                : "Classify pending"}
+                ? t("pendingCount", { count: pendingCount })
+                : t("pending")}
           </Button>
         )}
 
@@ -302,7 +319,7 @@ export function ClassifyTrigger({
             disabled={busy}
           >
             <RefreshCw />
-            {`Retry ${failedCount} failed`}
+            {t("retryFailed", { count: failedCount })}
           </Button>
         )}
       </div>
@@ -314,14 +331,17 @@ export function ClassifyTrigger({
               {busy
                 ? // Clamp the shown count: if new rows land mid-run `settled` can exceed the baseline,
                   // which would otherwise read "12 of 10" against a bar already pinned at 100%.
-                  `Classifying… ${Math.min(settled, baseline ?? settled)} of ${baseline}`
-                : "Classification complete"}
+                  t("progressBusy", {
+                    settled: Math.min(settled, baseline ?? settled),
+                    total: baseline ?? 0,
+                  })
+                : t("progressComplete")}
             </span>
             <span className="font-medium tabular-nums">{percent}%</span>
           </div>
           <div
             role="progressbar"
-            aria-label="Classification progress"
+            aria-label={t("progressLabel")}
             aria-valuenow={percent}
             aria-valuemin={0}
             aria-valuemax={100}
@@ -330,7 +350,7 @@ export function ClassifyTrigger({
             <div
               className={cn(
                 "h-full bg-primary transition-all",
-                complete && percent === 100 && "bg-emerald-500",
+                complete && percent === 100 && "bg-emerald-500"
               )}
               style={{ width: `${percent}%` }}
             />
@@ -340,15 +360,16 @@ export function ClassifyTrigger({
 
       {errored && (
         <p role="alert" className="text-sm text-destructive">
-          Couldn’t classify — try again.
+          {t("error")}
         </p>
       )}
 
       {totals && !errored && (
         <p className="text-sm text-muted-foreground">
-          {totals.classified} classified
-          {totals.failed > 0 && `, ${totals.failed} failed`}.
-          {totals.capped > 0 && " Some transactions are paused by your Free plan limit."}
+          {t("resultClassified", { count: totals.classified })}
+          {totals.failed > 0 &&
+            t("resultFailedSuffix", { count: totals.failed })}
+          .{totals.capped > 0 && t("resultCapped")}
         </p>
       )}
     </div>

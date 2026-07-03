@@ -535,6 +535,19 @@
       "goalSection": "Markmið"
     }
   },
+  "classify": {
+    "classifying": "Flokka…",
+    "pending": "Flokka í bið",
+    "pendingCount": "Flokka í bið ({count})",
+    "retryFailed": "Reyna aftur {count} sem mistókust",
+    "progressBusy": "Flokka… {settled} af {total}",
+    "progressComplete": "Flokkun lokið",
+    "progressLabel": "Framvinda flokkunar",
+    "error": "Tókst ekki að flokka — reyndu aftur.",
+    "resultClassified": "{count} flokkaðar",
+    "resultFailedSuffix": ", {count} mistókust",
+    "resultCapped": " Sumar færslur eru í bið vegna takmarka ókeypis áætlunar."
+  },
   "rapidReview": {
     "launch": "⚡ Hraðyfirferð ({count})",
     "queueError": "Tókst ekki að hlaða yfirferðarröðinni. Reyndu aftur.",

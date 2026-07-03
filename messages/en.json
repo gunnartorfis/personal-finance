@@ -535,6 +535,19 @@
       "goalSection": "Goal"
     }
   },
+  "classify": {
+    "classifying": "Classifying…",
+    "pending": "Classify pending",
+    "pendingCount": "Classify pending ({count})",
+    "retryFailed": "Retry {count} failed",
+    "progressBusy": "Classifying… {settled} of {total}",
+    "progressComplete": "Classification complete",
+    "progressLabel": "Classification progress",
+    "error": "Couldn't classify — try again.",
+    "resultClassified": "{count} classified",
+    "resultFailedSuffix": ", {count} failed",
+    "resultCapped": " Some transactions are paused by your Free plan limit."
+  },
   "rapidReview": {
     "launch": "⚡ Rapid review ({count})",
     "queueError": "Couldn't load the review queue. Try again.",
