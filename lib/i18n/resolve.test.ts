@@ -16,6 +16,11 @@ describe("localeFromAcceptLanguage", () => {
     expect(localeFromAcceptLanguage("en;q=0.3,is;q=0.9")).toBe("is")
   })
 
+  it("treats q=0 as explicitly rejected, not merely lowest priority", () => {
+    expect(localeFromAcceptLanguage("is;q=0,en;q=0.5")).toBe("en")
+    expect(localeFromAcceptLanguage("is;q=0")).toBeNull()
+  })
+
   it("returns null when nothing matches or the header is empty", () => {
     expect(localeFromAcceptLanguage("fr,de")).toBeNull()
     expect(localeFromAcceptLanguage("")).toBeNull()

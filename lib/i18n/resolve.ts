@@ -25,7 +25,9 @@ export function localeFromAcceptLanguage(
         quality: Number.isFinite(quality) ? quality : 0,
       }
     })
-    .filter((entry) => entry.primary.length > 0)
+    // q=0 means "not acceptable" (RFC 7231 §5.3.1), so drop those entirely
+    // rather than merely ranking them last.
+    .filter((entry) => entry.primary.length > 0 && entry.quality > 0)
     .sort((a, b) => b.quality - a.quality)
 
   for (const { primary } of ranked) {
