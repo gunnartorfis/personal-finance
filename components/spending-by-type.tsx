@@ -101,6 +101,10 @@ export function SpendingByType({
   const chartConfig = Object.fromEntries(
     breakdown.map((category) => [category.slug, { label: category.label, theme: category.color }])
   ) satisfies ChartConfig
+  // Denominator for the tooltip shares. `stackOffset="expand"` sizes each segment against the sum of
+  // the rendered magnitudes, so the tooltip must use that same sum (not `totalExpense`, which can
+  // diverge from it) for the percentages to match the bar widths and add up to 100%.
+  const breakdownTotal = breakdown.reduce((sum, category) => sum + category.magnitude, 0)
   // One row; each present category is a stacked segment. `stackOffset="expand"` normalises the row
   // to 100%, so segment widths read as shares of total spend.
   const chartData = [
@@ -138,7 +142,7 @@ export function SpendingByType({
                 hideLabel
                 formatter={(value, name) => {
                   const label = chartConfig[name as string]?.label ?? name
-                  const share = totalExpense > 0 ? (Number(value) / totalExpense) * 100 : 0
+                  const share = breakdownTotal > 0 ? (Number(value) / breakdownTotal) * 100 : 0
                   return (
                     <span className="flex w-full items-center justify-between gap-3">
                       <span className="text-muted-foreground">{label}</span>

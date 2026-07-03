@@ -49,6 +49,14 @@ export function SpendingTrendChart({
   })
   const fmt = (amount: number) => money.format(amount)
 
+  // Recharts hands a Bar's onClick the datum (its `payload`); navigate to that cycle. Scoping the
+  // handler to the bar — rather than the chart — means only a bar click navigates, never a click on
+  // empty plot area (which chart-level onClick would fire off the last hovered index).
+  const goToCycle = (entry: unknown) => {
+    const month = (entry as { payload?: { month?: string } })?.payload?.month
+    if (month) router.push(`/transactions?cycle=${month}`)
+  }
+
   const data = series.map((point) => ({
     month: point.month,
     label: shortCycleLabel(point.month),
@@ -76,19 +84,8 @@ export function SpendingTrendChart({
 
       {hasEnoughHistory ? (
         <>
-          <ChartContainer
-            config={chartConfig}
-            className="aspect-auto h-40 w-full [&_.recharts-rectangle.recharts-bar-rectangle]:cursor-pointer"
-          >
-            <ComposedChart
-              data={data}
-              margin={{ top: 4, right: 0, bottom: 0, left: 0 }}
-              onClick={(state) => {
-                const index = state?.activeIndex
-                const month = index != null ? data[Number(index)]?.month : undefined
-                if (month) router.push(`/transactions?cycle=${month}`)
-              }}
-            >
+          <ChartContainer config={chartConfig} className="aspect-auto h-40 w-full">
+            <ComposedChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
               <XAxis
                 dataKey="label"
                 tickLine={false}
@@ -121,6 +118,8 @@ export function SpendingTrendChart({
                 fill="var(--color-spending)"
                 radius={[2, 2, 0, 0]}
                 isAnimationActive={false}
+                cursor="pointer"
+                onClick={goToCycle}
               />
               <Line
                 dataKey="income"
