@@ -110,8 +110,8 @@ export function SavingsAssessmentPanel({
         {assessment.provisional && (
           <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
-            {cycleKeyLabel(assessment.cycleKey)} isn&rsquo;t in your total yet — it counts once the
-            month closes.
+            {cycleKeyLabel(assessment.cycleKey)}{" "}
+            isn&rsquo;t in your total yet — it counts once the month closes.
           </p>
         )}
       </div>
