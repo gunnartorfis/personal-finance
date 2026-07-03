@@ -1,6 +1,7 @@
 "use client"
 
 import { CircleAlert, Loader2, MailCheck, RefreshCw } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -16,6 +17,7 @@ type ResendState = "idle" | "sending" | "sent" | "error"
  * with a different account.
  */
 export function VerifyEmailGate({ email }: { email: string }) {
+  const t = useTranslations("join.verify")
   const [resend, setResend] = useState<ResendState>("idle")
   const [continuing, setContinuing] = useState(false)
   const [switching, setSwitching] = useState(false)
@@ -63,29 +65,27 @@ export function VerifyEmailGate({ email }: { email: string }) {
       <div className="flex flex-col gap-4">
         <MailCheck aria-hidden="true" className="size-6 shrink-0 text-primary" />
         <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-balance">
-            Verify your email to join
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-balance">{t("title")}</h1>
           <p className="max-w-[60ch] text-pretty text-muted-foreground">
-            You’ve been invited to share a household’s combined finances. Because that includes
-            everyone’s money, we need to confirm you own{" "}
-            <strong className="font-medium text-foreground">{email}</strong> before you can see it.
-            Open the verification link we emailed you, then continue.
+            {t.rich("body", {
+              email,
+              strong: (chunks) => (
+                <strong className="font-medium text-foreground">{chunks}</strong>
+              ),
+            })}
           </p>
         </div>
       </div>
 
       <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
         <div className="flex flex-col gap-1">
-          <p className="text-sm font-medium">Already clicked the link?</p>
-          <p className="text-sm text-pretty text-muted-foreground">
-            Continue to accept your invitation and open the shared household.
-          </p>
+          <p className="text-sm font-medium">{t("alreadyClicked")}</p>
+          <p className="text-sm text-pretty text-muted-foreground">{t("continueBlurb")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Button size="lg" onClick={handleContinue} disabled={continuing} className="self-start">
             {continuing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-            I’ve verified my email
+            {t("continue")}
           </Button>
           <Button
             variant="outline"
@@ -94,7 +94,11 @@ export function VerifyEmailGate({ email }: { email: string }) {
             disabled={resend === "sending" || resend === "sent"}
           >
             {resend === "sending" ? <Loader2 className="animate-spin" /> : null}
-            {RESEND_LABEL[resend]}
+            {resend === "sending"
+              ? t("resend.sending")
+              : resend === "sent"
+                ? t("resend.sent")
+                : t("resend.idle")}
           </Button>
         </div>
         {resend === "error" && (
@@ -103,10 +107,7 @@ export function VerifyEmailGate({ email }: { email: string }) {
             className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
           >
             <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-            <p className="text-pretty">
-              Couldn’t send a new email. Use the link from your original invitation email, or try
-              again shortly.
-            </p>
+            <p className="text-pretty">{t("resendError")}</p>
           </div>
         )}
       </div>
@@ -118,21 +119,14 @@ export function VerifyEmailGate({ email }: { email: string }) {
           disabled={switching}
           className="self-start text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline disabled:pointer-events-none disabled:opacity-50"
         >
-          {switching ? "Signing out…" : "Not you? Sign in with a different account"}
+          {switching ? t("switching") : t("switch")}
         </button>
         {switchFailed && (
           <p role="alert" className="text-sm text-pretty text-destructive">
-            Couldn’t sign out. Please try again.
+            {t("switchError")}
           </p>
         )}
       </div>
     </main>
   )
-}
-
-const RESEND_LABEL: Record<ResendState, string> = {
-  idle: "Resend verification email",
-  sending: "Sending…",
-  sent: "Sent — check your inbox",
-  error: "Resend verification email",
 }

@@ -80,7 +80,8 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
     interpolation, invite/leave error-code maps, `t.rich` delete description.
   - [x] **7c. invite acceptance card**: invite-card (locale-aware relative expiry +
     member-count plural + `t.rich`) + accept-invite (labels, static error map) → `invites`.
-  - [ ] **7c-2. join flow**: verify-email-gate + `app/join/page.tsx` + `app/join/[token]/page.tsx`.
+  - [x] **7c-2. join flow**: verify-email-gate (resend states, rich email body) + `app/join/page.tsx`
+    (pending-count plural) + `app/join/[token]/page.tsx` (invalid-link state) → `join` namespace.
   - [ ] **7d. billing**: billing page, manage-subscription, premium-checkout, free-cap.
 - [ ] **8. Migrate: upload + accounts + rules.**
 - [ ] **9. Migrate: landing + auth shell.** Bilingual landing (Vercel-geo default).

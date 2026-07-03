@@ -136,5 +136,29 @@
       "generic": "Couldn't accept the invite."
     },
     "declineError": "Couldn't decline the invite."
+  },
+  "join": {
+    "srTitle": "Join a household",
+    "chooseTitle": "Choose a household to join",
+    "pendingCount": "You have {count} pending invitations. You can join one.",
+    "invalidTitle": "Invite link no longer valid",
+    "invalidBody": "This invite link may have been used, revoked, or expired. Ask the person who invited you to send a new one.",
+    "goDashboard": "Go to dashboard",
+    "verify": {
+      "title": "Verify your email to join",
+      "body": "You've been invited to share a household's combined finances. Because that includes everyone's money, we need to confirm you own <strong>{email}</strong> before you can see it. Open the verification link we emailed you, then continue.",
+      "alreadyClicked": "Already clicked the link?",
+      "continueBlurb": "Continue to accept your invitation and open the shared household.",
+      "continue": "I've verified my email",
+      "resend": {
+        "idle": "Resend verification email",
+        "sending": "Sending…",
+        "sent": "Sent — check your inbox"
+      },
+      "resendError": "Couldn't send a new email. Use the link from your original invitation email, or try again shortly.",
+      "switching": "Signing out…",
+      "switch": "Not you? Sign in with a different account",
+      "switchError": "Couldn't sign out. Please try again."
+    }
   }
 }
