@@ -35,10 +35,15 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
   `resolveRequestLocale` now feeds it cookie + geo + `Accept-Language` from the request.
   (Split out of the original slice 3 to keep PRs small; the `member.locale` DB tier +
   switcher are 3b.)
-- [ ] **3b. Member locale + switcher.** Drizzle `locale` column + migration; slot
-  `member.locale` into the precedence ahead of geo (cookie → `member.locale` → geo →
-  `Accept-Language` → `is`); locale switcher in the app-shell account menu (persists to
-  DB + cookie via a server action).
+- [x] **3b. Member locale (DB + resolution + API).** Drizzle `locale` column on
+  `members` + migration; `member.locale` slots into the precedence ahead of geo
+  (cookie → `member.locale` → geo → `Accept-Language` → `is`), consulted only on a
+  cookie miss (`currentMemberLocale`, lazy-loaded to keep auth out of the pure path);
+  `PUT /api/settings/locale` writes both the column and the `NEXT_LOCALE` cookie.
+  (Switcher UI split to 3c; the codebase uses API routes + client fetch, not server
+  actions.)
+- [ ] **3c. Language switcher UI.** A switcher in the app-shell account menu that
+  `PUT`s `/api/settings/locale` and refreshes. Route the UI through the `/design` skill.
 - [ ] **4. Migrate: dashboard.** All strings in `app/(app)/dashboard` + its modules
   → catalogs (both locales).
 - [ ] **5. Migrate: transactions.** Table, review-mode, override, income; expense-type
