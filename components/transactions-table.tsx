@@ -461,6 +461,9 @@ export function TransactionsTable({
                           onShareChanged={(share) =>
                             handleShareChanged(row.id, share)
                           }
+                          // A new merchant rule re-types every matching row server-side (ADR-0012);
+                          // refresh so this period's other rows and the net summary reflect it.
+                          onRuleCreated={() => router.refresh()}
                         />
                       </td>
                     </tr>

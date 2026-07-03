@@ -92,6 +92,7 @@ export function RowTypeControl({
   onIncomeChanged,
   onExcludeChanged,
   onShareChanged,
+  onRuleCreated,
 }: {
   row: TransactionRow
   formatAmount: (amount: number) => string
@@ -102,6 +103,8 @@ export function RowTypeControl({
   onIncomeChanged: (incomeMarked: boolean) => void
   onExcludeChanged: (next: { excluded: boolean; note: string | null }) => void
   onShareChanged: (ownShareAmount: number | null) => void
+  /** Fired after a whole-merchant rule is created — the parent re-types matching rows / recounts. */
+  onRuleCreated: () => void
 }) {
   const [editor, setEditor] = useState<"none" | "split" | "exclude">("none")
   const [busy, setBusy] = useState(false)
@@ -320,7 +323,11 @@ export function RowTypeControl({
             </MenuItem>
           )}
           {canMakeRule && (
-            <ApplyToAllItem merchant={row.merchant} flatType={effective} />
+            <ApplyToAllItem
+              merchant={row.merchant}
+              flatType={effective}
+              onCreated={onRuleCreated}
+            />
           )}
 
           <MenuSeparator />
@@ -373,9 +380,12 @@ type RuleStatus = "idle" | "creating" | "created" | "exists" | "error"
 function ApplyToAllItem({
   merchant,
   flatType,
+  onCreated,
 }: {
   merchant: string
   flatType: ExpenseType
+  /** Called once, after the rule is newly created, so the table re-types matching rows / recounts. */
+  onCreated: () => void
 }) {
   const [status, setStatus] = useState<RuleStatus>("idle")
   const req = useRef(0)
@@ -391,6 +401,9 @@ function ApplyToAllItem({
       })
       if (req.current !== token) return
       setStatus(res.ok ? "created" : res.status === 409 ? "exists" : "error")
+      // A new rule re-types every matching row and future charges (ADR-0012); refresh so the other
+      // rows for this merchant and the server-derived summary reflect it, not just this row.
+      if (res.ok) onCreated()
     } catch {
       if (req.current === token) setStatus("error")
     }

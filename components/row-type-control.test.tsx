@@ -36,6 +36,7 @@ function setup(row: Partial<TransactionRow> = {}) {
     onIncomeChanged: vi.fn(),
     onExcludeChanged: vi.fn(),
     onShareChanged: vi.fn(),
+    onRuleCreated: vi.fn(),
   }
   render(<RowTypeControl row={{ ...BASE, ...row }} formatAmount={fmt} {...handlers} />)
   return { user: userEvent.setup(), ...handlers }
@@ -62,10 +63,10 @@ describe("RowTypeControl", () => {
     })
   })
 
-  it("creates a whole-merchant rule from the current type (ADR-0012)", async () => {
+  it("creates a whole-merchant rule from the current type and refreshes (ADR-0012)", async () => {
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }))
     vi.stubGlobal("fetch", fetchMock)
-    const { user } = setup()
+    const { user, onRuleCreated } = setup()
 
     await user.click(screen.getByRole("button", { name: /necessary/i }))
     await user.click(
@@ -80,6 +81,23 @@ describe("RowTypeControl", () => {
     expect(
       await screen.findByRole("menuitem", { name: /rule added for VÍS/i })
     ).toBeInTheDocument()
+    // The rule re-types other rows server-side, so the parent is asked to refresh.
+    expect(onRuleCreated).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not refresh when the merchant rule already exists (409)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, status: 409, json: async () => ({}) }))
+    )
+    const { user, onRuleCreated } = setup()
+
+    await user.click(screen.getByRole("button", { name: /necessary/i }))
+    await user.click(
+      await screen.findByRole("menuitem", { name: /apply to all VÍS/i })
+    )
+    await screen.findByRole("menuitem", { name: /already exists/i })
+    expect(onRuleCreated).not.toHaveBeenCalled()
   })
 
   it("reports when a merchant rule already exists (409)", async () => {
