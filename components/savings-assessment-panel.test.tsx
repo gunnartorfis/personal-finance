@@ -81,8 +81,7 @@ describe("SavingsAssessmentPanel", () => {
       },
       cycles: cycles.filter((c) => c.inProgress),
     })
-    expect(screen.getByText(/on track/i)).toBeInTheDocument()
-    expect(screen.getByText(/ISK 2,000,000 saved so far/i)).toBeInTheDocument()
+    expect(screen.getByText(/On track — ISK 2,000,000 saved so far/i)).toBeInTheDocument()
     // No tautological "needed by now" when nothing is due yet.
     expect(screen.queryByText(/needed by now/i)).not.toBeInTheDocument()
   })

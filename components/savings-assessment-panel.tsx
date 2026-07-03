@@ -55,18 +55,21 @@ export function SavingsAssessmentPanel({
             <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
           )}
           <p>
-            {assessment.cyclesElapsed === 0 ? (
-              // No cycle has closed yet, so the linear "needed by now" baseline is just the starting
-              // balance — showing "X of X needed by now" reads as a tautology. Frame it as a start.
-              <>
-                On track — {money.format(assessment.cumulative)} saved so far. No cycle has closed
-                yet.
-              </>
-            ) : assessment.onTrack ? (
-              <>
-                On track — {money.format(assessment.cumulative)} saved of the{" "}
-                {money.format(assessment.requiredCumulative)} needed by now.
-              </>
+            {assessment.onTrack ? (
+              assessment.cyclesElapsed === 0 ? (
+                // Nested under onTrack (never contradicts the icon/styling): with no closed cycle the
+                // "needed by now" baseline is just the starting balance, so "X of X needed by now"
+                // reads as a tautology — frame it as a start instead.
+                <>
+                  On track — {money.format(assessment.cumulative)} saved so far. No cycle has closed
+                  yet.
+                </>
+              ) : (
+                <>
+                  On track — {money.format(assessment.cumulative)} saved of the{" "}
+                  {money.format(assessment.requiredCumulative)} needed by now.
+                </>
+              )
             ) : (
               <>
                 Behind — {money.format(assessment.cumulative)} saved of the{" "}
