@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server"
+
 import { SavingsConfigForm } from "@/components/savings-config-form"
 import { requireHousehold } from "@/lib/household/current"
 
@@ -11,14 +13,12 @@ export const dynamic = "force-dynamic"
  */
 export default async function IncomeSettingsPage() {
   await requireHousehold() // gate on auth; the form fetches the config client-side
+  const t = await getTranslations("incomeSettings")
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Income &amp; recurring costs</h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          Your monthly income sources and fixed off-card costs. These anchor your savings progress
-          and budgeting.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("pageTitle")}</h1>
+        <p className="text-sm text-pretty text-muted-foreground">{t("pageDescription")}</p>
       </header>
       <SavingsConfigForm />
     </div>

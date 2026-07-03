@@ -96,6 +96,23 @@
     "deleteConfirm": "Yes, delete household",
     "deleteTrigger": "Delete household"
   },
+  "incomeSettings": {
+    "pageTitle": "Income & recurring costs",
+    "pageDescription": "Your monthly income sources and fixed off-card costs. These anchor your savings progress and budgeting.",
+    "formLabel": "Savings config",
+    "loading": "Loading config…",
+    "incomeLegend": "Income sources",
+    "offcardLegend": "Off-card costs",
+    "addIncome": "Add income source",
+    "addOffcard": "Add off-card cost",
+    "nameLabel": "Name",
+    "amountLabel": "Amount / month",
+    "none": "None yet.",
+    "remove": "Remove {label}",
+    "saveError": "Couldn’t save the config. Check the values and try again.",
+    "saved": "Config saved.",
+    "save": "Save config"
+  },
   "invites": {
     "headlineNamed": "{name} invited you to their household",
     "headlineGeneric": "You've been invited to a household",
