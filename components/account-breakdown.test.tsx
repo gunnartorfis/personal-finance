@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
 import { AccountBreakdown } from "@/components/account-breakdown"
 import type { AccountSpend } from "@/lib/dashboard/account-breakdown"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 const ACCOUNTS: AccountSpend[] = [
   { accountId: "a1", name: "Visa", spending: 600, share: 0.6 },

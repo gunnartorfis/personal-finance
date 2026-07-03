@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
 import { BiggestMovers } from "@/components/biggest-movers"
 import type { Mover } from "@/lib/dashboard/movers"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 const MOVERS: { merchants: Mover[]; categories: Mover[] } = {
   merchants: [{ name: "BONUS", lastMonth: 400, baselineAverage: 100, delta: 300, deltaPct: 300 }],

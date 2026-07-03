@@ -20,6 +20,15 @@
     "vsAverage": "Síðasti heili mánuður var {delta} miðað við meðaltalið þitt.",
     "largestCharge": "Stærsta færsla mánaðarins: {merchant} · {amount}.",
     "income": "Tekjur",
-    "difference": "Mismunur"
+    "difference": "Mismunur",
+    "topMerchants": "Efstu söluaðilar",
+    "spendingByAccount": "Útgjöld eftir reikningi",
+    "movers": {
+      "title": "Mesta breytingin",
+      "subtitle": "Hvar útgjöldin hækkuðu mest miðað við venjulega.",
+      "merchants": "Söluaðilar",
+      "categories": "Flokkar",
+      "new": "nýtt"
+    }
   }
 }

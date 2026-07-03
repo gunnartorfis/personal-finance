@@ -1,3 +1,5 @@
+import { useTranslations } from "next-intl"
+
 import { SpendShareList } from "@/components/spend-share-list"
 import type { MerchantSpend } from "@/lib/dashboard/top-merchants"
 import type { Locale } from "@/lib/i18n/config"
@@ -18,9 +20,10 @@ export function TopMerchants({
   locale: Locale
   className?: string
 }) {
+  const t = useTranslations("dashboard")
   return (
     <SpendShareList
-      heading="Top merchants"
+      heading={t("topMerchants")}
       items={merchants.map((merchant) => ({
         key: merchant.merchant,
         label: merchant.merchant,
