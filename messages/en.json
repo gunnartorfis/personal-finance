@@ -237,5 +237,27 @@
     "loading": "Loading…",
     "loadError": "Couldn't load accounts. Please refresh.",
     "empty": "No accounts yet."
+  },
+  "rules": {
+    "title": "Merchant rules",
+    "subtitle": "Deterministic merchant → type rules, applied before the AI classifier.",
+    "regionLabel": "Merchant rules",
+    "merchantLabel": "Merchant",
+    "merchantPlaceholder": "e.g. NETFLIX",
+    "typeFieldLabel": "Type",
+    "add": "Add",
+    "delete": "Delete",
+    "deleteAria": "Delete rule for {merchant}",
+    "loading": "Loading…",
+    "empty": "No rules yet.",
+    "addError": "Couldn't add the rule.",
+    "deleteError": "Couldn't delete the rule.",
+    "split": "≥ {threshold} → {atOrAbove}, below → {below}",
+    "types": {
+      "fixed": "Fixed",
+      "necessary": "Necessary",
+      "niceToHave": "Nice to have",
+      "splitNone": "Split / none"
+    }
   }
 }

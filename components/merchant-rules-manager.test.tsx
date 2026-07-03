@@ -1,8 +1,9 @@
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { MerchantRulesManager } from "@/components/merchant-rules-manager"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -27,7 +28,10 @@ const flat = (id: string, merchant: string, flatType: string): Rule => ({
 })
 
 /** A stateful fetch double backing the rules API across list/POST/DELETE calls. */
-function stubApi(initial: Rule[], opts: { postFails?: { status: number; error: string } } = {}) {
+function stubApi(
+  initial: Rule[],
+  opts: { postFails?: { status: number; error: string } } = {}
+) {
   let rules = [...initial]
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     const method = init?.method ?? "GET"
@@ -42,9 +46,19 @@ function stubApi(initial: Rule[], opts: { postFails?: { status: number; error: s
           json: async () => ({ error: opts.postFails!.error }),
         }
       }
-      const body = JSON.parse(init!.body as string) as { merchant: string; flatType: string }
-      rules = [...rules, flat("new", body.merchant.toUpperCase(), body.flatType)]
-      return { ok: true, status: 201, json: async () => rules[rules.length - 1] }
+      const body = JSON.parse(init!.body as string) as {
+        merchant: string
+        flatType: string
+      }
+      rules = [
+        ...rules,
+        flat("new", body.merchant.toUpperCase(), body.flatType),
+      ]
+      return {
+        ok: true,
+        status: 201,
+        json: async () => rules[rules.length - 1],
+      }
     }
     if (method === "DELETE") {
       const id = url.split("/").pop()
@@ -92,9 +106,11 @@ describe("MerchantRulesManager", () => {
     expect(await screen.findByText("SPOTIFY")).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/merchant-rules",
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({ method: "POST" })
     )
-    const postCall = fetchMock.mock.calls.find((c) => (c[1] as RequestInit)?.method === "POST")!
+    const postCall = fetchMock.mock.calls.find(
+      (c) => (c[1] as RequestInit)?.method === "POST"
+    )!
     expect(JSON.parse((postCall[1] as RequestInit).body as string)).toEqual({
       merchant: "Spotify",
       flatType: "Necessary",
@@ -106,18 +122,29 @@ describe("MerchantRulesManager", () => {
     render(<MerchantRulesManager />)
     await screen.findByText("NETFLIX")
 
-    await userEvent.click(screen.getByRole("button", { name: /delete rule for netflix/i }))
-    await waitFor(() => expect(screen.queryByText("NETFLIX")).not.toBeInTheDocument())
+    await userEvent.click(
+      screen.getByRole("button", { name: /delete rule for netflix/i })
+    )
+    await waitFor(() =>
+      expect(screen.queryByText("NETFLIX")).not.toBeInTheDocument()
+    )
   })
 
   it("surfaces a duplicate-merchant error from the API", async () => {
-    stubApi([], { postFails: { status: 409, error: "a rule already exists for this merchant" } })
+    stubApi([], {
+      postFails: {
+        status: 409,
+        error: "a rule already exists for this merchant",
+      },
+    })
     render(<MerchantRulesManager />)
     await screen.findByText(/no rules yet/i)
 
     await userEvent.type(screen.getByLabelText("Merchant"), "NETFLIX")
     await userEvent.click(screen.getByRole("button", { name: "Add" }))
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/already exists/i)
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /already exists/i
+    )
   })
 })
