@@ -472,7 +472,12 @@ function ProductPreview() {
   const t = useTranslations("landing.preview")
 
   // Illustrative sample figures — not real data, so they stay literal and are only paired with
-  // localized labels.
+  // localized labels. Held as constants (not inline JSX text) so they read as sample data, not copy.
+  const sample = {
+    net: "+284.500 kr",
+    income: "920.000 kr",
+    expenses: "635.500 kr",
+  }
   const legend = [
     {
       id: "fixed",
@@ -504,18 +509,22 @@ function ProductPreview() {
       <div className="mt-5 flex flex-col gap-1">
         <span className="text-sm text-muted-foreground">{t("netProfit")}</span>
         <span className="text-3xl font-semibold text-emerald-600 tabular-nums dark:text-emerald-500">
-          +284.500 kr
+          {sample.net}
         </span>
       </div>
 
       <dl className="mt-5 grid grid-cols-2 divide-x divide-border">
         <div className="flex flex-col gap-1 pr-4">
           <dt className="text-sm text-muted-foreground">{t("income")}</dt>
-          <dd className="text-lg font-semibold tabular-nums">920.000 kr</dd>
+          <dd className="text-lg font-semibold tabular-nums">
+            {sample.income}
+          </dd>
         </div>
         <div className="flex flex-col gap-1 pl-4">
           <dt className="text-sm text-muted-foreground">{t("expenses")}</dt>
-          <dd className="text-lg font-semibold tabular-nums">635.500 kr</dd>
+          <dd className="text-lg font-semibold tabular-nums">
+            {sample.expenses}
+          </dd>
         </div>
       </dl>
 
