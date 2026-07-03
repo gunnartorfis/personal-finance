@@ -162,6 +162,13 @@
       "when": 1783079211402,
       "tag": "0022_complete_photon",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1783092794657,
+      "tag": "0023_cynical_manta",
+      "breakpoints": true
     }
   ]
 }
