@@ -109,8 +109,9 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
     `landing` namespace: metadata (`generateMetadata`), nav/hero/steps/features/
     pricing/final-CTA/footer copy, and the hero preview's labels (illustrative
     figures stay literal). Arrays built in-component with literal `t()` keys.
-  - [ ] **9b. app-sidebar nav + brand** (`components/app-sidebar.tsx`,
-    `settings-nav`).
+  - [x] **9b. app nav** (`lib/nav` labels → stable `labelKey` into a `nav`
+    namespace; `app-sidebar`, `app-header` breadcrumb, `settings-nav` resolve via
+    literal-key records). Brand "Finance" stays literal.
   - [ ] **9c. auth shell chrome** (any of our own copy around the Neon Auth views).
   - [ ] **9d. accounts bank-connection components** (ConnectBank / BankConnections /
     ConnectionAlerts / bank-sync-gate / InitialSyncOnConnect) — deferred from 8b.

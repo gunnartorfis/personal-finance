@@ -12,21 +12,22 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { ComponentType, SVGProps } from "react"
 
-import { isActivePath } from "@/lib/nav"
+import { useNavLabels } from "@/lib/nav-labels"
+import { isActivePath, type NavLabelKey } from "@/lib/nav"
 import { cn } from "@/lib/utils"
 
 /** Every settings section, in nav order. App-owned sections plus the Neon Auth account/security views. */
 const SETTINGS_NAV: ReadonlyArray<{
   href: string
-  label: string
+  labelKey: NavLabelKey
   icon: ComponentType<SVGProps<SVGSVGElement>>
 }> = [
-  { href: "/settings/income", label: "Income", icon: Wallet },
-  { href: "/settings/rules", label: "Rules", icon: SlidersHorizontal },
-  { href: "/settings/household", label: "Household", icon: Users },
-  { href: "/settings/billing", label: "Billing", icon: CreditCard },
-  { href: "/settings/account", label: "Account", icon: UserCog },
-  { href: "/settings/security", label: "Security", icon: Shield },
+  { href: "/settings/income", labelKey: "income", icon: Wallet },
+  { href: "/settings/rules", labelKey: "rules", icon: SlidersHorizontal },
+  { href: "/settings/household", labelKey: "household", icon: Users },
+  { href: "/settings/billing", labelKey: "billing", icon: CreditCard },
+  { href: "/settings/account", labelKey: "account", icon: UserCog },
+  { href: "/settings/security", labelKey: "security", icon: Shield },
 ]
 
 /**
@@ -37,9 +38,10 @@ const SETTINGS_NAV: ReadonlyArray<{
  */
 export function SettingsNav() {
   const pathname = usePathname()
+  const labels = useNavLabels()
   return (
     <nav
-      aria-label="Settings"
+      aria-label={labels.settings}
       className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:w-56 lg:shrink-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0"
     >
       {SETTINGS_NAV.map((item) => {
@@ -53,11 +55,11 @@ export function SettingsNav() {
               "flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm lg:shrink",
               active
                 ? "bg-muted text-foreground"
-                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             )}
           >
             <item.icon aria-hidden="true" className="size-4 shrink-0" />
-            {item.label}
+            {labels[item.labelKey]}
           </Link>
         )
       })}

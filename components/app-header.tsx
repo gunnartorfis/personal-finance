@@ -10,11 +10,14 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import { currentNavLabel } from "@/lib/nav"
+import { useNavLabels } from "@/lib/nav-labels"
+import { currentNavLabelKey } from "@/lib/nav"
 
 /** Inset header content: the sidebar toggle and a breadcrumb for the current page. */
 export function AppHeader() {
   const pathname = usePathname()
+  const labels = useNavLabels()
+  const key = currentNavLabelKey(pathname)
 
   return (
     <>
@@ -23,7 +26,8 @@ export function AppHeader() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbPage>{currentNavLabel(pathname)}</BreadcrumbPage>
+            {/* No nav match falls back to the brand, which is not translated. */}
+            <BreadcrumbPage>{key ? labels[key] : "Finance"}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>

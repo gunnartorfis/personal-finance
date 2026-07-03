@@ -17,6 +17,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { useNavLabels } from "@/lib/nav-labels"
 import { isActivePath, NAV_ITEMS } from "@/lib/nav"
 
 /**
@@ -26,6 +27,7 @@ import { isActivePath, NAV_ITEMS } from "@/lib/nav"
  */
 export function AppSidebar() {
   const pathname = usePathname()
+  const labels = useNavLabels()
 
   return (
     <TooltipProvider>
@@ -49,7 +51,7 @@ export function AppSidebar() {
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       isActive={active}
-                      tooltip={item.label}
+                      tooltip={labels[item.labelKey]}
                       render={
                         <Link
                           href={item.href}
@@ -58,7 +60,7 @@ export function AppSidebar() {
                       }
                     >
                       <item.icon />
-                      <span>{item.label}</span>
+                      <span>{labels[item.labelKey]}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )
@@ -80,7 +82,7 @@ export function AppSidebar() {
               {
                 href: "/settings",
                 icon: <Settings />,
-                label: "Settings",
+                label: labels.settings,
                 signedIn: true,
               },
             ]}
