@@ -5,10 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useId, useMemo, useState } from "react"
 
-import { ExcludeControl } from "@/components/exclude-control"
-import { IncomeToggle } from "@/components/income-toggle"
-import { OverrideControl } from "@/components/override-control"
-import { ShareControl } from "@/components/share-control"
+import { RowTypeControl } from "@/components/row-type-control"
 import { cn } from "@/lib/utils"
 import type { ExpenseType } from "@/shared/types"
 
@@ -71,9 +68,10 @@ export interface TransactionRow {
 }
 
 /**
- * A statement period's transactions (Phase H) with an inline expense-type control per row. The
- * effective type is `overrideType ?? classifiedType`; <OverrideControl> persists a change and we
- * update the row locally so it reflects immediately (clearing reverts to the classified type).
+ * A statement period's transactions (Phase H) with a single inline "Type" control per row
+ * (<RowTypeControl>): a color-keyed pill that opens a menu holding every per-row action (set type,
+ * reset, apply-to-all rule, split, exclude / include, mark income). Each action persists and calls
+ * back so the row updates locally and the server-derived summary refreshes.
  *
  * Rendered as a borderless table on a horizontal-scroll wrapper so it never breaks the page layout
  * on narrow screens (the per-row control keeps the table from collapsing into stacked cards).
@@ -411,13 +409,6 @@ export function TransactionsTable({
               </thead>
               <tbody>
                 {visible.map((row) => {
-                  const effective: ExpenseType =
-                    row.overrideType ?? row.classifiedType ?? ""
-                  // An unclassified row's effective "" would read as a real "Split / none" — label it so
-                  // a pending/failed row is distinguishable until it's classified or manually overridden.
-                  const unclassified =
-                    row.classificationStatus !== "classified" &&
-                    row.overrideType === null
                   const isCredit = row.amount > 0
                   return (
                     <tr
@@ -455,76 +446,22 @@ export function TransactionsTable({
                         )}
                       </td>
                       <td className="py-3">
-                        {row.excluded ? (
-                          // Excluded: no type or income choice applies — just the badge, any reason,
-                          // and an Include action to bring it back into the calculations (ADR-0011).
-                          <ExcludeControl
-                            transactionId={row.id}
-                            excluded
-                            note={row.exclusionNote}
-                            onChanged={(next) =>
-                              handleExcludeChanged(row.id, next)
-                            }
-                          />
-                        ) : (
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                            {isCredit ? (
-                              // A credit is never an expense: no type to pick, and no Exclude —
-                              // unmarked credits already count for nothing. The Income toggle is
-                              // the sole lever: mark it to count as income (ADR-0009), otherwise
-                              // it's ignored. Excluding here would be a numerical no-op.
-                              <IncomeToggle
-                                transactionId={row.id}
-                                incomeMarked={row.incomeMarked}
-                                onChanged={(next) =>
-                                  handleIncomeChanged(row.id, next)
-                                }
-                              />
-                            ) : (
-                              <>
-                                <div className="flex flex-col gap-1">
-                                  {unclassified && (
-                                    <span className="text-muted-foreground">
-                                      {row.classificationStatus === "failed"
-                                        ? "Classification failed"
-                                        : "Awaiting classification"}
-                                    </span>
-                                  )}
-                                  <OverrideControl
-                                    transactionId={row.id}
-                                    merchant={row.merchant}
-                                    value={effective}
-                                    hasOverride={row.overrideType !== null}
-                                    onChanged={(next) =>
-                                      handleChanged(row.id, next)
-                                    }
-                                  />
-                                </div>
-                                {/* Exclude is the only lever that drops a debit out of Spending
-                                    (ADR-0011); credits are governed by the Income toggle instead. */}
-                                <ExcludeControl
-                                  transactionId={row.id}
-                                  excluded={false}
-                                  note={null}
-                                  onChanged={(next) =>
-                                    handleExcludeChanged(row.id, next)
-                                  }
-                                />
-                                {/* Split reduces a debit to the Household's Own share when it fronted
-                                    the rest for others (ADR-0014); the full charge still shows. */}
-                                <ShareControl
-                                  transactionId={row.id}
-                                  amount={row.amount}
-                                  ownShareAmount={row.ownShareAmount}
-                                  formatAmount={fmtAmount}
-                                  onChanged={(next) =>
-                                    handleShareChanged(row.id, next)
-                                  }
-                                />
-                              </>
-                            )}
-                          </div>
-                        )}
+                        <RowTypeControl
+                          row={row}
+                          formatAmount={fmtAmount}
+                          onOverrideChanged={(next) =>
+                            handleChanged(row.id, next)
+                          }
+                          onIncomeChanged={(marked) =>
+                            handleIncomeChanged(row.id, marked)
+                          }
+                          onExcludeChanged={(next) =>
+                            handleExcludeChanged(row.id, next)
+                          }
+                          onShareChanged={(share) =>
+                            handleShareChanged(row.id, share)
+                          }
+                        />
                       </td>
                     </tr>
                   )
