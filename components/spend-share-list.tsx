@@ -1,4 +1,5 @@
 import { currencyFormatter } from "@/lib/format/currency"
+import type { Locale } from "@/lib/i18n/config"
 import { cn } from "@/lib/utils"
 
 /** One ranked row: a label with its spend and share (0..1) of the period total. */
@@ -19,18 +20,20 @@ export function SpendShareList({
   heading,
   items,
   currency,
+  locale,
   headingLevel = 2,
   className,
 }: {
   heading: string
   items: SpendShareItem[]
   currency: string
+  locale: Locale
   headingLevel?: 2 | 3
   className?: string
 }) {
   if (items.length === 0) return null
 
-  const money = currencyFormatter(currency)
+  const money = currencyFormatter(currency, locale)
   const Heading = headingLevel === 3 ? "h3" : "h2"
 
   return (

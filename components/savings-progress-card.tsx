@@ -2,6 +2,7 @@ import { ChevronRight, PiggyBank } from "lucide-react"
 import Link from "next/link"
 
 import { currencyFormatter } from "@/lib/format/currency"
+import type { Locale } from "@/lib/i18n/config"
 import type { SavingsProgress } from "@/lib/savings/progress"
 import { cn } from "@/lib/utils"
 
@@ -12,13 +13,15 @@ import { cn } from "@/lib/utils"
  */
 export function SavingsProgressCard({
   progress,
+  locale,
   className,
 }: {
   progress: SavingsProgress | null
+  locale: Locale
   className?: string
 }) {
   if (!progress) return null
-  const format = currencyFormatter(progress.currency)
+  const format = currencyFormatter(progress.currency, locale)
 
   return (
     <Link

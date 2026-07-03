@@ -5,7 +5,9 @@ import { SpendShareList } from "@/components/spend-share-list"
 
 describe("SpendShareList", () => {
   it("renders nothing when there are no items", () => {
-    const { container } = render(<SpendShareList heading="Top merchants" items={[]} currency="ISK" />)
+    const { container } = render(
+      <SpendShareList heading="Top merchants" items={[]} currency="ISK" locale="en" />
+    )
     expect(container).toBeEmptyDOMElement()
   })
 
@@ -18,6 +20,7 @@ describe("SpendShareList", () => {
           { key: "b", label: "N1", spending: 250, share: 0.25 },
         ]}
         currency="ISK"
+        locale="en"
       />,
     )
     expect(screen.getByText("Top merchants")).toBeInTheDocument()
@@ -34,6 +37,7 @@ describe("SpendShareList", () => {
         heading="Spending by account"
         items={[{ key: "a", label: "Visa", spending: 100, share: 1 }]}
         currency="ISK"
+        locale="en"
         headingLevel={3}
       />,
     )
