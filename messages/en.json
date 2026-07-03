@@ -535,6 +535,28 @@
       "goalSection": "Goal"
     }
   },
+  "rapidReview": {
+    "launch": "⚡ Rapid review ({count})",
+    "queueError": "Couldn't load the review queue. Try again.",
+    "dialogLabel": "Rapid review",
+    "heading": "⚡ Rapid review",
+    "progress": "{reviewed} / {total} reviewed",
+    "close": "Esc ✕",
+    "statusFailed": "Classification failed",
+    "statusAwaiting": "Awaiting classification",
+    "doneNothing": "Nothing to review",
+    "doneAllCaughtUp": "All caught up",
+    "doneBodyEmpty": "Every expense is already settled.",
+    "doneBody": "{count, plural, one {Reviewed # transaction.} other {Reviewed # transactions.}}",
+    "done": "Done",
+    "legend": {
+      "type": "type",
+      "splitNone": "split/none",
+      "navigate": "navigate",
+      "undo": "undo",
+      "close": "close"
+    }
+  },
   "periodSelector": {
     "previous": "Previous period",
     "next": "Next period",

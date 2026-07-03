@@ -1,5 +1,6 @@
 "use client"
 
+import { useTranslations } from "next-intl"
 import { useRouter } from "next/navigation"
 import { useCallback, useState } from "react"
 
@@ -26,6 +27,7 @@ export function RapidReviewLauncher({
   count: number
   currency: string
 }) {
+  const t = useTranslations("rapidReview")
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [rows, setRows] = useState<TransactionRow[] | null>(null)
@@ -74,11 +76,11 @@ export function RapidReviewLauncher({
           onClick={openReview}
           disabled={loading}
         >
-          ⚡ Rapid review ({count})
+          {t("launch", { count })}
         </Button>
         {error && (
           <span role="alert" className="text-sm text-destructive">
-            Couldn&apos;t load the review queue. Try again.
+            {t("queueError")}
           </span>
         )}
       </div>

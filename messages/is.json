@@ -535,6 +535,28 @@
       "goalSection": "Markmið"
     }
   },
+  "rapidReview": {
+    "launch": "⚡ Hraðyfirferð ({count})",
+    "queueError": "Tókst ekki að hlaða yfirferðarröðinni. Reyndu aftur.",
+    "dialogLabel": "Hraðyfirferð",
+    "heading": "⚡ Hraðyfirferð",
+    "progress": "{reviewed} / {total} yfirfarnar",
+    "close": "Esc ✕",
+    "statusFailed": "Flokkun mistókst",
+    "statusAwaiting": "Bíður flokkunar",
+    "doneNothing": "Ekkert til að yfirfara",
+    "doneAllCaughtUp": "Allt yfirfarið",
+    "doneBodyEmpty": "Öll útgjöld eru þegar frágengin.",
+    "doneBody": "{count, plural, one {Yfirfór # færslu.} other {Yfirfór # færslur.}}",
+    "done": "Lokið",
+    "legend": {
+      "type": "tegund",
+      "splitNone": "skipt/ekkert",
+      "navigate": "fletta",
+      "undo": "afturkalla",
+      "close": "loka"
+    }
+  },
   "periodSelector": {
     "previous": "Fyrra tímabil",
     "next": "Næsta tímabil",

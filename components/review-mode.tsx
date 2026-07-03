@@ -1,9 +1,14 @@
 "use client"
 
+import { useLocale, useTranslations } from "next-intl"
 import { useEffect } from "react"
 
 import type { TransactionRow } from "@/components/transactions-table"
 import { Button } from "@/components/ui/button"
+import { currencyFormatter } from "@/lib/format/currency"
+import { formatDate } from "@/lib/format/date"
+import { defaultLocale, toLocale } from "@/lib/i18n/config"
+import { useExpenseTypeLabels } from "@/lib/expense-type-labels"
 import {
   useReviewQueue,
   type OnOverride,
@@ -46,17 +51,11 @@ export function ReviewMode({
   onOverride: OnOverride
   onClose: () => void
 }) {
-  const {
-    cur,
-    total,
-    reviewedCount,
-    done,
-    canUndo,
-    assign,
-    next,
-    prev,
-    undo,
-  } = useReviewQueue(rows, onOverride)
+  const t = useTranslations("rapidReview")
+  const locale = toLocale(useLocale()) ?? defaultLocale
+  const typeLabels = useExpenseTypeLabels()
+  const { cur, total, reviewedCount, done, canUndo, assign, next, prev, undo } =
+    useReviewQueue(rows, onOverride)
 
   // Global key handling — the overlay owns the keyboard while open. Ignore keystrokes aimed at a
   // text field, and stop the page underneath from also acting on them.
@@ -108,18 +107,14 @@ export function ReviewMode({
     }
   }, [])
 
-  const fmtAmount = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount)
+  const money = currencyFormatter(currency, locale)
+  const fmtAmount = (amount: number) => money.format(amount)
   const fmtDate = (date: string) =>
-    new Intl.DateTimeFormat("en-US", {
+    formatDate(new Date(date), locale, {
       month: "short",
       day: "numeric",
       timeZone: "UTC",
-    }).format(new Date(date))
+    })
 
   const progress = total === 0 ? 1 : reviewedCount / total
 
@@ -127,13 +122,13 @@ export function ReviewMode({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Rapid review"
+      aria-label={t("dialogLabel")}
       className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-sm"
     >
       {/* Top bar: title, progress, count, close */}
       <div className="flex items-center gap-4 border-b border-border px-6 py-4">
         <span className="text-sm font-semibold tracking-tight">
-          ⚡ Rapid review
+          {t("heading")}
         </span>
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
           <div
@@ -142,10 +137,10 @@ export function ReviewMode({
           />
         </div>
         <span className="text-sm text-muted-foreground tabular-nums">
-          {reviewedCount} / {total} reviewed
+          {t("progress", { reviewed: reviewedCount, total })}
         </span>
         <Button variant="ghost" size="sm" onClick={onClose}>
-          Esc ✕
+          {t("close")}
         </Button>
       </div>
 
@@ -166,8 +161,8 @@ export function ReviewMode({
             <div className="flex flex-col gap-1 border-t border-border pt-4">
               <span className="text-sm text-muted-foreground">
                 {cur.classificationStatus === "failed"
-                  ? "Classification failed"
-                  : "Awaiting classification"}
+                  ? t("statusFailed")
+                  : t("statusAwaiting")}
               </span>
               {cur.reasoning && (
                 <p className="text-sm text-pretty text-muted-foreground/80 italic">
@@ -187,7 +182,7 @@ export function ReviewMode({
                   <span className="text-xs text-muted-foreground">
                     {TYPE_META[type].key}
                   </span>
-                  {type}
+                  {typeLabels[type]}
                 </button>
               ))}
             </div>
@@ -196,12 +191,12 @@ export function ReviewMode({
           <div className="flex flex-col items-center gap-2 text-center">
             <span className="text-2xl">🎉</span>
             <p className="text-lg font-medium">
-              {total === 0 ? "Nothing to review" : "All caught up"}
+              {total === 0 ? t("doneNothing") : t("doneAllCaughtUp")}
             </p>
             <p className="text-sm text-muted-foreground">
               {total === 0
-                ? "Every expense is already settled."
-                : `Reviewed ${reviewedCount} transaction${reviewedCount === 1 ? "" : "s"}.`}
+                ? t("doneBodyEmpty")
+                : t("doneBody", { count: reviewedCount })}
             </p>
             <Button
               variant="outline"
@@ -209,7 +204,7 @@ export function ReviewMode({
               className="mt-2"
               onClick={onClose}
             >
-              Done
+              {t("done")}
             </Button>
           </div>
         )}
@@ -220,22 +215,22 @@ export function ReviewMode({
         <span className="flex items-center gap-1.5">
           <Kbd>1</Kbd>
           <Kbd>2</Kbd>
-          <Kbd>3</Kbd> type
+          <Kbd>3</Kbd> {t("legend.type")}
         </span>
         <span className="flex items-center gap-1.5">
-          <Kbd>0</Kbd> split/none
+          <Kbd>0</Kbd> {t("legend.splitNone")}
         </span>
         <span className="flex items-center gap-1.5">
           <Kbd>J</Kbd>
-          <Kbd>K</Kbd> navigate
+          <Kbd>K</Kbd> {t("legend.navigate")}
         </span>
         <span
           className={cn("flex items-center gap-1.5", !canUndo && "opacity-40")}
         >
-          <Kbd>U</Kbd> undo
+          <Kbd>U</Kbd> {t("legend.undo")}
         </span>
         <span className="flex items-center gap-1.5">
-          <Kbd>Esc</Kbd> close
+          <Kbd>Esc</Kbd> {t("legend.close")}
         </span>
       </div>
     </div>
