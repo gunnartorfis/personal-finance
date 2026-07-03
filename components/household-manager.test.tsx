@@ -25,6 +25,23 @@ describe("HouseholdManager", () => {
     expect(screen.getByRole("button", { name: /delete household/i })).toBeInTheDocument()
   })
 
+  it("offers Leave (not just Delete) when other members remain", () => {
+    render(
+      <HouseholdManager
+        plan="Premium"
+        cap={10}
+        currentUserId="u1"
+        initialMembers={[
+          ...members,
+          { id: "m2", authUserId: "u2", name: "Sam", email: "s@x.is" },
+        ]}
+        initialInvites={[]}
+      />
+    )
+    expect(screen.getByRole("button", { name: /leave household/i })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /delete household/i })).toBeInTheDocument()
+  })
+
   it("shows the Premium upsell instead of the invite form on Free", () => {
     render(
       <HouseholdManager

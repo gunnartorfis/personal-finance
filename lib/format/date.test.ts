@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { formatCycleMonth } from "./date"
+import { formatCycleMonth, formatDate } from "./date"
 
 describe("formatCycleMonth", () => {
   it("formats a YYYY-MM key as a long month + year in en", () => {
@@ -16,5 +16,17 @@ describe("formatCycleMonth", () => {
 
   it("supports a short style without the year", () => {
     expect(formatCycleMonth("2026-03", "en", { short: true })).toBe("Mar")
+  })
+})
+
+describe("formatDate", () => {
+  const date = new Date("2026-03-15T12:00:00Z")
+
+  it("formats a full date, following the locale", () => {
+    const en = formatDate(date, "en")
+    const is = formatDate(date, "is")
+    expect(en).toContain("2026")
+    expect(is).toContain("2026")
+    expect(en).not.toBe(is)
   })
 })

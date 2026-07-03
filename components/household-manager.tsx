@@ -11,12 +11,14 @@ import {
   Trash2,
   X,
 } from "lucide-react"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import Link from "next/link"
 import { type FormEvent, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { formatDate } from "@/lib/format/date"
+import { defaultLocale, toLocale } from "@/lib/i18n/config"
 import type { Plan } from "@/shared/types"
 import { cn } from "@/lib/utils"
 
@@ -40,14 +42,6 @@ interface Props {
   initialMembers: Member[]
   initialInvites: Invite[]
   className?: string
-}
-
-/** API invite-error codes → catalog keys under `household.inviteError`. */
-const INVITE_ERROR_KEY: Record<string, string> = {
-  invalid_email: "invalidEmail",
-  cap_reached: "capReached",
-  not_premium: "notPremium",
-  email_required: "emailRequired",
 }
 
 /**
@@ -157,8 +151,14 @@ function InviteForm({
       })
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null
-        const key = INVITE_ERROR_KEY[body?.error ?? ""] ?? "generic"
-        setError(t(`inviteError.${key}`))
+        // Map API error codes to statically-keyed messages (type-checked, no dynamic key).
+        const byCode: Record<string, string> = {
+          invalid_email: t("inviteError.invalidEmail"),
+          cap_reached: t("inviteError.capReached"),
+          not_premium: t("inviteError.notPremium"),
+          email_required: t("inviteError.emailRequired"),
+        }
+        setError(byCode[body?.error ?? ""] ?? t("inviteError.generic"))
         return
       }
       const body = (await res.json()) as { path: string }
@@ -289,6 +289,7 @@ function PendingInvites({ invites, onChanged }: { invites: Invite[]; onChanged: 
 
 function PendingInviteRow({ invite, onChanged }: { invite: Invite; onChanged: () => Promise<void> }) {
   const t = useTranslations("household")
+  const locale = toLocale(useLocale()) ?? defaultLocale
   const [busy, setBusy] = useState(false)
 
   async function revoke() {
@@ -306,7 +307,7 @@ function PendingInviteRow({ invite, onChanged }: { invite: Invite; onChanged: ()
       <div className="flex min-w-0 flex-col">
         <span className="truncate text-sm font-medium">{invite.email}</span>
         <span className="text-xs text-muted-foreground">
-          {t("expires", { date: new Date(invite.expiresAt).toLocaleDateString() })}
+          {t("expires", { date: formatDate(new Date(invite.expiresAt), locale) })}
         </span>
       </div>
       <Button type="button" variant="ghost" size="sm" onClick={revoke} disabled={busy}>
