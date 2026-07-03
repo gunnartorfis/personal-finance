@@ -11,6 +11,7 @@ import {
   Upload,
   Users,
 } from "lucide-react"
+import { useTranslations } from "next-intl"
 import Link from "next/link"
 import type { ComponentType, ReactNode, SVGProps } from "react"
 
@@ -21,117 +22,13 @@ import { cn } from "@/lib/utils"
  * A server component — pure markup and links, no client state — so it renders statically and the
  * auth-gated root page (`app/page.tsx`) can decide which to show. Copy and layout follow the
  * product's own language (Household, Statement cycle, Expense type) and reuse the app's design
- * tokens so the marketing surface reads as the same product as the dashboard behind it.
+ * tokens so the marketing surface reads as the same product as the dashboard behind it. Copy comes
+ * from the `landing` catalog; the illustrative figures in the hero preview stay literal (sample
+ * data, not chrome).
  */
 
 const SIGN_UP_HREF = "/auth/sign-up"
 const SIGN_IN_HREF = "/auth/sign-in"
-
-type Feature = {
-  icon: ComponentType<SVGProps<SVGSVGElement>>
-  title: string
-  body: string
-}
-
-const STEPS: Feature[] = [
-  {
-    icon: Upload,
-    title: "Upload your statement",
-    body: "Export your card statement as CSV and drop it in. Map the columns once and every future upload just works.",
-  },
-  {
-    icon: Sparkles,
-    title: "Let AI sort it",
-    body: "Claude reads every transaction and buckets it — Fixed, Necessary, or Nice to have — with a confidence score.",
-  },
-  {
-    icon: TrendingUp,
-    title: "Track your net",
-    body: "Watch combined net profit across the whole household, statement cycle by statement cycle.",
-  },
-]
-
-const FEATURES: Feature[] = [
-  {
-    icon: Sparkles,
-    title: "AI classification",
-    body: "Every transaction typed automatically, with the reasoning and confidence behind each call.",
-  },
-  {
-    icon: LineChart,
-    title: "Real net profit",
-    body: "Income minus card spending minus fixed bills — one honest number per statement cycle.",
-  },
-  {
-    icon: Users,
-    title: "Shared by household",
-    body: "One financial picture for a couple or family. Everyone uploads, everyone sees the whole.",
-  },
-  {
-    icon: SlidersHorizontal,
-    title: "Merchant rules",
-    body: "Teach it once. A rule like “Netflix is Nice to have” sticks for every future upload.",
-  },
-  {
-    icon: PenLine,
-    title: "Your call always wins",
-    body: "Disagree with a classification? Override any row and your choice takes precedence.",
-  },
-  {
-    icon: CalendarRange,
-    title: "Statement cycles",
-    body: "Set your card’s cutoff day so every total lines up with the statement you actually pay.",
-  },
-]
-
-type Plan = {
-  name: string
-  price: string
-  cadence: string | null
-  description: string
-  features: string[]
-  cta: string
-  emphasized: boolean
-  note?: string
-}
-
-const PLANS: Plan[] = [
-  {
-    name: "Free",
-    price: "0 kr",
-    cadence: null,
-    description: "For a first honest look at where the money goes.",
-    features: [
-      "Your first 50 classified transactions",
-      "Unlimited uploads and overrides",
-      "Net profit tracking",
-      "Household sharing",
-    ],
-    cta: "Start for free",
-    emphasized: false,
-  },
-  {
-    name: "Premium",
-    price: "1.990 kr",
-    cadence: "/mo",
-    description: "For staying on top of it, every single month.",
-    features: [
-      "Everything in Free",
-      "Up to ~25,000 classifications per month",
-      "Merchant rules for hands-off typing",
-      "Priority classification",
-    ],
-    cta: "Go Premium",
-    emphasized: true,
-    note: "Save 30% billed annually.",
-  },
-]
-
-const PREVIEW_LEGEND = [
-  { label: "Fixed", amount: "305.000 kr", swatch: "bg-emerald-500" },
-  { label: "Necessary", amount: "216.500 kr", swatch: "bg-amber-500" },
-  { label: "Nice to have", amount: "114.000 kr", swatch: "bg-rose-500" },
-] as const
 
 /** Solid brand CTA — the single repeated conversion action across the page. */
 function PrimaryCta({
@@ -190,13 +87,89 @@ function Wordmark({ className }: { className?: string }) {
 }
 
 export function LandingPage() {
+  const t = useTranslations("landing")
+
+  // Copy resolved with literal keys, then paired with its icon; keeps the render map declarative
+  // while satisfying next-intl's static key checking (no interpolated keys).
+  const steps: {
+    icon: ComponentType<SVGProps<SVGSVGElement>>
+    title: string
+    body: string
+  }[] = [
+    {
+      icon: Upload,
+      title: t("steps.upload.title"),
+      body: t("steps.upload.body"),
+    },
+    {
+      icon: Sparkles,
+      title: t("steps.sort.title"),
+      body: t("steps.sort.body"),
+    },
+    {
+      icon: TrendingUp,
+      title: t("steps.track.title"),
+      body: t("steps.track.body"),
+    },
+  ]
+
+  const features: {
+    icon: ComponentType<SVGProps<SVGSVGElement>>
+    title: string
+    body: string
+  }[] = [
+    {
+      icon: Sparkles,
+      title: t("features.ai.title"),
+      body: t("features.ai.body"),
+    },
+    {
+      icon: LineChart,
+      title: t("features.net.title"),
+      body: t("features.net.body"),
+    },
+    {
+      icon: Users,
+      title: t("features.household.title"),
+      body: t("features.household.body"),
+    },
+    {
+      icon: SlidersHorizontal,
+      title: t("features.rules.title"),
+      body: t("features.rules.body"),
+    },
+    {
+      icon: PenLine,
+      title: t("features.override.title"),
+      body: t("features.override.body"),
+    },
+    {
+      icon: CalendarRange,
+      title: t("features.cycles.title"),
+      body: t("features.cycles.body"),
+    },
+  ]
+
+  const freeFeatures = [
+    t("pricing.free.f1"),
+    t("pricing.free.f2"),
+    t("pricing.free.f3"),
+    t("pricing.free.f4"),
+  ]
+  const premiumFeatures = [
+    t("pricing.premium.f1"),
+    t("pricing.premium.f2"),
+    t("pricing.premium.f3"),
+    t("pricing.premium.f4"),
+  ]
+
   return (
     <div className="isolate flex min-h-dvh flex-col bg-background text-foreground">
       <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <Link
             href="/"
-            aria-label="Homepage"
+            aria-label={t("nav.homeAria")}
             className="rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             <Wordmark className="text-base" />
@@ -206,10 +179,10 @@ export function LandingPage() {
               href={SIGN_IN_HREF}
               className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
-              Sign in
+              {t("nav.signIn")}
             </Link>
             <PrimaryCta href={SIGN_UP_HREF} className="h-9 px-4">
-              Get started
+              {t("nav.getStarted")}
             </PrimaryCta>
           </nav>
         </div>
@@ -229,29 +202,25 @@ export function LandingPage() {
                   className="size-1.5 rounded-full bg-primary"
                   aria-hidden="true"
                 />
-                Personal finance for households
+                {t("hero.badge")}
               </p>
               <h1 className="max-w-[20ch] text-4xl font-semibold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-                See where the money actually goes.
+                {t("hero.title")}
               </h1>
               <p className="max-w-[48ch] text-lg text-pretty text-muted-foreground">
-                Upload your card statements and let AI sort every transaction
-                into Fixed, Necessary, and Nice to have — then watch your
-                household’s real net profit, statement cycle after statement
-                cycle.
+                {t("hero.body")}
               </p>
               <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
                 <PrimaryCta href={SIGN_UP_HREF} className="w-full sm:w-auto">
-                  Start for free
+                  {t("hero.startFree")}
                   <ArrowRight className="size-4" aria-hidden="true" />
                 </PrimaryCta>
                 <SecondaryCta href={SIGN_IN_HREF} className="w-full sm:w-auto">
-                  Sign in
+                  {t("hero.signIn")}
                 </SecondaryCta>
               </div>
               <p className="text-sm text-muted-foreground">
-                Free for your first 50 classified transactions. No card
-                required.
+                {t("hero.noCard")}
               </p>
             </div>
 
@@ -263,16 +232,18 @@ export function LandingPage() {
         <section className="border-t border-border py-20 sm:py-28">
           <div className="mx-auto max-w-6xl px-6">
             <div className="flex flex-col gap-3">
-              <p className="text-sm font-medium text-primary">How it works</p>
+              <p className="text-sm font-medium text-primary">
+                {t("steps.eyebrow")}
+              </p>
               <h2 className="max-w-[24ch] text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-                From raw statement to real number in minutes.
+                {t("steps.title")}
               </h2>
             </div>
             <ol
               role="list"
               className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-3"
             >
-              {STEPS.map((step, index) => (
+              {steps.map((step, index) => (
                 <li
                   key={step.title}
                   className="flex flex-col items-start gap-3"
@@ -300,13 +271,15 @@ export function LandingPage() {
         <section className="border-t border-border py-20 sm:py-28">
           <div className="mx-auto max-w-6xl px-6">
             <div className="flex flex-col gap-3">
-              <p className="text-sm font-medium text-primary">Features</p>
+              <p className="text-sm font-medium text-primary">
+                {t("features.eyebrow")}
+              </p>
               <h2 className="max-w-[26ch] text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-                Everything a household needs to stay honest with itself.
+                {t("features.title")}
               </h2>
             </div>
             <dl className="mt-12 grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-              {FEATURES.map((feature) => (
+              {features.map((feature) => (
                 <div key={feature.title} className="flex flex-col gap-2">
                   <dt className="flex items-center gap-2 text-lg font-medium">
                     <feature.icon
@@ -328,76 +301,101 @@ export function LandingPage() {
         <section className="border-t border-border bg-muted/40 py-20 sm:py-28">
           <div className="mx-auto max-w-6xl px-6">
             <div className="flex flex-col items-center gap-3 text-center">
-              <p className="text-sm font-medium text-primary">Pricing</p>
+              <p className="text-sm font-medium text-primary">
+                {t("pricing.eyebrow")}
+              </p>
               <h2 className="mx-auto max-w-[22ch] text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-                Start free. Upgrade when it earns its keep.
+                {t("pricing.title")}
               </h2>
               <p className="mx-auto max-w-[46ch] text-lg text-pretty text-muted-foreground">
-                The Free plan classifies your first 50 transactions for good.
-                Premium keeps every statement cycle sorted.
+                {t("pricing.subtitle")}
               </p>
             </div>
             <div className="mx-auto mt-12 grid max-w-3xl grid-cols-1 gap-8 sm:grid-cols-2">
-              {PLANS.map((plan) => (
-                <div
-                  key={plan.name}
-                  className="flex flex-col justify-between gap-8 rounded-2xl border border-border bg-card p-6"
-                >
-                  <div className="flex flex-col gap-5">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-lg font-medium">{plan.name}</h3>
-                      {plan.emphasized && (
-                        <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                          Recommended
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-baseline gap-1">
-                      <div className="text-4xl font-semibold tracking-tight tabular-nums">
-                        {plan.price}
-                      </div>
-                      {plan.cadence && (
-                        <div className="text-base font-normal text-muted-foreground">
-                          {plan.cadence}
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-base text-pretty text-muted-foreground">
-                      {plan.description}
-                    </p>
-                    <ul role="list" className="flex flex-col gap-3">
-                      {plan.features.map((feature) => (
-                        <li
-                          key={feature}
-                          className="flex items-start gap-2 text-base text-muted-foreground"
-                        >
-                          <Check
-                            className="size-4 h-lh shrink-0 text-primary"
-                            aria-hidden="true"
-                          />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
+              {/* Free plan */}
+              <div className="flex flex-col justify-between gap-8 rounded-2xl border border-border bg-card p-6">
+                <div className="flex flex-col gap-5">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-lg font-medium">
+                      {t("pricing.free.name")}
+                    </h3>
                   </div>
-                  <div className="flex flex-col gap-3">
-                    {plan.emphasized ? (
-                      <PrimaryCta href={SIGN_UP_HREF} className="w-full">
-                        {plan.cta}
-                      </PrimaryCta>
-                    ) : (
-                      <SecondaryCta href={SIGN_UP_HREF} className="w-full">
-                        {plan.cta}
-                      </SecondaryCta>
-                    )}
-                    {plan.note && (
-                      <p className="text-center text-sm text-muted-foreground">
-                        {plan.note}
-                      </p>
-                    )}
+                  <div className="flex items-baseline gap-1">
+                    <div className="text-4xl font-semibold tracking-tight tabular-nums">
+                      {t("pricing.free.price")}
+                    </div>
                   </div>
+                  <p className="text-base text-pretty text-muted-foreground">
+                    {t("pricing.free.description")}
+                  </p>
+                  <ul role="list" className="flex flex-col gap-3">
+                    {freeFeatures.map((feature) => (
+                      <li
+                        key={feature}
+                        className="flex items-start gap-2 text-base text-muted-foreground"
+                      >
+                        <Check
+                          className="size-4 h-lh shrink-0 text-primary"
+                          aria-hidden="true"
+                        />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              ))}
+                <div className="flex flex-col gap-3">
+                  <SecondaryCta href={SIGN_UP_HREF} className="w-full">
+                    {t("pricing.free.cta")}
+                  </SecondaryCta>
+                </div>
+              </div>
+
+              {/* Premium plan */}
+              <div className="flex flex-col justify-between gap-8 rounded-2xl border border-border bg-card p-6">
+                <div className="flex flex-col gap-5">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-lg font-medium">
+                      {t("pricing.premium.name")}
+                    </h3>
+                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                      {t("pricing.recommended")}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-1">
+                    <div className="text-4xl font-semibold tracking-tight tabular-nums">
+                      {t("pricing.premium.price")}
+                    </div>
+                    <div className="text-base font-normal text-muted-foreground">
+                      {t("pricing.premium.cadence")}
+                    </div>
+                  </div>
+                  <p className="text-base text-pretty text-muted-foreground">
+                    {t("pricing.premium.description")}
+                  </p>
+                  <ul role="list" className="flex flex-col gap-3">
+                    {premiumFeatures.map((feature) => (
+                      <li
+                        key={feature}
+                        className="flex items-start gap-2 text-base text-muted-foreground"
+                      >
+                        <Check
+                          className="size-4 h-lh shrink-0 text-primary"
+                          aria-hidden="true"
+                        />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <PrimaryCta href={SIGN_UP_HREF} className="w-full">
+                    {t("pricing.premium.cta")}
+                  </PrimaryCta>
+                  <p className="text-center text-sm text-muted-foreground">
+                    {t("pricing.premium.note")}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -406,13 +404,13 @@ export function LandingPage() {
         <section className="border-t border-border py-20 sm:py-28">
           <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-6 text-center">
             <h2 className="mx-auto max-w-[22ch] text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-              Ready to see your real number?
+              {t("finalCta.title")}
             </h2>
             <p className="mx-auto max-w-[42ch] text-lg text-pretty text-muted-foreground">
-              It takes one CSV and a couple of minutes to find out.
+              {t("finalCta.body")}
             </p>
             <PrimaryCta href={SIGN_UP_HREF}>
-              Start for free
+              {t("finalCta.cta")}
               <ArrowRight className="size-4" aria-hidden="true" />
             </PrimaryCta>
           </div>
@@ -424,7 +422,7 @@ export function LandingPage() {
           <div className="flex flex-col gap-1">
             <Wordmark className="text-base" />
             <p className="text-sm text-muted-foreground">
-              Personal finance for households.
+              {t("footer.tagline")}
             </p>
           </div>
           <nav className="flex items-center gap-5">
@@ -432,13 +430,13 @@ export function LandingPage() {
               href={SIGN_IN_HREF}
               className="text-sm font-normal text-muted-foreground hover:text-foreground"
             >
-              Sign in
+              {t("footer.signIn")}
             </Link>
             <Link
               href={SIGN_UP_HREF}
               className="text-sm font-normal text-muted-foreground hover:text-foreground"
             >
-              Get started
+              {t("footer.getStarted")}
             </Link>
             <a
               href="https://github.com/gunnartorfis/personal-finance"
@@ -446,7 +444,7 @@ export function LandingPage() {
               rel="noopener noreferrer"
               className="text-sm font-normal text-muted-foreground hover:text-foreground"
             >
-              GitHub
+              {t("footer.github")}
             </a>
           </nav>
         </div>
@@ -458,18 +456,41 @@ export function LandingPage() {
 /**
  * A static, illustrative dashboard card for the hero — mirrors the real {@link NetSummaryCard}
  * (net profit + income/expenses split + spending-by-type bar) with representative figures so the
- * hero shows the actual product surface rather than a stock screenshot. Decorative only.
+ * hero shows the actual product surface rather than a stock screenshot. Decorative only: the
+ * figures are sample data and stay literal; only the surrounding labels are localized.
  */
 function ProductPreview() {
+  const t = useTranslations("landing.preview")
+
+  // Illustrative sample figures — not real data, so they stay literal and are only paired with
+  // localized labels.
+  const legend = [
+    {
+      label: t("legend.fixed"),
+      amount: "305.000 kr",
+      swatch: "bg-emerald-500",
+    },
+    {
+      label: t("legend.necessary"),
+      amount: "216.500 kr",
+      swatch: "bg-amber-500",
+    },
+    {
+      label: t("legend.niceToHave"),
+      amount: "114.000 kr",
+      swatch: "bg-rose-500",
+    },
+  ]
+
   return (
     <div className="rounded-2xl border border-border bg-card p-6 shadow-xl ring-1 ring-black/5 dark:shadow-none dark:ring-white/10">
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="text-base font-medium">Jun 2026</h2>
-        <span className="text-sm text-muted-foreground">Statement cycle</span>
+        <h2 className="text-base font-medium">{t("month")}</h2>
+        <span className="text-sm text-muted-foreground">{t("cycle")}</span>
       </div>
 
       <div className="mt-5 flex flex-col gap-1">
-        <span className="text-sm text-muted-foreground">Net profit</span>
+        <span className="text-sm text-muted-foreground">{t("netProfit")}</span>
         <span className="text-3xl font-semibold text-emerald-600 tabular-nums dark:text-emerald-500">
           +284.500 kr
         </span>
@@ -477,20 +498,20 @@ function ProductPreview() {
 
       <dl className="mt-5 grid grid-cols-2 divide-x divide-border">
         <div className="flex flex-col gap-1 pr-4">
-          <dt className="text-sm text-muted-foreground">Income</dt>
+          <dt className="text-sm text-muted-foreground">{t("income")}</dt>
           <dd className="text-lg font-semibold tabular-nums">920.000 kr</dd>
         </div>
         <div className="flex flex-col gap-1 pl-4">
-          <dt className="text-sm text-muted-foreground">Expenses</dt>
+          <dt className="text-sm text-muted-foreground">{t("expenses")}</dt>
           <dd className="text-lg font-semibold tabular-nums">635.500 kr</dd>
         </div>
       </dl>
 
       <div className="mt-6 flex flex-col gap-3">
         <div className="flex items-baseline justify-between gap-4">
-          <h3 className="text-sm font-medium">Spending by type</h3>
+          <h3 className="text-sm font-medium">{t("spendingByType")}</h3>
           <span className="text-sm text-muted-foreground tabular-nums">
-            635.500 kr total
+            {t("total", { amount: "635.500 kr" })}
           </span>
         </div>
         <div className="flex h-2 overflow-hidden rounded-full bg-muted">
@@ -499,7 +520,7 @@ function ProductPreview() {
           <div className="h-full w-[18%] bg-rose-500" />
         </div>
         <ul role="list" className="flex flex-col gap-2">
-          {PREVIEW_LEGEND.map((category) => (
+          {legend.map((category) => (
             <li
               key={category.label}
               className="flex items-center justify-between gap-3 text-sm"

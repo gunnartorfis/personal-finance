@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
 import { LandingPage } from "@/components/marketing/landing-page"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 describe("LandingPage", () => {
   it("renders the hero pitch", () => {

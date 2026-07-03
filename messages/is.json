@@ -259,5 +259,119 @@
       "niceToHave": "Gott að hafa",
       "splitNone": "Skipt / ekkert"
     }
+  },
+  "landing": {
+    "metaTitle": "Finance — sjáðu hvert peningarnir fara í raun",
+    "metaDescription": "Hladdu upp kortayfirlitum heimilisins og láttu gervigreind flokka hverja færslu í Fast, Nauðsynlegt og Gott að hafa — fylgstu svo með raunverulegum hagnaði, greiðslutímabil eftir greiðslutímabil.",
+    "nav": {
+      "homeAria": "Forsíða",
+      "signIn": "Skrá inn",
+      "getStarted": "Byrja"
+    },
+    "hero": {
+      "badge": "Persónuleg fjármál fyrir heimili",
+      "title": "Sjáðu hvert peningarnir fara í raun.",
+      "body": "Hladdu upp kortayfirlitunum þínum og láttu gervigreind flokka hverja færslu í Fast, Nauðsynlegt og Gott að hafa — fylgstu svo með raunverulegum hagnaði heimilisins, greiðslutímabil eftir greiðslutímabil.",
+      "startFree": "Byrjaðu ókeypis",
+      "signIn": "Skrá inn",
+      "noCard": "Ókeypis fyrir fyrstu 50 flokkuðu færslurnar þínar. Ekkert kort þarf."
+    },
+    "steps": {
+      "eyebrow": "Hvernig það virkar",
+      "title": "Frá hráu yfirliti að raunverulegri tölu á nokkrum mínútum.",
+      "upload": {
+        "title": "Hladdu upp yfirlitinu",
+        "body": "Flyttu kortayfirlitið út sem CSV og settu það inn. Kortleggðu dálkana einu sinni og allar framtíðar upphleðslur virka sjálfkrafa."
+      },
+      "sort": {
+        "title": "Láttu gervigreind flokka",
+        "body": "Claude les hverja færslu og flokkar hana — Fast, Nauðsynlegt eða Gott að hafa — með vissustigi."
+      },
+      "track": {
+        "title": "Fylgstu með hagnaðinum",
+        "body": "Fylgstu með samanlögðum hagnaði alls heimilisins, greiðslutímabil eftir greiðslutímabil."
+      }
+    },
+    "features": {
+      "eyebrow": "Eiginleikar",
+      "title": "Allt sem heimili þarf til að vera heiðarlegt við sig sjálft.",
+      "ai": {
+        "title": "Gervigreindarflokkun",
+        "body": "Hver færsla flokkuð sjálfkrafa, með rökstuðningi og vissu að baki hverri ákvörðun."
+      },
+      "net": {
+        "title": "Raunverulegur hagnaður",
+        "body": "Tekjur mínus kortanotkun mínus fastir reikningar — ein heiðarleg tala á hverju greiðslutímabili."
+      },
+      "household": {
+        "title": "Deilt með heimili",
+        "body": "Ein fjárhagsmynd fyrir par eða fjölskyldu. Allir hlaða upp, allir sjá heildina."
+      },
+      "rules": {
+        "title": "Söluaðilareglur",
+        "body": "Kenndu því einu sinni. Regla eins og „Netflix er Gott að hafa“ helst fyrir allar framtíðar upphleðslur."
+      },
+      "override": {
+        "title": "Þín ákvörðun ræður alltaf",
+        "body": "Ósammála flokkun? Hnekktu hvaða færslu sem er og þitt val hefur forgang."
+      },
+      "cycles": {
+        "title": "Greiðslutímabil",
+        "body": "Stilltu lokadag kortsins svo allar tölur passi við yfirlitið sem þú raunverulega greiðir."
+      }
+    },
+    "pricing": {
+      "eyebrow": "Verð",
+      "title": "Byrjaðu ókeypis. Uppfærðu þegar það borgar sig.",
+      "subtitle": "Ókeypis áætlunin flokkar fyrstu 50 færslurnar þínar til frambúðar. Premium heldur öllum greiðslutímabilum flokkuðum.",
+      "recommended": "Mælt með",
+      "free": {
+        "name": "Ókeypis",
+        "price": "0 kr",
+        "description": "Fyrir fyrstu heiðarlegu sýnina á hvert peningarnir fara.",
+        "f1": "Fyrstu 50 flokkuðu færslurnar þínar",
+        "f2": "Ótakmarkaðar upphleðslur og breytingar",
+        "f3": "Hagnaðareftirlit",
+        "f4": "Deiling með heimili",
+        "cta": "Byrjaðu ókeypis"
+      },
+      "premium": {
+        "name": "Premium",
+        "price": "1.990 kr",
+        "cadence": "/mán",
+        "description": "Til að hafa stjórn á þessu, í hverjum einasta mánuði.",
+        "f1": "Allt í Ókeypis",
+        "f2": "Allt að ~25.000 flokkanir á mánuði",
+        "f3": "Söluaðilareglur fyrir sjálfvirka flokkun",
+        "f4": "Forgangsflokkun",
+        "cta": "Fá Premium",
+        "note": "Sparaðu 30% með árlegri greiðslu."
+      }
+    },
+    "finalCta": {
+      "title": "Tilbúin að sjá raunverulegu töluna þína?",
+      "body": "Það tekur eitt CSV og nokkrar mínútur að komast að því.",
+      "cta": "Byrjaðu ókeypis"
+    },
+    "footer": {
+      "tagline": "Persónuleg fjármál fyrir heimili.",
+      "signIn": "Skrá inn",
+      "getStarted": "Byrja",
+      "github": "GitHub"
+    },
+    "preview": {
+      "month": "jún. 2026",
+      "cycle": "Greiðslutímabil",
+      "netProfit": "Hagnaður",
+      "income": "Tekjur",
+      "expenses": "Gjöld",
+      "spendingByType": "Útgjöld eftir tegund",
+      "total": "{amount} samtals",
+      "legend": {
+        "fixed": "Fast",
+        "necessary": "Nauðsynlegt",
+        "niceToHave": "Gott að hafa"
+      }
+    }
   }
 }

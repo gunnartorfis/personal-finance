@@ -1,13 +1,16 @@
 import type { Metadata } from "next"
+import { getTranslations } from "next-intl/server"
 import { redirect } from "next/navigation"
 
 import { LandingPage } from "@/components/marketing/landing-page"
 import { getCurrentUser } from "@/lib/auth/session"
 
-export const metadata: Metadata = {
-  title: "Finance — see where the money actually goes",
-  description:
-    "Upload your household’s card statements and let AI sort every transaction into Fixed, Necessary, and Nice to have — then track your real net profit, statement cycle after statement cycle.",
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("landing")
+  return {
+    title: t("metaTitle"),
+    description: t("metaDescription"),
+  }
 }
 
 /**
