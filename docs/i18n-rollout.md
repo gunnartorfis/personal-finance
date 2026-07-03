@@ -87,9 +87,12 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
     namespace: search + type-filter labels (literal-key record), showing-count,
     empty + no-match states, `emptyBacklog` plural, `emptyCta` rich upload link,
     column headers, your-share; locale-aware currency + date (`formatDate`).
-- [ ] **6. Migrate: savings.** DEFERRED — handled by the concurrent ADR-0015 stream
-  (income/config already localized under `incomeSettings` in #204/#206). Goal + check-in
-  remain to that stream.
+- [x] **6. Migrate: savings.** Income + config localized by the ADR-0015 stream
+  (`incomeSettings`, #204/#206). Remaining pieces done here → `savings` namespace:
+  savings page (title + rich Settings link + goal section), savings-goal-form (fields,
+  states, save), savings-progress-card (labels + of-target), savings-assessment-panel
+  (status variants, metric labels, per-cycle table, `formatCycleMonth`). `savings-config-form`
+  left to the stream (PR #211 flattening it).
 - [ ] **7. Migrate: household + invites + billing** (COLD — in progress).
   - [x] **7a. household-reset** ("danger zone" data-reset control) → `householdReset`.
   - [x] **7b. household page + household-manager** (members, invite form, premium upsell,

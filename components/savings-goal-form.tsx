@@ -1,6 +1,7 @@
 "use client"
 
 import { CircleAlert, CircleCheck, Loader2 } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { type FormEvent, useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -22,6 +23,7 @@ interface SavingsGoal {
  * again updates it in place.
  */
 export function SavingsGoalForm({ className }: { className?: string }) {
+  const t = useTranslations("savings.goal")
   const [loading, setLoading] = useState(true)
   const [target, setTarget] = useState("")
   const [targetDate, setTargetDate] = useState("")
@@ -82,19 +84,22 @@ export function SavingsGoalForm({ className }: { className?: string }) {
   }
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading goal…</p>
+    return <p className="text-sm text-muted-foreground">{t("loading")}</p>
   }
 
   return (
     <form
       onSubmit={saveGoal}
-      aria-label="Savings goal"
-      className={cn("flex flex-col gap-4 rounded-xl border border-border bg-card p-6", className)}
+      aria-label={t("regionLabel")}
+      className={cn(
+        "flex flex-col gap-4 rounded-xl border border-border bg-card p-6",
+        className
+      )}
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="goal-target" className="text-sm font-medium">
-            Target amount
+            {t("target")}
           </label>
           <Input
             id="goal-target"
@@ -105,12 +110,12 @@ export function SavingsGoalForm({ className }: { className?: string }) {
             required
             value={target}
             onChange={(event) => setTarget(event.target.value)}
-            placeholder="e.g. 3000000"
+            placeholder={t("targetPlaceholder")}
           />
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="goal-target-date" className="text-sm font-medium">
-            Target date
+            {t("targetDate")}
           </label>
           <Input
             id="goal-target-date"
@@ -123,7 +128,7 @@ export function SavingsGoalForm({ className }: { className?: string }) {
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="goal-starting-saved" className="text-sm font-medium">
-            Already saved
+            {t("alreadySaved")}
           </label>
           <Input
             id="goal-starting-saved"
@@ -138,7 +143,7 @@ export function SavingsGoalForm({ className }: { className?: string }) {
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="goal-start-cycle" className="text-sm font-medium">
-            Start cycle
+            {t("startCycle")}
           </label>
           <Input
             id="goal-start-cycle"
@@ -157,20 +162,20 @@ export function SavingsGoalForm({ className }: { className?: string }) {
           className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
           <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          <p>Couldn’t save the goal. Check the values and try again.</p>
+          <p>{t("error")}</p>
         </div>
       )}
       {saved && (
         <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <CircleCheck aria-hidden="true" className="size-4 shrink-0" />
-          Goal saved.
+          {t("saved")}
         </p>
       )}
 
       <div>
         <Button type="submit" disabled={busy}>
           {busy && <Loader2 className="animate-spin" />}
-          Save goal
+          {t("save")}
         </Button>
       </div>
     </form>

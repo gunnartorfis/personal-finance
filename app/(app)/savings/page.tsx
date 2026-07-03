@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server"
 import Link from "next/link"
 
 import { SavingsAssessmentPanel } from "@/components/savings-assessment-panel"
@@ -17,22 +18,26 @@ export const dynamic = "force-dynamic"
 export default async function SavingsPage() {
   const { repo, billingCurrency } = await requireHousehold()
   const locale = await resolveRequestLocale()
-  const snapshot = await loadSavingsSnapshot(repo, new Date())
+  const [snapshot, t] = await Promise.all([
+    loadSavingsSnapshot(repo, new Date()),
+    getTranslations("savings.page"),
+  ])
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 p-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Savings</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-sm text-pretty text-muted-foreground">
-          Your goal and whether it&rsquo;s on track — progress is inferred from spend, never an
-          entered balance. Set your income and off-card costs under{" "}
-          <Link
-            href="/settings/income"
-            className="font-medium text-foreground underline underline-offset-4"
-          >
-            Settings
-          </Link>
-          .
+          {t.rich("subtitle", {
+            link: (chunks) => (
+              <Link
+                href="/settings/income"
+                className="font-medium text-foreground underline underline-offset-4"
+              >
+                {chunks}
+              </Link>
+            ),
+          })}
         </p>
       </header>
       {snapshot && (
@@ -43,8 +48,8 @@ export default async function SavingsPage() {
           locale={locale}
         />
       )}
-      <section aria-label="Goal" className="flex flex-col gap-6">
-        <h2 className="text-base font-semibold">Goal</h2>
+      <section aria-label={t("goalSection")} className="flex flex-col gap-6">
+        <h2 className="text-base font-semibold">{t("goalSection")}</h2>
         <SavingsGoalForm />
       </section>
     </div>

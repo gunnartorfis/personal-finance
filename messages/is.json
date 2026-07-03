@@ -488,6 +488,53 @@
     "income": "Tekjur",
     "expenses": "Gjöld"
   },
+  "savings": {
+    "goal": {
+      "loading": "Hleð markmiði…",
+      "regionLabel": "Sparnaðarmarkmið",
+      "target": "Markmiðsupphæð",
+      "targetPlaceholder": "t.d. 3000000",
+      "targetDate": "Markmiðsdagsetning",
+      "alreadySaved": "Þegar sparað",
+      "startCycle": "Upphafstímabil",
+      "error": "Ekki tókst að vista markmiðið. Athugaðu gildin og reyndu aftur.",
+      "saved": "Markmið vistað.",
+      "save": "Vista markmið"
+    },
+    "progress": {
+      "regionLabel": "Sparnaðarmarkmið",
+      "progressLabel": "Framvinda að sparnaðarmarkmiðinu",
+      "title": "Sparnaðarmarkmið",
+      "ofTarget": "af {target}"
+    },
+    "assessment": {
+      "regionLabel": "Sparnaðarmat",
+      "heading": "Staða markmiðsins",
+      "subtitle": "Reiknað út frá tekjum þínum, kostnaði utan korts og eyðslu hvers tímabils.",
+      "statusStart": "Á áætlun — {saved} sparað hingað til. Ekkert tímabil er lokið enn.",
+      "statusOnTrack": "Á áætlun — {saved} sparað af {required} sem þarf núna.",
+      "statusBehind": "Á eftir — {saved} sparað af {required} sem þarf núna. Sparaðu {perCycle} á tímabili til að ná upp.",
+      "allowedNiceToHave": "Leyfilegt „gott að hafa“",
+      "requiredPerCycle": "Nauðsynlegt á tímabili",
+      "expectedFixed": "Áætlað fast",
+      "expectedNecessary": "Áætlað nauðsynlegt",
+      "provisional": "{cycle} er ekki komið í heildina þína enn — það telur þegar mánuðurinn lokast.",
+      "byCycle": "Eftir tímabili",
+      "empty": "Ekkert enn — framvinda hefst þegar upphafstímabil markmiðsins byrjar.",
+      "colCycle": "Tímabil",
+      "colIncome": "Tekjur",
+      "colOffCard": "Utan korts",
+      "colCardDebits": "Kortafærslur",
+      "colSaved": "Sparað",
+      "thisMonth": "(þessi mánuður)",
+      "notYetCounted": "Ekki talið enn"
+    },
+    "page": {
+      "title": "Sparnaður",
+      "subtitle": "Markmiðið þitt og hvort það er á áætlun — framvinda er reiknuð út frá eyðslu, aldrei innslegin staða. Stilltu tekjur og kostnað utan korts undir <link>Stillingar</link>.",
+      "goalSection": "Markmið"
+    }
+  },
   "transactions": {
     "searchLabel": "Leita í færslum",
     "searchPlaceholder": "Leita að söluaðila",

@@ -1,4 +1,5 @@
 import { ChevronRight } from "lucide-react"
+import { useTranslations } from "next-intl"
 import Link from "next/link"
 
 import { RadialProgress } from "@/components/radial-progress"
@@ -21,13 +22,14 @@ export function SavingsProgressCard({
   locale: Locale
   className?: string
 }) {
+  const t = useTranslations("savings.progress")
   if (!progress) return null
   const format = currencyFormatter(progress.currency, locale)
 
   return (
     <Link
       href="/savings"
-      aria-label="Savings goal"
+      aria-label={t("regionLabel")}
       className={cn(
         "group flex items-center gap-4 rounded-xl border border-border bg-card p-6 transition-colors hover:bg-accent/50",
         className
@@ -35,14 +37,16 @@ export function SavingsProgressCard({
     >
       <RadialProgress
         percent={progress.percent}
-        label="Progress toward the savings goal"
+        label={t("progressLabel")}
         className="size-12"
       />
       <div className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <p className="truncate text-sm font-medium">Savings goal</p>
+        <p className="truncate text-sm font-medium">{t("title")}</p>
         <p className="text-sm tabular-nums">
           <span className="font-semibold">{format.format(progress.saved)}</span>{" "}
-          <span className="text-muted-foreground">of {format.format(progress.target)}</span>
+          <span className="text-muted-foreground">
+            {t("ofTarget", { target: format.format(progress.target) })}
+          </span>
         </p>
       </div>
       <ChevronRight

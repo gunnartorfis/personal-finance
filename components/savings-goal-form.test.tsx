@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { SavingsGoalForm } from "@/components/savings-goal-form"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -16,7 +17,10 @@ const goal = {
 }
 
 /** Fetch double for /api/savings/goal GET/PUT. */
-function stubApi(initial: typeof goal | null, opts: { putFails?: boolean } = {}) {
+function stubApi(
+  initial: typeof goal | null,
+  opts: { putFails?: boolean } = {}
+) {
   let stored = initial
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     const method = init?.method ?? "GET"
@@ -27,7 +31,10 @@ function stubApi(initial: typeof goal | null, opts: { putFails?: boolean } = {})
       if (opts.putFails) {
         return { ok: false, status: 400, json: async () => ({ error: "bad" }) }
       }
-      const body = JSON.parse(init!.body as string) as Omit<typeof goal, "id" | "currency">
+      const body = JSON.parse(init!.body as string) as Omit<
+        typeof goal,
+        "id" | "currency"
+      >
       stored = { ...body, id: "g1", currency: "ISK" }
       return { ok: true, json: async () => stored }
     }
@@ -41,7 +48,9 @@ describe("SavingsGoalForm", () => {
   it("loads and shows the existing goal", async () => {
     stubApi(goal)
     render(<SavingsGoalForm />)
-    expect(await screen.findByLabelText(/target amount/i)).toHaveValue(3_000_000)
+    expect(await screen.findByLabelText(/target amount/i)).toHaveValue(
+      3_000_000
+    )
     expect(screen.getByLabelText(/target date/i)).toHaveValue("2027-06-01")
     expect(screen.getByLabelText(/already saved/i)).toHaveValue(250_000)
     expect(screen.getByLabelText(/start cycle/i)).toHaveValue("2026-07")
@@ -59,7 +68,9 @@ describe("SavingsGoalForm", () => {
     await userEvent.click(screen.getByRole("button", { name: /save goal/i }))
 
     expect(await screen.findByText(/goal saved/i)).toBeInTheDocument()
-    const putCall = fetchMock.mock.calls.find((c) => (c[1] as RequestInit)?.method === "PUT")!
+    const putCall = fetchMock.mock.calls.find(
+      (c) => (c[1] as RequestInit)?.method === "PUT"
+    )!
     expect(JSON.parse((putCall[1] as RequestInit).body as string)).toEqual({
       target: 1_200_000,
       targetDate: "2027-05-31",

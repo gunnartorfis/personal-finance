@@ -1,7 +1,8 @@
-import { render, screen, within } from "@testing-library/react"
+import { screen, within } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
 import { SavingsAssessmentPanel } from "@/components/savings-assessment-panel"
+import { renderWithIntl as render } from "@/lib/test/render"
 import type { SavingsAssessment, SavingsCycle } from "@/lib/savings/assessment"
 
 const assessment: SavingsAssessment = {
@@ -21,19 +22,42 @@ const assessment: SavingsAssessment = {
 
 // Two completed cycles plus the in-progress 2026-08 (ADR-0014).
 const cycles: SavingsCycle[] = [
-  { cycleKey: "2026-06", monthlyIncome: 1_000_000, offCardFixed: 200_000, cardDebits: 500_000, inferredSaving: 300_000, inProgress: false },
-  { cycleKey: "2026-07", monthlyIncome: 1_000_000, offCardFixed: 200_000, cardDebits: 300_000, inferredSaving: 500_000, inProgress: false },
-  { cycleKey: "2026-08", monthlyIncome: 1_000_000, offCardFixed: 200_000, cardDebits: 40_000, inferredSaving: 760_000, inProgress: true },
+  {
+    cycleKey: "2026-06",
+    monthlyIncome: 1_000_000,
+    offCardFixed: 200_000,
+    cardDebits: 500_000,
+    inferredSaving: 300_000,
+    inProgress: false,
+  },
+  {
+    cycleKey: "2026-07",
+    monthlyIncome: 1_000_000,
+    offCardFixed: 200_000,
+    cardDebits: 300_000,
+    inferredSaving: 500_000,
+    inProgress: false,
+  },
+  {
+    cycleKey: "2026-08",
+    monthlyIncome: 1_000_000,
+    offCardFixed: 200_000,
+    cardDebits: 40_000,
+    inferredSaving: 760_000,
+    inProgress: true,
+  },
 ]
 
-function renderPanel(overrides?: Partial<{ assessment: SavingsAssessment; cycles: SavingsCycle[] }>) {
+function renderPanel(
+  overrides?: Partial<{ assessment: SavingsAssessment; cycles: SavingsCycle[] }>
+) {
   return render(
     <SavingsAssessmentPanel
       assessment={overrides?.assessment ?? assessment}
       cycles={overrides?.cycles ?? cycles}
       currency="ISK"
       locale="en"
-    />,
+    />
   )
 }
 
@@ -66,8 +90,12 @@ describe("SavingsAssessmentPanel", () => {
 
   it("names the current month in the not-yet-counted banner", () => {
     renderPanel()
-    expect(screen.getByText(/August 2026 isn.t in your total yet/i)).toBeInTheDocument()
-    expect(screen.getByText(/counts once the month closes/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/August 2026 isn.t in your total yet/i)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/counts once the month closes/i)
+    ).toBeInTheDocument()
   })
 
   it("shows a getting-started on-track message when no cycle has closed", () => {
@@ -81,7 +109,9 @@ describe("SavingsAssessmentPanel", () => {
       },
       cycles: cycles.filter((c) => c.inProgress),
     })
-    expect(screen.getByText(/On track — ISK 2,000,000 saved so far/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/On track — ISK 2,000,000 saved so far/i)
+    ).toBeInTheDocument()
     // No tautological "needed by now" when nothing is due yet.
     expect(screen.queryByText(/needed by now/i)).not.toBeInTheDocument()
   })
@@ -91,6 +121,8 @@ describe("SavingsAssessmentPanel", () => {
       assessment: { ...assessment, provisional: false },
       cycles: cycles.filter((c) => !c.inProgress),
     })
-    expect(screen.queryByText(/counts once the (calendar )?month closes/i)).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/counts once the (calendar )?month closes/i)
+    ).not.toBeInTheDocument()
   })
 })
