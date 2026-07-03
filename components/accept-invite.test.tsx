@@ -19,4 +19,9 @@ describe("AcceptInvite", () => {
       screen.getByRole("button", { name: /delete household & join/i })
     ).toBeInTheDocument()
   })
+
+  it("uses the leave label when other members remain", () => {
+    render(<AcceptInvite inviteId="i1" consequence="leave" />)
+    expect(screen.getByRole("button", { name: /leave & join/i })).toBeInTheDocument()
+  })
 })
