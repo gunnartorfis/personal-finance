@@ -11,6 +11,7 @@ import {
   Trash2,
   X,
 } from "lucide-react"
+import { useTranslations } from "next-intl"
 import Link from "next/link"
 import { type FormEvent, useState } from "react"
 
@@ -41,11 +42,12 @@ interface Props {
   className?: string
 }
 
-const INVITE_ERROR_COPY: Record<string, string> = {
-  invalid_email: "That doesn’t look like a valid email.",
-  cap_reached: "Your household is full.",
-  not_premium: "Inviting members requires Premium.",
-  email_required: "Enter an email to invite.",
+/** API invite-error codes → catalog keys under `household.inviteError`. */
+const INVITE_ERROR_KEY: Record<string, string> = {
+  invalid_email: "invalidEmail",
+  cap_reached: "capReached",
+  not_premium: "notPremium",
+  email_required: "emailRequired",
 }
 
 /**
@@ -95,22 +97,23 @@ export function HouseholdManager({
 }
 
 function MembersList({ members, currentUserId }: { members: Member[]; currentUserId: string }) {
+  const t = useTranslations("household")
   return (
-    <section aria-label="Members" className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold">Members</h2>
+    <section aria-label={t("members")} className="flex flex-col gap-3">
+      <h2 className="text-sm font-semibold">{t("members")}</h2>
       <ul
         role="list"
         className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card"
       >
         {members.map((member) => {
           const isYou = member.authUserId === currentUserId
-          const label = member.name ?? member.email ?? "Member"
+          const label = member.name ?? member.email ?? t("memberFallback")
           return (
             <li key={member.id} className="flex items-center justify-between gap-3 px-4 py-3">
               <div className="flex min-w-0 flex-col">
                 <span className="truncate text-sm font-medium">
                   {label}
-                  {isYou && <span className="ml-2 text-xs text-muted-foreground">You</span>}
+                  {isYou && <span className="ml-2 text-xs text-muted-foreground">{t("you")}</span>}
                 </span>
                 {member.email && member.name && (
                   <span className="truncate text-xs text-muted-foreground">{member.email}</span>
@@ -135,6 +138,7 @@ function InviteForm({
   isFull: boolean
   onCreated: () => Promise<void>
 }) {
+  const t = useTranslations("household")
   const [email, setEmail] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -153,7 +157,8 @@ function InviteForm({
       })
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null
-        setError(INVITE_ERROR_COPY[body?.error ?? ""] ?? "Couldn’t create the invite.")
+        const key = INVITE_ERROR_KEY[body?.error ?? ""] ?? "generic"
+        setError(t(`inviteError.${key}`))
         return
       }
       const body = (await res.json()) as { path: string }
@@ -161,30 +166,28 @@ function InviteForm({
       setEmail("")
       await onCreated()
     } catch {
-      setError("Couldn’t create the invite.")
+      setError(t("inviteError.generic"))
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <section aria-label="Invite a member" className="flex flex-col gap-4">
+    <section aria-label={t("invite")} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h2 className="text-sm font-semibold">Invite a member</h2>
-        <p className="text-sm text-pretty text-muted-foreground">
-          They’ll join your household when they sign in with this email. Send them the link yourself.
-        </p>
+        <h2 className="text-sm font-semibold">{t("invite")}</h2>
+        <p className="text-sm text-pretty text-muted-foreground">{t("inviteDescription")}</p>
       </div>
 
       {isFull ? (
         <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-          Your household is full ({cap} members and pending invites).
+          {t("full", { cap })}
         </p>
       ) : (
         <form onSubmit={submit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex flex-1 flex-col gap-1.5">
             <label htmlFor="invite-email" className="text-sm font-medium">
-              Email
+              {t("emailLabel")}
             </label>
             <Input
               id="invite-email"
@@ -194,12 +197,12 @@ function InviteForm({
               onChange={(event) => setEmail(event.target.value)}
               required
               disabled={!canInvite || busy}
-              placeholder="name@example.com"
+              placeholder={t("emailPlaceholder")}
             />
           </div>
           <Button type="submit" disabled={!canInvite || busy}>
             {busy ? <Loader2 className="animate-spin" /> : <Mail />}
-            Create invite
+            {t("createInvite")}
           </Button>
         </form>
       )}
@@ -220,6 +223,7 @@ function InviteForm({
 }
 
 function InviteLink({ url }: { url: string }) {
+  const t = useTranslations("household")
   const [copied, setCopied] = useState(false)
 
   async function copy() {
@@ -234,47 +238,43 @@ function InviteLink({ url }: { url: string }) {
 
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
-      <p className="text-sm font-medium">Invite link ready — share it with them</p>
+      <p className="text-sm font-medium">{t("linkReady")}</p>
       <div className="flex items-center gap-2">
         <Input readOnly value={url} onFocus={(e) => e.currentTarget.select()} className="flex-1" />
         <Button type="button" variant="outline" onClick={copy}>
           {copied ? <Check /> : <Copy />}
-          {copied ? "Copied" : "Copy"}
+          {copied ? t("copied") : t("copy")}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">
-        The link works once and only for this email. Creating another invite for the same email
-        replaces it.
-      </p>
+      <p className="text-xs text-muted-foreground">{t("linkHint")}</p>
     </div>
   )
 }
 
 function PremiumUpsell() {
+  const t = useTranslations("household")
   return (
     <section
-      aria-label="Invite a member"
+      aria-label={t("invite")}
       className="flex flex-col gap-3 rounded-xl border border-border bg-card p-6"
     >
       <div className="flex items-center gap-2">
         <Sparkles className="size-4 text-muted-foreground" aria-hidden="true" />
-        <h2 className="text-sm font-semibold">Inviting members is a Premium feature</h2>
+        <h2 className="text-sm font-semibold">{t("premiumTitle")}</h2>
       </div>
-      <p className="text-sm text-pretty text-muted-foreground">
-        Upgrade to Premium to share your household’s financial picture with the people you split
-        money with.
-      </p>
+      <p className="text-sm text-pretty text-muted-foreground">{t("premiumDescription")}</p>
       <Button variant="outline" className="self-start" render={<Link href="/settings/billing" />}>
-        See Premium
+        {t("seePremium")}
       </Button>
     </section>
   )
 }
 
 function PendingInvites({ invites, onChanged }: { invites: Invite[]; onChanged: () => Promise<void> }) {
+  const t = useTranslations("household")
   return (
-    <section aria-label="Pending invites" className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold">Pending invites</h2>
+    <section aria-label={t("pending")} className="flex flex-col gap-3">
+      <h2 className="text-sm font-semibold">{t("pending")}</h2>
       <ul
         role="list"
         className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card"
@@ -288,6 +288,7 @@ function PendingInvites({ invites, onChanged }: { invites: Invite[]; onChanged: 
 }
 
 function PendingInviteRow({ invite, onChanged }: { invite: Invite; onChanged: () => Promise<void> }) {
+  const t = useTranslations("household")
   const [busy, setBusy] = useState(false)
 
   async function revoke() {
@@ -305,24 +306,25 @@ function PendingInviteRow({ invite, onChanged }: { invite: Invite; onChanged: ()
       <div className="flex min-w-0 flex-col">
         <span className="truncate text-sm font-medium">{invite.email}</span>
         <span className="text-xs text-muted-foreground">
-          Expires {new Date(invite.expiresAt).toLocaleDateString()}
+          {t("expires", { date: new Date(invite.expiresAt).toLocaleDateString() })}
         </span>
       </div>
       <Button type="button" variant="ghost" size="sm" onClick={revoke} disabled={busy}>
         {busy ? <Loader2 className="animate-spin" /> : <X />}
-        Revoke
+        {t("revoke")}
       </Button>
     </li>
   )
 }
 
 function DangerZone({ isSoleMember }: { isSoleMember: boolean }) {
+  const t = useTranslations("household")
   return (
     <section
-      aria-label="Danger zone"
+      aria-label={t("dangerZone")}
       className="flex flex-col gap-4 rounded-xl border border-destructive/30 bg-destructive/5 p-6"
     >
-      <h2 className="text-sm font-semibold text-destructive">Danger zone</h2>
+      <h2 className="text-sm font-semibold text-destructive">{t("dangerZone")}</h2>
       {isSoleMember ? (
         <DeleteHousehold />
       ) : (
@@ -337,6 +339,7 @@ function DangerZone({ isSoleMember }: { isSoleMember: boolean }) {
 }
 
 function LeaveHousehold() {
+  const t = useTranslations("household")
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -350,24 +353,22 @@ function LeaveHousehold() {
         const body = (await res.json().catch(() => null)) as { error?: string } | null
         setError(
           body?.error === "last_member"
-            ? "You’re the only member — delete the household instead."
-            : "Couldn’t leave. Please try again.",
+            ? t("leaveError.lastMember")
+            : t("leaveError.generic"),
         )
         setBusy(false)
         return
       }
       window.location.assign("/")
     } catch {
-      setError("Couldn’t leave. Please try again.")
+      setError(t("leaveError.generic"))
       setBusy(false)
     }
   }
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-pretty text-muted-foreground">
-        Leave this household. You’ll lose access to its data; it stays with the other members.
-      </p>
+      <p className="text-sm text-pretty text-muted-foreground">{t("leaveDescription")}</p>
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}
@@ -375,19 +376,19 @@ function LeaveHousehold() {
       )}
       {confirming ? (
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-medium">Leave this household?</span>
+          <span className="text-sm font-medium">{t("leaveConfirmPrompt")}</span>
           <Button variant="destructive" onClick={leave} disabled={busy}>
             {busy ? <Loader2 className="animate-spin" /> : <LogOut />}
-            Yes, leave
+            {t("leaveConfirm")}
           </Button>
           <Button variant="outline" onClick={() => setConfirming(false)} disabled={busy}>
-            Cancel
+            {t("cancel")}
           </Button>
         </div>
       ) : (
         <Button variant="outline" className="self-start" onClick={() => setConfirming(true)}>
           <LogOut />
-          Leave household
+          {t("leaveTrigger")}
         </Button>
       )}
     </div>
@@ -395,6 +396,7 @@ function LeaveHousehold() {
 }
 
 function DeleteHousehold() {
+  const t = useTranslations("household")
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(false)
@@ -419,29 +421,28 @@ function DeleteHousehold() {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-pretty text-muted-foreground">
-        Delete the household and <strong>all</strong> of its data — uploads, transactions, accounts,
-        rules, and savings. This cannot be undone.
+        {t.rich("deleteDescription", { strong: (chunks) => <strong>{chunks}</strong> })}
       </p>
       {error && (
         <p role="alert" className="text-sm text-destructive">
-          Couldn’t delete the household. Please try again.
+          {t("deleteError")}
         </p>
       )}
       {confirming ? (
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-medium">Delete everything? This can’t be undone.</span>
+          <span className="text-sm font-medium">{t("deleteConfirmPrompt")}</span>
           <Button variant="destructive" onClick={remove} disabled={busy}>
             {busy ? <Loader2 className="animate-spin" /> : <Trash2 />}
-            Yes, delete household
+            {t("deleteConfirm")}
           </Button>
           <Button variant="outline" onClick={() => setConfirming(false)} disabled={busy}>
-            Cancel
+            {t("cancel")}
           </Button>
         </div>
       ) : (
         <Button variant="destructive" className="self-start" onClick={() => setConfirming(true)}>
           <Trash2 />
-          Delete household
+          {t("deleteTrigger")}
         </Button>
       )}
     </div>

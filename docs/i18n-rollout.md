@@ -75,7 +75,9 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
 - [ ] **6. Migrate: savings.** DEFERRED (concurrent refactor). Goal, config, check-in.
 - [ ] **7. Migrate: household + invites + billing** (COLD — in progress).
   - [x] **7a. household-reset** ("danger zone" data-reset control) → `householdReset`.
-  - [ ] **7b. household page + household-manager** (members, invite, pending, danger zone).
+  - [x] **7b. household page + household-manager** (members, invite form, premium upsell,
+    pending invites, danger zone leave/delete) → `household` namespace; ICU cap
+    interpolation, invite/leave error-code maps, `t.rich` delete description.
   - [ ] **7c. invites**: invite-card, accept-invite, verify-email-gate, `app/join/*`.
   - [ ] **7d. billing**: billing page, manage-subscription, premium-checkout, free-cap.
 - [ ] **8. Migrate: upload + accounts + rules.**
