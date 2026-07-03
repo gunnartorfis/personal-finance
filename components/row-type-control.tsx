@@ -9,6 +9,7 @@ import {
   Split,
   Undo2,
 } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { useRef, useState } from "react"
 
 import type { TransactionRow } from "@/components/transactions-table"
@@ -25,6 +26,7 @@ import {
   MenuSeparator,
   MenuTrigger,
 } from "@/components/ui/menu"
+import { useExpenseTypeLabels } from "@/lib/expense-type-labels"
 import { clearOverride, putOverride } from "@/lib/overrides/client"
 import {
   excludeTransaction,
@@ -39,20 +41,25 @@ import { EXPENSE_TYPES, type ExpenseType } from "@/shared/types"
 const MAX_NOTE_LENGTH = 280
 
 /**
- * Per-type label + swatch, drawn from the same hues the charts use ({@link CATEGORIES} in
- * `spending-by-type`) so the pill, the menu radios, and the breakdown chart never drift. `""` is the
- * not-bucketed / split type shown as "Split / none".
+ * Per-type swatch, drawn from the same hues the charts use ({@link CATEGORIES} in
+ * `spending-by-type`) so the pill, the menu radios, and the breakdown chart never drift. Labels are
+ * localized via {@link useExpenseTypeLabels}; `""` is the not-bucketed / split type.
  */
-const TYPE_META: Record<ExpenseType, { label: string; dot: string }> = {
-  Fixed: { label: "Fixed", dot: "bg-emerald-500" },
-  Necessary: { label: "Necessary", dot: "bg-amber-500" },
-  "Nice to have": { label: "Nice to have", dot: "bg-rose-500" },
-  "": { label: "Split / none", dot: "bg-zinc-400 dark:bg-zinc-500" },
+const TYPE_DOT: Record<ExpenseType, string> = {
+  Fixed: "bg-emerald-500",
+  Necessary: "bg-amber-500",
+  "Nice to have": "bg-rose-500",
+  "": "bg-zinc-400 dark:bg-zinc-500",
 }
 
 /** A small colored status dot used inside the pill and the type radios. */
 function Dot({ className }: { className?: string }) {
-  return <span className={cn("size-1.5 shrink-0 rounded-full", className)} aria-hidden />
+  return (
+    <span
+      className={cn("size-1.5 shrink-0 rounded-full", className)}
+      aria-hidden
+    />
+  )
 }
 
 /** The collapsed pill shape — a compact outline button that opens the row's action menu. */
@@ -106,6 +113,8 @@ export function RowTypeControl({
   /** Fired after a whole-merchant rule is created — the parent re-types matching rows / recounts. */
   onRuleCreated: () => void
 }) {
+  const t = useTranslations("rowType")
+  const typeLabels = useExpenseTypeLabels()
   const [editor, setEditor] = useState<"none" | "split" | "exclude">("none")
   const [busy, setBusy] = useState(false)
   const [errored, setErrored] = useState(false)
@@ -125,7 +134,7 @@ export function RowTypeControl({
 
   const errorSlot = errored ? (
     <span role="alert" className="text-xs text-destructive">
-      Couldn’t save
+      {t("saveError")}
     </span>
   ) : null
 
@@ -141,7 +150,7 @@ export function RowTypeControl({
             disabled={busy}
           >
             <Dot className="bg-muted-foreground/40" />
-            Excluded
+            {t("excluded")}
             <ChevronDown className="opacity-60" aria-hidden />
           </MenuTrigger>
           <MenuContent>
@@ -154,7 +163,7 @@ export function RowTypeControl({
               }
             >
               <Undo2 />
-              Include in calculations
+              {t("include")}
             </MenuItem>
           </MenuContent>
         </Menu>
@@ -189,7 +198,7 @@ export function RowTypeControl({
                 row.incomeMarked ? "bg-emerald-500" : "bg-muted-foreground/40"
               }
             />
-            {row.incomeMarked ? "Income" : "Credit"}
+            {row.incomeMarked ? t("income") : t("credit")}
             <ChevronDown className="opacity-60" aria-hidden />
           </MenuTrigger>
           <MenuContent>
@@ -202,7 +211,7 @@ export function RowTypeControl({
                 })
               }
             >
-              Count as income
+              {t("countAsIncome")}
             </MenuCheckboxItem>
           </MenuContent>
         </Menu>
@@ -212,15 +221,15 @@ export function RowTypeControl({
   }
 
   // --- Debit: the common case — a typed expense with the full action set. ---
-  const effective: ExpenseType =
-    row.overrideType ?? row.classifiedType ?? ""
+  const effective: ExpenseType = row.overrideType ?? row.classifiedType ?? ""
   const hasOverride = row.overrideType !== null
   // A pending/failed row has no real type yet: show "Needs review", not a stand-in "Split / none".
   const unclassified =
     row.classificationStatus !== "classified" && row.overrideType === null
   const shared = row.ownShareAmount !== null
   // Offer the whole-merchant rule only for a real (non-split) type keyed on a known merchant.
-  const canMakeRule = !unclassified && effective !== "" && row.merchant.trim() !== ""
+  const canMakeRule =
+    !unclassified && effective !== "" && row.merchant.trim() !== ""
 
   if (editor === "split") {
     return (
@@ -260,22 +269,22 @@ export function RowTypeControl({
           title={
             unclassified
               ? row.classificationStatus === "failed"
-                ? "Classification failed — pick a type"
-                : "Awaiting classification — pick a type"
+                ? t("failedTitle")
+                : t("awaitingTitle")
               : undefined
           }
         >
           {unclassified ? (
             <Dot className="bg-muted-foreground/40" />
           ) : (
-            <Dot className={TYPE_META[effective].dot} />
+            <Dot className={TYPE_DOT[effective]} />
           )}
-          {unclassified ? "Needs review" : TYPE_META[effective].label}
+          {unclassified ? t("needsReview") : typeLabels[effective]}
           <ChevronDown className="opacity-60" aria-hidden />
         </MenuTrigger>
         <MenuContent className="min-w-56">
           <MenuGroup>
-            <MenuGroupLabel>Set type</MenuGroupLabel>
+            <MenuGroupLabel>{t("setType")}</MenuGroupLabel>
             <MenuRadioGroup
               value={unclassified ? undefined : effective}
               onValueChange={(value) =>
@@ -290,15 +299,15 @@ export function RowTypeControl({
             >
               {EXPENSE_TYPES.map((type) => (
                 <MenuRadioItem key={type} value={type}>
-                  <Dot className={TYPE_META[type].dot} />
-                  <span className="flex-1">{TYPE_META[type].label}</span>
+                  <Dot className={TYPE_DOT[type]} />
+                  <span className="flex-1">{typeLabels[type]}</span>
                   {row.classifiedType === type && !unclassified && (
                     <span
                       className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-                      title="AI suggestion"
+                      title={t("aiSuggestion")}
                     >
                       <Sparkles className="size-3" aria-hidden />
-                      AI
+                      {t("ai")}
                     </span>
                   )}
                 </MenuRadioItem>
@@ -318,8 +327,8 @@ export function RowTypeControl({
             >
               <Undo2 />
               {row.classifiedType !== null
-                ? `Reset to AI · ${TYPE_META[row.classifiedType].label}`
-                : "Reset to AI suggestion"}
+                ? t("resetToAiTyped", { type: typeLabels[row.classifiedType] })
+                : t("resetToAi")}
             </MenuItem>
           )}
           {canMakeRule && (
@@ -333,7 +342,7 @@ export function RowTypeControl({
           <MenuSeparator />
           <MenuItem onClick={() => setEditor("split")}>
             <Split />
-            {shared ? "Edit split…" : "Split charge…"}
+            {shared ? t("editSplit") : t("splitCharge")}
           </MenuItem>
           {shared && (
             <MenuItem
@@ -345,7 +354,7 @@ export function RowTypeControl({
               }
             >
               <Undo2 />
-              Remove split
+              {t("removeSplit")}
             </MenuItem>
           )}
           <MenuItem
@@ -353,14 +362,14 @@ export function RowTypeControl({
             className="text-destructive data-[highlighted]:text-destructive"
           >
             <Ban />
-            Exclude…
+            {t("exclude")}
           </MenuItem>
         </MenuContent>
       </Menu>
 
       {shared && (
         <span className="inline-flex items-center rounded-full border border-border px-1.5 py-0.5 text-[0.625rem] font-medium text-muted-foreground">
-          Shared
+          {t("shared")}
         </span>
       )}
       {errorSlot}
@@ -387,6 +396,7 @@ function ApplyToAllItem({
   /** Called once, after the rule is newly created, so the table re-types matching rows / recounts. */
   onCreated: () => void
 }) {
+  const t = useTranslations("rowType")
   const [status, setStatus] = useState<RuleStatus>("idle")
   const req = useRef(0)
 
@@ -414,8 +424,8 @@ function ApplyToAllItem({
       <MenuItem disabled className="text-muted-foreground">
         <Check className="text-emerald-600" />
         {status === "created"
-          ? `Rule added for ${merchant}`
-          : `Rule already exists for ${merchant}`}
+          ? t("ruleAdded", { merchant })
+          : t("ruleExists", { merchant })}
       </MenuItem>
     )
   }
@@ -431,7 +441,7 @@ function ApplyToAllItem({
       ) : (
         <Sparkles />
       )}
-      {status === "error" ? "Couldn’t add — retry" : `Apply to all ${merchant}`}
+      {status === "error" ? t("ruleRetry") : t("applyToAll", { merchant })}
     </MenuItem>
   )
 }
@@ -456,6 +466,7 @@ function SplitEditor({
   onDone: (ownShareAmount: number | null) => void
   onCancel: () => void
 }) {
+  const t = useTranslations("rowType.split")
   const chargeMagnitude = -amount
   const [shareDraft, setShareDraft] = useState(
     initialShare === null ? "" : String(-initialShare)
@@ -504,7 +515,7 @@ function SplitEditor({
       }}
     >
       <label className="sr-only" htmlFor={`share-amount-${transactionId}`}>
-        Your share
+        {t("shareLabel")}
       </label>
       <input
         id={`share-amount-${transactionId}`}
@@ -515,14 +526,14 @@ function SplitEditor({
         max={chargeMagnitude - 1}
         value={shareDraft}
         onChange={(event) => setShareDraft(event.target.value)}
-        placeholder={`Your share of ${formatAmount(amount)}`}
+        placeholder={t("sharePlaceholder", { amount: formatAmount(amount) })}
         autoFocus
         disabled={saving}
         className="h-7 w-40 min-w-0 rounded-md border border-input bg-input/20 px-2 text-sm tabular-nums outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50 max-sm:text-base/relaxed md:text-sm dark:bg-input/30"
       />
-      <span className="text-muted-foreground">or split by</span>
+      <span className="text-muted-foreground">{t("orSplitBy")}</span>
       <label className="sr-only" htmlFor={`share-ways-${transactionId}`}>
-        Split evenly between (including you)
+        {t("waysLabel")}
       </label>
       <input
         id={`share-ways-${transactionId}`}
@@ -532,12 +543,16 @@ function SplitEditor({
         min={2}
         value={waysDraft}
         onChange={(event) => applyWays(event.target.value)}
-        placeholder="e.g. 7"
+        placeholder={t("waysPlaceholder")}
         disabled={saving}
         className="h-7 w-16 min-w-0 rounded-md border border-input bg-input/20 px-2 text-sm tabular-nums outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50 max-sm:text-base/relaxed md:text-sm dark:bg-input/30"
       />
-      <Button type="submit" variant="outline" disabled={saving || parsedShare === null}>
-        Save
+      <Button
+        type="submit"
+        variant="outline"
+        disabled={saving || parsedShare === null}
+      >
+        {t("save")}
       </Button>
       <Button
         type="button"
@@ -546,11 +561,11 @@ function SplitEditor({
         disabled={saving}
         className="text-muted-foreground"
       >
-        Cancel
+        {t("cancel")}
       </Button>
       {errored && (
         <span role="alert" className="text-destructive">
-          Couldn’t save
+          {t("saveError")}
         </span>
       )}
     </form>
@@ -570,6 +585,7 @@ function ExcludeEditor({
   onDone: (note: string | null) => void
   onCancel: () => void
 }) {
+  const t = useTranslations("rowType.excludeEditor")
   const [draft, setDraft] = useState("")
   const [saving, setSaving] = useState(false)
   const [errored, setErrored] = useState(false)
@@ -599,7 +615,7 @@ function ExcludeEditor({
       }}
     >
       <label className="sr-only" htmlFor={`exclude-note-${transactionId}`}>
-        Reason for excluding (optional)
+        {t("reasonLabel")}
       </label>
       <input
         id={`exclude-note-${transactionId}`}
@@ -608,13 +624,13 @@ function ExcludeEditor({
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         maxLength={MAX_NOTE_LENGTH}
-        placeholder="Reason (optional)"
+        placeholder={t("reasonPlaceholder")}
         autoFocus
         disabled={saving}
         className="h-7 min-w-0 flex-1 rounded-md border border-input bg-input/20 px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50 max-sm:text-base/relaxed md:text-sm dark:bg-input/30"
       />
       <Button type="submit" variant="outline" disabled={saving}>
-        Exclude
+        {t("exclude")}
       </Button>
       <Button
         type="button"
@@ -623,11 +639,11 @@ function ExcludeEditor({
         disabled={saving}
         className="text-muted-foreground"
       >
-        Cancel
+        {t("cancel")}
       </Button>
       {errored && (
         <span role="alert" className="text-destructive">
-          Couldn’t save
+          {t("saveError")}
         </span>
       )}
     </form>

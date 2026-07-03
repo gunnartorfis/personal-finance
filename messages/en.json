@@ -429,6 +429,54 @@
     "other": "Other",
     "unclassified": "Unclassified"
   },
+  "expenseType": {
+    "fixed": "Fixed",
+    "necessary": "Necessary",
+    "niceToHave": "Nice to have",
+    "splitNone": "Split / none"
+  },
+  "rowType": {
+    "saveError": "Couldn't save",
+    "excluded": "Excluded",
+    "include": "Include in calculations",
+    "income": "Income",
+    "credit": "Credit",
+    "countAsIncome": "Count as income",
+    "needsReview": "Needs review",
+    "failedTitle": "Classification failed — pick a type",
+    "awaitingTitle": "Awaiting classification — pick a type",
+    "setType": "Set type",
+    "ai": "AI",
+    "aiSuggestion": "AI suggestion",
+    "resetToAiTyped": "Reset to AI · {type}",
+    "resetToAi": "Reset to AI suggestion",
+    "ruleAdded": "Rule added for {merchant}",
+    "ruleExists": "Rule already exists for {merchant}",
+    "ruleRetry": "Couldn't add — retry",
+    "applyToAll": "Apply to all {merchant}",
+    "editSplit": "Edit split…",
+    "splitCharge": "Split charge…",
+    "removeSplit": "Remove split",
+    "exclude": "Exclude…",
+    "shared": "Shared",
+    "split": {
+      "shareLabel": "Your share",
+      "sharePlaceholder": "Your share of {amount}",
+      "orSplitBy": "or split by",
+      "waysLabel": "Split evenly between (including you)",
+      "waysPlaceholder": "e.g. 7",
+      "save": "Save",
+      "cancel": "Cancel",
+      "saveError": "Couldn't save"
+    },
+    "excludeEditor": {
+      "reasonLabel": "Reason for excluding (optional)",
+      "reasonPlaceholder": "Reason (optional)",
+      "exclude": "Exclude",
+      "cancel": "Cancel",
+      "saveError": "Couldn't save"
+    }
+  },
   "spendingByType": {
     "heading": "Spending by type",
     "total": "{amount} total"
