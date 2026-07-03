@@ -201,5 +201,29 @@
     "pausedTitle": "AI classification paused",
     "pausedBody": "You've used all {cap} free classifications. Uploads, the dashboard and overrides keep working; <link>upgrade to Premium</link> to classify the rest.",
     "usage": "{used} of {cap} free AI classifications used — {remaining} left."
+  },
+  "upload": {
+    "title": "Upload a statement",
+    "subtitle": "Import a CSV bank statement, then watch it classify.",
+    "loadingAccounts": "Loading accounts…",
+    "accountsError": "Couldn't load accounts — try refreshing.",
+    "noAccount": "No account found — add one on the Accounts page first.",
+    "accountLabel": "Account",
+    "fileLabel": "CSV file",
+    "fileHint": "Export your statement as CSV, then choose it here.",
+    "submit": "Upload",
+    "submitting": "Uploading…",
+    "errors": {
+      "duplicate": "This file was already imported.",
+      "unknownAccount": "That account no longer exists.",
+      "failed": "Upload failed. Please try again."
+    },
+    "progress": {
+      "label": "Classification progress",
+      "failed": "Couldn't load progress",
+      "retrying": "Couldn't load progress — retrying…",
+      "complete": "Classification complete",
+      "classifying": "Classifying…"
+    }
   }
 }

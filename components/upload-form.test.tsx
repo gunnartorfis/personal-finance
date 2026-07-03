@@ -1,14 +1,19 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { UploadForm } from "@/components/upload-form"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 afterEach(() => vi.unstubAllGlobals())
 
 const ACCOUNTS = [
   { id: "11111111-1111-1111-1111-111111111111", name: "Visa", isDefault: true },
-  { id: "22222222-2222-2222-2222-222222222222", name: "Landsbankinn", isDefault: false },
+  {
+    id: "22222222-2222-2222-2222-222222222222",
+    name: "Landsbankinn",
+    isDefault: false,
+  },
 ]
 
 /** Stateful fetch double: GET /api/accounts, POST /api/uploads, and the progress poll. */
@@ -31,12 +36,21 @@ function stubApi(opts: { uploadStatus?: number; uploadBody?: unknown } = {}) {
     if (url.startsWith("/api/uploads/") && url.endsWith("/progress")) {
       return {
         ok: true,
-        json: async () => ({ total: 3, pending: 0, classified: 3, failed: 0, done: true }),
+        json: async () => ({
+          total: 3,
+          pending: 0,
+          classified: 3,
+          failed: 0,
+          done: true,
+        }),
       }
     }
     if (url === "/api/classify" && method === "POST") {
       // auto-kicked after a successful upload; report nothing pending so the drain loop ends
-      return { ok: true, json: async () => ({ classified: 0, failed: 0, capped: 0 }) }
+      return {
+        ok: true,
+        json: async () => ({ classified: 0, failed: 0, capped: 0 }),
+      }
     }
     return { ok: false, status: 404, json: async () => ({}) }
   })
@@ -45,17 +59,25 @@ function stubApi(opts: { uploadStatus?: number; uploadBody?: unknown } = {}) {
 }
 
 function csvFile() {
-  return new File(["date,amount,merchant\n2026-01-01,100,Cafe"], "statement.csv", {
-    type: "text/csv",
-  })
+  return new File(
+    ["date,amount,merchant\n2026-01-01,100,Cafe"],
+    "statement.csv",
+    {
+      type: "text/csv",
+    }
+  )
 }
 
 describe("UploadForm", () => {
   it("lists the household's accounts in the selector", async () => {
     stubApi()
     render(<UploadForm />)
-    expect(await screen.findByRole("option", { name: "Visa" })).toBeInTheDocument()
-    expect(screen.getByRole("option", { name: "Landsbankinn" })).toBeInTheDocument()
+    expect(
+      await screen.findByRole("option", { name: "Visa" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("option", { name: "Landsbankinn" })
+    ).toBeInTheDocument()
   })
 
   it("uploads the chosen file for the chosen account and shows progress", async () => {
@@ -63,13 +85,18 @@ describe("UploadForm", () => {
     render(<UploadForm />)
     await screen.findByRole("option", { name: "Visa" })
 
-    await userEvent.selectOptions(screen.getByLabelText(/account/i), ACCOUNTS[1].id)
+    await userEvent.selectOptions(
+      screen.getByLabelText(/account/i),
+      ACCOUNTS[1].id
+    )
     await userEvent.upload(screen.getByLabelText(/csv file/i), csvFile())
     await userEvent.click(screen.getByRole("button", { name: /upload/i }))
 
     expect(await screen.findByRole("progressbar")).toBeInTheDocument()
 
-    const post = fetchMock.mock.calls.find((c) => (c[1] as RequestInit)?.method === "POST")!
+    const post = fetchMock.mock.calls.find(
+      (c) => (c[1] as RequestInit)?.method === "POST"
+    )!
     const body = (post[1] as RequestInit).body as FormData
     expect(body.get("accountId")).toBe(ACCOUNTS[1].id)
     expect((body.get("file") as File).name).toBe("statement.csv")
@@ -80,7 +107,10 @@ describe("UploadForm", () => {
     render(<UploadForm />)
     await screen.findByRole("option", { name: "Visa" })
 
-    await userEvent.selectOptions(screen.getByLabelText(/account/i), ACCOUNTS[0].id)
+    await userEvent.selectOptions(
+      screen.getByLabelText(/account/i),
+      ACCOUNTS[0].id
+    )
     await userEvent.upload(screen.getByLabelText(/csv file/i), csvFile())
     await userEvent.click(screen.getByRole("button", { name: /upload/i }))
 
@@ -92,12 +122,15 @@ describe("UploadForm", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
-        if (url === "/api/accounts") return { ok: false, status: 500, json: async () => ({}) }
+        if (url === "/api/accounts")
+          return { ok: false, status: 500, json: async () => ({}) }
         return { ok: false, status: 404, json: async () => ({}) }
-      }),
+      })
     )
     render(<UploadForm />)
-    expect(await screen.findByText(/couldn.t load accounts/i)).toBeInTheDocument()
+    expect(
+      await screen.findByText(/couldn.t load accounts/i)
+    ).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /upload/i })).toBeDisabled()
   })
 
@@ -106,16 +139,23 @@ describe("UploadForm", () => {
     render(<UploadForm />)
     await screen.findByRole("option", { name: "Visa" })
 
-    await userEvent.selectOptions(screen.getByLabelText(/account/i), ACCOUNTS[0].id)
+    await userEvent.selectOptions(
+      screen.getByLabelText(/account/i),
+      ACCOUNTS[0].id
+    )
     await userEvent.upload(screen.getByLabelText(/csv file/i), csvFile())
     await userEvent.click(screen.getByRole("button", { name: /upload/i }))
 
     await screen.findByRole("progressbar")
     // file cleared → button disabled again, no second submit possible
     expect(screen.getByRole("button", { name: /upload/i })).toBeDisabled()
-    expect((screen.getByLabelText(/csv file/i) as HTMLInputElement).value).toBe("")
+    expect((screen.getByLabelText(/csv file/i) as HTMLInputElement).value).toBe(
+      ""
+    )
     // account resets to the default (not blank) so the picker-less flow stays submittable
-    expect((screen.getByLabelText(/account/i) as HTMLSelectElement).value).toBe(ACCOUNTS[0].id)
+    expect((screen.getByLabelText(/account/i) as HTMLSelectElement).value).toBe(
+      ACCOUNTS[0].id
+    )
   })
 
   it("hides the picker and uploads to the default when it's the only account", async () => {
@@ -134,11 +174,20 @@ describe("UploadForm", () => {
       if (url.startsWith("/api/uploads/") && url.endsWith("/progress")) {
         return {
           ok: true,
-          json: async () => ({ total: 1, pending: 0, classified: 1, failed: 0, done: true }),
+          json: async () => ({
+            total: 1,
+            pending: 0,
+            classified: 1,
+            failed: 0,
+            done: true,
+          }),
         }
       }
       if (url === "/api/classify" && method === "POST") {
-        return { ok: true, json: async () => ({ classified: 0, failed: 0, capped: 0 }) }
+        return {
+          ok: true,
+          json: async () => ({ classified: 0, failed: 0, capped: 0 }),
+        }
       }
       return { ok: false, status: 404, json: async () => ({}) }
     })
@@ -147,24 +196,36 @@ describe("UploadForm", () => {
 
     await userEvent.upload(screen.getByLabelText(/csv file/i), csvFile())
     // Once accounts load, the default is auto-selected → button enables with no picker shown.
-    await waitFor(() => expect(screen.getByRole("button", { name: /upload/i })).toBeEnabled())
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /upload/i })).toBeEnabled()
+    )
     expect(screen.queryByLabelText(/account/i)).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole("button", { name: /upload/i }))
-    const post = fetchMock.mock.calls.find((c) => (c[1] as RequestInit)?.method === "POST")!
+    const post = fetchMock.mock.calls.find(
+      (c) => (c[1] as RequestInit)?.method === "POST"
+    )!
     const body = (post[1] as RequestInit).body as FormData
     expect(body.get("accountId")).toBe(ACCOUNTS[0].id)
   })
 
   it("reports an already-imported file as a duplicate", async () => {
-    stubApi({ uploadStatus: 409, uploadBody: { status: "duplicate", fileHash: "abc" } })
+    stubApi({
+      uploadStatus: 409,
+      uploadBody: { status: "duplicate", fileHash: "abc" },
+    })
     render(<UploadForm />)
     await screen.findByRole("option", { name: "Visa" })
 
-    await userEvent.selectOptions(screen.getByLabelText(/account/i), ACCOUNTS[0].id)
+    await userEvent.selectOptions(
+      screen.getByLabelText(/account/i),
+      ACCOUNTS[0].id
+    )
     await userEvent.upload(screen.getByLabelText(/csv file/i), csvFile())
     await userEvent.click(screen.getByRole("button", { name: /upload/i }))
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/already imported/i)
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /already imported/i
+    )
   })
 })

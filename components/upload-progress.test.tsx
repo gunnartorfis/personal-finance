@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { UploadProgress } from "@/components/upload-progress"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -13,21 +14,36 @@ describe("UploadProgress", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ total: 4, pending: 2, classified: 1, failed: 1, done: false }),
-      }),
+        json: async () => ({
+          total: 4,
+          pending: 2,
+          classified: 1,
+          failed: 1,
+          done: false,
+        }),
+      })
     )
 
     render(<UploadProgress uploadId="u1" />)
 
     // classified + failed = 2 of 4 settled => 50%
     expect(await screen.findByText("50%")).toBeInTheDocument()
-    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "50")
+    expect(screen.getByRole("progressbar")).toHaveAttribute(
+      "aria-valuenow",
+      "50"
+    )
   })
 
   it("shows a completed state and stops polling once done", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ total: 3, pending: 0, classified: 3, failed: 0, done: true }),
+      json: async () => ({
+        total: 3,
+        pending: 0,
+        classified: 3,
+        failed: 0,
+        done: true,
+      }),
     })
     vi.stubGlobal("fetch", fetchMock)
 
@@ -41,7 +57,10 @@ describe("UploadProgress", () => {
   })
 
   it("retries on a transient (5xx) error", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }))
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 500 })
+    )
 
     render(<UploadProgress uploadId="u3" />)
 
@@ -55,7 +74,9 @@ describe("UploadProgress", () => {
     render(<UploadProgress uploadId="gone" />)
 
     // Permanent failure shows a terminal message (no "retrying") and must not re-poll.
-    expect(await screen.findByText(/couldn.t load progress$/i)).toBeInTheDocument()
+    expect(
+      await screen.findByText(/couldn.t load progress$/i)
+    ).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })

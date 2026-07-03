@@ -1,5 +1,6 @@
 "use client"
 
+import { useTranslations } from "next-intl"
 import { useEffect, useState } from "react"
 
 import { RadialProgress } from "@/components/radial-progress"
@@ -29,6 +30,7 @@ export function UploadProgress({
   uploadId: string
   className?: string
 }) {
+  const t = useTranslations("upload.progress")
   const [data, setData] = useState<UploadProgressData | null>(null)
   const [retrying, setRetrying] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -76,18 +78,18 @@ export function UploadProgress({
   const percent = total === 0 ? 0 : Math.round((settled / total) * 100)
 
   const label = failed
-    ? "Couldn’t load progress"
+    ? t("failed")
     : retrying
-      ? "Couldn’t load progress — retrying…"
+      ? t("retrying")
       : data?.done
-        ? "Classification complete"
-        : "Classifying…"
+        ? t("complete")
+        : t("classifying")
 
   return (
     <div className={cn("flex items-center gap-3", className)}>
       <RadialProgress
         percent={percent}
-        label="Classification progress"
+        label={t("label")}
         role="progressbar"
         tone={data?.done ? "success" : "primary"}
         className="size-12"
