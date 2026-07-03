@@ -1,5 +1,6 @@
 "use client"
 
+import { useLocale, useTranslations } from "next-intl"
 import type { ReactElement } from "react"
 import { Bar, BarChart, CartesianGrid, Rectangle, XAxis } from "recharts"
 
@@ -12,30 +13,19 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
+import { currencyFormatter } from "@/lib/format/currency"
+import { formatCycleMonth } from "@/lib/format/date"
+import { defaultLocale, toLocale } from "@/lib/i18n/config"
 import type { CategoryTrendPoint } from "@/lib/dashboard/category-trend"
-import type { CycleKey } from "@/lib/dashboard/cycle"
-import { cycleKeyLabel, shortCycleLabel } from "@/lib/dashboard/cycle"
 
 /** Positive magnitude for one display category within a month. */
-function magnitudeFor(point: CategoryTrendPoint, key: (typeof CATEGORIES)[number]["key"]) {
+function magnitudeFor(
+  point: CategoryTrendPoint,
+  key: (typeof CATEGORIES)[number]["key"]
+) {
   if (key === "Other") return point.byExpenseType[""]
   if (key === "Unclassified") return point.unclassified
   return point.byExpenseType[key]
-}
-
-/** Accessible description of one month's mix, e.g. "March 2026 spending mix: Fixed 60%, Nice to have 40%". */
-function mixLabel(month: CycleKey, point: CategoryTrendPoint): string {
-  const magnitudes = CATEGORIES.map((category) => ({
-    label: category.label,
-    magnitude: magnitudeFor(point, category.key),
-  }))
-  const total = magnitudes.reduce((sum, item) => sum + item.magnitude, 0)
-  const label = cycleKeyLabel(month)
-  if (total === 0) return `${label}: no spending recorded`
-  const parts = magnitudes
-    .filter((item) => item.magnitude > 0)
-    .map((item) => `${item.label} ${Math.round((item.magnitude / total) * 100)}%`)
-  return `${label} spending mix: ${parts.join(", ")}`
 }
 
 /** Geometry + row payload Recharts hands a Bar's `shape` callback for each rendered segment. */
@@ -56,7 +46,10 @@ type SegmentShapeProps = {
  * slug (see the data build below). Shapes are cached per slug at module scope — there are only a
  * handful of category slugs — so mapping the Bars on each render reuses stable component references.
  */
-const segmentShapes = new Map<string, (props: SegmentShapeProps) => ReactElement>()
+const segmentShapes = new Map<
+  string,
+  (props: SegmentShapeProps) => ReactElement
+>()
 function segmentShapeFor(slug: string) {
   const cached = segmentShapes.get(slug)
   if (cached) return cached
@@ -69,7 +62,12 @@ function segmentShapeFor(slug: string) {
     return (
       <Rectangle
         {...props}
-        radius={[isTop ? r : 0, isTop ? r : 0, isBottom ? r : 0, isBottom ? r : 0]}
+        radius={[
+          isTop ? r : 0,
+          isTop ? r : 0,
+          isBottom ? r : 0,
+          isBottom ? r : 0,
+        ]}
       />
     )
   }
@@ -90,12 +88,29 @@ export function MixOverTimeChart({
   categoryTrend: CategoryTrendPoint[]
   currency: string
 }) {
-  const fmt = (amount: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount)
+  const t = useTranslations("charts.mixOverTime")
+  const locale = toLocale(useLocale()) ?? defaultLocale
+  const money = currencyFormatter(currency, locale)
+  const fmt = (amount: number) => money.format(amount)
+
+  // Accessible per-month composition, e.g. "March 2026 spending mix: Fixed 60%, Nice to have 40%".
+  // Category names come from CATEGORIES (owned by the transactions/spending-by-type slice); the
+  // surrounding sentence is localized here.
+  function mixLabel(point: CategoryTrendPoint): string {
+    const magnitudes = CATEGORIES.map((category) => ({
+      label: category.label,
+      magnitude: magnitudeFor(point, category.key),
+    }))
+    const total = magnitudes.reduce((sum, item) => sum + item.magnitude, 0)
+    const label = formatCycleMonth(point.month, locale)
+    if (total === 0) return t("noSpending", { label })
+    const parts = magnitudes
+      .filter((item) => item.magnitude > 0)
+      .map(
+        (item) => `${item.label} ${Math.round((item.magnitude / total) * 100)}%`
+      )
+    return t("mix", { label, parts: parts.join(", ") })
+  }
 
   // Only the categories that actually appear in at least one month, in CATEGORIES order, so neither
   // the legend nor the stack ever carries an empty bucket.
@@ -104,15 +119,19 @@ export function MixOverTimeChart({
   )
 
   const chartConfig = Object.fromEntries(
-    present.map((category) => [category.slug, { label: category.label, theme: category.color }])
+    present.map((category) => [
+      category.slug,
+      { label: category.label, theme: category.color },
+    ])
   ) satisfies ChartConfig
 
   const data = categoryTrend.map((point) => {
     const row: Record<string, number | string> = {
       month: point.month,
-      label: shortCycleLabel(point.month),
+      label: formatCycleMonth(point.month, locale, { short: true }),
     }
-    for (const category of present) row[category.slug] = magnitudeFor(point, category.key)
+    for (const category of present)
+      row[category.slug] = magnitudeFor(point, category.key)
     // Precompute which categories are the visible base/cap of *this* month's stack so each segment
     // shape can round the true ends without knowing the whole stack.
     const nonzero = present.filter((category) => Number(row[category.slug]) > 0)
@@ -125,12 +144,19 @@ export function MixOverTimeChart({
 
   return (
     <div className="flex flex-col gap-2">
-      <h3 className="text-sm font-medium text-muted-foreground">Mix over time</h3>
+      <h3 className="text-sm font-medium text-muted-foreground">
+        {t("title")}
+      </h3>
 
       <ChartContainer config={chartConfig} className="aspect-auto h-44 w-full">
         <BarChart accessibilityLayer data={data} stackOffset="expand">
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="label" tickLine={false} tickMargin={10} axisLine={false} />
+          <XAxis
+            dataKey="label"
+            tickLine={false}
+            tickMargin={10}
+            axisLine={false}
+          />
           <ChartTooltip
             cursor={false}
             content={
@@ -140,7 +166,9 @@ export function MixOverTimeChart({
                   return (
                     <span className="flex w-full items-center justify-between gap-3">
                       <span className="text-muted-foreground">{label}</span>
-                      <span className="tabular-nums text-foreground">{fmt(Number(value))}</span>
+                      <span className="text-foreground tabular-nums">
+                        {fmt(Number(value))}
+                      </span>
                     </span>
                   )
                 }}
@@ -163,7 +191,7 @@ export function MixOverTimeChart({
 
       <ul className="sr-only">
         {categoryTrend.map((point) => (
-          <li key={point.month}>{mixLabel(point.month, point)}</li>
+          <li key={point.month}>{mixLabel(point)}</li>
         ))}
       </ul>
     </div>

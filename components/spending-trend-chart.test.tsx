@@ -1,10 +1,11 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
 // Bars navigate via router.push on click; the chart calls useRouter at render, so stub it.
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }))
 
 import { SpendingTrendChart } from "@/components/spending-trend-chart"
+import { renderWithIntl as render } from "@/lib/test/render"
 import type { MonthlySpendPoint } from "@/lib/dashboard/monthly-series"
 
 const SERIES: MonthlySpendPoint[] = [
@@ -16,7 +17,12 @@ const SERIES: MonthlySpendPoint[] = [
 describe("SpendingTrendChart", () => {
   it("shows a keep-uploading placeholder (no bars) until there's enough history", () => {
     render(
-      <SpendingTrendChart series={SERIES} hasEnoughHistory={false} completedMonths={1} currency="ISK" />,
+      <SpendingTrendChart
+        series={SERIES}
+        hasEnoughHistory={false}
+        completedMonths={1}
+        currency="ISK"
+      />
     )
     expect(screen.getByText(/1\/3 months/i)).toBeInTheDocument()
     expect(screen.queryAllByRole("link")).toHaveLength(0)
@@ -24,7 +30,12 @@ describe("SpendingTrendChart", () => {
 
   it("renders one tappable bar per month linking to that cycle, with an accessible label", () => {
     render(
-      <SpendingTrendChart series={SERIES} hasEnoughHistory completedMonths={3} currency="ISK" />,
+      <SpendingTrendChart
+        series={SERIES}
+        hasEnoughHistory
+        completedMonths={3}
+        currency="ISK"
+      />
     )
     const links = screen.getAllByRole("link")
     expect(links).toHaveLength(3)
@@ -35,7 +46,12 @@ describe("SpendingTrendChart", () => {
 
   it("shows a legend for spending and income", () => {
     render(
-      <SpendingTrendChart series={SERIES} hasEnoughHistory completedMonths={3} currency="ISK" />,
+      <SpendingTrendChart
+        series={SERIES}
+        hasEnoughHistory
+        completedMonths={3}
+        currency="ISK"
+      />
     )
     expect(screen.getByText("Spending")).toBeInTheDocument()
     expect(screen.getByText("Income")).toBeInTheDocument()

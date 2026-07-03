@@ -65,10 +65,14 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
 > those refactors settle. The loop works the **cold** areas first (household/invites,
 > billing, upload, accounts, rules, landing/nav). Enforcement (10) is always last.
 
-- [ ] **4d/4e. Migrate: dashboard charts.** DEFERRED (concurrent shadcn/recharts
-  refactor). `spending-trend-chart` (parked draft #182, now stale vs recharts) +
-  `category-mix-module`. Once no caller of `cycleKeyLabel`/`shortCycleLabel` remains,
-  delete them from `lib/dashboard/cycle.ts`.
+- [x] **4d/4e. Migrate: dashboard charts.** (Concurrent recharts refactor has landed;
+  #182 was closed and redone fresh.) `spending-trend-chart` + `category-mix-module` +
+  `mix-over-time-chart` → `charts` namespace: titles, legend/series labels, currency via
+  `currencyFormatter`, cycle labels via `formatCycleMonth`, rich classify-nudge, ICU-free
+  interpolated placeholder + sr-only summaries. Category names in the mix chart still come
+  from `CATEGORIES` (owned by transactions/spending-by-type, slice 5) — they localize
+  there. `cycleKeyLabel`/`shortCycleLabel` are now only used by savings/transactions
+  (deferred) + `lib/dashboard/cycle`; delete once those migrate.
 - [ ] **5. Migrate: transactions.** DEFERRED (concurrent refactor). Table, review-mode,
   override, income, net-summary-card, spending-by-type; expense-type labels via catalog
   (canonical enum stays English). AI `reasoning` stays English (data).

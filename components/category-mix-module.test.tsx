@@ -1,17 +1,24 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 
 import { CategoryMixModule } from "@/components/category-mix-module"
+import { renderWithIntl as render } from "@/lib/test/render"
 import type { CategoryTrendPoint } from "@/lib/dashboard/category-trend"
 
 function cat(
   month: string,
   byType: Partial<CategoryTrendPoint["byExpenseType"]>,
-  unclassified = 0,
+  unclassified = 0
 ): CategoryTrendPoint {
   return {
     month,
-    byExpenseType: { Fixed: 0, Necessary: 0, "Nice to have": 0, "": 0, ...byType },
+    byExpenseType: {
+      Fixed: 0,
+      Necessary: 0,
+      "Nice to have": 0,
+      "": 0,
+      ...byType,
+    },
     unclassified,
   }
 }
@@ -29,7 +36,7 @@ describe("CategoryMixModule", () => {
         currentMonth="2026-03"
         mostlyUnclassified={false}
         currency="ISK"
-      />,
+      />
     )
     expect(screen.getByText(/Where it goes/i)).toBeInTheDocument()
     // Current cycle (2026-03) breakdown via SpendingByType (also echoed in the mix legend).
@@ -47,7 +54,7 @@ describe("CategoryMixModule", () => {
         currentMonth="2026-03"
         mostlyUnclassified={false}
         currency="ISK"
-      />,
+      />
     )
     // TREND spans Fixed, Necessary and Nice to have across its two months; each is named in the
     // sr-only per-month summary. (The visual key is a Recharts <ChartLegend>, which only renders
@@ -66,11 +73,11 @@ describe("CategoryMixModule", () => {
         currentMonth="2026-03"
         mostlyUnclassified={false}
         currency="ISK"
-      />,
+      />
     )
     // 2026-03: Fixed 60000 + Nice to have 40000 -> Fixed 60%, Nice to have 40%.
     expect(
-      screen.getByText(/March 2026 spending mix: Fixed 60%, Nice to have 40%/i),
+      screen.getByText(/March 2026 spending mix: Fixed 60%, Nice to have 40%/i)
     ).toBeInTheDocument()
   })
 
@@ -81,7 +88,7 @@ describe("CategoryMixModule", () => {
         currentMonth="2026-03"
         mostlyUnclassified
         currency="ISK"
-      />,
+      />
     )
     const link = screen.getByRole("link", { name: /classify transactions/i })
     expect(link).toHaveAttribute("href", "/transactions")
@@ -94,8 +101,10 @@ describe("CategoryMixModule", () => {
         currentMonth="2026-03"
         mostlyUnclassified={false}
         currency="ISK"
-      />,
+      />
     )
-    expect(screen.queryByRole("link", { name: /classify transactions/i })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("link", { name: /classify transactions/i })
+    ).not.toBeInTheDocument()
   })
 })

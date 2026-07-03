@@ -1,5 +1,6 @@
 "use client"
 
+import { useLocale, useTranslations } from "next-intl"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Bar, ComposedChart, Line, XAxis } from "recharts"
@@ -10,15 +11,12 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import { cycleKeyLabel, shortCycleLabel } from "@/lib/dashboard/cycle"
+import { currencyFormatter } from "@/lib/format/currency"
+import { formatCycleMonth } from "@/lib/format/date"
+import { defaultLocale, toLocale } from "@/lib/i18n/config"
 import type { MonthlySpendPoint } from "@/lib/dashboard/monthly-series"
 import { DEFAULT_TRAILING } from "@/lib/dashboard/spending-trend"
 import { cn } from "@/lib/utils"
-
-const chartConfig = {
-  spending: { label: "Spending", color: "var(--color-foreground)" },
-  income: { label: "Income", color: "var(--color-emerald-500)" },
-} satisfies ChartConfig
 
 /**
  * The rolling 12-month spending trend (Phase K, K11): spending as bars with an income overlay line,
@@ -41,12 +39,15 @@ export function SpendingTrendChart({
   className?: string
 }) {
   const router = useRouter()
+  const t = useTranslations("charts.spendingTrend")
+  const locale = toLocale(useLocale()) ?? defaultLocale
 
-  const money = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  })
+  const chartConfig = {
+    spending: { label: t("spending"), color: "var(--color-foreground)" },
+    income: { label: t("income"), color: "var(--color-emerald-500)" },
+  } satisfies ChartConfig
+
+  const money = currencyFormatter(currency, locale)
   const fmt = (amount: number) => money.format(amount)
 
   // Recharts hands a Bar's onClick the datum (its `payload`); navigate to that cycle. Scoping the
@@ -59,24 +60,35 @@ export function SpendingTrendChart({
 
   const data = series.map((point) => ({
     month: point.month,
-    label: shortCycleLabel(point.month),
+    label: formatCycleMonth(point.month, locale, { short: true }),
     spending: point.spending,
     income: point.income,
   }))
 
   return (
-    <section className={cn("flex flex-col gap-4 rounded-xl border border-border bg-card p-6", className)}>
+    <section
+      className={cn(
+        "flex flex-col gap-4 rounded-xl border border-border bg-card p-6",
+        className
+      )}
+    >
       <header className="flex items-center justify-between gap-4">
-        <h2 className="text-base font-medium">Spending trend</h2>
+        <h2 className="text-base font-medium">{t("title")}</h2>
         {hasEnoughHistory && (
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <span aria-hidden="true" className="size-2 rounded-sm bg-foreground/80" />
-              Spending
+              <span
+                aria-hidden="true"
+                className="size-2 rounded-sm bg-foreground/80"
+              />
+              {t("spending")}
             </span>
             <span className="flex items-center gap-1.5">
-              <span aria-hidden="true" className="h-0.5 w-3 rounded-full bg-emerald-500" />
-              Income
+              <span
+                aria-hidden="true"
+                className="h-0.5 w-3 rounded-full bg-emerald-500"
+              />
+              {t("income")}
             </span>
           </div>
         )}
@@ -84,8 +96,14 @@ export function SpendingTrendChart({
 
       {hasEnoughHistory ? (
         <>
-          <ChartContainer config={chartConfig} className="aspect-auto h-40 w-full">
-            <ComposedChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+          <ChartContainer
+            config={chartConfig}
+            className="aspect-auto h-40 w-full"
+          >
+            <ComposedChart
+              data={data}
+              margin={{ top: 4, right: 0, bottom: 0, left: 0 }}
+            >
               <XAxis
                 dataKey="label"
                 tickLine={false}
@@ -98,15 +116,21 @@ export function SpendingTrendChart({
                 content={
                   <ChartTooltipContent
                     labelFormatter={(_label, payload) => {
-                      const month = payload?.[0]?.payload?.month as string | undefined
-                      return month ? cycleKeyLabel(month) : ""
+                      const month = payload?.[0]?.payload?.month as
+                        | string
+                        | undefined
+                      return month ? formatCycleMonth(month, locale) : ""
                     }}
                     formatter={(value, name) => {
-                      const label = chartConfig[name as keyof typeof chartConfig]?.label ?? name
+                      const label =
+                        chartConfig[name as keyof typeof chartConfig]?.label ??
+                        name
                       return (
                         <span className="flex w-full items-center justify-between gap-3">
                           <span className="text-muted-foreground">{label}</span>
-                          <span className="tabular-nums text-foreground">{fmt(Number(value))}</span>
+                          <span className="text-foreground tabular-nums">
+                            {fmt(Number(value))}
+                          </span>
                         </span>
                       )
                     }}
@@ -135,19 +159,25 @@ export function SpendingTrendChart({
           <ul className="sr-only">
             {series.map((point) => (
               <li key={point.month}>
-                <Link
-                  href={`/transactions?cycle=${point.month}`}
-                >{`${cycleKeyLabel(point.month)} — spent ${fmt(point.spending)}, income ${fmt(point.income)}`}</Link>
+                <Link href={`/transactions?cycle=${point.month}`}>
+                  {t("srLink", {
+                    label: formatCycleMonth(point.month, locale),
+                    spending: fmt(point.spending),
+                    income: fmt(point.income),
+                  })}
+                </Link>
               </li>
             ))}
           </ul>
         </>
       ) : (
         <div className="flex h-32 flex-col items-center justify-center gap-1 rounded-lg bg-muted px-4 text-center text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">Not enough history yet.</p>
+          <p className="font-medium text-foreground">{t("notEnoughTitle")}</p>
           <p>
-            Keep uploading — {completedMonths}/{DEFAULT_TRAILING.minMonths} months so far. Your
-            spending trend appears once there&apos;s a bit of history.
+            {t("notEnoughBody", {
+              completed: completedMonths,
+              min: DEFAULT_TRAILING.minMonths,
+            })}
           </p>
         </div>
       )}
