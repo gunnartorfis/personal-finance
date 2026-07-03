@@ -10,11 +10,12 @@ import { parseSavingsConfigInput } from "@/lib/savings/parse"
  */
 export async function GET() {
   const { repo } = await requireHousehold()
-  const [incomeSources, offcardCosts] = await Promise.all([
+  const [incomeSources, offcardCosts, oneOffAdjustments] = await Promise.all([
     repo.savings.incomeSources.list(),
     repo.savings.offcardCosts.list(),
+    repo.savings.oneOffAdjustments.list(),
   ])
-  return NextResponse.json({ incomeSources, offcardCosts })
+  return NextResponse.json({ incomeSources, offcardCosts, oneOffAdjustments })
 }
 
 export async function PUT(request: Request) {
@@ -25,10 +26,12 @@ export async function PUT(request: Request) {
   }
 
   const { repo } = await requireHousehold()
-  // One transaction for both lists — the config can never commit half-updated.
+  // One transaction for all lists — the config can never commit half-updated. `oneOffAdjustments`
+  // is undefined when the body omits it (leave existing one-offs untouched), an array to replace.
   const saved = await repo.savings.replaceConfig(
     parsed.value.incomeSources,
-    parsed.value.offcardCosts
+    parsed.value.offcardCosts,
+    parsed.value.oneOffAdjustments
   )
   return NextResponse.json(saved)
 }

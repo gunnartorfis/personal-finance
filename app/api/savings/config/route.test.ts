@@ -8,25 +8,31 @@ import { GET, PUT } from "./route";
 const putReq = (body: unknown) =>
   new Request("http://test/", { method: "PUT", body: JSON.stringify(body) });
 
-const sources = [{ id: "s1", name: "Salary", amount: 700_000 }];
-const costs = [{ id: "c1", name: "Mortgage", monthlyAmount: 250_000 }];
+const sources = [{ id: "s1", name: "Salary", amount: 700_000, effectiveFrom: "0001-01" }];
+const costs = [{ id: "c1", name: "Mortgage", monthlyAmount: 250_000, effectiveFrom: "0001-01" }];
+const oneOffs = [{ id: "o1", cycleKey: "2026-03", kind: "income", amount: 300_000, label: null }];
 
 beforeEach(() => requireHousehold.mockReset());
 
 describe("GET /api/savings/config", () => {
-  it("returns the household's income sources and off-card costs", async () => {
+  it("returns the household's income sources, off-card costs, and one-off adjustments", async () => {
     requireHousehold.mockResolvedValue({
       repo: {
         savings: {
           incomeSources: { list: vi.fn().mockResolvedValue(sources) },
           offcardCosts: { list: vi.fn().mockResolvedValue(costs) },
+          oneOffAdjustments: { list: vi.fn().mockResolvedValue(oneOffs) },
         },
       },
     });
 
     const res = await GET();
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ incomeSources: sources, offcardCosts: costs });
+    expect(await res.json()).toEqual({
+      incomeSources: sources,
+      offcardCosts: costs,
+      oneOffAdjustments: oneOffs,
+    });
   });
 });
 
@@ -37,7 +43,7 @@ describe("PUT /api/savings/config", () => {
     expect(requireHousehold).not.toHaveBeenCalled();
   });
 
-  it("replaces both lists in one atomic call and returns the saved config", async () => {
+  it("replaces the lists in one atomic call, defaulting the effective cycle, and returns the saved config", async () => {
     const replaceConfig = vi
       .fn()
       .mockResolvedValue({ incomeSources: sources, offcardCosts: costs });
@@ -50,10 +56,31 @@ describe("PUT /api/savings/config", () => {
       }),
     );
     expect(res.status).toBe(200);
+    // effectiveFrom defaults to the floor; no one-off list in the body → undefined (leave untouched).
     expect(replaceConfig).toHaveBeenCalledWith(
-      [{ name: "Salary", amount: 700_000 }],
-      [{ name: "Mortgage", monthlyAmount: 250_000 }],
+      [{ name: "Salary", amount: 700_000, effectiveFrom: "0001-01" }],
+      [{ name: "Mortgage", monthlyAmount: 250_000, effectiveFrom: "0001-01" }],
+      undefined,
     );
     expect(await res.json()).toEqual({ incomeSources: sources, offcardCosts: costs });
+  });
+
+  it("passes dated versions and one-off adjustments through to replaceConfig", async () => {
+    const replaceConfig = vi.fn().mockResolvedValue({});
+    requireHousehold.mockResolvedValue({ repo: { savings: { replaceConfig } } });
+
+    const res = await PUT(
+      putReq({
+        incomeSources: [{ name: "Salary", amount: 600_000, effectiveFrom: "2026-07" }],
+        offcardCosts: [],
+        oneOffAdjustments: [{ cycleKey: "2026-03", kind: "income", amount: 300_000, label: "Refund" }],
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(replaceConfig).toHaveBeenCalledWith(
+      [{ name: "Salary", amount: 600_000, effectiveFrom: "2026-07" }],
+      [],
+      [{ cycleKey: "2026-03", kind: "income", amount: 300_000, label: "Refund" }],
+    );
   });
 });
