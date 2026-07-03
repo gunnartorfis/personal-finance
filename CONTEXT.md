@@ -106,12 +106,20 @@ A Household's target to accumulate a set amount by a target date (e.g. 5,000,000
 _Avoid_: Budget, Plan (Plan is the subscription level)
 
 **Monthly income**:
-The Household's configured combined net recurring monthly income from all sources (salaries, rental income, …), deposited off-card; the anchor for all savings math. NOT derived from card credits. A per-cycle one-off extra (e.g. a bonus, tax refund, wedding gift) may be added to a single cycle.
-_Avoid_: Take-home, Salary (exclude rental and multi-earner income), bare "Income" (collides with the dashboard's card-credit income)
+The Household's combined net recurring income (salaries, rental income, …), deposited off-card; the anchor for all savings math. NOT derived from card credits. **Time-varying**: a change (a raise, a new job) is recorded with an **Effective cycle**, and each Statement cycle's savings math uses the amounts in force *that* cycle — so correcting a past cycle re-flows through **Inferred saving** (no frozen history, ADR-0007). A single cycle may also carry a **One-off adjustment**.
+_Avoid_: Take-home, Salary (excludes rental and multi-earner income), bare "Income" (collides with the dashboard's card-credit income), treating it as one flat figure (the pre-ADR-0015 model)
 
 **Off-card fixed cost**:
-A recurring monthly outflow that does NOT appear on the uploaded cards (rent, mortgage, loan payments), configured per Household and subtracted from Monthly income. Disjoint from the card-side `Fixed` Expense type.
+A recurring monthly outflow that does NOT appear on the uploaded cards (rent, mortgage, loan payments), configured per Household and subtracted from Monthly income. **Time-varying** exactly like Monthly income — a change (rent rises, a loan is cleared) carries an **Effective cycle**, and a single cycle may carry a **One-off adjustment** (e.g. an annual insurance bill). Disjoint from the card-side `Fixed` Expense type.
 _Avoid_: Fixed expense (collides with the `Fixed` Expense type)
+
+**Effective cycle**:
+The Statement-cycle key (`YYYY-MM`) from which a recurring **Monthly income** or **Off-card fixed cost** amount applies, staying in force until a later change supersedes it. Every cycle from the **Savings goal**'s start onward is covered: the earliest amounts are the baseline (effective from the goal's start cycle), and a change adds a later-effective amount. An amount can step to zero (a job ends, a loan is cleared).
+_Avoid_: Start date (reserved for the Savings goal), Version
+
+**One-off adjustment**:
+A non-recurring, single-cycle income addition or cost — a bonus, tax refund, or wedding gift (income); an annual insurance bill (cost) — additive to that cycle's recurring base and affecting only that cycle's **Inferred saving** (and, when it lands on the current cycle, its **Allowed nice-to-have**). Never carries forward. Replaces the earlier unbuilt "per-cycle one-off extra" note.
+_Avoid_: Recurring change (that is an Effective-cycle amount), Transaction (this is off-card, never a card line)
 
 **Inferred saving**:
 What a Household saved in a Statement cycle — computed, not observed: Monthly income − Off-card fixed costs − net card debits for the cycle (positive card lines ignored). Only **completed** cycles count toward cumulative saved; the **current** (in-progress) cycle is excluded until its calendar month closes, because mid-month it carries full income against near-zero spend and would overstate savings. The current cycle is instead the one being budgeted (see **Allowed nice-to-have**).
