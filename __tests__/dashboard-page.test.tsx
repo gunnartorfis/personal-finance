@@ -18,6 +18,8 @@ vi.mock("@/lib/savings/assessment", () => ({ loadSavingsProgress }))
 vi.mock("@/lib/i18n/locale", () => ({
   resolveRequestLocale: () => Promise.resolve("en"),
 }))
+// The Recharts-backed spending-trend chart calls useRouter at render for bar-click navigation.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }))
 
 import DashboardPage from "@/app/(app)/dashboard/page"
 

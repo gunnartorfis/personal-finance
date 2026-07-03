@@ -1,7 +1,10 @@
 import { render, screen } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
-import { SpendingTrendChart, incomeLineBottom } from "@/components/spending-trend-chart"
+// Bars navigate via router.push on click; the chart calls useRouter at render, so stub it.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }))
+
+import { SpendingTrendChart } from "@/components/spending-trend-chart"
 import type { MonthlySpendPoint } from "@/lib/dashboard/monthly-series"
 
 const SERIES: MonthlySpendPoint[] = [
@@ -28,12 +31,6 @@ describe("SpendingTrendChart", () => {
     const march = screen.getByRole("link", { name: /March 2026/i })
     expect(march).toHaveAttribute("href", "/transactions?cycle=2026-03")
     expect(march).toHaveAccessibleName(/100,000/)
-  })
-
-  it("clamps the income line so a 100% (ceiling) value isn't clipped by overflow-hidden", () => {
-    // A bare "100%" would push the 2px line entirely above the track's top edge.
-    expect(incomeLineBottom(100)).toBe("min(100%, calc(100% - 2px))")
-    expect(incomeLineBottom(40)).toBe("min(40%, calc(100% - 2px))")
   })
 
   it("shows a legend for spending and income", () => {
