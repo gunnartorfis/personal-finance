@@ -176,14 +176,18 @@ export async function loadFinancialHealth(
   );
 
   const debitsByCycle = new Map(series.map((row) => [row.month, row.spending]));
-  const cycles = completedKeys
-    .map((key) => {
-      const { monthlyIncome, offCardFixed } = resolved.get(key)!;
-      return { cycleKey: key, monthlyIncome, offCardFixed, cardDebits: debitsByCycle.get(key) ?? 0 };
-    })
-    // Drop leading cycles before the Household had any income configured or any spend recorded, so
-    // gap-filled zero cycles don't fake up history or drag the trailing averages down.
-    .filter((c) => c.cardDebits > 0 || c.monthlyIncome > 0);
+  const resolvedCycles = completedKeys.map((key) => {
+    const { monthlyIncome, offCardFixed } = resolved.get(key)!;
+    return { cycleKey: key, monthlyIncome, offCardFixed, cardDebits: debitsByCycle.get(key) ?? 0 };
+  });
+
+  // Trim only the LEADING cycles from before the Household's history began — those with no income
+  // configured and no spend recorded, gap-filled to zero, which would otherwise fake up history and
+  // drag the averages down. A drop-while, not a blanket filter: once history has started, a later
+  // cycle with zero income but real off-card costs (e.g. a spell between jobs) is a genuine LOSING
+  // cycle and must stay in, or the averages would flatter a period of income disruption.
+  const firstActive = resolvedCycles.findIndex((c) => c.cardDebits > 0 || c.monthlyIncome > 0);
+  const cycles = firstActive === -1 ? [] : resolvedCycles.slice(firstActive);
 
   return computeFinancialHealth(cycles);
 }

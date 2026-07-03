@@ -139,6 +139,43 @@ describe("loadFinancialHealth", () => {
     expect(health.streakConsidered).toBe(3);
   });
 
+  it("keeps a mid-history losing cycle with off-card costs but no income or card spend", async () => {
+    // Trims only LEADING empty cycles: a spell between jobs (zero income, no card spend, but rent
+    // still due) is a real losing cycle and must stay in the averages, not vanish and flatter them.
+    const repo = await freshHousehold();
+    const [account] = await repo.accounts.create({ name: "Visa" });
+    const [upload] = await repo.uploads.create({
+      accountId: account.id,
+      fileName: "j.csv",
+      fileHash: "j",
+    });
+    const base = { accountId: account.id, uploadId: upload.id, rawCategory: "" };
+    await repo.transactions.createMany([
+      { ...base, date: "2025-11-10", amount: -100, merchant: "NOV", sourceRow: 0 },
+      { ...base, date: "2025-12-10", amount: -200, merchant: "DEC", sourceRow: 1 },
+      // Jan & Feb: no card spend at all — the household is between jobs.
+    ]);
+    // Salary runs Nov–Dec then stops (amount 0 ends the source, ADR-0015); rent persists throughout.
+    await repo.savings.incomeSources.replace([
+      { name: "Salary", amount: 1000, effectiveFrom: "2025-11" },
+      { name: "Salary", amount: 0, effectiveFrom: "2026-01" },
+    ]);
+    await repo.savings.offcardCosts.replace([
+      { name: "Rent", monthlyAmount: 300, effectiveFrom: "2025-11" },
+    ]);
+
+    const health = await loadFinancialHealth(repo, NOW);
+    // Nov(+600) Dec(+500) Jan(-300) Feb(-300): the two between-jobs cycles are kept, not dropped.
+    expect(health.completedCycles).toBe(4);
+    expect(health.hasEnoughHistory).toBe(true);
+    // Trailing 3 = Dec/Jan/Feb: mean(500, -300, -300) = -33.
+    expect(health.avgMonthlySaving).toBe(-33);
+    expect(health.avgMonthlyIncome).toBe(333); // mean(1000, 0, 0)
+    expect(health.savingsRate).toBeLessThan(0);
+    expect(health.profitableCount).toBe(2); // only Nov & Dec, over the 4 cycles considered
+    expect(health.streakConsidered).toBe(4);
+  });
+
   it("never counts another household's transactions", async () => {
     const a = await freshHousehold();
     const b = await freshHousehold();
