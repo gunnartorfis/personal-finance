@@ -90,6 +90,40 @@ describe("loadMonthlySpendSeries", () => {
     ]);
   });
 
+  it("folds configured recurring income + one-off income into each cycle on top of marked credits", async () => {
+    const repo = await freshHousehold();
+    const [account] = await repo.accounts.create({ name: "Visa" });
+    const [upload] = await repo.uploads.create({
+      accountId: account.id,
+      fileName: "s.csv",
+      fileHash: "s",
+    });
+    const base = { accountId: account.id, uploadId: upload.id, rawCategory: "" };
+    const [, salary] = await repo.transactions.createMany([
+      { ...base, date: "2026-03-02", amount: -50, merchant: "BUS", sourceRow: 0 },
+      // A marked card credit in March — configured income stacks on top of it.
+      { ...base, date: "2026-03-10", amount: 20, merchant: "REFUND", sourceRow: 1 },
+    ]);
+    await repo.transactions.setIncomeMarked(salary.id, true);
+    // A raise: 400 from the floor, rising to 500 effective 2026-03.
+    await repo.savings.incomeSources.replace([
+      { name: "Salary", amount: 400, effectiveFrom: "2026-01" },
+      { name: "Salary", amount: 500, effectiveFrom: "2026-03" },
+    ]);
+    // A one-off bonus lands only on February.
+    await repo.savings.oneOffAdjustments.replace([
+      { cycleKey: "2026-02", kind: "income", amount: 30 },
+    ]);
+
+    const series = await loadMonthlySpendSeries(repo, NOW, 3);
+    expect(series).toEqual([
+      { month: "2026-01", spending: 0, income: 400, difference: 400 },
+      { month: "2026-02", spending: 0, income: 430, difference: 430 },
+      // 500 configured + 20 marked credit = 520; minus 50 spend.
+      { month: "2026-03", spending: 50, income: 520, difference: 470 },
+    ]);
+  });
+
   it("never counts another household's transactions", async () => {
     const a = await freshHousehold();
     const b = await freshHousehold();

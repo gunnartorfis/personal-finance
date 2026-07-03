@@ -1,4 +1,5 @@
 import type { HouseholdRepo } from "@/lib/db/household-repo";
+import { resolveCycleAmounts, timelinesByName } from "@/shared/income-timeline";
 
 import type { CycleKey } from "./cycle";
 import { cycleKeyRange, recentCycleKeys } from "./cycle";
@@ -6,10 +7,11 @@ import { cycleKeyRange, recentCycleKeys } from "./cycle";
 /**
  * One month in the dashboard's rolling spend trend (Phase K).
  *
- * `spending` is the magnitude of the month's debits (>= 0) and `income` the sum of its credits
- * manually marked as income (>= 0) — unmarked credits count for nothing (ADR-0009) — both in the
- * Household's billing currency (ADR-0004). `difference` is `income - spending`, negative in a
- * normal spending month.
+ * `spending` is the magnitude of the month's debits (>= 0) and `income` the month's total income
+ * (>= 0): the configured recurring income in force that cycle plus its one-off income adjustments
+ * (ADR-0015), plus any card credits manually marked as income (ADR-0009) — unmarked credits count
+ * for nothing. Both are in the Household's billing currency (ADR-0004). `difference` is
+ * `income - spending`, negative in a normal spending month.
  */
 export interface MonthlySpendPoint {
   month: CycleKey;
@@ -31,16 +33,22 @@ export interface MonthlySpendRow {
  * {@link loadMonthlySpendSeries}. Months absent from `rows` are filled with zeros, and rows for
  * months outside `monthKeys` are ignored — so the series always has one point per requested month,
  * in the requested order.
+ *
+ * `configuredIncomeByMonth` carries each cycle's configured income (recurring sources in force plus
+ * one-off income adjustments, ADR-0015); it is added on top of the row's marked-credit income so the
+ * trend reflects the Household's configured revenues even when no card credit is marked. Cycles
+ * absent from the map contribute no configured income.
  */
 export function buildMonthlySpendSeries(
   rows: ReadonlyArray<MonthlySpendRow>,
   monthKeys: ReadonlyArray<CycleKey>,
+  configuredIncomeByMonth: ReadonlyMap<CycleKey, number> = new Map(),
 ): MonthlySpendPoint[] {
   const byMonth = new Map(rows.map((row) => [row.month, row]));
   return monthKeys.map((month) => {
     const row = byMonth.get(month);
     const spending = row?.spending ?? 0;
-    const income = row?.income ?? 0;
+    const income = (row?.income ?? 0) + (configuredIncomeByMonth.get(month) ?? 0);
     return { month, spending, income, difference: income - spending };
   });
 }
@@ -48,6 +56,12 @@ export function buildMonthlySpendSeries(
 /**
  * Load the Household's spend trend for the `count` most recent calendar months ending at `now`
  * (default 12), oldest first. Bounds the SQL read to that window, then gap-fills to a dense series.
+ *
+ * Income folds two sources: the per-month card credits marked as income (from `monthlySpendSeries`)
+ * plus the configured recurring income in force each cycle and its one-off income adjustments
+ * (ADR-0015), resolved from the effective-dated Income-settings timelines the Savings math also
+ * reads. Off-card costs and one-off costs are irrelevant here, so the resolver is fed empty cost
+ * timelines and only `monthlyIncome` is used.
  */
 export async function loadMonthlySpendSeries(
   repo: HouseholdRepo,
@@ -60,6 +74,24 @@ export async function loadMonthlySpendSeries(
     from: cycleKeyRange(keys[0]).from,
     to: cycleKeyRange(keys[keys.length - 1]).to,
   };
-  const rows = await repo.transactions.monthlySpendSeries(range);
-  return buildMonthlySpendSeries(rows, keys);
+  const [rows, sources, oneOffs] = await Promise.all([
+    repo.transactions.monthlySpendSeries(range),
+    repo.savings.incomeSources.list(),
+    repo.savings.oneOffAdjustments.list(),
+  ]);
+  const resolved = resolveCycleAmounts(
+    {
+      incomeSources: timelinesByName(sources, (s) => s.amount),
+      offcardCostSources: [],
+      incomeOneOffs: oneOffs
+        .filter((o) => o.kind === "income")
+        .map((o) => ({ cycleKey: o.cycleKey, amount: o.amount })),
+      costOneOffs: [],
+    },
+    keys,
+  );
+  const configuredIncomeByMonth = new Map(
+    keys.map((key) => [key, resolved.get(key)!.monthlyIncome]),
+  );
+  return buildMonthlySpendSeries(rows, keys, configuredIncomeByMonth);
 }

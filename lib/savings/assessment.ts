@@ -8,10 +8,7 @@ import {
 import type { HouseholdRepo } from "@/lib/db/household-repo";
 import { buildSavingsProgress, type SavingsProgress } from "@/lib/savings/progress";
 import { loadExpectedSpend } from "@/lib/savings/expected-spend";
-import {
-  resolveCycleAmounts,
-  type EffectiveAmount,
-} from "@/shared/income-timeline";
+import { resolveCycleAmounts, timelinesByName } from "@/shared/income-timeline";
 import {
   allowedNiceToHave,
   correctivePerCycle,
@@ -19,25 +16,6 @@ import {
   isOnTrack,
   requiredCumulativeByCycle,
 } from "@/shared/savings";
-
-/**
- * Group recurring-source rows into per-source timelines for the resolver (ADR-0015): rows sharing a
- * `name` are versions of ONE source (only the latest in force at a cycle counts), while distinct
- * names are separate sources (summed). `amountOf` reads the row's amount column (income vs cost).
- */
-function timelinesByName<T extends { name: string; effectiveFrom: string }>(
-  rows: readonly T[],
-  amountOf: (row: T) => number,
-): EffectiveAmount[][] {
-  const byName = new Map<string, EffectiveAmount[]>();
-  for (const row of rows) {
-    const version = { amount: amountOf(row), effectiveFrom: row.effectiveFrom };
-    const existing = byName.get(row.name);
-    if (existing) existing.push(version);
-    else byName.set(row.name, [version]);
-  }
-  return [...byName.values()];
-}
 
 /**
  * Savings progress is now DERIVED, not checked-in (ADR-0007, superseding the manual ritual): for
