@@ -1,4 +1,5 @@
 import { TriangleAlert } from "lucide-react"
+import { useTranslations } from "next-intl"
 import Link from "next/link"
 
 import type { FreeCapStatus } from "@/lib/billing/free-cap-status"
@@ -17,6 +18,7 @@ export function FreeCapStatusBanner({
   status: FreeCapStatus
   className?: string
 }) {
+  const t = useTranslations("freeCap")
   if (status.unlimited) return null
 
   if (status.paused) {
@@ -33,17 +35,19 @@ export function FreeCapStatusBanner({
           className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-500"
         />
         <div className="flex flex-col gap-1">
-          <p className="font-medium">AI classification paused</p>
+          <p className="font-medium">{t("pausedTitle")}</p>
           <p className="text-muted-foreground">
-            You&apos;ve used all {status.cap} free classifications. Uploads, the dashboard and
-            overrides keep working;{" "}
-            <Link
-              href="/settings/billing"
-              className="font-medium text-foreground underline underline-offset-4"
-            >
-              upgrade to Premium
-            </Link>{" "}
-            to classify the rest.
+            {t.rich("pausedBody", {
+              cap: status.cap,
+              link: (chunks) => (
+                <Link
+                  href="/settings/billing"
+                  className="font-medium text-foreground underline underline-offset-4"
+                >
+                  {chunks}
+                </Link>
+              ),
+            })}
           </p>
         </div>
       </div>
@@ -61,7 +65,7 @@ export function FreeCapStatusBanner({
         <div className="h-full rounded-full bg-foreground/70" style={{ width: `${pct}%` }} />
       </div>
       <p className="text-sm text-muted-foreground">
-        {status.used} of {status.cap} free AI classifications used — {status.remaining} left.
+        {t("usage", { used: status.used, cap: status.cap, remaining: status.remaining })}
       </p>
     </div>
   )

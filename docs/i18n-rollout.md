@@ -82,7 +82,10 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
     member-count plural + `t.rich`) + accept-invite (labels, static error map) → `invites`.
   - [x] **7c-2. join flow**: verify-email-gate (resend states, rich email body) + `app/join/page.tsx`
     (pending-count plural) + `app/join/[token]/page.tsx` (invalid-link state) → `join` namespace.
-  - [ ] **7d. billing**: billing page, manage-subscription, premium-checkout, free-cap.
+  - [x] **7d. billing (page + subscription + free-cap)**: billing page, manage-subscription
+    (locale-aware renewal date, period labels, cancel flow), free-cap-status (rich upgrade
+    link) → `billing` + `freeCap` namespaces.
+  - [ ] **7e. premium-checkout** (Adyen checkout UI, 230 lines).
 - [ ] **8. Migrate: upload + accounts + rules.**
 - [ ] **9. Migrate: landing + auth shell.** Bilingual landing (Vercel-geo default).
   Neon Auth UI + OTP emails stay English (v1).

@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server"
+
 import { ManageSubscription } from "@/components/manage-subscription"
 import { requireHousehold } from "@/lib/household/current"
 
@@ -10,14 +12,13 @@ export const dynamic = "force-dynamic"
  */
 export default async function BillingSettingsPage() {
   const { plan, planRenewsAt, subscriptionPeriod } = await requireHousehold()
+  const t = await getTranslations("billing")
 
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          Your plan and subscription.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
+        <p className="text-sm text-pretty text-muted-foreground">{t("subtitle")}</p>
       </header>
       <ManageSubscription
         plan={plan}

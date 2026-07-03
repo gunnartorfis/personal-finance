@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ManageSubscription } from "@/components/manage-subscription"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 // The Free/cancelled branch renders <PremiumCheckout>, which calls useRouter at render; stub it so the
 // component tree mounts outside an app-router context (rather than depending on another test file's
@@ -20,7 +21,8 @@ describe("ManageSubscription", () => {
       <ManageSubscription plan="Premium" period="monthly" planRenewsAt="2026-04-15T00:00:00.000Z" />,
     )
     expect(screen.getByText(/Premium/)).toBeInTheDocument()
-    expect(screen.getByText(/2026/)).toBeInTheDocument()
+    // UTC-midnight timestamp must render as its UTC calendar day, not slip east of UTC.
+    expect(screen.getByText(/Apr 15, 2026/)).toBeInTheDocument()
 
     // First click only reveals the confirm step — no POST yet.
     await userEvent.click(screen.getByRole("button", { name: /cancel subscription/i }))

@@ -160,5 +160,29 @@
       "switch": "Ekki þú? Skráðu þig inn með öðrum aðgangi",
       "switchError": "Tókst ekki að skrá út. Reyndu aftur."
     }
+  },
+  "billing": {
+    "title": "Reikningar",
+    "subtitle": "Áskriftin þín og greiðslur.",
+    "subscription": "Áskrift",
+    "premium": "Premium",
+    "free": "Ókeypis",
+    "period": {
+      "monthly": "Mánaðarlega",
+      "annual": "Árlega"
+    },
+    "renews": "Endurnýjast {date}.",
+    "cancelPrompt": "Segja upp Premium áskriftinni?",
+    "cancelConfirm": "Já, segja upp",
+    "keepIt": "Halda henni",
+    "cancelTrigger": "Segja upp áskrift",
+    "onFree": "Þú ert á ókeypis áætluninni.",
+    "cancelledFree": "Áskriftinni þinni hefur verið sagt upp — þú ert á ókeypis áætluninni.",
+    "cancelError": "Tókst ekki að segja upp — reyndu aftur."
+  },
+  "freeCap": {
+    "pausedTitle": "Gervigreindarflokkun gerð hlé",
+    "pausedBody": "Þú hefur notað allar {cap} ókeypis flokkanirnar. Innhleðslur, yfirlitið og breytingar virka áfram; <link>uppfærðu í Premium</link> til að flokka afganginn.",
+    "usage": "{used} af {cap} ókeypis gervigreindarflokkunum notaðar — {remaining} eftir."
   }
 }
