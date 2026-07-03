@@ -178,7 +178,24 @@
     "cancelTrigger": "Segja upp áskrift",
     "onFree": "Þú ert á ókeypis áætluninni.",
     "cancelledFree": "Áskriftinni þinni hefur verið sagt upp — þú ert á ókeypis áætluninni.",
-    "cancelError": "Tókst ekki að segja upp — reyndu aftur."
+    "cancelError": "Tókst ekki að segja upp — reyndu aftur.",
+    "checkout": {
+      "periodLabel": "Greiðslutímabil",
+      "period": {
+        "monthly": "Mánaðarlega",
+        "annual": "Árlega (sparaðu 30%)"
+      },
+      "perMonth": "/mán",
+      "perYear": "/ári",
+      "upgrade": "Uppfæra í Premium",
+      "starting": "Byrja…",
+      "active": "Premium er virkt — takk fyrir áskriftina!",
+      "confirming": "Staðfesti greiðsluna þína…",
+      "submitted": "Greiðsla send — við virkjum áætlunina þína um leið og hún er staðfest.",
+      "errorPayment": "Greiðslan var ekki kláruð. Reyndu aftur.",
+      "errorGeneric": "Eitthvað fór úrskeiðis með greiðsluna. Reyndu aftur.",
+      "errorStart": "Tókst ekki að hefja greiðslu — reyndu aftur."
+    }
   },
   "freeCap": {
     "pausedTitle": "Gervigreindarflokkun gerð hlé",

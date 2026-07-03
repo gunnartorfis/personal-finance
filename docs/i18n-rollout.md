@@ -85,7 +85,9 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
   - [x] **7d. billing (page + subscription + free-cap)**: billing page, manage-subscription
     (locale-aware renewal date, period labels, cancel flow), free-cap-status (rich upgrade
     link) → `billing` + `freeCap` namespaces.
-  - [ ] **7e. premium-checkout** (Adyen checkout UI, 230 lines).
+  - [x] **7e. premium-checkout** (Adyen checkout UI): period options + locale-aware
+    ISK price (`currencyFormatter` + localized /mo·/yr), phase/loading/error strings →
+    `billing.checkout` namespace; test switched to `renderWithIntl`.
 - [ ] **8. Migrate: upload + accounts + rules.**
 - [ ] **9. Migrate: landing + auth shell.** Bilingual landing (Vercel-geo default).
   Neon Auth UI + OTP emails stay English (v1).

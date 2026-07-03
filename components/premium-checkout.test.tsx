@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { PremiumCheckout } from "@/components/premium-checkout"
+import { renderWithIntl as render } from "@/lib/test/render"
 
 // Capture the config passed to AdyenCheckout so tests can drive its callbacks + assert wiring.
 let lastConfig: Record<string, (...args: unknown[]) => void> & {
@@ -39,7 +40,10 @@ function stubCheckout(clientKey = "test_ABC", plan = "Premium") {
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     if (url === "/api/billing/checkout") {
       expect(init?.method).toBe("POST")
-      return { ok: true, json: async () => ({ id: "sess-1", sessionData: "data-1", clientKey }) }
+      return {
+        ok: true,
+        json: async () => ({ id: "sess-1", sessionData: "data-1", clientKey }),
+      }
     }
     if (url === "/api/billing/status") {
       return { ok: true, json: async () => ({ plan }) }
@@ -64,12 +68,21 @@ describe("PremiumCheckout", () => {
     const fetchMock = stubCheckout()
     render(<PremiumCheckout />)
 
-    await userEvent.selectOptions(screen.getByLabelText(/billing period/i), "annual")
-    await userEvent.click(screen.getByRole("button", { name: /upgrade to premium/i }))
+    await userEvent.selectOptions(
+      screen.getByLabelText(/billing period/i),
+      "annual"
+    )
+    await userEvent.click(
+      screen.getByRole("button", { name: /upgrade to premium/i })
+    )
 
-    const post = fetchMock.mock.calls.find((c) => (c[1] as RequestInit)?.method === "POST")!
+    const post = fetchMock.mock.calls.find(
+      (c) => (c[1] as RequestInit)?.method === "POST"
+    )!
     expect(post[0]).toBe("/api/billing/checkout")
-    expect(JSON.parse((post[1] as RequestInit).body as string)).toEqual({ period: "annual" })
+    expect(JSON.parse((post[1] as RequestInit).body as string)).toEqual({
+      period: "annual",
+    })
 
     expect(AdyenCheckout).toHaveBeenCalledTimes(1)
     expect(lastConfig.session).toEqual({ id: "sess-1", sessionData: "data-1" })
@@ -77,20 +90,26 @@ describe("PremiumCheckout", () => {
     expect(lastConfig.environment).toBe("test")
     expect(mount).toHaveBeenCalledTimes(1)
     // Regression guard: v6 renders an empty Drop-in unless the Card component is registered.
-    expect(Dropin).toHaveBeenCalledWith(expect.anything(), { paymentMethodComponents: [Card] })
+    expect(Dropin).toHaveBeenCalledWith(expect.anything(), {
+      paymentMethodComponents: [Card],
+    })
   })
 
   it("derives the live environment from a live client key", async () => {
     stubCheckout("live_XYZ")
     render(<PremiumCheckout />)
-    await userEvent.click(screen.getByRole("button", { name: /upgrade to premium/i }))
+    await userEvent.click(
+      screen.getByRole("button", { name: /upgrade to premium/i })
+    )
     expect(lastConfig.environment).toBe("live")
   })
 
   it("confirms activation by polling status before showing active", async () => {
     const fetchMock = stubCheckout("test_ABC", "Premium")
     render(<PremiumCheckout />)
-    await userEvent.click(screen.getByRole("button", { name: /upgrade to premium/i }))
+    await userEvent.click(
+      screen.getByRole("button", { name: /upgrade to premium/i })
+    )
 
     lastConfig.onPaymentCompleted({ resultCode: "Authorised" })
     expect(await screen.findByText(/premium is active/i)).toBeInTheDocument()
@@ -106,7 +125,9 @@ describe("PremiumCheckout", () => {
     stubCheckout("test_ABC", "Free") // status never flips to Premium
     // Tiny cadence so the bounded poll exhausts quickly under real timers (no fake-timer leakage).
     render(<PremiumCheckout pollIntervalMs={1} maxPolls={3} />)
-    await userEvent.click(screen.getByRole("button", { name: /upgrade to premium/i }))
+    await userEvent.click(
+      screen.getByRole("button", { name: /upgrade to premium/i })
+    )
 
     lastConfig.onPaymentCompleted({ resultCode: "Authorised" })
     // Lands on the reassurance once the poll budget is spent — never claims active.
@@ -117,7 +138,9 @@ describe("PremiumCheckout", () => {
   it("shows a pending notice for a non-authorised completion (e.g. Pending)", async () => {
     stubCheckout()
     render(<PremiumCheckout />)
-    await userEvent.click(screen.getByRole("button", { name: /upgrade to premium/i }))
+    await userEvent.click(
+      screen.getByRole("button", { name: /upgrade to premium/i })
+    )
 
     lastConfig.onPaymentCompleted({ resultCode: "Pending" })
     expect(await screen.findByText(/once it.?s confirmed/i)).toBeInTheDocument()
@@ -127,7 +150,9 @@ describe("PremiumCheckout", () => {
   it("surfaces a failed payment", async () => {
     stubCheckout()
     render(<PremiumCheckout />)
-    await userEvent.click(screen.getByRole("button", { name: /upgrade to premium/i }))
+    await userEvent.click(
+      screen.getByRole("button", { name: /upgrade to premium/i })
+    )
 
     lastConfig.onPaymentFailed({})
     expect(await screen.findByRole("alert")).toBeInTheDocument()
@@ -136,7 +161,9 @@ describe("PremiumCheckout", () => {
   it("clears a prior failure when a retry succeeds", async () => {
     stubCheckout()
     render(<PremiumCheckout />)
-    await userEvent.click(screen.getByRole("button", { name: /upgrade to premium/i }))
+    await userEvent.click(
+      screen.getByRole("button", { name: /upgrade to premium/i })
+    )
 
     lastConfig.onPaymentFailed({}) // first attempt refused — Drop-in stays active for retry
     expect(await screen.findByRole("alert")).toBeInTheDocument()
@@ -149,7 +176,9 @@ describe("PremiumCheckout", () => {
   it("tears down the Drop-in when the component unmounts", async () => {
     stubCheckout()
     const { unmount: unmountComponent } = render(<PremiumCheckout />)
-    await userEvent.click(screen.getByRole("button", { name: /upgrade to premium/i }))
+    await userEvent.click(
+      screen.getByRole("button", { name: /upgrade to premium/i })
+    )
     expect(mount).toHaveBeenCalledTimes(1)
 
     unmountComponent()
@@ -157,9 +186,14 @@ describe("PremiumCheckout", () => {
   })
 
   it("surfaces an error when the checkout request fails", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 502, json: async () => ({}) })))
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, status: 502, json: async () => ({}) }))
+    )
     render(<PremiumCheckout />)
-    await userEvent.click(screen.getByRole("button", { name: /upgrade to premium/i }))
+    await userEvent.click(
+      screen.getByRole("button", { name: /upgrade to premium/i })
+    )
 
     expect(await screen.findByRole("alert")).toBeInTheDocument()
     expect(AdyenCheckout).not.toHaveBeenCalled()
