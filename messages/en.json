@@ -373,5 +373,19 @@
         "niceToHave": "Nice to have"
       }
     }
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "accounts": "Accounts",
+    "transactions": "Transactions",
+    "savings": "Savings",
+    "settings": "Settings",
+    "upload": "Upload",
+    "rules": "Rules",
+    "income": "Income",
+    "household": "Household",
+    "billing": "Billing",
+    "account": "Account",
+    "security": "Security"
   }
 }

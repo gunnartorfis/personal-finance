@@ -373,5 +373,19 @@
         "niceToHave": "Gott að hafa"
       }
     }
+  },
+  "nav": {
+    "dashboard": "Yfirlit",
+    "accounts": "Reikningar",
+    "transactions": "Færslur",
+    "savings": "Sparnaður",
+    "settings": "Stillingar",
+    "upload": "Hlaða upp",
+    "rules": "Reglur",
+    "income": "Tekjur",
+    "household": "Heimili",
+    "billing": "Greiðslur",
+    "account": "Aðgangur",
+    "security": "Öryggi"
   }
 }
