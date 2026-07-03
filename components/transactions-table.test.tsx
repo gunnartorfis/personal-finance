@@ -84,6 +84,15 @@ describe("TransactionsTable", () => {
 
     const credit = screen.getByRole("row", { name: /SALARY/ })
     expect(within(credit).queryByRole("combobox")).not.toBeInTheDocument()
+    // A credit is already out of every calculation; Exclude would be a no-op, so it's
+    // not offered — the Income toggle is the sole lever (ADR-0009). Debits keep Exclude.
+    expect(
+      within(credit).queryByRole("button", { name: /exclude/i })
+    ).not.toBeInTheDocument()
+    const debit = screen.getByRole("row", { name: /NETFLIX/ })
+    expect(
+      within(debit).getByRole("button", { name: /exclude/i })
+    ).toBeInTheDocument()
 
     const toggle = within(credit).getByRole("checkbox", { name: /income/i })
     expect(toggle).not.toBeChecked()

@@ -444,8 +444,10 @@ export function TransactionsTable({
                         ) : (
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                             {isCredit ? (
-                              // A credit is never an expense: no type to pick. It counts as income
-                              // only when marked here (ADR-0009) — unmarked credits count for nothing.
+                              // A credit is never an expense: no type to pick, and no Exclude —
+                              // unmarked credits already count for nothing. The Income toggle is
+                              // the sole lever: mark it to count as income (ADR-0009), otherwise
+                              // it's ignored. Excluding here would be a numerical no-op.
                               <IncomeToggle
                                 transactionId={row.id}
                                 incomeMarked={row.incomeMarked}
@@ -454,33 +456,37 @@ export function TransactionsTable({
                                 }
                               />
                             ) : (
-                              <div className="flex flex-col gap-1">
-                                {unclassified && (
-                                  <span className="text-muted-foreground">
-                                    {row.classificationStatus === "failed"
-                                      ? "Classification failed"
-                                      : "Awaiting classification"}
-                                  </span>
-                                )}
-                                <OverrideControl
+                              <>
+                                <div className="flex flex-col gap-1">
+                                  {unclassified && (
+                                    <span className="text-muted-foreground">
+                                      {row.classificationStatus === "failed"
+                                        ? "Classification failed"
+                                        : "Awaiting classification"}
+                                    </span>
+                                  )}
+                                  <OverrideControl
+                                    transactionId={row.id}
+                                    merchant={row.merchant}
+                                    value={effective}
+                                    hasOverride={row.overrideType !== null}
+                                    onChanged={(next) =>
+                                      handleChanged(row.id, next)
+                                    }
+                                  />
+                                </div>
+                                {/* Exclude is the only lever that drops a debit out of Spending
+                                    (ADR-0011); credits are governed by the Income toggle instead. */}
+                                <ExcludeControl
                                   transactionId={row.id}
-                                  merchant={row.merchant}
-                                  value={effective}
-                                  hasOverride={row.overrideType !== null}
+                                  excluded={false}
+                                  note={null}
                                   onChanged={(next) =>
-                                    handleChanged(row.id, next)
+                                    handleExcludeChanged(row.id, next)
                                   }
                                 />
-                              </div>
+                              </>
                             )}
-                            <ExcludeControl
-                              transactionId={row.id}
-                              excluded={false}
-                              note={null}
-                              onChanged={(next) =>
-                                handleExcludeChanged(row.id, next)
-                              }
-                            />
                           </div>
                         )}
                       </td>
