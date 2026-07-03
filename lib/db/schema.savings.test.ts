@@ -169,7 +169,7 @@ describe("savings schema (ADR-0007)", () => {
       await db.insert(savingsIncomeSources).values({ householdId: noGoal, name: "Salary", amount: 400_000 });
 
       await db.execute(
-        sql`UPDATE "savings_income_sources" AS s SET "effective_from" = g."start_cycle" FROM "savings_goals" g WHERE g."household_id" = s."household_id"`,
+        sql`UPDATE "savings_income_sources" AS s SET "effective_from" = g."start_cycle" FROM "savings_goals" g WHERE g."household_id" = s."household_id" AND s."effective_from" = '0001-01'`,
       );
 
       const rows = await db.select().from(savingsIncomeSources);

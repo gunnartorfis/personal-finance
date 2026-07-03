@@ -16,9 +16,15 @@ ALTER TABLE "savings_offcard_costs" ADD COLUMN "effective_from" text DEFAULT '00
 --> ADR-0015 backfill: pre-existing flat rows become the baseline effective from their Household's
 --> Savings goal start cycle; rows for a Household with no goal keep the '0001-01' floor (which is
 --> functionally identical for the resolver — it is <= every real cycle). No-op on a fresh database.
-UPDATE "savings_income_sources" AS s SET "effective_from" = g."start_cycle" FROM "savings_goals" g WHERE g."household_id" = s."household_id";--> statement-breakpoint
-UPDATE "savings_offcard_costs" AS s SET "effective_from" = g."start_cycle" FROM "savings_goals" g WHERE g."household_id" = s."household_id";--> statement-breakpoint
+--> The `effective_from = '0001-01'` predicate keeps this idempotent: it only rewrites floor rows,
+--> never legitimately-dated ones (e.g. on a restore-and-replay, or after PR3 sets explicit values).
+UPDATE "savings_income_sources" AS s SET "effective_from" = g."start_cycle" FROM "savings_goals" g WHERE g."household_id" = s."household_id" AND s."effective_from" = '0001-01';--> statement-breakpoint
+UPDATE "savings_offcard_costs" AS s SET "effective_from" = g."start_cycle" FROM "savings_goals" g WHERE g."household_id" = s."household_id" AND s."effective_from" = '0001-01';--> statement-breakpoint
 ALTER TABLE "savings_one_off_adjustments" ADD CONSTRAINT "savings_one_off_adjustments_household_id_households_id_fk" FOREIGN KEY ("household_id") REFERENCES "public"."households"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "savings_one_off_adjustments_household_cycle_idx" ON "savings_one_off_adjustments" USING btree ("household_id","cycle_key");--> statement-breakpoint
-ALTER TABLE "savings_income_sources" ADD CONSTRAINT "savings_income_sources_effective_from_format" CHECK ("savings_income_sources"."effective_from" ~ '^[0-9]{4}-(0[1-9]|1[0-2])$');--> statement-breakpoint
-ALTER TABLE "savings_offcard_costs" ADD CONSTRAINT "savings_offcard_costs_effective_from_format" CHECK ("savings_offcard_costs"."effective_from" ~ '^[0-9]{4}-(0[1-9]|1[0-2])$');
+--> NOT VALID + VALIDATE avoids the ACCESS EXCLUSIVE full-table scan a plain ADD CONSTRAINT takes;
+--> the backfill above already guarantees every row matches, so there is no correctness trade-off.
+ALTER TABLE "savings_income_sources" ADD CONSTRAINT "savings_income_sources_effective_from_format" CHECK ("savings_income_sources"."effective_from" ~ '^[0-9]{4}-(0[1-9]|1[0-2])$') NOT VALID;--> statement-breakpoint
+ALTER TABLE "savings_income_sources" VALIDATE CONSTRAINT "savings_income_sources_effective_from_format";--> statement-breakpoint
+ALTER TABLE "savings_offcard_costs" ADD CONSTRAINT "savings_offcard_costs_effective_from_format" CHECK ("savings_offcard_costs"."effective_from" ~ '^[0-9]{4}-(0[1-9]|1[0-2])$') NOT VALID;--> statement-breakpoint
+ALTER TABLE "savings_offcard_costs" VALIDATE CONSTRAINT "savings_offcard_costs_effective_from_format";
