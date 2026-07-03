@@ -1,9 +1,7 @@
-import { getLocale } from "next-intl/server"
 import Link from "next/link"
 
 import { SavingsAssessmentPanel } from "@/components/savings-assessment-panel"
 import { SavingsGoalForm } from "@/components/savings-goal-form"
-import type { Locale } from "@/lib/i18n/config"
 import { requireHousehold } from "@/lib/household/current"
 import { loadSavingsSnapshot } from "@/lib/savings/assessment"
 
@@ -17,7 +15,6 @@ export const dynamic = "force-dynamic"
  */
 export default async function SavingsPage() {
   const { repo, billingCurrency } = await requireHousehold()
-  const locale = (await getLocale()) as Locale
   const snapshot = await loadSavingsSnapshot(repo, new Date())
 
   return (
@@ -41,7 +38,6 @@ export default async function SavingsPage() {
           assessment={snapshot.assessment}
           cycles={snapshot.cycles}
           currency={billingCurrency}
-          locale={locale}
         />
       )}
       <section aria-label="Goal" className="flex flex-col gap-6">

@@ -5,6 +5,3 @@ export const locales = ["is", "en"] as const
 export type Locale = (typeof locales)[number]
 
 export const defaultLocale: Locale = "is"
-
-/** BCP-47 tag per Locale, for `Intl.*` formatters (format follows the Locale — ADR-0013). */
-export const bcp47: Record<Locale, string> = { is: "is-IS", en: "en-US" }

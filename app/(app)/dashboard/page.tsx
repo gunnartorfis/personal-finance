@@ -6,9 +6,6 @@ import { SavingsProgressCard } from "@/components/savings-progress-card"
 import { SpendingTrendChart } from "@/components/spending-trend-chart"
 import { ThisMonthHero } from "@/components/this-month-hero"
 import { TopMerchants } from "@/components/top-merchants"
-import { getLocale } from "next-intl/server"
-
-import type { Locale } from "@/lib/i18n/config"
 import { loadDashboardView } from "@/lib/dashboard/dashboard-view"
 import { loadSavingsProgress } from "@/lib/savings/assessment"
 import { requireHousehold } from "@/lib/household/current"
@@ -27,7 +24,6 @@ export const dynamic = "force-dynamic"
  */
 export default async function DashboardPage() {
   const { repo, plan, billingCurrency } = await requireHousehold()
-  const locale = (await getLocale()) as Locale
   const now = new Date()
   const [view, savingsProgress] = await Promise.all([
     loadDashboardView(repo, now, { plan }),
@@ -50,7 +46,7 @@ export default async function DashboardPage() {
       <ActionBand actionBand={view.actionBand} />
       <ThisMonthHero hero={view.hero} currency={billingCurrency} />
 
-      <SavingsProgressCard progress={savingsProgress} locale={locale} />
+      <SavingsProgressCard progress={savingsProgress} />
 
       <SpendingTrendChart
         series={view.modules.series}
@@ -72,19 +68,11 @@ export default async function DashboardPage() {
         <div
           className={cn("grid items-start gap-6", hasMerchants && hasMovers && "sm:grid-cols-2")}
         >
-          <TopMerchants
-            merchants={view.modules.topMerchants}
-            currency={billingCurrency}
-            locale={locale}
-          />
+          <TopMerchants merchants={view.modules.topMerchants} currency={billingCurrency} />
           <BiggestMovers movers={view.modules.movers} currency={billingCurrency} />
         </div>
       )}
-      <AccountBreakdown
-        accounts={view.modules.accounts}
-        currency={billingCurrency}
-        locale={locale}
-      />
+      <AccountBreakdown accounts={view.modules.accounts} currency={billingCurrency} />
     </div>
   )
 }

@@ -11,17 +11,17 @@ const ACCOUNTS: AccountSpend[] = [
 
 describe("AccountBreakdown", () => {
   it("renders nothing when accounts is null (single-account household)", () => {
-    const { container } = render(<AccountBreakdown accounts={null} currency="ISK" locale="en" />)
+    const { container } = render(<AccountBreakdown accounts={null} currency="ISK" />)
     expect(container).toBeEmptyDOMElement()
   })
 
   it("renders nothing when there are no accounts with spend", () => {
-    const { container } = render(<AccountBreakdown accounts={[]} currency="ISK" locale="en" />)
+    const { container } = render(<AccountBreakdown accounts={[]} currency="ISK" />)
     expect(container).toBeEmptyDOMElement()
   })
 
   it("lists each account with its spend and share", () => {
-    render(<AccountBreakdown accounts={ACCOUNTS} currency="ISK" locale="en" />)
+    render(<AccountBreakdown accounts={ACCOUNTS} currency="ISK" />)
     expect(screen.getByText("Spending by account")).toBeInTheDocument()
     expect(screen.getAllByRole("listitem")).toHaveLength(2)
     expect(screen.getByText("Visa")).toBeInTheDocument()
