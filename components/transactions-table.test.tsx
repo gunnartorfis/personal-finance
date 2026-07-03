@@ -84,6 +84,15 @@ describe("TransactionsTable", () => {
 
     const credit = screen.getByRole("row", { name: /SALARY/ })
     expect(within(credit).queryByRole("combobox")).not.toBeInTheDocument()
+    // A credit is already out of every calculation; Exclude would be a no-op, so it's
+    // not offered — the Income toggle is the sole lever (ADR-0009). Debits keep Exclude.
+    expect(
+      within(credit).queryByRole("button", { name: /exclude/i })
+    ).not.toBeInTheDocument()
+    const debit = screen.getByRole("row", { name: /NETFLIX/ })
+    expect(
+      within(debit).getByRole("button", { name: /exclude/i })
+    ).toBeInTheDocument()
 
     const toggle = within(credit).getByRole("checkbox", { name: /income/i })
     expect(toggle).not.toBeChecked()
@@ -96,6 +105,34 @@ describe("TransactionsTable", () => {
     expect(
       within(credit).getByRole("checkbox", { name: /income/i })
     ).toBeChecked()
+  })
+
+  it("keeps the Include-only affordance on an already-excluded credit (ADR-0011)", () => {
+    // A credit excluded before this change (or one that was income-marked then excluded)
+    // must still be restorable — the row.excluded branch shows Include, not the Income toggle.
+    const excludedCredit: TransactionRow = {
+      id: "t4",
+      date: "2026-03-08",
+      merchant: "REFUND",
+      amount: 12345,
+      incomeMarked: false,
+      excluded: true,
+      exclusionNote: null,
+      classifiedType: "",
+      confidence: null,
+      reasoning: null,
+      overrideType: null,
+      classificationStatus: "classified",
+    }
+    render(<TransactionsTable rows={[excludedCredit]} currency="ISK" />)
+
+    const row = screen.getByRole("row", { name: /REFUND/ })
+    expect(
+      within(row).getByRole("button", { name: /include/i })
+    ).toBeInTheDocument()
+    expect(
+      within(row).queryByRole("checkbox", { name: /income/i })
+    ).not.toBeInTheDocument()
   })
 
   it("persists an override change and reflects it on the row", async () => {
