@@ -30,5 +30,16 @@
       "categories": "Categories",
       "new": "new"
     }
+  },
+  "actionBand": {
+    "needsAttention": "Needs attention",
+    "allCaughtUpLabel": "All caught up",
+    "reviewBacklog": "{count, plural, one {# expense needs} other {# expenses need}} review",
+    "reviewBacklogHint": "— confirm their spending types.",
+    "pending": "{count, plural, one {# transaction} other {# transactions}} awaiting classification",
+    "pendingHint": "— run AI classification to bucket them.",
+    "failed": "{count, plural, one {# classification} other {# classifications}} failed",
+    "failedHint": "— retry to finish bucketing them.",
+    "allCaughtUp": "You're all caught up."
   }
 }

@@ -30,5 +30,16 @@
       "categories": "Flokkar",
       "new": "nýtt"
     }
+  },
+  "actionBand": {
+    "needsAttention": "Þarfnast athygli",
+    "allCaughtUpLabel": "Allt í lagi",
+    "reviewBacklog": "{count, plural, one {# færsla þarf yfirferð} other {# færslur þurfa yfirferð}}",
+    "reviewBacklogHint": "— staðfestu útgjaldaflokka þeirra.",
+    "pending": "{count, plural, one {# færsla bíður flokkunar} other {# færslur bíða flokkunar}}",
+    "pendingHint": "— keyrðu gervigreindarflokkun til að flokka þær.",
+    "failed": "{count, plural, one {# flokkun mistókst} other {# flokkanir mistókust}}",
+    "failedHint": "— reyndu aftur til að ljúka flokkun.",
+    "allCaughtUp": "Þú ert með allt á hreinu."
   }
 }
