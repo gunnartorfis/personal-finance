@@ -23,19 +23,20 @@ function newRow(name = "", amount = ""): EntryRow {
 
 /** One editable named-amount list (income sources or off-card costs). */
 function EntryList({
-  legend,
-  idPrefix,
-  addLabel,
+  kind,
   rows,
   onChange,
 }: {
-  legend: string
-  idPrefix: string
-  addLabel: string
+  kind: "income" | "offcard"
   rows: EntryRow[]
   onChange: (rows: EntryRow[]) => void
 }) {
   const t = useTranslations("incomeSettings")
+  // EntryList owns all its own copy: the legend and add-button labels derive from `kind`, alongside
+  // the field labels below — no pre-translated strings are threaded in as props.
+  const idPrefix = kind
+  const legend = t(kind === "income" ? "incomeLegend" : "offcardLegend")
+  const addLabel = t(kind === "income" ? "addIncome" : "addOffcard")
   return (
     <fieldset className="flex flex-col gap-3">
       <legend className="text-sm font-medium">{legend}</legend>
@@ -185,20 +186,8 @@ export function SavingsConfigForm({ className }: { className?: string }) {
       aria-label={t("formLabel")}
       className={cn("flex flex-col gap-6 rounded-xl border border-border bg-card p-6", className)}
     >
-      <EntryList
-        legend={t("incomeLegend")}
-        idPrefix="income"
-        addLabel={t("addIncome")}
-        rows={incomeSources}
-        onChange={setIncomeSources}
-      />
-      <EntryList
-        legend={t("offcardLegend")}
-        idPrefix="offcard"
-        addLabel={t("addOffcard")}
-        rows={offcardCosts}
-        onChange={setOffcardCosts}
-      />
+      <EntryList kind="income" rows={incomeSources} onChange={setIncomeSources} />
+      <EntryList kind="offcard" rows={offcardCosts} onChange={setOffcardCosts} />
 
       {errored && (
         <div
