@@ -475,6 +475,9 @@ function SplitEditor({
       onDone(-parsedShare)
     } catch {
       setErrored(true)
+    } finally {
+      // The success path also unmounts this editor (onDone → parent setEditor("none")); resetting
+      // here regardless keeps the button re-enabled if that ever stops unmounting us.
       setSaving(false)
     }
   }
@@ -567,6 +570,9 @@ function ExcludeEditor({
       onDone(trimmed || null)
     } catch {
       setErrored(true)
+    } finally {
+      // As in SplitEditor: onDone unmounts us on success, but reset anyway so a future change that
+      // keeps the editor mounted doesn't leave the button stuck disabled.
       setSaving(false)
     }
   }
