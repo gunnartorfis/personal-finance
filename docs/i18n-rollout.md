@@ -89,6 +89,10 @@ domain terms in [CONTEXT.md](../CONTEXT.md) (**Locale**).
     ISK price (`currencyFormatter` + localized /mo·/yr), phase/loading/error strings →
     `billing.checkout` namespace; test switched to `renderWithIntl`.
 - [ ] **8. Migrate: upload + accounts + rules.**
+  - [x] **8a. upload** (upload page + upload-form + upload-progress) → `upload`
+    namespace: account picker / file labels + hints, submit/loading states,
+    keyed upload errors (static status→key map, server `{error}` passed through),
+    discriminated progress status line.
 - [ ] **9. Migrate: landing + auth shell.** Bilingual landing (Vercel-geo default).
   Neon Auth UI + OTP emails stay English (v1).
 - [ ] **10. Enforcement flip.** Blocking ESLint rule banning literal JSX strings in

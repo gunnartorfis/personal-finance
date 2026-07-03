@@ -1,6 +1,7 @@
 "use client"
 
 import { CircleAlert, Loader2, Upload } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { type FormEvent, useEffect, useState } from "react"
 
 import { ClassifyTrigger } from "@/components/classify-trigger"
@@ -27,13 +28,23 @@ interface UploadResponse {
   error?: string
 }
 
-/** Human message for a non-2xx upload. The route returns `{ error }` for 400/413/422; 404 and 409
- * carry only a status, so map those by HTTP status. */
-function uploadErrorMessage(status: number, body: UploadResponse | null): string {
-  if (status === 409 || body?.status === "duplicate") return "This file was already imported."
-  if (status === 404 || body?.status === "unknown-account") return "That account no longer exists."
-  if (body?.error) return body.error
-  return "Upload failed. Please try again."
+/**
+ * A non-2xx upload, as either a translation key (mapped from the status/known statuses) or a raw
+ * server message. The route returns `{ error }` for 400/413/422 (passed through as data — the API
+ * owns that copy); 404 and 409 carry only a status, so map those by HTTP status to a catalog key.
+ * Kept keyed (not pre-translated) so the alert re-translates on a locale change.
+ */
+type UploadError =
+  | { key: "duplicate" | "unknownAccount" | "failed" }
+  | { message: string }
+
+function uploadError(status: number, body: UploadResponse | null): UploadError {
+  if (status === 409 || body?.status === "duplicate")
+    return { key: "duplicate" }
+  if (status === 404 || body?.status === "unknown-account")
+    return { key: "unknownAccount" }
+  if (body?.error) return { message: body.error }
+  return { key: "failed" }
 }
 
 /**
@@ -42,6 +53,7 @@ function uploadErrorMessage(status: number, body: UploadResponse | null): string
  * <UploadProgress> indicator; 4xx failures surface inline.
  */
 export function UploadForm({ className }: { className?: string }) {
+  const t = useTranslations("upload")
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loadingAccounts, setLoadingAccounts] = useState(true)
   const [accountsError, setAccountsError] = useState(false)
@@ -50,7 +62,7 @@ export function UploadForm({ className }: { className?: string }) {
   // Bumped on a successful upload to remount the file input, clearing its native selection.
   const [fileInputKey, setFileInputKey] = useState(0)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<UploadError | null>(null)
   const [uploadId, setUploadId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -90,7 +102,7 @@ export function UploadForm({ className }: { className?: string }) {
       const res = await fetch("/api/uploads", { method: "POST", body })
       const data = (await res.json().catch(() => null)) as UploadResponse | null
       if (!res.ok) {
-        setError(uploadErrorMessage(res.status, data))
+        setError(uploadError(res.status, data))
         return
       }
       if (data?.status === "created" && data.upload) {
@@ -102,14 +114,26 @@ export function UploadForm({ className }: { className?: string }) {
         setAccountId(defaultAccountId(accounts))
         setFileInputKey((key) => key + 1)
       } else {
-        setError(uploadErrorMessage(res.status, data))
+        setError(uploadError(res.status, data))
       }
     } catch {
-      setError("Upload failed. Please try again.")
+      setError({ key: "failed" })
     } finally {
       setBusy(false)
     }
   }
+
+  // Resolve to text at render (not when the error is raised) so the alert follows a locale change.
+  // Keys are spelled out literally rather than interpolated so next-intl can statically check them.
+  const errorText = !error
+    ? null
+    : "message" in error
+      ? error.message
+      : error.key === "duplicate"
+        ? t("errors.duplicate")
+        : error.key === "unknownAccount"
+          ? t("errors.unknownAccount")
+          : t("errors.failed")
 
   return (
     <section className={cn("flex flex-col gap-6", className)}>
@@ -120,19 +144,19 @@ export function UploadForm({ className }: { className?: string }) {
         {/* The account picker only appears when there's a genuine choice. A household always has a
             default account, so a single-account household uploads straight to it — no picker. */}
         {loadingAccounts ? (
-          <p className="text-sm text-muted-foreground">Loading accounts…</p>
+          <p className="text-sm text-muted-foreground">
+            {t("loadingAccounts")}
+          </p>
         ) : accountsError ? (
           <p role="alert" className="text-sm text-destructive">
-            Couldn’t load accounts — try refreshing.
+            {t("accountsError")}
           </p>
         ) : accounts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No account found — add one on the Accounts page first.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("noAccount")}</p>
         ) : accounts.length > 1 ? (
           <div className="flex flex-col gap-1.5">
             <label htmlFor="upload-account" className="text-sm font-medium">
-              Account
+              {t("accountLabel")}
             </label>
             <div className="grid grid-cols-[1fr_--spacing(7)] items-center rounded-md border border-input bg-input/20 transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30 dark:bg-input/30">
               <select
@@ -165,7 +189,7 @@ export function UploadForm({ className }: { className?: string }) {
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="upload-file" className="text-sm font-medium">
-            CSV file
+            {t("fileLabel")}
           </label>
           <Input
             key={fileInputKey}
@@ -175,24 +199,26 @@ export function UploadForm({ className }: { className?: string }) {
             accept=".csv,text/csv"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />
-          <p className="text-sm text-muted-foreground">
-            Export your statement as CSV, then choose it here.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("fileHint")}</p>
         </div>
 
-        <Button type="submit" disabled={busy || !file || !accountId} className="self-start">
+        <Button
+          type="submit"
+          disabled={busy || !file || !accountId}
+          className="self-start"
+        >
           {busy ? <Loader2 className="animate-spin" /> : <Upload />}
-          {busy ? "Uploading…" : "Upload"}
+          {busy ? t("submitting") : t("submit")}
         </Button>
       </form>
 
-      {error && (
+      {errorText && (
         <div
           role="alert"
           className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
           <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          <p>{error}</p>
+          <p>{errorText}</p>
         </div>
       )}
 

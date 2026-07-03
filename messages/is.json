@@ -201,5 +201,29 @@
     "pausedTitle": "Gervigreindarflokkun gerð hlé",
     "pausedBody": "Þú hefur notað allar {cap} ókeypis flokkanirnar. Innhleðslur, yfirlitið og breytingar virka áfram; <link>uppfærðu í Premium</link> til að flokka afganginn.",
     "usage": "{used} af {cap} ókeypis gervigreindarflokkunum notaðar — {remaining} eftir."
+  },
+  "upload": {
+    "title": "Hlaða upp yfirliti",
+    "subtitle": "Flyttu inn CSV bankayfirlit og fylgstu með flokkun.",
+    "loadingAccounts": "Hleð reikningum…",
+    "accountsError": "Tókst ekki að hlaða reikningum — reyndu að endurnýja.",
+    "noAccount": "Enginn reikningur fannst — bættu einum við á Reikningar-síðunni fyrst.",
+    "accountLabel": "Reikningur",
+    "fileLabel": "CSV skrá",
+    "fileHint": "Flyttu yfirlitið út sem CSV og veldu það hér.",
+    "submit": "Hlaða upp",
+    "submitting": "Hleð upp…",
+    "errors": {
+      "duplicate": "Þessi skrá hefur þegar verið flutt inn.",
+      "unknownAccount": "Þessi reikningur er ekki lengur til.",
+      "failed": "Upphleðsla mistókst. Reyndu aftur."
+    },
+    "progress": {
+      "label": "Framvinda flokkunar",
+      "failed": "Tókst ekki að hlaða framvindu",
+      "retrying": "Tókst ekki að hlaða framvindu — reyni aftur…",
+      "complete": "Flokkun lokið",
+      "classifying": "Flokka…"
+    }
   }
 }
