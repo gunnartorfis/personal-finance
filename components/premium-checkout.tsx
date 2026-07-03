@@ -22,6 +22,10 @@ interface CheckoutSession {
 
 type Phase = "choose" | "paying" | "confirming" | "submitted" | "done"
 
+/** Which error to surface. Stored as a stable key (not pre-translated text) so the alert
+ * re-translates on a locale change instead of freezing the language it was raised in. */
+type ErrorKey = "errorPayment" | "errorGeneric" | "errorStart"
+
 /** Activation is webhook-driven, so after an authorised payment we poll the plan until it flips. */
 const POLL_INTERVAL_MS = 1500
 const MAX_CONFIRM_POLLS = 10
@@ -57,7 +61,7 @@ export function PremiumCheckout({
   const [period, setPeriod] = useState<BillingPeriod>("monthly")
   const [phase, setPhase] = useState<Phase>("choose")
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [errorKey, setErrorKey] = useState<ErrorKey | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   // The mounted Drop-in, kept so we can tear it down (release Adyen's listeners/timers) on unmount.
   const dropinRef = useRef<{ unmount: () => void } | null>(null)
@@ -125,15 +129,15 @@ export function PremiumCheckout({
       onPaymentCompleted: (result) => {
         dropinRef.current?.unmount()
         dropinRef.current = null
-        setError(null) // clear any prior failure so a successful retry doesn't show a stale alert
+        setErrorKey(null) // clear any prior failure so a successful retry doesn't show a stale alert
         if (result.resultCode === "Authorised") {
           void confirmActivation() // verify the webhook activated Premium before claiming it
         } else {
           setPhase("submitted")
         }
       },
-      onPaymentFailed: () => setError(t("errorPayment")),
-      onError: () => setError(t("errorGeneric")),
+      onPaymentFailed: () => setErrorKey("errorPayment"),
+      onError: () => setErrorKey("errorGeneric"),
     })
     if (containerRef.current) {
       // v6 no longer auto-bundles payment methods: each supported method must be registered via
@@ -147,7 +151,7 @@ export function PremiumCheckout({
 
   async function startCheckout() {
     setBusy(true)
-    setError(null)
+    setErrorKey(null)
     try {
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
@@ -161,7 +165,7 @@ export function PremiumCheckout({
     } catch {
       // An Adyen session is single-use, so a session spent on a failed mount is fine to abandon —
       // the retry below re-POSTs /api/billing/checkout for a fresh session.
-      setError(t("errorStart"))
+      setErrorKey("errorStart")
     } finally {
       setBusy(false)
     }
@@ -230,13 +234,13 @@ export function PremiumCheckout({
         </>
       )}
 
-      {error && (
+      {errorKey && (
         <div
           role="alert"
           className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
           <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          <p>{error}</p>
+          <p>{t(errorKey)}</p>
         </div>
       )}
     </section>

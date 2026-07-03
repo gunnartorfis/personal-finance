@@ -158,6 +158,21 @@ describe("PremiumCheckout", () => {
     expect(await screen.findByRole("alert")).toBeInTheDocument()
   })
 
+  it("renders the failure alert in the active locale", async () => {
+    stubCheckout()
+    // Errors are keyed (not pre-translated at callback time), so the alert reads in the
+    // locale rendered — here Icelandic — rather than freezing to whatever was active first.
+    render(<PremiumCheckout />, { locale: "is" })
+    await userEvent.click(
+      screen.getByRole("button", { name: /uppfæra í premium/i })
+    )
+
+    lastConfig.onPaymentFailed({})
+    expect(
+      await screen.findByText(/greiðslan var ekki kláruð/i)
+    ).toBeInTheDocument()
+  })
+
   it("clears a prior failure when a retry succeeds", async () => {
     stubCheckout()
     render(<PremiumCheckout />)
