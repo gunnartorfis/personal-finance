@@ -14,4 +14,9 @@ describe("renderWithIntl", () => {
     renderWithIntl(<Probe />)
     expect(screen.getByText("Loading…")).toBeInTheDocument()
   })
+
+  it("provides the Icelandic catalog when locale is is", () => {
+    renderWithIntl(<Probe />, { locale: "is" })
+    expect(screen.getByText("Hleð…")).toBeInTheDocument()
+  })
 })
