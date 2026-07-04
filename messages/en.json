@@ -680,7 +680,9 @@
       "title": "Net worth projection",
       "subtitle": "At your typical saving, about {amount} by {month}.",
       "netWorth": "Net worth",
-      "srPoint": "{label}: {amount}"
+      "srPoint": "{label}: {amount}",
+      "cashFlowSaved": "On track to save {amount} over the next {months, plural, one {# month} other {# months}}.",
+      "cashFlowSpent": "On this trend you'll spend {amount} more than you bring in over the next {months, plural, one {# month} other {# months}}."
     }
   },
   "bankSync": {

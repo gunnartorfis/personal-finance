@@ -25,10 +25,16 @@ import { cn } from "@/lib/utils"
 export function NetWorthProjectionChart({
   points,
   currency,
+  horizonNet,
+  horizonMonths,
   className,
 }: {
   points: ProjectionPoint[]
   currency: string
+  /** Net cash flow projected over the horizon (#103); omit to hide the cash-flow caption. */
+  horizonNet?: number | null
+  /** The horizon length in months, for the cash-flow caption's plural. */
+  horizonMonths?: number
   className?: string
 }) {
   const t = useTranslations("charts.netWorthProjection")
@@ -63,6 +69,14 @@ export function NetWorthProjectionChart({
         <p className="text-sm text-pretty text-muted-foreground">
           {t("subtitle", { amount: fmt(last.netWorth), month: formatCycleMonth(last.cycleKey, locale) })}
         </p>
+        {horizonNet != null && horizonMonths != null ? (
+          <p className="text-sm text-pretty text-muted-foreground">
+            {t(horizonNet >= 0 ? "cashFlowSaved" : "cashFlowSpent", {
+              amount: fmt(Math.abs(horizonNet)),
+              months: horizonMonths,
+            })}
+          </p>
+        ) : null}
       </header>
 
       <ChartContainer config={chartConfig} className="aspect-auto h-40 w-full">

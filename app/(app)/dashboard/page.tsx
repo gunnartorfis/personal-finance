@@ -12,6 +12,7 @@ import { getTranslations } from "next-intl/server"
 
 import { ThisMonthHero } from "@/components/this-month-hero"
 import { TopMerchants } from "@/components/top-merchants"
+import { projectCashFlow } from "@/lib/dashboard/cash-flow"
 import { currentCycleKey } from "@/lib/dashboard/cycle"
 import { loadDashboardView } from "@/lib/dashboard/dashboard-view"
 import { loadNetWorthPanel, projectNetWorth } from "@/lib/dashboard/net-worth"
@@ -49,14 +50,26 @@ export default async function DashboardPage() {
   // Project net worth 12 months out only when both inputs exist: a current net worth (a balance is
   // recorded) and a typical monthly saving (enough completed-cycle history). No extra query — both
   // come from data already loaded above.
+  const PROJECTION_MONTHS = 12
   const projection =
     netWorthPanel.netWorth && view.financialHealth.avgMonthlySaving !== null
       ? projectNetWorth({
           startingNetWorth: netWorthPanel.netWorth.total,
           monthlySaving: view.financialHealth.avgMonthlySaving,
           startCycle: currentCycleKey(now),
-          months: 12,
+          months: PROJECTION_MONTHS,
         })
+      : null
+  // The cash-flow forecast (#103) reuses the same typical monthly net; we surface just its horizon
+  // total on the projection card (the balance line itself is the net-worth projection).
+  const cashFlowHorizonNet =
+    view.financialHealth.avgMonthlySaving !== null
+      ? projectCashFlow({
+          startingBalance: netWorthPanel.netWorth?.total ?? 0,
+          monthlyNet: view.financialHealth.avgMonthlySaving,
+          startCycle: currentCycleKey(now),
+          months: PROJECTION_MONTHS,
+        }).horizonNet
       : null
 
   return (
@@ -79,7 +92,12 @@ export default async function DashboardPage() {
       />
 
       {projection && (
-        <NetWorthProjectionChart points={projection} currency={billingCurrency} />
+        <NetWorthProjectionChart
+          points={projection}
+          currency={billingCurrency}
+          horizonNet={cashFlowHorizonNet}
+          horizonMonths={PROJECTION_MONTHS}
+        />
       )}
 
       <SpendingTrendChart
