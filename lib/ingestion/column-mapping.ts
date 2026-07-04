@@ -27,12 +27,33 @@ const DIACRITICS: Record<string, string> = {
   á: "a", é: "e", í: "i", ó: "o", ú: "u", ý: "y", ð: "d", þ: "th", æ: "ae", ö: "o",
 };
 
+/** Lower-case, fold Icelandic diacritics, trim, and collapse internal whitespace. */
+function foldLabel(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/[áéíóúýðþæö]/g, (ch) => DIACRITICS[ch] ?? ch)
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** Lower-case, fold Icelandic diacritics, and split into alphanumeric tokens. */
 function tokenize(label: string): string[] {
-  const folded = label
-    .toLowerCase()
-    .replace(/[áéíóúýðþæö]/g, (ch) => DIACRITICS[ch] ?? ch);
-  return folded.split(/[^a-z0-9]+/).filter(Boolean);
+  return foldLabel(label).split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+/**
+ * A normalized, order-independent signature of a file's header labels — the key under which a
+ * Household's confirmed Column mapping is remembered (ADR-0018). Each label is diacritic-folded,
+ * lower-cased and trimmed; blanks are dropped; the set is sorted and joined, so the same bank format
+ * always yields the same signature regardless of column order or casing, while a changed column set
+ * yields a new signature (so a changed export re-learns rather than mis-replaying an old mapping).
+ */
+export function headerSignature(header: ReadonlyArray<string>): string {
+  return header
+    .map(foldLabel)
+    .filter((label) => label.length > 0)
+    .sort()
+    .join("|");
 }
 
 const ALIASES: Record<ColumnRole, string[]> = {

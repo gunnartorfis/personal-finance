@@ -32,6 +32,7 @@ import {
   activityLog,
   bankConnections,
   categoryBudgets,
+  columnMappings,
   assistantConversations,
   assistantMessages,
   householdInvites,
@@ -1385,6 +1386,34 @@ export function householdRepo(db: Db, householdId: string) {
               eq(merchantRules.householdId, householdId)
             )
           )
+          .returning(),
+    },
+    columnMappings: {
+      /** The remembered mapping for a header signature, or undefined when none is stored. */
+      findBySignature: async (headerSignature: string) => {
+        const [row] = await db
+          .select()
+          .from(columnMappings)
+          .where(
+            and(
+              eq(columnMappings.householdId, householdId),
+              eq(columnMappings.headerSignature, headerSignature)
+            )
+          )
+        return row
+      },
+      /**
+       * Remember (or refresh) the confirmed mapping for a header signature. Upserts on the
+       * (household, signature) unique key, so re-confirming a bank's format updates it in place.
+       */
+      upsert: (headerSignature: string, columns: typeof columnMappings.$inferInsert["columns"]) =>
+        db
+          .insert(columnMappings)
+          .values({ householdId, headerSignature, columns })
+          .onConflictDoUpdate({
+            target: [columnMappings.householdId, columnMappings.headerSignature],
+            set: { columns, updatedAt: sql`now()` },
+          })
           .returning(),
     },
     savings: {

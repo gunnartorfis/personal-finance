@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { detectColumnMapping, findHeaderRow, parseColumnMappingJson } from "./column-mapping";
+import {
+  detectColumnMapping,
+  findHeaderRow,
+  headerSignature,
+  parseColumnMappingJson,
+} from "./column-mapping";
 
 // Slice 2 (ADR-0018): detectColumnMapping now returns { resolved, unmatched }
 // instead of `ColumnMapping | null`, so a partial match can name the roles that
@@ -147,5 +152,29 @@ describe("parseColumnMappingJson", () => {
   it("throws on non-object / invalid JSON", () => {
     expect(() => parseColumnMappingJson("not json")).toThrow();
     expect(() => parseColumnMappingJson("[]")).toThrow();
+  });
+});
+
+describe("headerSignature", () => {
+  it("is independent of column order", () => {
+    expect(headerSignature(["Dagsetning", "Mótaðili", "Tegund", "Upphæð"])).toBe(
+      headerSignature(["Upphæð", "Tegund", "Mótaðili", "Dagsetning"]),
+    );
+  });
+
+  it("is independent of casing, surrounding whitespace, and diacritics folding", () => {
+    expect(headerSignature(["  DAGSETNING ", "Mótaðili"])).toBe(headerSignature(["dagsetning", "motadili"]));
+  });
+
+  it("differs when the set of columns differs (a changed export re-learns)", () => {
+    expect(headerSignature(["Dagsetning", "Upphæð"])).not.toBe(
+      headerSignature(["Dagsetning", "Upphæð", "Nótanúmer"]),
+    );
+  });
+
+  it("ignores empty/blank labels", () => {
+    expect(headerSignature(["Dagsetning", "", "  ", "Upphæð"])).toBe(
+      headerSignature(["Dagsetning", "Upphæð"]),
+    );
   });
 });
