@@ -75,8 +75,16 @@ describe("detectColumnMapping", () => {
 });
 
 describe("findHeaderRow", () => {
-  it("returns 0 when the first row is already the header", () => {
-    expect(findHeaderRow([["Dagsetning", "Mótaðili", "Tegund", "Upphæð"], ["01.03.2026", "X", "Y", "-1 kr."]])).toBe(0);
+  it("returns index 0 with the resolved mapping when the first row is the header", () => {
+    expect(
+      findHeaderRow([
+        ["Dagsetning", "Mótaðili", "Tegund", "Upphæð"],
+        ["01.03.2026", "X", "Y", "-1 kr."],
+      ]),
+    ).toEqual({
+      index: 0,
+      mapping: { resolved: { date: 0, merchant: 1, category: 2, amount: 3 }, unmatched: [] },
+    });
   });
 
   it("skips bank preamble lines above the real header", () => {
@@ -87,11 +95,14 @@ describe("findHeaderRow", () => {
       ["Dagsetning", "Mótaðili", "Tegund", "Upphæð"],
       ["01.03.2026", "NETFLIX", "Afþreying", "-1.990 kr."],
     ];
-    expect(findHeaderRow(rows)).toBe(3);
+    expect(findHeaderRow(rows).index).toBe(3);
   });
 
-  it("returns 0 when no row resolves a full mapping (caller then reports the gap)", () => {
-    expect(findHeaderRow([["Foo", "Bar"], ["1", "2"]])).toBe(0);
+  it("falls back to index 0 with the unmatched roles when no row fully resolves", () => {
+    expect(findHeaderRow([["Foo", "Bar"], ["1", "2"]])).toEqual({
+      index: 0,
+      mapping: { resolved: {}, unmatched: ["date", "amount", "merchant", "category"] },
+    });
   });
 
   it("does not mistake a data row for the header", () => {
@@ -100,6 +111,6 @@ describe("findHeaderRow", () => {
       ["Dagsetning", "Mótaðili", "Tegund", "Upphæð"],
       ["01.03.2026", "AMOUNT DUE STORE", "DATE NIGHT CAFE", "-1 kr."],
     ];
-    expect(findHeaderRow(rows)).toBe(0);
+    expect(findHeaderRow(rows).index).toBe(0);
   });
 });

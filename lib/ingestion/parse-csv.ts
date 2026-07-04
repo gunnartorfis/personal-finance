@@ -1,6 +1,6 @@
 import Papa from "papaparse";
 
-import { detectColumnMapping, findHeaderRow, type ColumnMapping } from "./column-mapping";
+import { findHeaderRow, type ColumnMapping } from "./column-mapping";
 
 /**
  * Parse an Icelandic bank-statement CSV (ADR-0003) from decoded text — the web ingestion path
@@ -10,7 +10,11 @@ import { detectColumnMapping, findHeaderRow, type ColumnMapping } from "./column
  */
 
 export interface ParsedRow {
-  /** Source CSV data-row index (0-based), for traceability. */
+  /**
+   * Ordinal of this row within the statement's data section (0-based), counted from the first row
+   * after the detected header — kept for traceability. Not an absolute CSV line number: when
+   * preamble/header rows precede the data, those are excluded from the count.
+   */
   sourceRow: number;
   /** YYYY-MM-DD. */
   date: string;
@@ -88,13 +92,15 @@ export function parseStatementCsv(text: string): ParsedRow[] {
   const rows = Papa.parse<string[]>(text, { skipEmptyLines: false }).data;
   if (rows.length === 0) return [];
 
-  // Locate the header row first: bank exports often carry preamble lines (account no., statement
-  // period, blanks) above it. Then auto-detect the date/amount/merchant/category columns from that
-  // header's arbitrary names/orders (#96); the foreign-currency amount column is excluded.
-  const headerIndex = findHeaderRow(rows);
-  const header = rows[headerIndex];
-  const { resolved, unmatched } = detectColumnMapping(header);
+  // Locate the header row first (bank exports often carry preamble lines — account no., statement
+  // period, blanks — above it); findHeaderRow also returns the auto-detected date/amount/merchant/
+  // category mapping for that row (#96), so we don't detect twice.
+  const {
+    index: headerIndex,
+    mapping: { resolved, unmatched },
+  } = findHeaderRow(rows);
   if (unmatched.length > 0) {
+    const header = rows[headerIndex] ?? [];
     throw new Error(`missing required columns: ${unmatched.join(", ")} (header: ${header.join(", ")})`);
   }
   return rowsToParsed(rows, resolved as ColumnMapping, headerIndex);
