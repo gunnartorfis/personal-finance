@@ -10,6 +10,7 @@ import { getTranslations } from "next-intl/server"
 import { ThisMonthHero } from "@/components/this-month-hero"
 import { TopMerchants } from "@/components/top-merchants"
 import { loadDashboardView } from "@/lib/dashboard/dashboard-view"
+import { loadNetWorthPanel } from "@/lib/dashboard/net-worth"
 import { loadSavingsProgress } from "@/lib/savings/assessment"
 import { requireHousehold } from "@/lib/household/current"
 import { resolveRequestLocale } from "@/lib/i18n/locale"
@@ -31,9 +32,10 @@ export default async function DashboardPage() {
   const locale = await resolveRequestLocale()
   const t = await getTranslations("dashboard")
   const now = new Date()
-  const [view, savingsProgress] = await Promise.all([
+  const [view, savingsProgress, netWorthPanel] = await Promise.all([
     loadDashboardView(repo, now, { plan }),
     loadSavingsProgress(repo, now),
+    loadNetWorthPanel(repo),
   ])
 
   const hasMerchants = view.modules.topMerchants.length > 0
@@ -52,7 +54,12 @@ export default async function DashboardPage() {
 
       <SavingsProgressCard progress={savingsProgress} locale={locale} />
 
-      <FinancialHealthSection health={view.financialHealth} currency={billingCurrency} />
+      <FinancialHealthSection
+        health={view.financialHealth}
+        netWorth={netWorthPanel.netWorth}
+        accounts={netWorthPanel.accounts}
+        currency={billingCurrency}
+      />
 
       <SpendingTrendChart
         series={view.modules.series}

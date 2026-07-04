@@ -6,7 +6,12 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { householdRepo } from "@/lib/db/household-repo";
 import { households } from "@/lib/db/schema";
 
-import { computeNetWorth, loadNetWorth, type BalanceSnapshot } from "./net-worth";
+import {
+  computeNetWorth,
+  computeRunwayMonths,
+  loadNetWorth,
+  type BalanceSnapshot,
+} from "./net-worth";
 
 function snap(accountId: string, balance: number, asOf: string): BalanceSnapshot {
   return { accountId, balance, asOf: new Date(asOf) };
@@ -42,6 +47,24 @@ describe("computeNetWorth", () => {
       snap("a", 100, "2026-03-01T00:00:00Z"),
     ]);
     expect(net).toEqual({ total: 100, accountCount: 1, asOf: new Date("2026-03-01T00:00:00Z") });
+  });
+});
+
+describe("computeRunwayMonths", () => {
+  it("divides net worth by monthly burn, rounding down so it never overstates", () => {
+    expect(computeRunwayMonths(1_000_000, 200_000)).toBe(5);
+    expect(computeRunwayMonths(1_050_000, 200_000)).toBe(5); // 5.25 → 5
+  });
+
+  it("is null when burn is unknown or non-positive", () => {
+    expect(computeRunwayMonths(1_000_000, null)).toBeNull();
+    expect(computeRunwayMonths(1_000_000, 0)).toBeNull();
+    expect(computeRunwayMonths(1_000_000, -50)).toBeNull();
+  });
+
+  it("is null when net worth is zero or negative (no runway to report)", () => {
+    expect(computeRunwayMonths(0, 200_000)).toBeNull();
+    expect(computeRunwayMonths(-500_000, 200_000)).toBeNull();
   });
 });
 

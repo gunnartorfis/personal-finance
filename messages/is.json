@@ -43,7 +43,17 @@
       "profitStreak": "Mánuðir í plús",
       "profitStreakValue": "{count} af {total}",
       "savingsRateBenchmark": "Sparnaðarhlutfall upp á 20% eða meira er heilbrigt markmið.",
-      "notEnoughData": "Nokkurra mánaða saga opnar sparnaðarhlutfall, dæmigerðan mánaðarsparnað og fjölda mánaða í plús."
+      "notEnoughData": "Nokkurra mánaða saga opnar sparnaðarhlutfall, dæmigerðan mánaðarsparnað og fjölda mánaða í plús.",
+      "netWorth": "Hrein eign",
+      "runway": "Ending",
+      "runwayValue": "{months, plural, one {# mánuður} other {# mánuðir}}",
+      "runwayCaption": "ef tekjur stöðvast",
+      "addBalancesPrompt": "Skráðu stöðu reikninganna til að sjá hreina eign og endingu.",
+      "addBalances": "Skrá stöðu",
+      "updateBalances": "Uppfæra stöðu",
+      "saveBalances": "Vista",
+      "cancelBalances": "Hætta við",
+      "balanceError": "Ekki tókst að vista stöðuna. Reyndu aftur."
     }
   },
   "actionBand": {
