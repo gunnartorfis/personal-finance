@@ -40,8 +40,10 @@ async function handle(request: Request): Promise<Response> {
   const apiKey = process.env.RESEND_API_KEY
   const unsubscribeSecret = process.env.DIGEST_UNSUBSCRIBE_SECRET
   if (!apiKey || !unsubscribeSecret) {
-    // Not an error the cron can fix by retrying — the deployment is missing email config.
-    return NextResponse.json({ error: "email_not_configured" }, { status: 503 })
+    // Missing email config isn't retryable, so return 200 (not 5xx) — a non-2xx would make Vercel
+    // Cron burn its retry attempts every run. Surface it in logs + body instead.
+    console.warn("[digest] skipped: RESEND_API_KEY / DIGEST_UNSUBSCRIBE_SECRET not configured")
+    return NextResponse.json({ skipped: "email_not_configured" })
   }
 
   // Lazily construct the sender so a missing SDK/network never breaks the auth/config path above.

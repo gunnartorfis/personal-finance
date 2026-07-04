@@ -40,9 +40,11 @@ describe("GET /api/digests/monthly", () => {
     expect((await GET(req("Bearer nope"))).status).toBe(401)
   })
 
-  it("returns 503 when email is not configured", async () => {
+  it("skips with a 200 (not a retryable 5xx) when email is not configured", async () => {
     vi.stubEnv("RESEND_API_KEY", "")
-    expect((await GET(req(`Bearer ${CRON}`))).status).toBe(503)
+    const res = await GET(req(`Bearer ${CRON}`))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ skipped: "email_not_configured" })
   })
 
   it("runs and returns a summary for an authorized request", async () => {
