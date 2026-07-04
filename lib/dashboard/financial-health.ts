@@ -12,7 +12,7 @@ import { cycleKeyRange, currentCycleKey, recentCycleKeys } from "./cycle";
  *
  * The fold is pure so it unit-tests directly, mirroring {@link import("./net-summary")} and
  * `shared/savings`; the database reads live in {@link loadFinancialHealth}. It works off COMPLETED
- * Statement cycles only — the in-progress current month is excluded (ADR-0014), since mid-month it
+ * Statement cycles only — the in-progress current month is excluded (ADR-0021), since mid-month it
  * carries full configured income against near-zero spend and would flatter every number here.
  *
  * "Realistic recent" numbers (typical monthly saving, savings rate, burn) are trailing averages over
@@ -136,7 +136,7 @@ export function computeFinancialHealth(
 /**
  * Load the Household's financial-health metrics over the `count` most recent COMPLETED cycles ending
  * before the month containing `now` (default 12; the in-progress current month is always excluded,
- * ADR-0014, so the look-back asks for one extra cycle). Resolves each cycle's effective income /
+ * ADR-0021, so the look-back asks for one extra cycle). Resolves each cycle's effective income /
  * off-card cost from the dated source timelines plus one-off adjustments (ADR-0015) — the same
  * resolution the Savings math uses — and reads card debits from the per-cycle spend series in one
  * grouped query. Leading cycles with no income and no spend (before the Household's history begins)

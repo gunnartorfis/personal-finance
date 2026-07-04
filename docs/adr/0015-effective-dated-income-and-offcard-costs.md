@@ -21,7 +21,7 @@ effective from the **Savings goal**'s start cycle, so existing Households see no
 record one. Every cycle from the goal's start onward is therefore always covered (no gaps); an
 amount steps to zero via a `0`-amount version (a job ends, a loan is cleared). The full timeline is
 uniform — past, current, and future-dated changes are all just versions — so a current-cycle change
-or one-off correctly feeds **Allowed nice-to-have** through the existing ADR-0014 machinery (the
+or one-off correctly feeds **Allowed nice-to-have** through the existing ADR-0021 machinery (the
 in-progress cycle is excluded from cumulative saved but is the cycle being budgeted).
 
 Scope: this is the savings anchor only. The dashboard's **Income (marked)** (ADR-0008/0009) is
@@ -39,7 +39,7 @@ untouched — it stays card-credit-driven and is never netted against Monthly in
   `Inferred saving` formula, the same config surface, and have the identical staleness problem;
   shipping income alone leaves a known-wrong number beside it and forces a second migration later.
 - **Reintroduce frozen check-in snapshots** — freeze each cycle's inputs so history is stable.
-  Rejected: ADR-0007/0014 deliberately removed the freeze in favor of pure inference; this decision
+  Rejected: ADR-0007/0021 deliberately removed the freeze in favor of pure inference; this decision
   is orthogonal — time-varying config, still derived.
 
 ## Consequences

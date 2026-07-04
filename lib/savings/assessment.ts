@@ -25,7 +25,7 @@ import {
  * one flat figure applied to all cycles — while card debits are read straight from the cycle's
  * transactions. There is still no frozen history: config edits (including correcting a past cycle's
  * income) re-flow through every cycle. Only COMPLETED cycles count toward cumulative saved; the
- * current (in-progress) cycle is excluded until its month closes (ADR-0014) — it is shown in the
+ * current (in-progress) cycle is excluded until its month closes (ADR-0021) — it is shown in the
  * breakdown as the cycle being budgeted, not yet counted.
  */
 
@@ -38,7 +38,7 @@ export interface SavingsCycle {
   cardDebits: number;
   inferredSaving: number;
   /**
-   * True only for the current, still-open calendar month (ADR-0014). Its `inferredSaving` is shown
+   * True only for the current, still-open calendar month (ADR-0021). Its `inferredSaving` is shown
    * in the breakdown but NOT folded into cumulative saved — mid-month it carries full income against
    * near-zero spend and would overstate savings. It is the cycle being budgeted, not yet counted.
    */
@@ -63,7 +63,7 @@ export interface SavingsAssessment {
   allowedNiceToHave: number;
   /**
    * True when an in-progress current cycle is present (goal's start cycle reached). It is shown in
-   * the breakdown but excluded from cumulative saved (ADR-0014); the panel uses it to tell the user
+   * the breakdown but excluded from cumulative saved (ADR-0021); the panel uses it to tell the user
    * this month is not yet in the total — it counts once the calendar month closes.
    */
   provisional: boolean;
@@ -156,7 +156,7 @@ async function deriveCycles(
     };
   });
 
-  // The coming/budgeted cycle is the current in-progress one (ADR-0014); its resolved amounts drive
+  // The coming/budgeted cycle is the current in-progress one (ADR-0021); its resolved amounts drive
   // Allowed nice-to-have, so return them rather than a flat all-sources sum. `cycleKey` is always in
   // `resolveKeys` (it is the last of `keys`, or the sole key when the range is empty), so the lookup
   // never misses.
@@ -178,7 +178,7 @@ export async function loadSavingsProgress(
   return buildSavingsProgress(goal, completedSavings(cycles));
 }
 
-/** Each completed cycle's saving — the current in-progress cycle is excluded (ADR-0014). */
+/** Each completed cycle's saving — the current in-progress cycle is excluded (ADR-0021). */
 function completedSavings(cycles: ReadonlyArray<SavingsCycle>): number[] {
   return cycles.filter((c) => !c.inProgress).map((c) => c.inferredSaving);
 }
@@ -202,7 +202,7 @@ export async function loadSavingsSnapshot(
 
   const progress = buildSavingsProgress(goal, completedSavings(cycles))!;
   const cycleKey = currentCycleKey(now);
-  // Only completed cycles count toward saved and the on-track baseline (ADR-0014); the current
+  // Only completed cycles count toward saved and the on-track baseline (ADR-0021); the current
   // in-progress cycle (if any) is the one being budgeted, not yet elapsed.
   const cyclesElapsed = cycles.filter((c) => !c.inProgress).length;
 
@@ -241,7 +241,7 @@ export async function loadSavingsSnapshot(
         expectedFixed: expected.expectedFixed,
         expectedNecessary: expected.expectedNecessary,
       }),
-      // True when an in-progress current cycle is on screen but not yet in the total (ADR-0014).
+      // True when an in-progress current cycle is on screen but not yet in the total (ADR-0021).
       provisional: cycles.some((c) => c.inProgress),
     },
   };

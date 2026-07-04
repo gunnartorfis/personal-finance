@@ -20,7 +20,7 @@ const assessment: SavingsAssessment = {
   provisional: true,
 }
 
-// Two completed cycles plus the in-progress 2026-08 (ADR-0014).
+// Two completed cycles plus the in-progress 2026-08 (ADR-0021).
 const cycles: SavingsCycle[] = [
   {
     cycleKey: "2026-06",

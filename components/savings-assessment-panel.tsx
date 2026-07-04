@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
  * The Savings assessment (ADR-0007): progress is DERIVED from spend, so this is read-only — no
  * check-in button. It shows whether the goal is on track, the coming cycle's corrective pace, and
  * how much `Nice to have` is still affordable, then a per-cycle breakdown newest-first. The current
- * in-progress cycle is shown in the breakdown but excluded from the total (ADR-0014) — its row reads
+ * in-progress cycle is shown in the breakdown but excluded from the total (ADR-0021) — its row reads
  * "not yet counted" rather than a saved amount.
  */
 export function SavingsAssessmentPanel({
@@ -165,7 +165,7 @@ export function SavingsAssessmentPanel({
                     key={row.cycleKey}
                     className={cn(
                       "border-b border-border/50",
-                      // The in-progress cycle is shown but excluded from the total (ADR-0014).
+                      // The in-progress cycle is shown but excluded from the total (ADR-0021).
                       row.inProgress && "text-muted-foreground"
                     )}
                   >

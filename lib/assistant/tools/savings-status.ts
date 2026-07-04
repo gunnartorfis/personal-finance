@@ -6,7 +6,7 @@ import type { AssistantTool } from "./types";
 
 /**
  * Savings-goal status. `hasGoal` is false (and every other field absent) when the Household has no
- * active goal; otherwise the progress + this-cycle pace figures (ADR-0007/0014/0015).
+ * active goal; otherwise the progress + this-cycle pace figures (ADR-0007/0021/0015).
  */
 export interface SavingsStatusResult {
   hasGoal: boolean;

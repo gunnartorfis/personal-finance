@@ -3,7 +3,7 @@ import type { z } from "zod";
 import type { HouseholdRepo } from "@/lib/db/household-repo";
 
 /**
- * Assistant tool layer (#101, ADR-0018). Each tool is a thin, READ-ONLY wrapper over the tested
+ * Assistant tool layer (#101, ADR-0022). Each tool is a thin, READ-ONLY wrapper over the tested
  * `lib/dashboard/*` helpers and `householdRepo`, so its numbers obey the same net rules
  * (ADR-0009/0011/0014/0015) the dashboard uses — the model orchestrates, the tools are ground truth.
  *

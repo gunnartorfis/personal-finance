@@ -8,7 +8,7 @@ trailing, completed-cycle figures, plus the one piece of data the survival quest
 Account **balance** — which the app did not model at all.
 
 **Profit and savings** are derived from data we already have. Over the trailing completed cycles
-(the in-progress month is excluded, ADR-0014), we fold each cycle's resolved income / off-card cost
+(the in-progress month is excluded, ADR-0021), we fold each cycle's resolved income / off-card cost
 (ADR-0015) and card debits (ADR-0007, debits only) into: a **typical monthly saving** (trailing
 average of `income − off-card − card debits`), a **savings rate** as a share of *gross* income, a
 **monthly burn** (`off-card + card debits` — the outflow if income stopped), and a **profit streak**

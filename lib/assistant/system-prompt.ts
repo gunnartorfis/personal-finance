@@ -10,7 +10,7 @@ export interface SystemPromptInput {
 const LOCALE_NAME: Record<Locale, string> = { is: "Icelandic", en: "English" };
 
 /**
- * Build the Assistant's system prompt (#101, ADR-0018). Encodes: tool-only grounding (never fabricate
+ * Build the Assistant's system prompt (#101, ADR-0022). Encodes: tool-only grounding (never fabricate
  * figures), the reference date + current cycle so the model resolves relative dates to `YYYY-MM`, the
  * household's domain vocabulary so answers use the right words, the "facts + light suggestions, no
  * external advice" guardrail, and the response Locale (the one place AI text is localized).
