@@ -15,6 +15,11 @@ import type { DigestCycleData } from "./run-monthly"
  * never disagree with the app, then extracts just the pieces the pure builder needs. Returns null
  * for an unknown Household. Loads the full trailing series (not a single cycle) so the assembler can
  * pick the closed cycle and its prior for the vs-last-month delta.
+ *
+ * Trade-off: this runs the whole dashboard pipeline (many queries — reconnect prompts, financial
+ * health, budgets, …) though the Digest reads only series/categoryTrend/movers. Chosen for
+ * correctness-by-reuse over a bespoke leaner query; if monthly cron latency becomes an issue, a
+ * narrower loader is the optimization (a later slice), not a correctness fix.
  */
 type Db = NodePgDatabase<typeof schema>
 
