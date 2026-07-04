@@ -118,6 +118,31 @@ describe("recordWebhookEvent", () => {
     expect(rows[0].recurringDetailReference).toBe("TOK_FIRST"); // stored value untouched
   });
 
+  it("fills a first-seen null token from a later re-delivery (async tokenization recovery)", async () => {
+    // Adyen tokenization can be async: the first Authorization may arrive with no token. A later
+    // re-delivery carrying the real token must be able to fill the null — only a *swap* of an
+    // already-stored token is rejected.
+    const first = await recordWebhookEvent(asDb(db), {
+      ...base,
+      pspReference: "psp_latetoken",
+      recurringDetailReference: null,
+    });
+    expect(first.recurringDetailReference).toBeNull();
+
+    const second = await recordWebhookEvent(asDb(db), {
+      ...base,
+      pspReference: "psp_latetoken",
+      recurringDetailReference: "TOK_LATE",
+    });
+    expect(second.recurringDetailReference).toBe("TOK_LATE");
+
+    const rows = await db
+      .select()
+      .from(straumurPayments)
+      .where(eq(straumurPayments.pspReference, "psp_latetoken"));
+    expect(rows[0].recurringDetailReference).toBe("TOK_LATE");
+  });
+
   it("stores and returns its own token for a new pspReference (card-update path)", async () => {
     // A card update arrives as a *new* event (new pspReference), not a replay — it must store its
     // own token, not inherit an earlier one.
