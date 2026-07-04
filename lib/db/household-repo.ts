@@ -613,6 +613,8 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.householdId, householdId),
               // Excluded rows contribute to neither spending nor income (ADR-0011).
               eq(transactions.excluded, false),
+              // Detected inter-account transfer legs are money movement, not spend or income (#97).
+              isNull(transactions.transferGroupId),
               gte(transactions.date, range.from),
               lt(transactions.date, range.to)
             )
@@ -653,6 +655,8 @@ export function householdRepo(db: Db, householdId: string) {
               lt(transactions.amount, 0),
               // Excluded rows are not spending (ADR-0011).
               eq(transactions.excluded, false),
+              // Neither is a detected inter-account transfer leg — it's money movement, not spend (#97).
+              isNull(transactions.transferGroupId),
               gte(transactions.date, range.from),
               lt(transactions.date, range.to),
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
@@ -692,6 +696,8 @@ export function householdRepo(db: Db, householdId: string) {
               lt(transactions.amount, 0),
               // Excluded rows are not spending (ADR-0011).
               eq(transactions.excluded, false),
+              // Neither is a detected inter-account transfer leg — it's money movement, not spend (#97).
+              isNull(transactions.transferGroupId),
               gte(transactions.date, range.from),
               lt(transactions.date, range.to)
             )
@@ -731,6 +737,8 @@ export function householdRepo(db: Db, householdId: string) {
               lt(transactions.amount, 0),
               // Excluded rows are not spending (ADR-0011).
               eq(transactions.excluded, false),
+              // Neither is a detected inter-account transfer leg — it's money movement, not spend (#97).
+              isNull(transactions.transferGroupId),
               gte(transactions.date, range.from),
               lt(transactions.date, range.to),
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
@@ -769,6 +777,8 @@ export function householdRepo(db: Db, householdId: string) {
               lt(transactions.amount, 0),
               // Excluded rows are not spending (ADR-0011).
               eq(transactions.excluded, false),
+              // Neither is a detected inter-account transfer leg — it's money movement, not spend (#97).
+              isNull(transactions.transferGroupId),
               gte(transactions.date, range.from),
               lt(transactions.date, range.to),
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
@@ -812,6 +822,8 @@ export function householdRepo(db: Db, householdId: string) {
               lt(transactions.amount, 0),
               // Excluded rows are not spending (ADR-0011).
               eq(transactions.excluded, false),
+              // Neither is a detected inter-account transfer leg — it's money movement, not spend (#97).
+              isNull(transactions.transferGroupId),
               gte(transactions.date, range.from),
               lt(transactions.date, range.to),
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
