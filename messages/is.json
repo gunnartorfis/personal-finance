@@ -788,6 +788,9 @@
     "send": "Senda",
     "you": "Þú",
     "loading": "Hleð…",
+    "newChat": "Nýtt spjall",
+    "history": "Ferill",
+    "historyEmpty": "Engin fyrri samtöl enn.",
     "empty": {
       "heading": "Spurðu um fjármálin þín",
       "hint": "Prófaðu eina af þessum:",
