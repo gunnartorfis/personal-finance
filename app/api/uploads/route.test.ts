@@ -12,12 +12,31 @@ vi.mock("@/lib/ingestion/upload", () => ({ ingestUpload: (...a: unknown[]) => in
 // Shared via vi.hoisted so both the mock factory (below) and the test body reference the SAME class
 // — required for the route's `err instanceof RowCapExceededError` check to match what a test throws.
 const { RowCapExceededError } = vi.hoisted(() => ({ RowCapExceededError: class extends Error {} }));
-const parseStatementCsv = vi.fn<() => unknown>(() => [{ sourceRow: 0 }]);
-const parseWithMapping = vi.fn(() => [{ sourceRow: 0 }]);
+const parseWithMappingAndHeader = vi.fn(() => ({
+  rows: [{ sourceRow: 0 }],
+  header: ["Dagsetning", "Mótaðili", "Tegund", "Upphæð"],
+}));
 vi.mock("@/lib/ingestion/parse-csv", () => ({
-  parseStatementCsv: () => parseStatementCsv(),
-  parseWithMapping: () => parseWithMapping(),
+  parseWithMappingAndHeader: () => parseWithMappingAndHeader(),
   RowCapExceededError,
+}));
+
+type ResolvedLike = {
+  header: string[];
+  mapping: Record<string, number>;
+  unmatchedRoles: string[];
+  rows: { sourceRow: number }[];
+  source: string;
+};
+const resolveUpload = vi.fn<(...a: unknown[]) => Promise<ResolvedLike>>(async () => ({
+  header: ["Dagsetning", "Mótaðili", "Tegund", "Upphæð"],
+  mapping: { date: 0, merchant: 1, category: 2, amount: 3 },
+  unmatchedRoles: [],
+  rows: [{ sourceRow: 0 }],
+  source: "heuristic",
+}));
+vi.mock("@/lib/ingestion/resolve-mapping", () => ({
+  resolveUpload: (...a: unknown[]) => resolveUpload(...a),
 }));
 
 import { POST } from "./route";
@@ -37,8 +56,8 @@ const csvFile = (content = "Dagsetning,Mótaðili,Tegund,Upphæð\n01.03.2026,X,
 beforeEach(() => {
   requireHousehold.mockReset();
   ingestUpload.mockReset();
-  parseStatementCsv.mockClear();
-  parseWithMapping.mockClear();
+  parseWithMappingAndHeader.mockClear();
+  resolveUpload.mockClear();
   requireHousehold.mockResolvedValue({ memberId: "m1", householdId: "h1" });
 });
 
@@ -71,19 +90,60 @@ describe("POST /api/uploads", () => {
         mapping: JSON.stringify({ date: 0, merchant: 1, category: 2, amount: 3 }),
       }),
     );
-    expect(parseWithMapping).toHaveBeenCalledOnce();
-    expect(parseStatementCsv).not.toHaveBeenCalled();
+    expect(parseWithMappingAndHeader).toHaveBeenCalledOnce();
+    expect(resolveUpload).not.toHaveBeenCalled();
   });
 
-  it("auto-detects (parseStatementCsv) when no mapping field is given", async () => {
+  it("resolves remembered→heuristic (resolveUpload) when no mapping field is given", async () => {
     ingestUpload.mockResolvedValue({ status: "created", upload: { id: "u1" }, appended: 1, duplicates: 0 });
     await POST(post({ file: csvFile(), accountId: ACCOUNT }));
-    expect(parseStatementCsv).toHaveBeenCalledOnce();
-    expect(parseWithMapping).not.toHaveBeenCalled();
+    expect(resolveUpload).toHaveBeenCalledOnce();
+    expect(parseWithMappingAndHeader).not.toHaveBeenCalled();
+  });
+
+  it("commits a remembered-mapping file even with no explicit mapping field", async () => {
+    resolveUpload.mockResolvedValueOnce({
+      header: ["Foo", "Bar", "Baz", "Qux"],
+      mapping: { date: 0, merchant: 1, category: 2, amount: 3 },
+      unmatchedRoles: [],
+      rows: [{ sourceRow: 0 }],
+      source: "remembered",
+    });
+    ingestUpload.mockResolvedValue({ status: "created", upload: { id: "u1" }, appended: 1, duplicates: 0 });
+    const res = await POST(post({ file: csvFile(), accountId: ACCOUNT }));
+    expect(res.status).toBe(201);
+  });
+
+  it("422s when neither heuristics nor a remembered mapping can resolve the file", async () => {
+    resolveUpload.mockResolvedValueOnce({
+      header: ["Foo", "Bar"],
+      mapping: {},
+      unmatchedRoles: ["amount"],
+      rows: [],
+      source: "none",
+    });
+    const res = await POST(post({ file: csvFile(), accountId: ACCOUNT }));
+    expect(res.status).toBe(422);
+    expect(ingestUpload).not.toHaveBeenCalled();
+  });
+
+  it("passes rememberMapping to ingestUpload when an explicit mapping is supplied", async () => {
+    ingestUpload.mockResolvedValue({ status: "created", upload: { id: "u1" }, appended: 1, duplicates: 0 });
+    const columns = { date: 0, merchant: 1, category: 2, amount: 3 };
+    await POST(post({ file: csvFile(), accountId: ACCOUNT, mapping: JSON.stringify(columns) }));
+    const passed = ingestUpload.mock.calls[0]?.[2];
+    expect(passed.rememberMapping.columns).toEqual(columns);
+    expect(typeof passed.rememberMapping.headerSignature).toBe("string");
+  });
+
+  it("does not pass rememberMapping on an auto/remembered import (no explicit mapping)", async () => {
+    ingestUpload.mockResolvedValue({ status: "created", upload: { id: "u1" }, appended: 1, duplicates: 0 });
+    await POST(post({ file: csvFile(), accountId: ACCOUNT }));
+    expect(ingestUpload.mock.calls[0]?.[2].rememberMapping).toBeUndefined();
   });
 
   it("returns 422 when the file exceeds the row cap", async () => {
-    parseStatementCsv.mockImplementationOnce(() => {
+    resolveUpload.mockImplementationOnce(async () => {
       throw new RowCapExceededError("too many rows: 20001 exceeds the 20000 cap");
     });
     const res = await POST(post({ file: csvFile(), accountId: ACCOUNT }));

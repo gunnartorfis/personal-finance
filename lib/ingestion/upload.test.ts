@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { householdRepo } from "@/lib/db/household-repo";
 import { households } from "@/lib/db/schema";
 
+import { headerSignature } from "./column-mapping";
 import type { ParsedRow } from "./parse-csv";
 import { ingestUpload } from "./upload";
 
@@ -98,5 +99,31 @@ describe("ingestUpload", () => {
     // Neither the upload nor any transaction is persisted — and the file hash isn't locked.
     expect(await repo.uploads.list()).toHaveLength(0);
     expect(await repo.transactions.list()).toHaveLength(0);
+  });
+
+  it("remembers the confirmed column mapping on a created import", async () => {
+    const { householdId, accountId, repo } = await setup();
+    const columns = { date: 0, merchant: 1, category: 2, amount: 3 };
+    const sig = headerSignature(["Foo", "Bar", "Baz", "Qux"]);
+    const result = await ingestUpload(asDb(db), householdId, {
+      accountId,
+      fileName: "a.csv",
+      bytes: bytes("remember-file"),
+      rows: [row(0, -1, "X")],
+      rememberMapping: { headerSignature: sig, columns },
+    });
+    expect(result.status).toBe("created");
+    expect((await repo.columnMappings.findBySignature(sig))?.columns).toEqual(columns);
+  });
+
+  it("does not remember a mapping when none is supplied (auto-detected import)", async () => {
+    const { householdId, accountId, repo } = await setup();
+    await ingestUpload(asDb(db), householdId, {
+      accountId,
+      fileName: "b.csv",
+      bytes: bytes("no-remember"),
+      rows: [row(0, -1, "X")],
+    });
+    expect(await repo.columnMappings.findBySignature(headerSignature(["Foo", "Bar"]))).toBeUndefined();
   });
 });

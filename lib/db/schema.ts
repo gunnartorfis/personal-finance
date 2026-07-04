@@ -610,7 +610,7 @@ export const merchantRules = pgTable(
 
 /**
  * A confirmed column mapping remembered per Household, keyed by a normalized header signature (the
- * folded, sorted set of the file's column labels — see `headerSignature`). Replayed on the next
+ * ordered, folded list of the file's column labels — see `headerSignature`). Replayed on the next
  * upload of a file with the same shape so a bank's format is taught once, then imports silently.
  * Belongs to the file's shape, not an Account, so two Accounts of the same bank share it.
  */

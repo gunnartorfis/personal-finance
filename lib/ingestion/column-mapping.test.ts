@@ -156,14 +156,18 @@ describe("parseColumnMappingJson", () => {
 });
 
 describe("headerSignature", () => {
-  it("is independent of column order", () => {
-    expect(headerSignature(["Dagsetning", "Mótaðili", "Tegund", "Upphæð"])).toBe(
-      headerSignature(["Upphæð", "Tegund", "Mótaðili", "Dagsetning"]),
+  it("is stable for the same header (order + casing + whitespace + diacritics normalized)", () => {
+    expect(headerSignature(["  DAGSETNING ", "Mótaðili"])).toBe(
+      headerSignature(["dagsetning", "motadili"]),
     );
   });
 
-  it("is independent of casing, surrounding whitespace, and diacritics folding", () => {
-    expect(headerSignature(["  DAGSETNING ", "Mótaðili"])).toBe(headerSignature(["dagsetning", "motadili"]));
+  it("is order-sensitive — a reordered header re-learns rather than replaying wrong indices", () => {
+    // Positional indices are only valid for the exact layout they were confirmed against, so a
+    // reorder (same label set) must NOT match the stored signature.
+    expect(headerSignature(["Dagsetning", "Mótaðili", "Tegund", "Upphæð"])).not.toBe(
+      headerSignature(["Upphæð", "Tegund", "Mótaðili", "Dagsetning"]),
+    );
   });
 
   it("differs when the set of columns differs (a changed export re-learns)", () => {
@@ -172,8 +176,9 @@ describe("headerSignature", () => {
     );
   });
 
-  it("ignores empty/blank labels", () => {
-    expect(headerSignature(["Dagsetning", "", "  ", "Upphæð"])).toBe(
+  it("preserves blank columns so positions are not shifted", () => {
+    // A blank middle column changes positional indices, so it must change the signature.
+    expect(headerSignature(["Dagsetning", "", "Upphæð"])).not.toBe(
       headerSignature(["Dagsetning", "Upphæð"]),
     );
   });
@@ -183,8 +188,8 @@ describe("headerSignature", () => {
     expect(headerSignature(["a|b", "c"])).not.toBe(headerSignature(["a", "b|c"]));
   });
 
-  it("yields a stable non-empty signature for an empty/all-blank header (never \"\")", () => {
+  it("yields a stable non-empty signature for an empty header (never \"\")", () => {
     expect(headerSignature([])).toBe("[]");
-    expect(headerSignature(["", "  "])).toBe("[]");
+    expect(headerSignature([]).length).toBeGreaterThan(0);
   });
 });
