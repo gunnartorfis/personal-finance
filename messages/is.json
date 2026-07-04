@@ -464,7 +464,8 @@
     "save": "Vista áætlun",
     "saving": "Vista…",
     "saved": "Áætlun vistuð.",
-    "error": "Ekki tókst að vista áætlunina. Reyndu aftur."
+    "error": "Ekki tókst að vista áætlunina. Reyndu aftur.",
+    "loading": "Hleð áætlun…"
   },
   "expenseCategory": {
     "fixed": "Fast",

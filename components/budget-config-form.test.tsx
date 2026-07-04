@@ -31,16 +31,18 @@ describe("BudgetConfigForm", () => {
     stubApi({ budgets: [{ expenseType: "Fixed", monthlyAmount: 200_000 }] })
     renderWithIntl(<BudgetConfigForm />)
 
-    expect(screen.getByText("Fixed")).toBeInTheDocument()
+    // The form gates on load; inputs appear once the fetch resolves.
+    await waitFor(() => expect(screen.getByText("Fixed")).toBeInTheDocument())
     expect(screen.getByText("Necessary")).toBeInTheDocument()
     expect(screen.getByText("Nice to have")).toBeInTheDocument()
-    await waitFor(() => expect(screen.getByDisplayValue("200000")).toBeInTheDocument())
+    expect(screen.getByDisplayValue("200000")).toBeInTheDocument()
   })
 
   it("saves only the filled categories as a positive-integer budget payload", async () => {
     const fetchMock = stubApi({ budgets: [] })
     renderWithIntl(<BudgetConfigForm />)
 
+    await waitFor(() => expect(screen.getAllByRole("spinbutton")).toHaveLength(3))
     const [fixed, necessary] = screen.getAllByRole("spinbutton")
     await userEvent.type(fixed, "150000")
     await userEvent.type(necessary, "80000")

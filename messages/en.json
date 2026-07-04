@@ -464,7 +464,8 @@
     "save": "Save budgets",
     "saving": "Saving…",
     "saved": "Budgets saved.",
-    "error": "Couldn't save your budgets. Please try again."
+    "error": "Couldn't save your budgets. Please try again.",
+    "loading": "Loading budgets…"
   },
   "expenseCategory": {
     "fixed": "Fixed",

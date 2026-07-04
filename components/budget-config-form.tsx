@@ -32,6 +32,7 @@ export function BudgetConfigForm() {
   const t = useTranslations("budgets")
   const [amounts, setAmounts] = useState<Amounts>(EMPTY)
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let active = true
@@ -46,10 +47,22 @@ export function BudgetConfigForm() {
       .catch(() => {
         /* leave the form empty on load failure; the user can still set budgets */
       })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
     return () => {
       active = false
     }
   }, [])
+
+  // Block interaction until the initial load resolves, so a slow fetch can't clobber typed input.
+  if (loading) {
+    return (
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" /> {t("loading")}
+      </p>
+    )
+  }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
