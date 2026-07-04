@@ -397,6 +397,28 @@ export function householdRepo(db: Db, householdId: string) {
           .select()
           .from(transactions)
           .where(eq(transactions.householdId, householdId)),
+      /**
+       * Candidate rows for inter-account transfer detection (#97): the minimal `{id, accountId,
+       * amount, date}` for every not-yet-linked, non-excluded Transaction. Filtered in SQL (uses the
+       * partial `transfer_group_id` index) so an import doesn't ship a household's whole history just
+       * to pair a couple of legs. Feeds the pure `detectTransferPairs`.
+       */
+      transferCandidates: () =>
+        db
+          .select({
+            id: transactions.id,
+            accountId: transactions.accountId,
+            amount: transactions.amount,
+            date: transactions.date,
+          })
+          .from(transactions)
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              isNull(transactions.transferGroupId),
+              eq(transactions.excluded, false)
+            )
+          ),
       listByAccount: (accountId: string) =>
         db
           .select()
