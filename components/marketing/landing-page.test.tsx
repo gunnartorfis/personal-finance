@@ -42,10 +42,22 @@ describe("LandingPage", () => {
     expect(screen.getByText("Recommended")).toBeInTheDocument()
   })
 
-  it("lists the core product features", () => {
+  it("groups the product features across the full surface", () => {
     render(<LandingPage />)
+    // Group headings.
+    expect(
+      screen.getByRole("heading", { name: "See where the money actually goes" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("heading", {
+        name: "Built for your household, owned by you",
+      })
+    ).toBeInTheDocument()
+    // A representative feature from each theme, including recently shipped ones.
     expect(screen.getByText("AI classification")).toBeInTheDocument()
-    expect(screen.getByText("Real net profit")).toBeInTheDocument()
-    expect(screen.getByText("Statement cycles")).toBeInTheDocument()
+    expect(screen.getByText("Recurring & subscriptions")).toBeInTheDocument()
+    expect(screen.getByText("Category budgets")).toBeInTheDocument()
+    expect(screen.getByText("Balance checks")).toBeInTheDocument()
+    expect(screen.getByText("Your data, always yours")).toBeInTheDocument()
   })
 })

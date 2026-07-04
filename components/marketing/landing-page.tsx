@@ -1,12 +1,15 @@
 import {
+  ArrowLeftRight,
   ArrowRight,
-  CalendarRange,
   Check,
+  Download,
+  Landmark,
   LineChart,
-  PenLine,
   PiggyBank,
+  Repeat,
+  ScanLine,
   Sparkles,
-  SlidersHorizontal,
+  Target,
   TrendingUp,
   Upload,
   Users,
@@ -118,47 +121,108 @@ export function LandingPage() {
     },
   ]
 
-  const features: {
+  // Features are grouped into three themes so the full product surface reads as a story rather than a
+  // flat wall of items. Each item carries a stable `id` (list keys don't depend on translated text)
+  // and its icon; copy is resolved with literal keys for next-intl's static checking.
+  const featureGroups: {
     id: string
-    icon: ComponentType<SVGProps<SVGSVGElement>>
     title: string
-    body: string
+    items: {
+      id: string
+      icon: ComponentType<SVGProps<SVGSVGElement>>
+      title: string
+      body: string
+    }[]
   }[] = [
     {
-      id: "ai",
-      icon: Sparkles,
-      title: t("features.ai.title"),
-      body: t("features.ai.body"),
+      id: "understand",
+      title: t("features.groups.understand"),
+      items: [
+        {
+          id: "ai",
+          icon: Sparkles,
+          title: t("features.ai.title"),
+          body: t("features.ai.body"),
+        },
+        {
+          id: "insights",
+          icon: LineChart,
+          title: t("features.insights.title"),
+          body: t("features.insights.body"),
+        },
+        {
+          id: "recurring",
+          icon: Repeat,
+          title: t("features.recurring.title"),
+          body: t("features.recurring.body"),
+        },
+        {
+          id: "transfers",
+          icon: ArrowLeftRight,
+          title: t("features.transfers.title"),
+          body: t("features.transfers.body"),
+        },
+      ],
     },
     {
-      id: "net",
-      icon: LineChart,
-      title: t("features.net.title"),
-      body: t("features.net.body"),
+      id: "control",
+      title: t("features.groups.control"),
+      items: [
+        {
+          id: "budgets",
+          icon: Target,
+          title: t("features.budgets.title"),
+          body: t("features.budgets.body"),
+        },
+        {
+          id: "forecast",
+          icon: TrendingUp,
+          title: t("features.forecast.title"),
+          body: t("features.forecast.body"),
+        },
+        {
+          id: "savings",
+          icon: PiggyBank,
+          title: t("features.savings.title"),
+          body: t("features.savings.body"),
+        },
+        {
+          id: "balance",
+          icon: ScanLine,
+          title: t("features.balance.title"),
+          body: t("features.balance.body"),
+        },
+      ],
     },
     {
       id: "household",
-      icon: Users,
-      title: t("features.household.title"),
-      body: t("features.household.body"),
-    },
-    {
-      id: "rules",
-      icon: SlidersHorizontal,
-      title: t("features.rules.title"),
-      body: t("features.rules.body"),
-    },
-    {
-      id: "override",
-      icon: PenLine,
-      title: t("features.override.title"),
-      body: t("features.override.body"),
-    },
-    {
-      id: "cycles",
-      icon: CalendarRange,
-      title: t("features.cycles.title"),
-      body: t("features.cycles.body"),
+      title: t("features.groups.household"),
+      items: [
+        {
+          id: "import",
+          icon: Upload,
+          title: t("features.import.title"),
+          body: t("features.import.body"),
+        },
+        {
+          id: "banksync",
+          icon: Landmark,
+          title: t("features.banksync.title"),
+          body: t("features.banksync.body"),
+        },
+        {
+          id: "shared",
+          icon: Users,
+          title: t("features.household.title"),
+          body: t("features.household.body"),
+        },
+        {
+          id: "export",
+          icon: Download,
+          title: t("features.export.title"),
+          body: t("features.export.body"),
+        },
+      ],
     },
   ]
 
@@ -287,22 +351,29 @@ export function LandingPage() {
                 {t("features.title")}
               </h2>
             </div>
-            <dl className="mt-12 grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-              {features.map((feature) => (
-                <div key={feature.id} className="flex flex-col gap-2">
-                  <dt className="flex items-center gap-2 text-lg font-medium">
-                    <feature.icon
-                      className="size-5 shrink-0 text-primary"
-                      aria-hidden="true"
-                    />
-                    {feature.title}
-                  </dt>
-                  <dd className="text-base text-pretty text-muted-foreground">
-                    {feature.body}
-                  </dd>
+            <div className="mt-12 flex flex-col gap-14">
+              {featureGroups.map((group) => (
+                <div key={group.id} className="flex flex-col gap-6">
+                  <h3 className="text-xl font-medium">{group.title}</h3>
+                  <dl className="grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+                    {group.items.map((feature) => (
+                      <div key={feature.id} className="flex flex-col gap-2">
+                        <dt className="flex items-center gap-2 text-lg font-medium">
+                          <feature.icon
+                            className="size-5 shrink-0 text-primary"
+                            aria-hidden="true"
+                          />
+                          {feature.title}
+                        </dt>
+                        <dd className="text-base text-pretty text-muted-foreground">
+                          {feature.body}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
                 </div>
               ))}
-            </dl>
+            </div>
           </div>
         </section>
 

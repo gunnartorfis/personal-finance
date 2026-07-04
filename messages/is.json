@@ -373,29 +373,58 @@
     "features": {
       "eyebrow": "Eiginleikar",
       "title": "Allt sem heimili þarf til að vera heiðarlegt við sig sjálft.",
+      "groups": {
+        "understand": "Sjáðu hvert peningarnir fara í raun",
+        "control": "Skipulegðu fram í tímann og haltu stjórn",
+        "household": "Gert fyrir heimilið þitt, í þinni eigu"
+      },
       "ai": {
         "title": "Gervigreindarflokkun",
         "body": "Hver færsla flokkuð sjálfkrafa, með rökstuðningi og vissu að baki hverri ákvörðun."
       },
-      "net": {
-        "title": "Raunverulegur hagnaður",
-        "body": "Tekjur mínus kortanotkun mínus fastir reikningar — ein heiðarleg tala á hverju greiðslutímabili."
+      "insights": {
+        "title": "Innsýn í útgjöld",
+        "body": "Þróun yfir tólf mánuði, efstu söluaðilar, mesta breytingin og skiptingin í Fast / Nauðsynlegt / Gott að hafa."
+      },
+      "recurring": {
+        "title": "Áskriftir og endurteknar færslur",
+        "body": "Við finnum allar endurteknar færslur og leggjum saman mánaðarlegu skuldbindinguna sem safnast upp."
+      },
+      "transfers": {
+        "title": "Millifærslur, ekki útgjöld",
+        "body": "Færslur milli þinna eigin reikninga eru greindar og haldið utan útgjaldatalna."
+      },
+      "budgets": {
+        "title": "Flokkaáætlun",
+        "body": "Settu mánaðarlega áætlun fyrir hvern flokk og fylgstu með hverjum potti fyllast eftir því sem líður á tímabilið."
+      },
+      "forecast": {
+        "title": "Hrein eign og ending",
+        "body": "Fylgstu með hreinni eign, sjáðu hversu marga mánuði endingin nær og áætlaðu sjóðstreymi næsta árs."
+      },
+      "savings": {
+        "title": "Sparnaður á sjálfstýringu",
+        "body": "Settu markmið og dagsetningu — við metum hvort þú ert á áætlun út frá útgjöldum þínum, án bókhalds."
+      },
+      "balance": {
+        "title": "Stöðuathugun",
+        "body": "Við merkjum reikninga þar sem innfluttar færslur stemma ekki við stöðuna sem þú skráðir."
+      },
+      "import": {
+        "title": "Flyttu inn hvaða yfirlit sem er",
+        "body": "Slepptu inn CSV frá hvaða banka sem er — dálkar greinast sjálfkrafa og endurhleðslur tvítaka aldrei færslu."
+      },
+      "banksync": {
+        "title": "Sjálfvirk bankasamstilling",
+        "body": "Tengdu bankann og láttu færslur streyma inn daglega, engin skrá. Í boði á Premium."
       },
       "household": {
         "title": "Deilt með heimili",
         "body": "Ein fjárhagsmynd fyrir par eða fjölskyldu. Allir hlaða upp, allir sjá heildina."
       },
-      "rules": {
-        "title": "Söluaðilareglur",
-        "body": "Kenndu því einu sinni. Regla eins og „Netflix er Gott að hafa“ helst fyrir allar framtíðar upphleðslur."
-      },
-      "override": {
-        "title": "Þín ákvörðun ræður alltaf",
-        "body": "Ósammála flokkun? Hnekktu hvaða færslu sem er og þitt val hefur forgang."
-      },
-      "cycles": {
-        "title": "Greiðslutímabil",
-        "body": "Stilltu lokadag kortsins svo allar tölur passi við yfirlitið sem þú raunverulega greiðir."
+      "export": {
+        "title": "Gögnin þín, alltaf þín",
+        "body": "Flyttu allt út í JSON hvenær sem þú vilt og notaðu appið á íslensku eða ensku, ljóst eða dökkt."
       }
     },
     "pricing": {
