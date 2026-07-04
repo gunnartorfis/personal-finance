@@ -90,31 +90,50 @@ export async function runMonthlyDigest(deps: MonthlyDigestDeps): Promise<DigestR
   let failed = 0
 
   for (const household of households) {
-    const data = await deps.loadCycle(household.householdId, cycleKey)
-    const model = data ? buildMonthlyDigest(assembleDigestInput(data, cycleKey)) : null
-    if (!model || !model.hasActivity) {
-      skippedEmpty += household.members.length
-      continue
-    }
-
-    for (const member of household.members) {
-      if (await deps.hasSent(member.memberId, cycleKey)) {
-        skippedAlreadySent += 1
+    // Isolate each Household: a flaky loadCycle (or any throw) must not abort the whole batch and
+    // starve every later Household — bound the blast radius to this one.
+    try {
+      const data = await deps.loadCycle(household.householdId, cycleKey)
+      const model = data ? buildMonthlyDigest(assembleDigestInput(data, cycleKey)) : null
+      if (!model || !model.hasActivity) {
+        skippedEmpty += household.members.length
         continue
       }
-      const { subject, html } = renderMonthlyDigestEmail({
-        model,
-        locale: member.locale ?? defaultLocale,
-        unsubscribeUrl: deps.unsubscribeUrlFor(member.memberId),
-        dashboardUrl: deps.dashboardUrl,
-      })
-      const result = await deps.send.send({ from: deps.from, to: member.email, subject, html })
-      if (result.ok) {
-        await deps.recordSent(household.householdId, member.memberId, cycleKey)
-        sent += 1
-      } else {
-        failed += 1
+
+      for (const member of household.members) {
+        try {
+          if (await deps.hasSent(member.memberId, cycleKey)) {
+            skippedAlreadySent += 1
+            continue
+          }
+          const { subject, html } = renderMonthlyDigestEmail({
+            model,
+            locale: member.locale ?? defaultLocale,
+            unsubscribeUrl: deps.unsubscribeUrlFor(member.memberId),
+            dashboardUrl: deps.dashboardUrl,
+          })
+          const result = await deps.send.send({ from: deps.from, to: member.email, subject, html })
+          if (!result.ok) {
+            failed += 1
+            continue
+          }
+          // The email landed — count it as sent regardless of what the ledger write does next.
+          sent += 1
+          try {
+            await deps.recordSent(household.householdId, member.memberId, cycleKey)
+          } catch (error) {
+            // Delivered but the ledger write failed: a rerun may re-send this one Member. Better than
+            // aborting the batch; log and move on (at-most-once degrades to at-least-once only here).
+            console.error(`[digest] recordSent failed for member ${member.memberId} cycle ${cycleKey}`, error)
+          }
+        } catch (error) {
+          console.error(`[digest] send failed for member ${member.memberId} cycle ${cycleKey}`, error)
+          failed += 1
+        }
       }
+    } catch (error) {
+      console.error(`[digest] household ${household.householdId} failed for cycle ${cycleKey}`, error)
+      failed += household.members.length
     }
   }
 

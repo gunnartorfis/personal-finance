@@ -152,6 +152,64 @@ describe("runMonthlyDigest", () => {
     expect(is?.subject).toContain("júlí 2026")
   })
 
+  it("counts the email as sent even if recording the ledger throws (no abort)", async () => {
+    const { sender, sent } = fakeSender()
+    const summary = await runMonthlyDigest(
+      deps({
+        send: sender,
+        recordSent: async () => {
+          throw new Error("db timeout")
+        },
+      }),
+    )
+    expect(sent).toHaveLength(1)
+    expect(summary).toMatchObject({ sent: 1, failed: 0 })
+  })
+
+  it("isolates a failing household so later households still send", async () => {
+    const { sender, sent } = fakeSender()
+    const summary = await runMonthlyDigest(
+      deps({
+        send: sender,
+        listRecipients: async () => [
+          { householdId: "boom", members: [{ memberId: "m-x", email: "x@x.co", locale: "en" }] },
+          { householdId: "ok", members: [{ memberId: "m-y", email: "y@x.co", locale: "en" }] },
+        ],
+        loadCycle: async (householdId) => {
+          if (householdId === "boom") throw new Error("db down")
+          return cycleData()
+        },
+      }),
+    )
+    expect(sent.map((s) => s.to)).toEqual(["y@x.co"])
+    expect(summary).toMatchObject({ sent: 1, failed: 1 })
+  })
+
+  it("isolates a failing member so siblings still send", async () => {
+    const sentTo: string[] = []
+    const send = vi.fn(async (params: SendEmailParams) => {
+      if (params.to === "bad@x.co") throw new Error("resend timeout")
+      sentTo.push(params.to)
+      return { ok: true, id: "e1" } as const
+    })
+    const summary = await runMonthlyDigest(
+      deps({
+        send: { send } as EmailSender,
+        listRecipients: async () => [
+          {
+            householdId: "h1",
+            members: [
+              { memberId: "m-bad", email: "bad@x.co", locale: "en" },
+              { memberId: "m-good", email: "good@x.co", locale: "en" },
+            ],
+          },
+        ],
+      }),
+    )
+    expect(sentTo).toEqual(["good@x.co"])
+    expect(summary).toMatchObject({ sent: 1, failed: 1 })
+  })
+
   it("falls back to the default locale when a member has none", async () => {
     const { sender, sent } = fakeSender()
     await runMonthlyDigest(
