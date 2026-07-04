@@ -210,6 +210,22 @@ describe("runMonthlyDigest", () => {
     expect(summary).toMatchObject({ sent: 1, failed: 1 })
   })
 
+  it("builds the unsubscribe link with the member's resolved locale", async () => {
+    const calls: Array<[string, string]> = []
+    await runMonthlyDigest(
+      deps({
+        unsubscribeUrlFor: (memberId, locale) => {
+          calls.push([memberId, locale])
+          return `https://auratal.is/digest/unsubscribe?token=${memberId}&l=${locale}`
+        },
+        listRecipients: async () => [
+          { householdId: "h1", members: [{ memberId: "m-is", email: "is@x.co", locale: "is" }] },
+        ],
+      }),
+    )
+    expect(calls).toEqual([["m-is", "is"]])
+  })
+
   it("falls back to the default locale when a member has none", async () => {
     const { sender, sent } = fakeSender()
     await runMonthlyDigest(
