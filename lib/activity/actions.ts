@@ -1,0 +1,18 @@
+/**
+ * Intent-level Activity log action constants (ADR-0017), stored in `activity_log.action`. Recorded
+ * explicitly by the route/domain layer that knows the intent — never auto-derived from table
+ * writes. Grouped by domain; the member-facing UI (later slice) maps each to a localized label.
+ */
+export const ActivityAction = {
+  // Transactions (ADR-0009/0011/0014).
+  TransactionExcluded: "transaction.excluded",
+  TransactionIncluded: "transaction.included",
+  TransactionIncomeMarked: "transaction.income_marked",
+  TransactionIncomeUnmarked: "transaction.income_unmarked",
+  TransactionRetyped: "transaction.retyped",
+  TransactionRetypeCleared: "transaction.retype_cleared",
+  TransactionShareSet: "transaction.share_set",
+  TransactionShareCleared: "transaction.share_cleared",
+} as const;
+
+export type ActivityAction = (typeof ActivityAction)[keyof typeof ActivityAction];

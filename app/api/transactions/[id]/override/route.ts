@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { requireHousehold } from "@/lib/household/current"
 import { isExpenseType } from "@/shared/types"
 
@@ -26,13 +28,19 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "invalid expenseType" }, { status: 400 })
   }
 
-  const { repo, memberId } = await requireHousehold()
+  const ctx = await requireHousehold()
+  const { repo, memberId } = ctx
   const transaction = await repo.transactions.findById(id)
   if (!transaction) {
     return NextResponse.json({ error: "transaction not found" }, { status: 404 })
   }
 
   const [override] = await repo.overrides.upsert({ transactionId: id, expenseType, memberId })
+  await recordActivity(ctx, ActivityAction.TransactionRetyped, {
+    transactionId: id,
+    merchant: transaction.merchant,
+    expenseType,
+  })
   return NextResponse.json(override)
 }
 
@@ -42,12 +50,20 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "invalid transaction id" }, { status: 400 })
   }
 
-  const { repo } = await requireHousehold()
+  const ctx = await requireHousehold()
+  const { repo } = ctx
   const transaction = await repo.transactions.findById(id)
   if (!transaction) {
     return NextResponse.json({ error: "transaction not found" }, { status: 404 })
   }
 
   const removed = await repo.overrides.remove(id)
+  if (removed.length > 0) {
+    // Only a real clear is worth logging — clearing an un-overridden row is a no-op.
+    await recordActivity(ctx, ActivityAction.TransactionRetypeCleared, {
+      transactionId: id,
+      merchant: transaction.merchant,
+    })
+  }
   return NextResponse.json({ cleared: removed.length > 0 })
 }

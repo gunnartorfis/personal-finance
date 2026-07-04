@@ -24,13 +24,18 @@ function householdWith(
   }
 ) {
   const setExcluded = vi.fn().mockResolvedValue([result])
+  const record = vi.fn().mockResolvedValue([])
   return {
     setExcluded,
+    record,
+    memberId: "member-1",
+    user: { name: "Ada", email: "ada@x.is" },
     repo: {
       transactions: {
         findById: vi.fn().mockResolvedValue(transaction),
         setExcluded,
       },
+      activity: { record },
     },
   }
 }
@@ -68,6 +73,18 @@ describe("PUT /api/transactions/[id]/exclude", () => {
       id: ID,
       excluded: true,
       exclusionNote: null,
+    })
+  })
+
+  it("records a transaction.excluded activity entry attributed to the actor", async () => {
+    const h = householdWith({ id: ID, amount: -500, merchant: "Netto" })
+    requireHousehold.mockResolvedValue(h)
+    await PUT(req("PUT"), ctx(ID))
+    expect(h.record).toHaveBeenCalledWith({
+      memberId: "member-1",
+      actorName: "Ada",
+      action: "transaction.excluded",
+      payload: { transactionId: ID, merchant: "Netto", amount: -500, note: null },
     })
   })
 
@@ -150,6 +167,9 @@ describe("DELETE /api/transactions/[id]/exclude", () => {
     const res = await DELETE(req("DELETE"), ctx(ID))
     expect(res.status).toBe(200)
     expect(h.setExcluded).toHaveBeenCalledWith(ID, false, null)
+    expect(h.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "transaction.included" }),
+    )
     expect(await res.json()).toEqual({
       id: ID,
       excluded: false,

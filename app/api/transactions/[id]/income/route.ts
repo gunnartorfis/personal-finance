@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { requireHousehold } from "@/lib/household/current"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -18,7 +20,8 @@ async function setMarked(id: string, incomeMarked: boolean) {
     return NextResponse.json({ error: "invalid transaction id" }, { status: 400 })
   }
 
-  const { repo } = await requireHousehold()
+  const ctx = await requireHousehold()
+  const { repo } = ctx
   const transaction = await repo.transactions.findById(id)
   if (!transaction) {
     return NextResponse.json({ error: "transaction not found" }, { status: 404 })
@@ -43,6 +46,13 @@ async function setMarked(id: string, incomeMarked: boolean) {
     // The row can vanish (or stop qualifying) between findById and the guarded update.
     return NextResponse.json({ error: "transaction not found" }, { status: 404 })
   }
+  await recordActivity(
+    ctx,
+    incomeMarked
+      ? ActivityAction.TransactionIncomeMarked
+      : ActivityAction.TransactionIncomeUnmarked,
+    { transactionId: id, merchant: transaction.merchant, amount: transaction.amount },
+  )
   return NextResponse.json({ id: updated.id, incomeMarked: updated.incomeMarked })
 }
 

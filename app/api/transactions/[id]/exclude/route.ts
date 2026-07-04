@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { requireHousehold } from "@/lib/household/current"
 
 const UUID_RE =
@@ -27,7 +29,8 @@ async function setExcluded(id: string, excluded: boolean, note: string | null) {
     )
   }
 
-  const { repo } = await requireHousehold()
+  const ctx = await requireHousehold()
+  const { repo } = ctx
   const transaction = await repo.transactions.findById(id)
   if (!transaction) {
     return NextResponse.json(
@@ -44,6 +47,11 @@ async function setExcluded(id: string, excluded: boolean, note: string | null) {
       { status: 404 }
     )
   }
+  await recordActivity(
+    ctx,
+    excluded ? ActivityAction.TransactionExcluded : ActivityAction.TransactionIncluded,
+    { transactionId: id, merchant: transaction.merchant, amount: transaction.amount, note },
+  )
   return NextResponse.json({
     id: updated.id,
     excluded: updated.excluded,

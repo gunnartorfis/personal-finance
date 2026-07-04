@@ -11,13 +11,18 @@ const req = (method: string) => new Request("http://test/", { method })
 
 function householdWith(transaction: unknown, marked = true) {
   const setIncomeMarked = vi.fn().mockResolvedValue([{ id: ID, incomeMarked: marked }])
+  const record = vi.fn().mockResolvedValue([])
   return {
     setIncomeMarked,
+    record,
+    memberId: "member-1",
+    user: { name: "Ada", email: "ada@x.is" },
     repo: {
       transactions: {
         findById: vi.fn().mockResolvedValue(transaction),
         setIncomeMarked,
       },
+      activity: { record },
     },
   }
 }
@@ -67,6 +72,12 @@ describe("PUT /api/transactions/[id]/income", () => {
     const res = await PUT(req("PUT"), ctx(ID))
     expect(res.status).toBe(200)
     expect(h.setIncomeMarked).toHaveBeenCalledWith(ID, true)
+    expect(h.record).toHaveBeenCalledWith({
+      memberId: "member-1",
+      actorName: "Ada",
+      action: "transaction.income_marked",
+      payload: { transactionId: ID, merchant: undefined, amount: 1000 },
+    })
     expect(await res.json()).toEqual({ id: ID, incomeMarked: true })
   })
 })
@@ -90,6 +101,9 @@ describe("DELETE /api/transactions/[id]/income", () => {
     const res = await DELETE(req("DELETE"), ctx(ID))
     expect(res.status).toBe(200)
     expect(h.setIncomeMarked).toHaveBeenCalledWith(ID, false)
+    expect(h.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "transaction.income_unmarked" }),
+    )
     expect(await res.json()).toEqual({ id: ID, incomeMarked: false })
   })
 })
