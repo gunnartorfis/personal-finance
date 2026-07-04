@@ -1,5 +1,4 @@
 import { createTranslator } from "next-intl"
-import { renderToStaticMarkup } from "react-dom/server"
 
 import { currencyFormatter } from "@/lib/format/currency"
 import { formatCycleMonth } from "@/lib/format/date"
@@ -10,7 +9,7 @@ import is from "@/messages/is.json"
 import type { RealType } from "@/shared/types"
 
 import type { MonthlyDigestModel } from "../build-monthly"
-import { MonthlyDigestEmail, type DigestRow } from "./monthly-digest-email"
+import { renderMonthlyDigestEmailBody, type DigestRow } from "./monthly-digest-email"
 
 const catalogs: Record<Locale, typeof en> = { en, is }
 
@@ -81,27 +80,23 @@ export function renderMonthlyDigestEmail(input: RenderMonthlyDigestInput): Rende
       }
     : null
 
-  const html =
-    "<!DOCTYPE html>" +
-    renderToStaticMarkup(
-      <MonthlyDigestEmail
-        lang={bcp47[locale]}
-        heading={t("digest.heading", { month })}
-        preheader={t("digest.preheader", { month })}
-        headline={headline}
-        vsLastMonth={vsLastMonth}
-        splitHeading={t("digest.splitHeading")}
-        split={split}
-        moversHeading={t("digest.moversHeading")}
-        movers={movers}
-        savings={savings}
-        ctaLabel={t("digest.cta")}
-        ctaUrl={input.dashboardUrl}
-        unsubscribeLabel={t("digest.unsubscribe")}
-        unsubscribeUrl={input.unsubscribeUrl}
-        footer={t("digest.footer")}
-      />,
-    )
+  const html = renderMonthlyDigestEmailBody({
+    lang: bcp47[locale],
+    heading: t("digest.heading", { month }),
+    preheader: t("digest.preheader", { month }),
+    headline,
+    vsLastMonth,
+    splitHeading: t("digest.splitHeading"),
+    split,
+    moversHeading: t("digest.moversHeading"),
+    movers,
+    savings,
+    ctaLabel: t("digest.cta"),
+    ctaUrl: input.dashboardUrl,
+    unsubscribeLabel: t("digest.unsubscribe"),
+    unsubscribeUrl: input.unsubscribeUrl,
+    footer: t("digest.footer"),
+  })
 
   return { subject: t("digest.subject", { month }), html }
 }

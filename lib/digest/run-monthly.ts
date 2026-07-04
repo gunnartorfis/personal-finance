@@ -3,7 +3,7 @@ import { currentCycleKey, previousCycleKey, type CycleKey } from "@/lib/dashboar
 import type { MonthlySpendPoint } from "@/lib/dashboard/monthly-series"
 import type { Mover } from "@/lib/dashboard/movers"
 import type { EmailSender } from "@/lib/email/resend"
-import { defaultLocale } from "@/lib/i18n/config"
+import { defaultLocale, type Locale } from "@/lib/i18n/config"
 import type { SavingsAssessment } from "@/lib/savings/assessment"
 
 import { buildMonthlyDigest, type MonthlyDigestInput } from "./build-monthly"
@@ -61,8 +61,8 @@ export interface MonthlyDigestDeps {
   hasSent: (memberId: string, cycleKey: CycleKey) => Promise<boolean>
   /** Record a successful send in the append-only ledger. */
   recordSent: (householdId: string, memberId: string, cycleKey: CycleKey) => Promise<void>
-  /** The auth-less unsubscribe link for a Member (signed token wired in slice 6). */
-  unsubscribeUrlFor: (memberId: string) => string
+  /** The auth-less unsubscribe link for a Member, in their resolved Locale (so the page matches). */
+  unsubscribeUrlFor: (memberId: string, locale: Locale) => string
 }
 
 export interface DigestRunSummary {
@@ -110,10 +110,11 @@ export async function runMonthlyDigest(deps: MonthlyDigestDeps): Promise<DigestR
             skippedAlreadySent += 1
             continue
           }
+          const locale = member.locale ?? defaultLocale
           const { subject, html } = renderMonthlyDigestEmail({
             model,
-            locale: member.locale ?? defaultLocale,
-            unsubscribeUrl: deps.unsubscribeUrlFor(member.memberId),
+            locale,
+            unsubscribeUrl: deps.unsubscribeUrlFor(member.memberId, locale),
             dashboardUrl: deps.dashboardUrl,
           })
           const result = await deps.send.send({ from: deps.from, to: member.email, subject, html })

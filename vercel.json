@@ -8,6 +8,7 @@
   },
   "crons": [
     { "path": "/api/billing/renew", "schedule": "0 3 * * *" },
-    { "path": "/api/open-banking/sync", "schedule": "0 4 * * *" }
+    { "path": "/api/open-banking/sync", "schedule": "0 4 * * *" },
+    { "path": "/api/digests/monthly", "schedule": "0 6 1 * *" }
   ]
 }
