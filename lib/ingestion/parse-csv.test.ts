@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseStatementCsv } from "./parse-csv";
+import { parseStatementCsv, parseWithMapping } from "./parse-csv";
 
 const CSV = [
   "Dagsetning,Mótaðili,Tegund,Upphæð",
@@ -58,5 +58,44 @@ describe("parseStatementCsv", () => {
     const rows = parseStatementCsv(csv);
     expect(rows).toHaveLength(1);
     expect(rows[0].merchant).toHaveLength(200);
+  });
+
+  it("names the unmatched roles when required columns are missing", () => {
+    // No amount column — the error now identifies which role could not be mapped.
+    expect(() => parseStatementCsv("Dagsetning,Mótaðili,Tegund\n01.03.2026,X,Y\n")).toThrow(
+      /amount/,
+    );
+  });
+});
+
+describe("parseWithMapping", () => {
+  it("parses rows using an explicit caller-supplied mapping", () => {
+    const csv = ["Amount,Description,Date,Category", "-1.990 kr.,NETFLIX,01.03.2026,Afþreying"].join(
+      "\n",
+    );
+    const rows = parseWithMapping(csv, { amount: 0, merchant: 1, date: 2, category: 3 });
+    expect(rows).toEqual([
+      { sourceRow: 0, date: "2026-03-01", amount: -1990, merchant: "NETFLIX", rawCategory: "Afþreying" },
+    ]);
+  });
+
+  it("skips non-date/separator rows and preserves the source row index", () => {
+    const csv = [
+      "Dagsetning,Mótaðili,Tegund,Upphæð",
+      "01.03.2026,NETFLIX,Afþreying,-1.990 kr.",
+      "-------,,,",
+      "05.03.2026,BÓNUS,Verslun,-3.200 kr.",
+    ].join("\n");
+    const rows = parseWithMapping(csv, { date: 0, merchant: 1, category: 2, amount: 3 });
+    expect(rows).toHaveLength(2);
+    expect(rows[1].sourceRow).toBe(2);
+  });
+
+  it("honors the row cap", () => {
+    const body = Array.from({ length: 20_001 }, () => "01.03.2026,SHOP,Verslun,-100 kr.").join("\n");
+    const csv = `Dagsetning,Mótaðili,Tegund,Upphæð\n${body}`;
+    expect(() => parseWithMapping(csv, { date: 0, merchant: 1, category: 2, amount: 3 })).toThrow(
+      /too many rows/,
+    );
   });
 });

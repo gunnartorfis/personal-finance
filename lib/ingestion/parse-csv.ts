@@ -1,6 +1,6 @@
 import Papa from "papaparse";
 
-import { detectColumnMapping } from "./column-mapping";
+import { detectColumnMapping, type ColumnMapping } from "./column-mapping";
 
 /**
  * Parse an Icelandic bank-statement CSV (ADR-0003) from decoded text — the web ingestion path
@@ -41,17 +41,8 @@ function parseAmount(s: string): number | null {
   return /^-?\d+$/.test(c) ? parseInt(c, 10) : null;
 }
 
-export function parseStatementCsv(text: string): ParsedRow[] {
-  const rows = Papa.parse<string[]>(text, { skipEmptyLines: false }).data;
-  if (rows.length === 0) return [];
-
-  const header = rows[0];
-  // Auto-detect the date/amount/merchant/category columns from arbitrary header names/orders (#96);
-  // the foreign-currency amount column is excluded by the detector.
-  const mapping = detectColumnMapping(header);
-  if (!mapping) {
-    throw new Error(`missing required columns in header: ${header.join(", ")}`);
-  }
+/** Emit ParsedRows from already-parsed CSV cells using a resolved column mapping. */
+function rowsToParsed(rows: string[][], mapping: ColumnMapping): ParsedRow[] {
   const { date: iDate, amount: iAmt, merchant: iMerch, category: iCat } = mapping;
 
   const out: ParsedRow[] = [];
@@ -73,4 +64,32 @@ export function parseStatementCsv(text: string): ParsedRow[] {
     throw new Error(`too many rows: ${out.length} exceeds the ${MAX_ROWS} cap`);
   }
   return out;
+}
+
+/**
+ * Parse a statement CSV with an explicit, caller-supplied column mapping — the deterministic core
+ * used both by auto-detection here and (ADR-0018) by the commit path once a mapping is confirmed.
+ *
+ * Expects a header-bearing CSV: the first row is treated as the header and skipped (the mapping's
+ * indices point at columns in that header). This matches the commit path, which re-sends the same
+ * header-bearing file the preview parsed. A headerless CSV would silently drop its first data row.
+ */
+export function parseWithMapping(text: string, mapping: ColumnMapping): ParsedRow[] {
+  const rows = Papa.parse<string[]>(text, { skipEmptyLines: false }).data;
+  if (rows.length === 0) return [];
+  return rowsToParsed(rows, mapping);
+}
+
+export function parseStatementCsv(text: string): ParsedRow[] {
+  const rows = Papa.parse<string[]>(text, { skipEmptyLines: false }).data;
+  if (rows.length === 0) return [];
+
+  const header = rows[0];
+  // Auto-detect the date/amount/merchant/category columns from arbitrary header names/orders (#96);
+  // the foreign-currency amount column is excluded by the detector.
+  const { resolved, unmatched } = detectColumnMapping(header);
+  if (unmatched.length > 0) {
+    throw new Error(`missing required columns: ${unmatched.join(", ")} (header: ${header.join(", ")})`);
+  }
+  return rowsToParsed(rows, resolved as ColumnMapping);
 }
