@@ -69,7 +69,7 @@ export function NetWorthProjectionChart({
         <p className="text-sm text-pretty text-muted-foreground">
           {t("subtitle", { amount: fmt(last.netWorth), month: formatCycleMonth(last.cycleKey, locale) })}
         </p>
-        {horizonNet != null && horizonMonths ? (
+        {horizonNet != null && horizonMonths != null ? (
           <p className="text-sm text-pretty text-muted-foreground">
             {t(horizonNet >= 0 ? "cashFlowSaved" : "cashFlowSpent", {
               amount: fmt(Math.abs(horizonNet)),
