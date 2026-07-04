@@ -128,12 +128,12 @@ describe("loadBiggestMovers / loadLargestCharge", () => {
       { name: "Necessary", lastMonth: 400, baselineAverage: 100, delta: 300, deltaPct: 300 },
     ]);
 
-    expect(await loadLargestCharge(repo, NOW)).toEqual({ merchant: "BIGSHOP", amount: 600 });
+    expect(await loadLargestCharge(repo, "2026-03")).toEqual({ merchant: "BIGSHOP", amount: 600 });
   });
 
   it("is empty / null for a household with no transactions", async () => {
     const repo = await freshHousehold();
     expect(await loadBiggestMovers(repo, NOW, 12)).toEqual({ merchants: [], categories: [] });
-    expect(await loadLargestCharge(repo, NOW)).toBeNull();
+    expect(await loadLargestCharge(repo, "2026-03")).toBeNull();
   });
 });

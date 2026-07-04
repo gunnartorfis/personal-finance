@@ -13,18 +13,21 @@ export interface PeriodOption {
 }
 
 /**
- * Period navigation for the transactions view: a month dropdown flanked by previous/next steppers.
- * Selection is driven entirely by the `cycle` query param (the server reads it and re-renders), so
- * a period is shareable and survives a refresh. `options` is newest-first; the steppers walk that
- * list (older = further down, newer = further up) and disable at the ends so navigation never lands
- * on a period with no data.
+ * Period navigation for a cycle-scoped view (the transactions list and the dashboard hero): a month
+ * dropdown flanked by previous/next steppers. Selection is driven entirely by the `cycle` query
+ * param on `basePath` (the server reads it and re-renders), so a period is shareable and survives a
+ * refresh. `options` is newest-first; the steppers walk that list (older = further down, newer =
+ * further up) and disable at the ends so navigation never lands on a period with no data.
  */
 export function PeriodSelector({
   options,
   selected,
+  basePath = "/transactions",
 }: {
   options: PeriodOption[]
   selected: string
+  /** Route the `?cycle=` navigation targets; defaults to the transactions list. */
+  basePath?: string
 }) {
   const t = useTranslations("periodSelector")
   const router = useRouter()
@@ -34,7 +37,7 @@ export function PeriodSelector({
   const newer = index > 0 ? options[index - 1] : null
 
   function go(key: string) {
-    router.push(`/transactions?cycle=${key}`, { scroll: false })
+    router.push(`${basePath}?cycle=${key}`, { scroll: false })
   }
 
   return (

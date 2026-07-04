@@ -5,7 +5,7 @@ import type { ExpenseType } from "@/shared/types";
 import type { CategoryTrendPoint } from "./category-trend";
 import { loadCategoryTrend } from "./category-trend";
 import type { CycleKey } from "./cycle";
-import { currentCycleKey, cycleKeyRange, cycleRange, recentCycleKeys } from "./cycle";
+import { currentCycleKey, cycleKeyRange, recentCycleKeys } from "./cycle";
 
 /**
  * A "biggest mover" (Phase K, ADR-0008): an entity (merchant or category) whose spend in the last
@@ -137,11 +137,11 @@ export async function loadBiggestMovers(
   return { merchants, categories };
 }
 
-/** Load the single largest charge in the current statement cycle (or null when there are none). */
+/** Load the single largest charge in the given statement cycle (or null when there are none). */
 export async function loadLargestCharge(
   repo: HouseholdRepo,
-  now: Date,
+  cycle: CycleKey,
 ): Promise<LargestCharge | null> {
-  const row = await repo.transactions.largestCharge(cycleRange(now));
+  const row = await repo.transactions.largestCharge(cycleKeyRange(cycle));
   return row ?? null;
 }

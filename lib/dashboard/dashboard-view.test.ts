@@ -86,6 +86,7 @@ describe("assembleDashboardView", () => {
     const trend = computeSpendingTrendStats(SERIES, NOW);
     const view = assembleDashboardView(baseInputs());
     expect(view.hero.month).toBe("2026-03");
+    expect(view.hero.isCurrent).toBe(true);
     expect(view.hero.spentSoFar).toBe(100000);
     expect(view.hero.income).toBe(20000);
     expect(view.hero.difference).toBe(-80000);
@@ -93,6 +94,28 @@ describe("assembleDashboardView", () => {
     expect(view.hero.vsAveragePct).toBe(trend.vsAveragePct);
     expect(view.hero.trailingAverage).toBe(trend.trailingAverage);
     expect(view.hero.largestCharge).toEqual({ merchant: "BIGSHOP", amount: 50000 });
+  });
+
+  it("scopes the hero to a selected past cycle: final total, no projection, its own vs-average", () => {
+    // A longer series so the selected past month has the required ≥3 completed months before it.
+    const series: MonthlySpendPoint[] = [
+      { month: "2025-11", spending: 200000, income: 0, difference: -200000 },
+      { month: "2025-12", spending: 300000, income: 0, difference: -300000 },
+      { month: "2026-01", spending: 400000, income: 0, difference: -400000 },
+      { month: "2026-02", spending: 360000, income: 15000, difference: -345000 },
+      { month: "2026-03", spending: 100000, income: 20000, difference: -80000 },
+    ];
+    // 2026-02 spent 360000; the completed months before it (200000, 300000, 400000) average 300000,
+    // so it ran (360000-300000)/300000 = +20%.
+    const view = assembleDashboardView(baseInputs({ series, selectedKey: "2026-02" }));
+    expect(view.hero.month).toBe("2026-02");
+    expect(view.hero.isCurrent).toBe(false);
+    expect(view.hero.spentSoFar).toBe(360000);
+    expect(view.hero.income).toBe(15000);
+    expect(view.hero.difference).toBe(-345000);
+    expect(view.hero.projected).toBeNull(); // a completed month is not projected
+    expect(view.hero.trailingAverage).toBe(300000);
+    expect(view.hero.vsAveragePct).toBe(20);
   });
 
   it("builds budget envelopes from the current cycle's category spend vs the set budgets", () => {

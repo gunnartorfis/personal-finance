@@ -19,7 +19,7 @@ import type { LargestCharge, Mover } from "./movers";
 import { loadBiggestMovers, loadLargestCharge } from "./movers";
 import type { RecurringSummary } from "./recurring";
 import { loadRecurring } from "./recurring";
-import { computeSpendingTrendStats, type SpendingTrendStats } from "./spending-trend";
+import { compareCycleToAverage, computeSpendingTrendStats, type SpendingTrendStats } from "./spending-trend";
 import type { MerchantSpend } from "./top-merchants";
 import { loadTopMerchants } from "./top-merchants";
 
@@ -31,6 +31,8 @@ const TOP_MERCHANTS = 6;
 /** Everything the pure {@link assembleDashboardView} needs (all already loaded). */
 export interface DashboardInputs {
   now: Date;
+  /** The cycle the hero shows; defaults to the month containing `now` when omitted. */
+  selectedKey?: CycleKey;
   series: MonthlySpendPoint[];
   trend: SpendingTrendStats;
   topMerchants: MerchantSpend[];
@@ -54,9 +56,11 @@ export interface DashboardInputs {
   reconnect: ReconnectPrompt[];
 }
 
-/** The current-cycle headline (spending is the hero; Income / Difference are secondary). */
+/** The selected-cycle headline (spending is the hero; Income / Difference are secondary). */
 export interface DashboardHero {
   month: CycleKey;
+  /** Whether `month` is the in-progress current cycle (vs a completed past month being viewed). */
+  isCurrent: boolean;
   spentSoFar: number;
   projected: number | null;
   income: number;
@@ -117,30 +121,47 @@ function isCategoryMostlyUnclassified(trend: ReadonlyArray<CategoryTrendPoint>):
 
 /**
  * Assemble the loaded pieces (K2–K7) into a {@link DashboardView} (Phase K, ADR-0008). Pure and
- * unit-tested directly; the reads live in {@link loadDashboardView}. The hero comes from the current
- * cycle and the trend stats; module display is gated by history/classification/account-count flags;
- * the action band is all-clear only when nothing needs attention.
+ * unit-tested directly; the reads live in {@link loadDashboardView}. The hero comes from the
+ * selected cycle (the current month by default) and the trend stats; module display is gated by
+ * history/classification/account-count flags; the action band is all-clear only when nothing needs
+ * attention.
+ *
+ * The hero adapts to whether the selected month is in progress or complete: the current month leads
+ * with spend-so-far, its month-end projection, and the trend's "last completed month vs average"
+ * read; a past month leads with its final total (no projection) and its own spend-vs-average.
  */
 export function assembleDashboardView(input: DashboardInputs): DashboardView {
   const currentKey = currentCycleKey(input.now);
-  const current = input.series.find((point) => point.month === currentKey);
-  const spentSoFar = current?.spending ?? 0;
-  const income = current?.income ?? 0;
+  const selectedKey = input.selectedKey ?? currentKey;
+  const isCurrent = selectedKey === currentKey;
+  const selected = input.series.find((point) => point.month === selectedKey);
+  const spentSoFar = selected?.spending ?? 0;
+  const income = selected?.income ?? 0;
 
-  // Budget envelopes compare each category budget against this cycle's spend, taken from the
-  // already-loaded category trend (no extra query) — its byExpenseType holds debit magnitudes.
+  // The vs-average line: for the in-progress month, reuse the trend's honest "last completed month
+  // vs average" (never the partial current spend); for a past month, compare that month to the
+  // average of the completed months before it.
+  const comparison = isCurrent
+    ? { vsAveragePct: input.trend.vsAveragePct, trailingAverage: input.trend.trailingAverage }
+    : compareCycleToAverage(input.series, selectedKey);
+
+  // Budget envelopes always track the current cycle's spend (they are a live "this month" gauge, not
+  // tied to the hero's selected month), taken from the already-loaded category trend (no extra
+  // query) — its byExpenseType holds debit magnitudes.
   const currentCategorySpend = input.categoryTrend.find((point) => point.month === currentKey);
   const budgetStatus = computeBudgetStatus(input.budgets, currentCategorySpend?.byExpenseType ?? {});
 
   return {
     hero: {
-      month: currentKey,
+      month: selectedKey,
+      isCurrent,
       spentSoFar,
-      projected: input.trend.projection?.projected ?? null,
+      // Only the in-progress month is projected; a completed month's total is already final.
+      projected: isCurrent ? (input.trend.projection?.projected ?? null) : null,
       income,
       difference: income - spentSoFar,
-      vsAveragePct: input.trend.vsAveragePct,
-      trailingAverage: input.trend.trailingAverage,
+      vsAveragePct: comparison.vsAveragePct,
+      trailingAverage: comparison.trailingAverage,
       largestCharge: input.largestCharge,
     },
     modules: {
@@ -180,8 +201,10 @@ export function assembleDashboardView(input: DashboardInputs): DashboardView {
 export async function loadDashboardView(
   repo: HouseholdRepo,
   now: Date,
-  { plan, count = 12 }: { plan: Plan; count?: number },
+  { plan, count = 12, selectedKey }: { plan: Plan; count?: number; selectedKey?: CycleKey },
 ): Promise<DashboardView> {
+  // The hero's cycle (the current month by default); scopes its largest-charge read.
+  const heroKey = selectedKey ?? currentCycleKey(now);
   const recentKeys = recentCycleKeys(now, RECENT_MONTHS);
   const recentRange = {
     from: cycleKeyRange(recentKeys[0]).from,
@@ -207,7 +230,7 @@ export async function loadDashboardView(
     loadMonthlySpendSeries(repo, now, count),
     loadTopMerchants(repo, recentRange, TOP_MERCHANTS),
     loadCategoryTrend(repo, now, count),
-    loadLargestCharge(repo, now),
+    loadLargestCharge(repo, heroKey),
     loadAccountBreakdown(repo, recentRange),
     repo.accounts.list(),
     repo.transactions.reviewQueueMonths(),
@@ -233,6 +256,7 @@ export async function loadDashboardView(
 
   return assembleDashboardView({
     now,
+    selectedKey: heroKey,
     series,
     trend,
     topMerchants,

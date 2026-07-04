@@ -107,3 +107,33 @@ export function computeSpendingTrendStats(
     projection,
   };
 }
+
+/**
+ * How one cycle's spending compares to the trailing average of the completed months before it — the
+ * past-month analog of {@link computeSpendingTrendStats}'s "last completed month vs average" read,
+ * used when the dashboard hero shows a selected past month. The window is the up-to-`maxMonths`
+ * completed months (spending > 0) strictly before `key`; both values are null without `minMonths` of
+ * them, so a thin history never fakes up a comparison.
+ */
+export function compareCycleToAverage(
+  series: ReadonlyArray<MonthlySpendPoint>,
+  key: CycleKey,
+  options: TrailingOptions = {},
+): { trailingAverage: number | null; vsAveragePct: number | null } {
+  const { minMonths, maxMonths } = { ...DEFAULT_TRAILING, ...options };
+  const ordered = [...series].sort((a, b) => a.month.localeCompare(b.month));
+  const target = ordered.find((p) => p.month === key);
+  const priorCompleted = ordered.filter((p) => p.month < key && p.spending > 0);
+  if (!target || priorCompleted.length < minMonths) {
+    return { trailingAverage: null, vsAveragePct: null };
+  }
+  const windowMonths = priorCompleted.slice(-maxMonths);
+  const trailingAverage = Math.round(
+    windowMonths.reduce((sum, p) => sum + p.spending, 0) / windowMonths.length,
+  );
+  const vsAveragePct =
+    trailingAverage > 0
+      ? Math.round(((target.spending - trailingAverage) / trailingAverage) * 100)
+      : null;
+  return { trailingAverage, vsAveragePct };
+}

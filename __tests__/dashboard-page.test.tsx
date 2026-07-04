@@ -53,10 +53,10 @@ vi.mock("next-intl/server", () => ({
 
 // The page tree includes Client-Component descendants that call useTranslations
 // (e.g. ThisMonthHero); provide the catalog so they render under the same locale.
-async function renderPage() {
+async function renderPage(cycle?: string) {
   return render(
     <NextIntlClientProvider locale="en" messages={en}>
-      {await DashboardPage()}
+      {await DashboardPage({ searchParams: Promise.resolve(cycle ? { cycle } : {}) })}
     </NextIntlClientProvider>
   )
 }
@@ -66,6 +66,7 @@ import DashboardPage from "@/app/(app)/dashboard/page"
 const VIEW: DashboardView = {
   hero: {
     month: "2026-03",
+    isCurrent: true,
     spentSoFar: 100000,
     projected: 310000,
     income: 20000,
@@ -161,9 +162,11 @@ describe("DashboardPage", () => {
     // No savings goal -> progress card hidden.
     expect(screen.queryByRole("link", { name: /savings goal/i })).not.toBeInTheDocument()
 
-    expect(loadDashboardView).toHaveBeenCalledWith(expect.anything(), expect.any(Date), {
-      plan: "Premium",
-    })
+    expect(loadDashboardView).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(Date),
+      expect.objectContaining({ plan: "Premium", count: 12, selectedKey: expect.any(String) }),
+    )
   })
 
   it("shows the savings progress card when a goal exists", async () => {
