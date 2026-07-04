@@ -10,7 +10,45 @@ import { auth } from "@/lib/auth/server";
  */
 const authMiddleware = auth.middleware({ loginUrl: "/auth/sign-in" });
 
+const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+// Paths that legitimately receive non-browser mutating POSTs: the Straumur webhook (HMAC is its
+// trust boundary) and Neon Auth's own handler (manages its own flows). The trailing slash is
+// deliberate — these are prefixes for subpaths (`/api/webhooks/straumur`, `/api/auth/[...path]`).
+// If a future maintainer adds a root-level handler at exactly `/api/auth` or `/api/webhooks` (no
+// subpath), extend the pattern, or a cross-site POST to it would be 403'd.
+const CSRF_EXEMPT = [/^\/api\/webhooks\//, /^\/api\/auth\//];
+
+/**
+ * CSRF defense-in-depth: is this a mutating request whose browser-set `Sec-Fetch-Site` header proves
+ * a cross-site initiator? The header is sent by all browsers since ~2020 and cannot be forged or
+ * stripped by web content, so it's a library-independent guard that holds even if the Neon Auth
+ * session cookie's SameSite default ever changes. Absent header = non-browser client (webhooks, curl,
+ * tests) or a very old browser — the SameSite cookie remains the defense there. "none" = a
+ * user-initiated top-level navigation (e.g. the address bar), which is not a CSRF vector.
+ */
+function isCrossSite(request: NextRequest): boolean {
+  const site = request.headers.get("sec-fetch-site");
+  return site !== null && site !== "same-origin" && site !== "none";
+}
+
 export default function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // API routes self-guard for *auth* via requireHousehold(); the middleware only adds the *CSRF*
+  // check here and must never run authMiddleware on them (that would send /api through the sign-in
+  // redirect). "same-site" (a sibling subdomain) is deliberately rejected — nothing legit calls the
+  // API cross-subdomain.
+  if (pathname.startsWith("/api/")) {
+    if (
+      MUTATING.has(request.method) &&
+      !CSRF_EXEMPT.some((re) => re.test(pathname)) &&
+      isCrossSite(request)
+    ) {
+      return new Response("Cross-site request rejected", { status: 403 });
+    }
+    return;
+  }
+
   // Don't intercept Server Action POSTs (they carry a Next-Action header).
   if (request.headers.has("Next-Action")) {
     return;
@@ -29,5 +67,7 @@ export const config = {
     "/settings/:path*",
     "/transactions/:path*",
     "/upload/:path*",
+    // API routes run the CSRF cross-site check only (they self-guard for auth via requireHousehold).
+    "/api/:path*",
   ],
 };
