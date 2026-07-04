@@ -190,6 +190,13 @@
       "when": 1783127428967,
       "tag": "0026_fine_ares",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1783136195292,
+      "tag": "0027_flawless_rockslide",
+      "breakpoints": true
     }
   ]
 }
