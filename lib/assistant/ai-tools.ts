@@ -5,7 +5,7 @@ import type { AssistantToolContext } from "./tools/types";
 
 /**
  * Adapt the read-only {@link assistantTools} into AI SDK tools bound to one request's
- * {@link AssistantToolContext} (#101, ADR-0018). Each tool keeps its zod `inputSchema`; `execute`
+ * {@link AssistantToolContext} (#101, ADR-0022). Each tool keeps its zod `inputSchema`; `execute`
  * closes over the tenant-scoped context and delegates to the tool's `run`. Keyed by tool name — the
  * key the model calls.
  */

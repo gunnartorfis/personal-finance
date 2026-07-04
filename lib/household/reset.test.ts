@@ -128,7 +128,7 @@ describe("resetHouseholdFinancialData", () => {
     });
   });
 
-  it("clears Assistant conversations and messages (ADR-0018: unlike the Activity log)", async () => {
+  it("clears Assistant conversations and messages (ADR-0022: unlike the Activity log)", async () => {
     const householdId = await seedHousehold("assistant_user", "hash-d");
     const [conv] = await db
       .insert(assistantConversations)

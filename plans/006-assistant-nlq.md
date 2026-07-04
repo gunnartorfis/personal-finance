@@ -13,7 +13,7 @@
 ## Design (locked — from the grill-with-docs session, 2026-07-04)
 
 Canonical term **Assistant** (see `CONTEXT.md`). Architecture decision recorded in
-`docs/adr/0018-assistant-tool-calling-over-curated-reads.md`.
+`docs/adr/0022-assistant-tool-calling-over-curated-reads.md`.
 
 | Branch | Decision |
 |---|---|

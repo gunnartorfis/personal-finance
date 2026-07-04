@@ -1602,7 +1602,7 @@ export function householdRepo(db: Db, householdId: string) {
           .returning(),
     },
     /**
-     * Assistant (#101, ADR-0018): read-only NLQ conversations, Household-shared and threaded. Every
+     * Assistant (#101, ADR-0022): read-only NLQ conversations, Household-shared and threaded. Every
      * read is scoped to this Household; writes stamp `householdId`. The model orchestration lives in
      * `lib/assistant/*` — this repo only persists/loads threads and meters usage.
      */

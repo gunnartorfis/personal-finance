@@ -910,7 +910,7 @@ export const activityLog = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// Assistant (#101, ADR-0018): a Premium-only, read-only natural-language Q&A feature.
+// Assistant (#101, ADR-0022): a Premium-only, read-only natural-language Q&A feature.
 // Conversations are Household-shared and organised as threads; each user message is attributed to
 // the asking Member, assistant messages are unattributed. Read-only — these tables never mirror an
 // Activity-log entry, and a data reset clears them (unlike the Activity log). See CONTEXT.md.

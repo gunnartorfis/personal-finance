@@ -18,7 +18,7 @@ export const maxDuration = 300;
 
 /**
  * POST /api/assistant — answer a natural-language question about the current Household's finances by
- * streaming a Sonnet 5 tool-calling turn (#101, ADR-0018). Premium-only; soft daily cap. The user
+ * streaming a Sonnet 5 tool-calling turn (#101, ADR-0022). Premium-only; soft daily cap. The user
  * message and the assistant's answer are persisted to the (household-shared) conversation; the reply
  * is written in `onFinish`. Responds in the asking Member's Locale.
  */

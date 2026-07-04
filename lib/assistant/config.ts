@@ -1,5 +1,5 @@
 /**
- * Assistant runtime configuration (#101, ADR-0018). Kept in one place so the model and the cost
+ * Assistant runtime configuration (#101, ADR-0022). Kept in one place so the model and the cost
  * guards are a one-line change. All tunable.
  */
 

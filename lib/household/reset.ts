@@ -25,7 +25,7 @@ export interface ResetActor {
  * Wipe a Household's entire financial dataset.
  *
  * Deletes every uploaded statement, transaction, manual override, account, merchant rule, and
- * Assistant conversation (with its messages, ADR-0018) for `householdId`, then re-creates the single
+ * Assistant conversation (with its messages, ADR-0022) for `householdId`, then re-creates the single
  * default account so the Household lands back in the exact just-provisioned state (ADR-0004: every
  * Household always has a default account). The Household
  * itself, its members, and its plan/billing are intentionally kept — this resets the *data*, not the
@@ -52,7 +52,7 @@ export async function resetHouseholdFinancialData(
 ): Promise<void> {
   const repo = householdRepo(db, householdId);
   await db.transaction(async (tx) => {
-    // Assistant threads quote financial figures, so they go with the data (ADR-0018) — messages
+    // Assistant threads quote financial figures, so they go with the data (ADR-0022) — messages
     // cascade from the conversation delete via the composite FK.
     await tx
       .delete(assistantConversations)

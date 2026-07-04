@@ -28,7 +28,7 @@ Four coupled choices:
   and costs nothing per send. "Insight-flavored" callouts are templated strings over `movers.ts` /
   `spending-trend.ts`. All copy comes from the message catalogs like the rest of the UI.
 
-The Digest is **read-only** in the strong sense (like the **Assistant**, ADR-0018): it never mutates
+The Digest is **read-only** in the strong sense (like the **Assistant**, ADR-0022): it never mutates
 household data, never creates a **Check-in** (which stays a deliberate Member action that freezes a
 snapshot), and writes no **Activity log** entry. Available to Free and Premium alike — retention is
 most valuable for the churning Free cohort, and there is no per-send cost to gate.

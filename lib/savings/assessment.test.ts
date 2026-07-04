@@ -85,12 +85,12 @@ describe("loadSavingsProgress", () => {
       }),
       NOW,
     );
-    // Completed cycles only (ADR-0014): 2026-06 → 300k, 2026-07 → 500k = 800,000; +100k starting.
+    // Completed cycles only (ADR-0021): 2026-06 → 300k, 2026-07 → 500k = 800,000; +100k starting.
     // The in-progress 2026-08 cycle (800k) is excluded from saved.
     expect(progress).toMatchObject({ saved: 900_000, target: 3_000_000, currency: "ISK" });
   });
 
-  // Regression (ADR-0014): on the 1st of a month the current cycle carries full Monthly income
+  // Regression (ADR-0021): on the 1st of a month the current cycle carries full Monthly income
   // against ~zero spend, which previously inflated saved to startingSaved + the whole income.
   it("excludes the current in-progress cycle's income from saved until its month closes", async () => {
     const july1 = new Date("2026-07-01T00:00:00Z");
@@ -119,7 +119,7 @@ describe("loadSavingsSnapshot", () => {
       NOW,
     );
     expect(snapshot).not.toBeNull();
-    // Completed cycles only: 2026-06 and 2026-07 (2026-08 is in progress) → 2 (ADR-0014).
+    // Completed cycles only: 2026-06 and 2026-07 (2026-08 is in progress) → 2 (ADR-0021).
     expect(snapshot!.assessment.cyclesElapsed).toBe(2);
     // The current (last) cycle is still in progress.
     expect(snapshot!.assessment.provisional).toBe(true);

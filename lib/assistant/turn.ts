@@ -63,7 +63,7 @@ export interface PrepareTurnInput {
 }
 
 /**
- * Guard, persist, and assemble one Assistant turn (#101, ADR-0018). Enforces the Premium gate and the
+ * Guard, persist, and assemble one Assistant turn (#101, ADR-0022). Enforces the Premium gate and the
  * daily cap, resolves or creates the (household-shared) conversation, persists the user message, and
  * returns the system prompt + full-thread model messages + tenant-scoped tools for `streamText`. The
  * DB read/write layer is here (testable); only the streaming call itself lives in the route.
