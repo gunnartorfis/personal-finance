@@ -46,6 +46,7 @@ export default async function SavingsPage() {
           cycles={snapshot.cycles}
           currency={billingCurrency}
           locale={locale}
+          title={snapshot.progress.title}
         />
       )}
       <section aria-label={t("goalSection")} className="flex flex-col gap-6">

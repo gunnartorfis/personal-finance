@@ -10,10 +10,35 @@ const valid = {
 };
 
 describe("parseSavingsGoalInput", () => {
-  it("accepts a valid goal and defaults the currency to ISK", () => {
+  it("accepts a valid goal and defaults the currency to ISK, with no title", () => {
     expect(parseSavingsGoalInput(valid)).toEqual({
       ok: true,
-      value: { ...valid, currency: "ISK" },
+      value: { ...valid, currency: "ISK", title: null },
+    });
+  });
+
+  it("accepts and trims an optional title", () => {
+    expect(parseSavingsGoalInput({ ...valid, title: "  Wedding  " })).toMatchObject({
+      ok: true,
+      value: { title: "Wedding" },
+    });
+  });
+
+  it("collapses a blank or null title to null (clearing / round-trip)", () => {
+    expect(parseSavingsGoalInput({ ...valid, title: "   " })).toMatchObject({
+      ok: true,
+      value: { title: null },
+    });
+    expect(parseSavingsGoalInput({ ...valid, title: null })).toMatchObject({
+      ok: true,
+      value: { title: null },
+    });
+  });
+
+  it("rejects a non-string or over-long title", () => {
+    expect(parseSavingsGoalInput({ ...valid, title: 5 })).toMatchObject({ ok: false });
+    expect(parseSavingsGoalInput({ ...valid, title: "x".repeat(61) })).toMatchObject({
+      ok: false,
     });
   });
 

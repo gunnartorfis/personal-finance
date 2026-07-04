@@ -9,6 +9,7 @@ afterEach(() => vi.unstubAllGlobals())
 
 const goal = {
   id: "g1",
+  title: "Wedding" as string | null,
   target: 3_000_000,
   targetDate: "2027-06-01",
   startingSaved: 250_000,
@@ -48,19 +49,19 @@ describe("SavingsGoalForm", () => {
   it("loads and shows the existing goal", async () => {
     stubApi(goal)
     render(<SavingsGoalForm />)
-    expect(await screen.findByLabelText(/target amount/i)).toHaveValue(
-      3_000_000
-    )
+    expect(await screen.findByLabelText(/goal name/i)).toHaveValue("Wedding")
+    expect(screen.getByLabelText(/target amount/i)).toHaveValue(3_000_000)
     expect(screen.getByLabelText(/target date/i)).toHaveValue("2027-06-01")
     expect(screen.getByLabelText(/already saved/i)).toHaveValue(250_000)
     expect(screen.getByLabelText(/start cycle/i)).toHaveValue("2026-07")
   })
 
-  it("saves the goal with numeric fields as integers", async () => {
+  it("saves the goal with a trimmed title and numeric fields as integers", async () => {
     const fetchMock = stubApi(null)
     render(<SavingsGoalForm />)
     await screen.findByLabelText(/target amount/i)
 
+    await userEvent.type(screen.getByLabelText(/goal name/i), "  New car  ")
     await userEvent.type(screen.getByLabelText(/target amount/i), "1200000")
     await userEvent.type(screen.getByLabelText(/target date/i), "2027-05-31")
     await userEvent.type(screen.getByLabelText(/already saved/i), "0")
@@ -72,11 +73,31 @@ describe("SavingsGoalForm", () => {
       (c) => (c[1] as RequestInit)?.method === "PUT"
     )!
     expect(JSON.parse((putCall[1] as RequestInit).body as string)).toEqual({
+      title: "New car",
       target: 1_200_000,
       targetDate: "2027-05-31",
       startingSaved: 0,
       startCycle: "2026-07",
     })
+  })
+
+  it("sends a null title when the name field is left blank", async () => {
+    const fetchMock = stubApi(null)
+    render(<SavingsGoalForm />)
+    await screen.findByLabelText(/target amount/i)
+
+    await userEvent.type(screen.getByLabelText(/target amount/i), "1200000")
+    await userEvent.type(screen.getByLabelText(/target date/i), "2027-05-31")
+    await userEvent.type(screen.getByLabelText(/start cycle/i), "2026-07")
+    await userEvent.click(screen.getByRole("button", { name: /save goal/i }))
+
+    await screen.findByText(/goal saved/i)
+    const putCall = fetchMock.mock.calls.find(
+      (c) => (c[1] as RequestInit)?.method === "PUT"
+    )!
+    expect(
+      JSON.parse((putCall[1] as RequestInit).body as string).title
+    ).toBeNull()
   })
 
   it("surfaces an error when the save fails", async () => {

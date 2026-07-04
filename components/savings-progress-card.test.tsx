@@ -16,6 +16,7 @@ describe("SavingsProgressCard", () => {
     render(
       <SavingsProgressCard
         progress={{
+          title: null,
           target: 1_200_000,
           saved: 500_000,
           percent: 42,
@@ -34,10 +35,27 @@ describe("SavingsProgressCard", () => {
     expect(meter).toHaveAttribute("aria-valuenow", "42")
   })
 
+  it("headlines the goal name when the goal is titled", () => {
+    render(
+      <SavingsProgressCard
+        progress={{
+          title: "Wedding",
+          target: 1_200_000,
+          saved: 500_000,
+          percent: 42,
+          currency: "ISK",
+        }}
+        locale="en"
+      />
+    )
+    expect(screen.getByText("Wedding")).toBeInTheDocument()
+  })
+
   it("floors a negative saved at an empty meter", () => {
     render(
       <SavingsProgressCard
         progress={{
+          title: null,
           target: 1_200_000,
           saved: -300_000,
           percent: 0,

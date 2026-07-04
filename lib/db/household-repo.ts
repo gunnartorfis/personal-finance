@@ -1468,6 +1468,7 @@ export function householdRepo(db: Db, householdId: string) {
             .onConflictDoUpdate({
               target: savingsGoals.householdId,
               set: {
+                title: value.title ?? null,
                 target: value.target,
                 targetDate: value.targetDate,
                 startingSaved: value.startingSaved,
