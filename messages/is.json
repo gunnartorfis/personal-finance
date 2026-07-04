@@ -680,7 +680,9 @@
       "title": "Spá um hreina eign",
       "subtitle": "Miðað við dæmigerðan sparnað, um {amount} í {month}.",
       "netWorth": "Hrein eign",
-      "srPoint": "{label}: {amount}"
+      "srPoint": "{label}: {amount}",
+      "cashFlowSaved": "Á góðri leið með að spara {amount} næstu {months, plural, one {# mánuð} other {# mánuði}}.",
+      "cashFlowSpent": "Miðað við þróunina eyðir þú {amount} umfram tekjur næstu {months, plural, one {# mánuð} other {# mánuði}}."
     }
   },
   "bankSync": {
