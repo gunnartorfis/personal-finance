@@ -30,6 +30,7 @@ import {
   accountBalances,
   accounts,
   bankConnections,
+  categoryBudgets,
   householdInvites,
   members,
   merchantRules,
@@ -105,6 +106,19 @@ export function householdRepo(db: Db, householdId: string) {
     if (values.length === 0) return []
     return tx
       .insert(savingsOneOffAdjustments)
+      .values(values.map((v) => ({ ...v, householdId })))
+      .returning()
+  }
+  // Full-set swap for the per-category budgets (#103): the budgets settings form saves the whole
+  // set at once, same delete + insert shape as the savings lists.
+  const swapCategoryBudgets = async (
+    tx: DbOrTx,
+    values: Array<Omit<typeof categoryBudgets.$inferInsert, "householdId">>
+  ): Promise<Array<typeof categoryBudgets.$inferSelect>> => {
+    await tx.delete(categoryBudgets).where(eq(categoryBudgets.householdId, householdId))
+    if (values.length === 0) return []
+    return tx
+      .insert(categoryBudgets)
       .values(values.map((v) => ({ ...v, householdId })))
       .returning()
   }
@@ -1421,6 +1435,22 @@ export function householdRepo(db: Db, householdId: string) {
               ? undefined
               : await swapOneOffAdjustments(tx, oneOffAdjustments),
         })),
+    },
+    budgets: {
+      /** The household's per-category budgets (#103), stable order for display. */
+      list: () =>
+        db
+          .select()
+          .from(categoryBudgets)
+          .where(eq(categoryBudgets.householdId, householdId))
+          .orderBy(asc(categoryBudgets.expenseType)),
+      /**
+       * Replace the household's full set of category budgets with the given list (the budgets form
+       * saves the whole set at once). Delete + insert in one transaction, so a failed save never
+       * leaves budgets half-written.
+       */
+      replace: (values: Array<Omit<typeof categoryBudgets.$inferInsert, "householdId">>) =>
+        db.transaction((tx) => swapCategoryBudgets(tx, values)),
     },
     overrides: {
       list: () =>

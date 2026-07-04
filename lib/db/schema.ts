@@ -724,6 +724,36 @@ export const savingsOffcardCosts = pgTable(
   ],
 );
 
+/**
+ * A per-category monthly spending budget / envelope for a Household (#103). One row per real expense
+ * type (Fixed / Necessary / Nice to have — never the "" not-bucketed type); the dashboard compares
+ * it against actual category spend. Generalizes the savings "allowed nice-to-have" to every category.
+ */
+export const categoryBudgets = pgTable(
+  "category_budgets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    /** The expense type this budget covers: 'Fixed' | 'Necessary' | 'Nice to have'. */
+    expenseType: text("expense_type").notNull(),
+    /** Monthly budget in whole billing-currency units. */
+    monthlyAmount: integer("monthly_amount").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // At most one budget per (household, expense type).
+    unique("category_budgets_household_type_key").on(t.householdId, t.expenseType),
+    check("category_budgets_monthly_amount_positive", sql`${t.monthlyAmount} > 0`),
+    // Only the real, bucketed expense types can carry a budget (never the "" split/not-bucketed type).
+    check(
+      "category_budgets_expense_type_valid",
+      sql`${t.expenseType} IN ('Fixed', 'Necessary', 'Nice to have')`,
+    ),
+  ],
+);
+
 /** Whether a one-off adjustment adds to a cycle's income or its off-card cost (ADR-0015). */
 export const oneOffKindEnum = pgEnum("one_off_kind", ["income", "cost"]);
 
