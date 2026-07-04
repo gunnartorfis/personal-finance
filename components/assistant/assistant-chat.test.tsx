@@ -17,7 +17,7 @@ interface FakeChat {
 let chat: FakeChat
 vi.mock("@ai-sdk/react", () => ({ useChat: () => chat }))
 
-import { AssistantChat } from "./assistant-chat"
+import { AssistantChat, applyAssistantResponse, type ThreadRef } from "./assistant-chat"
 
 beforeEach(() => {
   chat = {
@@ -89,5 +89,27 @@ describe("AssistantChat", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Something went wrong. Please try again."
     )
+  })
+})
+
+describe("applyAssistantResponse", () => {
+  const response = (status: number, headers: Record<string, string> = {}) =>
+    new Response(null, { status, headers })
+
+  it("captures a new conversation id and opens no gate", () => {
+    const thread: ThreadRef = {}
+    expect(applyAssistantResponse(response(200, { "X-Conversation-Id": "c1" }), thread)).toBeNull()
+    expect(thread.conversationId).toBe("c1")
+  })
+
+  it("maps 403 to premium and 429 to cap", () => {
+    expect(applyAssistantResponse(response(403), {})).toBe("premium")
+    expect(applyAssistantResponse(response(429), {})).toBe("cap")
+  })
+
+  it("clears a stale conversation id on 404 so the next send starts fresh", () => {
+    const thread: ThreadRef = { conversationId: "dead" }
+    expect(applyAssistantResponse(response(404), thread)).toBeNull()
+    expect(thread.conversationId).toBeUndefined()
   })
 })

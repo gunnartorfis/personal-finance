@@ -20,7 +20,27 @@ function messageText(message: UIMessage): string {
 }
 
 /** Which gate the server closed on us, surfaced from the response status. */
-type Gate = "premium" | "cap" | null
+export type Gate = "premium" | "cap" | null
+
+/** A mutable holder for the server-assigned conversation id (shared with the transport closures). */
+export interface ThreadRef {
+  conversationId?: string
+}
+
+/**
+ * Fold an assistant API response into the chat's gate state and thread id. Captures a new
+ * `X-Conversation-Id`, maps 403/429 to their gates, and — crucially — CLEARS the id on 404 so a lost
+ * or expired thread doesn't get re-sent on every follow-up (which would loop on errors); the next
+ * message then starts a fresh conversation.
+ */
+export function applyAssistantResponse(response: Response, thread: ThreadRef): Gate {
+  const id = response.headers.get("X-Conversation-Id")
+  if (id) thread.conversationId = id
+  if (response.status === 403) return "premium"
+  if (response.status === 429) return "cap"
+  if (response.status === 404) thread.conversationId = undefined
+  return null
+}
 
 /**
  * The Assistant chat (#101, slice 4a): a single active thread wired to `POST /api/assistant` via
@@ -43,10 +63,8 @@ export function AssistantChat() {
         api: "/api/assistant",
         fetch: async (input, init) => {
           const response = await fetch(input, init)
-          const id = response.headers.get("X-Conversation-Id")
-          if (id) thread.conversationId = id
-          if (response.status === 403) setGate("premium")
-          else if (response.status === 429) setGate("cap")
+          const nextGate = applyAssistantResponse(response, thread)
+          if (nextGate) setGate(nextGate)
           return response
         },
         // Adapt to the route contract: send only the latest question + the running thread id.
