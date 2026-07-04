@@ -33,6 +33,32 @@ describe("sonnetClassifier", () => {
     expect(args.prompt).toContain("-5000");
   });
 
+  it("also emits an independent category + categoryConfidence, and lists the catalog in the prompt", async () => {
+    generateObject.mockResolvedValue({
+      object: {
+        expenseType: "Necessary",
+        confidence: 0.9,
+        reasoning: "supermarket",
+        category: "groceries",
+        categoryConfidence: 0.88,
+      },
+    });
+    const result = await sonnetClassifier()({
+      merchant: "BONUS",
+      amount: -4200,
+      rawCategory: "Matvörur",
+      date: "2026-03-03",
+    });
+    expect(result.category).toBe("groceries");
+    expect(result.categoryConfidence).toBeCloseTo(0.88);
+    // Expense type output is unchanged.
+    expect(result.expenseType).toBe("Necessary");
+    // The prompt lists the seed category catalog (a known leaf slug) and asks for a category.
+    const { prompt } = generateObject.mock.calls[0][0];
+    expect(prompt).toContain("groceries");
+    expect(prompt.toLowerCase()).toContain("category");
+  });
+
   it("delimits the untrusted merchant/category as data and clamps them to 200 chars", async () => {
     generateObject.mockResolvedValue({ object: { expenseType: "", confidence: 0.5, reasoning: "x" } });
     const bigMerchant = "M".repeat(500);

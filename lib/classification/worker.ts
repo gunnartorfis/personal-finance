@@ -37,10 +37,20 @@ export interface ClassifierInput {
   date: string;
 }
 
-/** Classify one expense transaction into an Expense type (with optional confidence + reasoning). */
+/**
+ * Classify one expense transaction into an Expense type (with optional confidence + reasoning) and,
+ * independently, a semantic Category leaf slug (ADR-0020) with its own confidence. `category` is a
+ * seed leaf slug, "" (none fits), or omitted; the worker resolves the slug to a category_id (S2c).
+ */
 export type Classifier = (
   txn: ClassifierInput,
-) => Promise<{ expenseType: ExpenseType; confidence?: number; reasoning?: string }>;
+) => Promise<{
+  expenseType: ExpenseType;
+  confidence?: number;
+  reasoning?: string;
+  category?: string;
+  categoryConfidence?: number;
+}>;
 
 export interface DrainResult {
   classified: number;
