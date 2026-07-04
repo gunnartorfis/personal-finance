@@ -46,7 +46,7 @@ Free households see the trigger and get an upgrade CTA.
 | 4b | **Proactive premium gate**: `GET /api/assistant/status` → `{ plan }`; drawer shows the upgrade CTA immediately for Free (not only after a 403). | `app/api/assistant/status/`, `components/assistant/*` | PR-OPEN #270 |
 | 4c | **Drawer UI — history**: `GET /api/assistant/conversations` (+ `[id]`); past-thread list + switching + new-chat. | `app/api/assistant/conversations/`, `components/assistant/*`, `lib/assistant/ui-messages.ts` | MERGED #274 |
 | 5 | **Polish — loading + a11y**: streaming "thinking" affordance, `aria-live` message log, a11y sweep. | `components/assistant/*` | PR-OPEN #276 |
-| 5b | **Attribution names**: resolve message author names via users_sync; show who asked in history. | `app/api/assistant/conversations/[id]/`, `lib/assistant/ui-messages.ts`, `components/assistant/*` | PR-OPEN |
+| 5b | **Attribution names**: resolve message author names via users_sync; show who asked in history. | `app/api/assistant/conversations/[id]/`, `lib/assistant/ui-messages.ts`, `components/assistant/*` | PR-OPEN #277 |
 
 Status values: TODO | PR-OPEN #<n> | MERGED | BLOCKED (one-line reason).
 
