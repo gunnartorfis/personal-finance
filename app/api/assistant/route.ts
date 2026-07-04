@@ -48,8 +48,16 @@ export async function POST(request: Request) {
       messages: turn.modelMessages,
       tools: turn.tools,
       stopWhen: stepCountIs(ASSISTANT_MAX_STEPS),
-      // Persist the final answer once the turn completes; the user message is already saved.
-      onFinish: ({ text }) => persistAssistantReply(repo, turn.conversationId, text),
+      // Persist the final answer once the turn completes; the user message is already saved. The AI
+      // SDK does NOT catch onFinish errors, so a DB failure here would surface as an unhandled
+      // rejection and silently drop the reply from the thread — swallow + log it instead.
+      onFinish: async ({ text }) => {
+        try {
+          await persistAssistantReply(repo, turn.conversationId, text);
+        } catch (persistError) {
+          console.error("assistant reply persistence failed", persistError);
+        }
+      },
     });
 
     const response = result.toUIMessageStreamResponse();

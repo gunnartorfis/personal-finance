@@ -23,6 +23,9 @@ export class AssistantDailyCapError extends Error {
   }
 }
 
+/** Canonical UUID shape — a malformed id is rejected before it reaches the DB (which would 500). */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const MAX_TITLE = 80;
 /** Longest user message we accept — a question, not a document (also under the 10k content CHECK). */
 export const MAX_MESSAGE = 2000;
@@ -78,6 +81,9 @@ export async function prepareAssistantTurn(
 
   let conversationId = input.conversationId;
   if (conversationId) {
+    // A malformed id can't name a real thread; reject it as not-found rather than let the uuid column
+    // comparison throw a DB error (→ 500).
+    if (!UUID_RE.test(conversationId)) throw new Error("conversation_not_found");
     const existing = await repo.assistant.getConversation(conversationId);
     if (!existing) throw new Error("conversation_not_found");
   } else {

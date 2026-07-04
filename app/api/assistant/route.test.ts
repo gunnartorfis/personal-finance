@@ -7,9 +7,14 @@ vi.mock("next-intl/server", () => ({ getLocale: () => Promise.resolve("en") }));
 
 // Keep the real error classes + persistAssistantReply; stub only prepareAssistantTurn.
 const prepareAssistantTurn = vi.fn();
+const persistAssistantReply = vi.fn();
 vi.mock("@/lib/assistant/turn", async (importActual) => {
   const actual = await importActual<typeof import("@/lib/assistant/turn")>();
-  return { ...actual, prepareAssistantTurn: (...a: unknown[]) => prepareAssistantTurn(...a), persistAssistantReply: vi.fn() };
+  return {
+    ...actual,
+    prepareAssistantTurn: (...a: unknown[]) => prepareAssistantTurn(...a),
+    persistAssistantReply: (...a: unknown[]) => persistAssistantReply(...a),
+  };
 });
 
 // Stub the streaming call; capture its options so we can assert wiring.
@@ -31,6 +36,7 @@ const postReq = (body: unknown) =>
 beforeEach(() => {
   requireHousehold.mockReset();
   prepareAssistantTurn.mockReset();
+  persistAssistantReply.mockReset();
   streamText.mockClear();
   requireHousehold.mockResolvedValue({ plan: "Premium", repo: {}, memberId: "m1" });
 });
@@ -76,5 +82,20 @@ describe("POST /api/assistant", () => {
     expect(opts.system).toBe("sys");
     expect(opts.stopWhen).toBeDefined();
     expect(typeof opts.onFinish).toBe("function");
+  });
+
+  it("swallows (does not rethrow) a persistence failure in onFinish", async () => {
+    prepareAssistantTurn.mockResolvedValue({
+      conversationId: "conv-1",
+      system: "sys",
+      modelMessages: [],
+      tools: {},
+    });
+    persistAssistantReply.mockRejectedValue(new Error("db down"));
+    await POST(postReq({ message: "hi" }));
+    const opts = streamText.mock.calls[0][0] as { onFinish: (e: { text: string }) => Promise<void> };
+    // The AI SDK awaits onFinish and does not catch it — our wrapper must resolve, not reject.
+    await expect(opts.onFinish({ text: "answer" })).resolves.toBeUndefined();
+    expect(persistAssistantReply).toHaveBeenCalledWith({}, "conv-1", "answer");
   });
 });

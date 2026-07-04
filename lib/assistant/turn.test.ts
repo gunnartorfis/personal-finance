@@ -90,6 +90,13 @@ describe("prepareAssistantTurn", () => {
     ).rejects.toThrow(/conversation_not_found/);
   });
 
+  it("rejects a malformed conversation id without hitting the database", async () => {
+    const { repo, memberId } = await seed("malformed", "Premium");
+    await expect(
+      prepareAssistantTurn(repo, base({ memberId, conversationId: "not-a-uuid" })),
+    ).rejects.toThrow(/conversation_not_found/);
+  });
+
   it("rejects an empty or oversized message", async () => {
     const { repo, memberId } = await seed("bounds", "Premium");
     await expect(prepareAssistantTurn(repo, base({ memberId, message: "   " }))).rejects.toThrow(/empty_message/);
