@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseStatementCsv, parseWithMapping } from "./parse-csv";
+import { attemptParse, parseStatementCsv, parseWithMapping } from "./parse-csv";
 
 const CSV = [
   "Dagsetning,Mótaðili,Tegund,Upphæð",
@@ -140,5 +140,43 @@ describe("parseWithMapping", () => {
     expect(() => parseWithMapping(csv, { date: 0, merchant: 1, category: 2, amount: 3 })).toThrow(
       /too many rows/,
     );
+  });
+});
+
+describe("attemptParse", () => {
+  it("returns the detected mapping and parsed rows for a complete header", () => {
+    const csv = ["Dagsetning,Mótaðili,Tegund,Upphæð", "01.03.2026,NETFLIX,Afþreying,-1.990 kr."].join(
+      "\n",
+    );
+    const result = attemptParse(csv);
+    expect(result.unmatchedRoles).toEqual([]);
+    expect(result.detectedMapping).toEqual({ date: 0, merchant: 1, category: 2, amount: 3 });
+    expect(result.rows).toEqual([
+      { sourceRow: 0, date: "2026-03-01", amount: -1990, merchant: "NETFLIX", rawCategory: "Afþreying" },
+    ]);
+  });
+
+  it("reports unmatched roles and yields no rows when the mapping is incomplete", () => {
+    const result = attemptParse("Dagsetning,Mótaðili,Tegund\n01.03.2026,X,Y");
+    expect(result.unmatchedRoles).toEqual(["amount"]);
+    expect(result.detectedMapping).toEqual({ date: 0, merchant: 1, category: 2 });
+    expect(result.rows).toEqual([]);
+  });
+
+  it("does not throw on an unmappable file (unlike parseStatementCsv)", () => {
+    const result = attemptParse("Foo,Bar\n1,2");
+    expect(result.rows).toEqual([]);
+    expect(result.unmatchedRoles.length).toBeGreaterThan(0);
+  });
+
+  it("locates the header past preamble lines", () => {
+    const csv = [
+      "Yfirlit reiknings 0133-26",
+      "Dagsetning,Mótaðili,Tegund,Upphæð",
+      "01.03.2026,NETFLIX,Afþreying,-1.990 kr.",
+    ].join("\n");
+    const result = attemptParse(csv);
+    expect(result.headerIndex).toBe(1);
+    expect(result.rows).toHaveLength(1);
   });
 });
