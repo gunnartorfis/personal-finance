@@ -16,14 +16,26 @@ beforeEach(() => {
 })
 
 describe("POST /api/billing/cancel", () => {
-  it("downgrades a Premium household to Free", async () => {
-    requireHousehold.mockResolvedValue({ householdId: "h1", plan: "Premium" })
+  it("downgrades a Premium household to Free and logs billing.cancelled", async () => {
+    const record = vi.fn().mockResolvedValue([])
+    requireHousehold.mockResolvedValue({
+      householdId: "h1",
+      plan: "Premium",
+      memberId: "m1",
+      user: { name: "Ada", email: "ada@x.is" },
+      repo: { activity: { record } },
+    })
     downgradeToFree.mockResolvedValue(undefined)
 
     const res = await POST()
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ cancelled: true })
     expect(downgradeToFree).toHaveBeenCalledWith(expect.anything(), "h1")
+    expect(record).toHaveBeenCalledWith({
+      memberId: "m1",
+      actorName: "Ada",
+      action: "billing.cancelled",
+    })
   })
 
   it("is a no-op for a Free household", async () => {
