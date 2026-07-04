@@ -58,6 +58,8 @@ export async function GET() {
     headers: {
       "content-type": "application/json",
       "content-disposition": 'attachment; filename="finance-export.json"',
+      // Don't let this sensitive payload linger in the browser disk cache (e.g. shared computers).
+      "cache-control": "no-store",
     },
   })
 }

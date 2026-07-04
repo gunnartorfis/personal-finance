@@ -35,6 +35,7 @@ describe("GET /api/export", () => {
     const res = await GET()
     expect(res.headers.get("content-type")).toContain("application/json")
     expect(res.headers.get("content-disposition")).toContain("attachment")
+    expect(res.headers.get("cache-control")).toContain("no-store")
 
     const text = await res.text()
     expect(text).not.toContain("SECRET-A")
