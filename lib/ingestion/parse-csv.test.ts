@@ -33,4 +33,15 @@ describe("parseStatementCsv", () => {
   it("throws when required columns are missing", () => {
     expect(() => parseStatementCsv("Foo,Bar\n1,2\n")).toThrow(/missing required columns/);
   });
+
+  it("auto-detects renamed columns in a different order (English header)", () => {
+    const csv = [
+      "Amount,Description,Date,Category",
+      "-1.990 kr.,NETFLIX,01.03.2026,Afþreying",
+    ].join("\n");
+    const rows = parseStatementCsv(csv);
+    expect(rows).toEqual([
+      { sourceRow: 0, date: "2026-03-01", amount: -1990, merchant: "NETFLIX", rawCategory: "Afþreying" },
+    ]);
+  });
 });

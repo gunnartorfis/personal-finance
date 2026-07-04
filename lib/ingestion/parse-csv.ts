@@ -1,5 +1,7 @@
 import Papa from "papaparse";
 
+import { detectColumnMapping } from "./column-mapping";
+
 /**
  * Parse an Icelandic bank-statement CSV (ADR-0003) from decoded text — the web ingestion path
  * (the legacy `shared/parse.ts` reads a file path). Columns are matched by header name; rows whose
@@ -25,33 +27,18 @@ function parseAmount(s: string): number | null {
   return /^-?\d+$/.test(c) ? parseInt(c, 10) : null;
 }
 
-/** First column index whose header matches one of `names` (case-insensitive). */
-function colIndex(header: string[], names: string[]): number {
-  const low = new Map<string, number>();
-  header.forEach((h, i) => {
-    const k = h.trim().toLowerCase();
-    if (!low.has(k)) low.set(k, i);
-  });
-  for (const n of names) {
-    const i = low.get(n.toLowerCase());
-    if (i !== undefined) return i;
-  }
-  return -1;
-}
-
 export function parseStatementCsv(text: string): ParsedRow[] {
   const rows = Papa.parse<string[]>(text, { skipEmptyLines: false }).data;
   if (rows.length === 0) return [];
 
   const header = rows[0];
-  const iDate = colIndex(header, ["Dagsetning", "date"]);
-  // Exact "Upphæð" matches the ISK column, not "Upphæð í erlendum gjaldmiðli".
-  const iAmt = colIndex(header, ["Upphæð", "Upphaed", "amount"]);
-  const iMerch = colIndex(header, ["Mótaðili", "Motadili", "merchant"]);
-  const iCat = colIndex(header, ["Tegund", "category"]);
-  if ([iDate, iAmt, iMerch, iCat].includes(-1)) {
+  // Auto-detect the date/amount/merchant/category columns from arbitrary header names/orders (#96);
+  // the foreign-currency amount column is excluded by the detector.
+  const mapping = detectColumnMapping(header);
+  if (!mapping) {
     throw new Error(`missing required columns in header: ${header.join(", ")}`);
   }
+  const { date: iDate, amount: iAmt, merchant: iMerch, category: iCat } = mapping;
 
   const out: ParsedRow[] = [];
   rows.slice(1).forEach((r, idx) => {
