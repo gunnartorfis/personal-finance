@@ -69,6 +69,10 @@ function rowsToParsed(rows: string[][], mapping: ColumnMapping): ParsedRow[] {
 /**
  * Parse a statement CSV with an explicit, caller-supplied column mapping — the deterministic core
  * used both by auto-detection here and (ADR-0018) by the commit path once a mapping is confirmed.
+ *
+ * Expects a header-bearing CSV: the first row is treated as the header and skipped (the mapping's
+ * indices point at columns in that header). This matches the commit path, which re-sends the same
+ * header-bearing file the preview parsed. A headerless CSV would silently drop its first data row.
  */
 export function parseWithMapping(text: string, mapping: ColumnMapping): ParsedRow[] {
   const rows = Papa.parse<string[]>(text, { skipEmptyLines: false }).data;
