@@ -1,6 +1,6 @@
 import Papa from "papaparse";
 
-import { detectColumnMapping, type ColumnMapping } from "./column-mapping";
+import { detectColumnMapping, findHeaderRow, type ColumnMapping } from "./column-mapping";
 
 /**
  * Parse an Icelandic bank-statement CSV (ADR-0003) from decoded text — the web ingestion path
@@ -41,12 +41,16 @@ function parseAmount(s: string): number | null {
   return /^-?\d+$/.test(c) ? parseInt(c, 10) : null;
 }
 
-/** Emit ParsedRows from already-parsed CSV cells using a resolved column mapping. */
-function rowsToParsed(rows: string[][], mapping: ColumnMapping): ParsedRow[] {
+/**
+ * Emit ParsedRows from already-parsed CSV cells using a resolved column mapping. Rows up to and
+ * including `headerIndex` (the header and any preamble above it) are skipped; `sourceRow` counts
+ * from the first data row after the header.
+ */
+function rowsToParsed(rows: string[][], mapping: ColumnMapping, headerIndex = 0): ParsedRow[] {
   const { date: iDate, amount: iAmt, merchant: iMerch, category: iCat } = mapping;
 
   const out: ParsedRow[] = [];
-  rows.slice(1).forEach((r, idx) => {
+  rows.slice(headerIndex + 1).forEach((r, idx) => {
     const d = (r[iDate] ?? "").trim();
     if (d.length < 10 || d[2] !== ".") return; // skip non-date / separator rows
     const amount = parseAmount(r[iAmt] ?? "");
@@ -84,12 +88,14 @@ export function parseStatementCsv(text: string): ParsedRow[] {
   const rows = Papa.parse<string[]>(text, { skipEmptyLines: false }).data;
   if (rows.length === 0) return [];
 
-  const header = rows[0];
-  // Auto-detect the date/amount/merchant/category columns from arbitrary header names/orders (#96);
-  // the foreign-currency amount column is excluded by the detector.
+  // Locate the header row first: bank exports often carry preamble lines (account no., statement
+  // period, blanks) above it. Then auto-detect the date/amount/merchant/category columns from that
+  // header's arbitrary names/orders (#96); the foreign-currency amount column is excluded.
+  const headerIndex = findHeaderRow(rows);
+  const header = rows[headerIndex];
   const { resolved, unmatched } = detectColumnMapping(header);
   if (unmatched.length > 0) {
     throw new Error(`missing required columns: ${unmatched.join(", ")} (header: ${header.join(", ")})`);
   }
-  return rowsToParsed(rows, resolved as ColumnMapping);
+  return rowsToParsed(rows, resolved as ColumnMapping, headerIndex);
 }

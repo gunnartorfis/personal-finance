@@ -79,3 +79,21 @@ export function detectColumnMapping(header: ReadonlyArray<string>): ColumnMappin
 
   return { resolved, unmatched };
 }
+
+/** How many leading rows to scan for the header before giving up — bank preambles are short. */
+const MAX_HEADER_SCAN = 50;
+
+/**
+ * Locate the real header row: the first row (within a bounded scan) whose labels resolve every
+ * required role. Bank exports often carry preamble lines (account no., statement period, blanks)
+ * above the header; this skips them. Data rows don't match header aliases, so they aren't mistaken
+ * for the header. Returns 0 when no row fully resolves, so the caller reports the gap against the
+ * first row exactly as before.
+ */
+export function findHeaderRow(rows: ReadonlyArray<ReadonlyArray<string>>): number {
+  const limit = Math.min(rows.length, MAX_HEADER_SCAN);
+  for (let i = 0; i < limit; i++) {
+    if (detectColumnMapping(rows[i]).unmatched.length === 0) return i;
+  }
+  return 0;
+}

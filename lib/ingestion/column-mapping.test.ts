@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { detectColumnMapping } from "./column-mapping";
+import { detectColumnMapping, findHeaderRow } from "./column-mapping";
 
 // Slice 2 (ADR-0018): detectColumnMapping now returns { resolved, unmatched }
 // instead of `ColumnMapping | null`, so a partial match can name the roles that
@@ -71,5 +71,35 @@ describe("detectColumnMapping", () => {
       resolved: { date: 0 },
       unmatched: ["amount", "merchant", "category"],
     });
+  });
+});
+
+describe("findHeaderRow", () => {
+  it("returns 0 when the first row is already the header", () => {
+    expect(findHeaderRow([["Dagsetning", "Mótaðili", "Tegund", "Upphæð"], ["01.03.2026", "X", "Y", "-1 kr."]])).toBe(0);
+  });
+
+  it("skips bank preamble lines above the real header", () => {
+    const rows = [
+      ["Yfirlit reiknings 0133-26-000000"],
+      [""],
+      ["Tímabil: 01.03.2026 - 31.03.2026"],
+      ["Dagsetning", "Mótaðili", "Tegund", "Upphæð"],
+      ["01.03.2026", "NETFLIX", "Afþreying", "-1.990 kr."],
+    ];
+    expect(findHeaderRow(rows)).toBe(3);
+  });
+
+  it("returns 0 when no row resolves a full mapping (caller then reports the gap)", () => {
+    expect(findHeaderRow([["Foo", "Bar"], ["1", "2"]])).toBe(0);
+  });
+
+  it("does not mistake a data row for the header", () => {
+    // Data cells (dates, merchant names) do not match header aliases, so row 0 (the header) wins.
+    const rows = [
+      ["Dagsetning", "Mótaðili", "Tegund", "Upphæð"],
+      ["01.03.2026", "AMOUNT DUE STORE", "DATE NIGHT CAFE", "-1 kr."],
+    ];
+    expect(findHeaderRow(rows)).toBe(0);
   });
 });

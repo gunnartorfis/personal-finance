@@ -66,6 +66,49 @@ describe("parseStatementCsv", () => {
       /amount/,
     );
   });
+
+  it("skips bank preamble lines above the header row", () => {
+    const csv = [
+      "Yfirlit reiknings 0133-26-000000",
+      "Tímabil: 01.03.2026 - 31.03.2026",
+      "",
+      "Dagsetning,Mótaðili,Tegund,Upphæð",
+      "01.03.2026,NETFLIX,Afþreying,-1.990 kr.",
+      "05.03.2026,BÓNUS,Verslun,-3.200 kr.",
+    ].join("\n");
+    const rows = parseStatementCsv(csv);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toEqual({
+      sourceRow: 0,
+      date: "2026-03-01",
+      amount: -1990,
+      merchant: "NETFLIX",
+      rawCategory: "Afþreying",
+    });
+  });
+
+  it("counts sourceRow from the first data row after the detected header", () => {
+    const csv = [
+      "Preamble line",
+      "Dagsetning,Mótaðili,Tegund,Upphæð",
+      "01.03.2026,NETFLIX,Afþreying,-1.990 kr.",
+      "-------,,,",
+      "05.03.2026,BÓNUS,Verslun,-3.200 kr.",
+    ].join("\n");
+    const rows = parseStatementCsv(csv);
+    // BÓNUS is the 3rd row after the header (NETFLIX=0, separator=1, BÓNUS=2).
+    expect(rows[1].sourceRow).toBe(2);
+  });
+
+  it("auto-detects a semicolon-delimited file", () => {
+    const csv = ["Dagsetning;Mótaðili;Tegund;Upphæð", "01.03.2026;NETFLIX;Afþreying;-1.990 kr."].join(
+      "\n",
+    );
+    const rows = parseStatementCsv(csv);
+    expect(rows).toEqual([
+      { sourceRow: 0, date: "2026-03-01", amount: -1990, merchant: "NETFLIX", rawCategory: "Afþreying" },
+    ]);
+  });
 });
 
 describe("parseWithMapping", () => {
