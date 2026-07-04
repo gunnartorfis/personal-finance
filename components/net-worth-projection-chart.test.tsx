@@ -12,10 +12,15 @@ const POINTS: ProjectionPoint[] = [
 ]
 
 describe("NetWorthProjectionChart", () => {
-  it("titles the projection and states the year-out figure (the last point)", () => {
+  it("titles the projection and states the end figure at the final month (the last point)", () => {
     render(<NetWorthProjectionChart points={POINTS} currency="ISK" />)
     expect(screen.getByText("Net worth projection")).toBeInTheDocument()
-    expect(screen.getByText(/about .*1,600,000.* a year from now/i)).toBeInTheDocument()
+    expect(screen.getByText(/about .*1,600,000.* by July 2027/i)).toBeInTheDocument()
+  })
+
+  it("renders nothing for an empty projection", () => {
+    const { container } = render(<NetWorthProjectionChart points={[]} currency="ISK" />)
+    expect(container).toBeEmptyDOMElement()
   })
 
   it("exposes each projected point to screen readers", () => {

@@ -1,6 +1,7 @@
 "use client"
 
 import { useLocale, useTranslations } from "next-intl"
+import { useId } from "react"
 import { Area, AreaChart, XAxis } from "recharts"
 
 import {
@@ -34,10 +35,16 @@ export function NetWorthProjectionChart({
   const locale = toLocale(useLocale()) ?? defaultLocale
   const money = currencyFormatter(currency, locale)
   const fmt = (amount: number) => money.format(amount)
+  // Unique per instance so two projection charts on one page don't share (and clip to) one gradient.
+  const fillId = `net-worth-fill-${useId().replace(/:/g, "")}`
 
   const chartConfig = {
     netWorth: { label: t("netWorth"), color: "var(--color-emerald-500)" },
   } satisfies ChartConfig
+
+  // Defensive: the dashboard only renders this with a full projection, but never index into an empty
+  // array — a future caller passing [] should get nothing, not a crash.
+  if (points.length === 0) return null
 
   const data = points.map((point) => ({
     cycle: point.cycleKey,
@@ -54,14 +61,14 @@ export function NetWorthProjectionChart({
       <header className="flex flex-col gap-1">
         <h2 className="text-base font-medium">{t("title")}</h2>
         <p className="text-sm text-pretty text-muted-foreground">
-          {t("subtitle", { amount: fmt(last.netWorth) })}
+          {t("subtitle", { amount: fmt(last.netWorth), month: formatCycleMonth(last.cycleKey, locale) })}
         </p>
       </header>
 
       <ChartContainer config={chartConfig} className="aspect-auto h-40 w-full">
         <AreaChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
           <defs>
-            <linearGradient id="net-worth-fill" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="var(--color-netWorth)" stopOpacity={0.25} />
               <stop offset="100%" stopColor="var(--color-netWorth)" stopOpacity={0} />
             </linearGradient>
@@ -96,7 +103,7 @@ export function NetWorthProjectionChart({
             type="monotone"
             stroke="var(--color-netWorth)"
             strokeWidth={2}
-            fill="url(#net-worth-fill)"
+            fill={`url(#${fillId})`}
             dot={false}
             isAnimationActive={false}
           />

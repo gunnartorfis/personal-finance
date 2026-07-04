@@ -651,7 +651,7 @@
     },
     "netWorthProjection": {
       "title": "Spá um hreina eign",
-      "subtitle": "Miðað við dæmigerðan sparnað, um {amount} eftir ár.",
+      "subtitle": "Miðað við dæmigerðan sparnað, um {amount} í {month}.",
       "netWorth": "Hrein eign",
       "srPoint": "{label}: {amount}"
     }

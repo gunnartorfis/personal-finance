@@ -651,7 +651,7 @@
     },
     "netWorthProjection": {
       "title": "Net worth projection",
-      "subtitle": "At your typical saving, about {amount} a year from now.",
+      "subtitle": "At your typical saving, about {amount} by {month}.",
       "netWorth": "Net worth",
       "srPoint": "{label}: {amount}"
     }
