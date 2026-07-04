@@ -868,6 +868,32 @@ export function householdRepo(db: Db, householdId: string) {
        * split charge never inflates an account total. Accounts with no debits in the range simply
        * don't appear. `sum(...)` is coerced from the driver string. Scoped to the household.
        */
+      /**
+       * Signed net movement per Account over a half-open range `[from, to)` — `sum(amount)` grouped
+       * by account, for the balance check (#98). Unlike {@link spendByAccount} this is the RAW signed
+       * amount of EVERY row (credits, excluded rows, and transfer legs included): a statement balance
+       * reflects all real money movement, not just counted spend. Inner-joins `accounts` so only
+       * accounts with rows in the range appear. `sum(...)` comes back as a string; coerced to a number.
+       */
+      netByAccount: async (range: { from: string; to: string }) => {
+        const net = sql<string>`coalesce(sum(${transactions.amount}), 0)`;
+        const rows = await db
+          .select({ accountId: accounts.id, name: accounts.name, net })
+          .from(transactions)
+          .innerJoin(
+            accounts,
+            and(eq(accounts.householdId, householdId), eq(accounts.id, transactions.accountId))
+          )
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              gte(transactions.date, range.from),
+              lt(transactions.date, range.to)
+            )
+          )
+          .groupBy(accounts.id, accounts.name);
+        return rows.map((row) => ({ accountId: row.accountId, name: row.name, net: Number(row.net) }));
+      },
       spendByAccount: async (range: { from: string; to: string }) => {
         // Own share, not the full charge, on a Shared expense (ADR-0014); equal for ordinary rows.
         const spending = sql<string>`sum(-${transactions.effectiveAmount})`;
