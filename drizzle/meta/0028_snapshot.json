@@ -1,5 +1,5 @@
 {
-  "id": "26d8c814-b43e-41c5-9af7-2497640f3f93",
+  "id": "879aad3b-b176-4cea-b342-fb2cdfbd0074",
   "prevId": "145d2d89-7f44-4344-abc9-f0b501e8192b",
   "version": "7",
   "dialect": "postgresql",
@@ -453,6 +453,28 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "assistant_messages_household_user_created_idx": {
+          "name": "assistant_messages_household_user_created_idx",
+          "columns": [
+            {
+              "expression": "household_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"assistant_messages\".\"role\" = 'user'",
           "concurrently": false,
           "method": "btree",
           "with": {}

@@ -83,7 +83,7 @@ describe("assistant repo", () => {
     expect(await b.repo.assistant.listMessages(convA.id)).toHaveLength(0);
   });
 
-  it("counts a member's messages sent today (for the daily fair-use cap)", async () => {
+  it("counts the household's user messages since a time (household-scoped daily fair-use cap)", async () => {
     const { repo, memberId } = await freshHousehold("e");
     const conv = await repo.assistant.createConversation({ startedByMemberId: memberId, title: "t" });
     expect(await repo.assistant.countMessagesSince(new Date(0))).toBe(0);

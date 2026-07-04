@@ -870,6 +870,11 @@ export const assistantMessages = pgTable(
     }),
     // Load a thread in order.
     index("assistant_messages_conversation_created_idx").on(t.conversationId, t.createdAt),
+    // Serve the daily fair-use cap meter (`countMessagesSince`) as a seek, not a scan: it filters
+    // (household_id, role='user', created_at) on every gated request. Partial on the counted role.
+    index("assistant_messages_household_user_created_idx")
+      .on(t.householdId, t.createdAt)
+      .where(sql`${t.role} = 'user'`),
     // Assistant messages are never attributed to a Member.
     check(
       "assistant_messages_assistant_unattributed",

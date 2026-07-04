@@ -4,7 +4,15 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { accounts, households, householdInvites, members, uploads } from "@/lib/db/schema";
+import {
+  accounts,
+  assistantConversations,
+  assistantMessages,
+  households,
+  householdInvites,
+  members,
+  uploads,
+} from "@/lib/db/schema";
 import { generateInviteToken } from "@/lib/household/invites";
 
 import { deleteHousehold, leaveHousehold, LeaveError } from "./membership";
@@ -57,6 +65,30 @@ describe("leaveHousehold", () => {
     expect(u.importedByMemberId).toBeNull(); // reference nulled, upload kept
     const [i] = await db.select().from(householdInvites).where(eq(householdInvites.id, invite.id));
     expect(i.invitedByMemberId).toBeNull();
+  });
+
+  it("nulls a leaver's Assistant attributions so departure never hits an FK violation (#101)", async () => {
+    const [hh] = await db.insert(households).values({}).returning();
+    const leaver = await seedMember(hh.id, "assistant-leaver");
+    await seedMember(hh.id, "assistant-stayer");
+    // The leaver opened a thread and asked a question — both carry NO-ACTION member FKs.
+    const [conv] = await db
+      .insert(assistantConversations)
+      .values({ householdId: hh.id, startedByMemberId: leaver, title: "Why was March higher?" })
+      .returning();
+    const [msg] = await db
+      .insert(assistantMessages)
+      .values({ householdId: hh.id, conversationId: conv.id, memberId: leaver, role: "user", content: "q" })
+      .returning();
+
+    await leaveHousehold(asDb(db), hh.id, leaver);
+
+    // The member is gone; their threads/messages survive with attribution nulled (Household-owned).
+    expect(await db.select().from(members).where(eq(members.id, leaver))).toHaveLength(0);
+    const [c] = await db.select().from(assistantConversations).where(eq(assistantConversations.id, conv.id));
+    expect(c.startedByMemberId).toBeNull();
+    const [m] = await db.select().from(assistantMessages).where(eq(assistantMessages.id, msg.id));
+    expect(m.memberId).toBeNull();
   });
 });
 

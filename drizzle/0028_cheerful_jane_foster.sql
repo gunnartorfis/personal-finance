@@ -28,4 +28,5 @@ ALTER TABLE "assistant_messages" ADD CONSTRAINT "assistant_messages_household_id
 ALTER TABLE "assistant_messages" ADD CONSTRAINT "assistant_messages_conversation_household_fk" FOREIGN KEY ("household_id","conversation_id") REFERENCES "public"."assistant_conversations"("household_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "assistant_messages" ADD CONSTRAINT "assistant_messages_member_household_fk" FOREIGN KEY ("household_id","member_id") REFERENCES "public"."members"("household_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "assistant_conversations_household_updated_idx" ON "assistant_conversations" USING btree ("household_id","updated_at");--> statement-breakpoint
-CREATE INDEX "assistant_messages_conversation_created_idx" ON "assistant_messages" USING btree ("conversation_id","created_at");
+CREATE INDEX "assistant_messages_conversation_created_idx" ON "assistant_messages" USING btree ("conversation_id","created_at");--> statement-breakpoint
+CREATE INDEX "assistant_messages_household_user_created_idx" ON "assistant_messages" USING btree ("household_id","created_at") WHERE "assistant_messages"."role" = 'user';
