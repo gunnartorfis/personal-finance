@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/db"
-import { normalizeStraumurField, verifyStraumurHmac } from "@/lib/payments/straumur"
+import { subscriptionPriceISK } from "@/lib/billing/pricing"
+import { normalizeStraumurField, toStraumurWireAmount, verifyStraumurHmac } from "@/lib/payments/straumur"
 import {
   activatePremiumFromAuthorization,
   extractRecurringDetailReference,
@@ -108,12 +109,25 @@ export async function POST(request: Request): Promise<Response> {
     // re-delivered Authorization doesn't drift planRenewsAt forward.
     const period = parsePeriodFromReference(merchantReference)
     if (success && householdId && period) {
-      await activatePremiumFromAuthorization(db, {
-        householdId,
-        period,
-        recurringDetailReference,
-        now: recorded.createdAt,
-      })
+      // amount/currency ARE HMAC-signed, so gate activation on them matching the expected plan price:
+      // a mismatch is a mis-priced or tampered charge and must never grant Premium. The event is
+      // already recorded above, so mismatches stay observable in straumur_payments; still ACK
+      // ([accepted]) — a 4xx would make Straumur retry the same mismatch for ~8 days.
+      const expected = toStraumurWireAmount(subscriptionPriceISK(period), "ISK")
+      if (amount === expected.amount && currency === expected.currency) {
+        await activatePremiumFromAuthorization(db, {
+          householdId,
+          period,
+          // First-seen token wins: recordWebhookEvent returns the stored token, so a replay carrying a
+          // swapped (unsigned) recurringDetailReference can't change the card the renewal cron charges.
+          recurringDetailReference: recorded.recurringDetailReference,
+          now: recorded.createdAt,
+        })
+      } else {
+        console.error(
+          `[straumur-webhook] amount/currency mismatch: got ${amount} ${currency}, expected ${expected.amount} ${expected.currency} (psp=${pspReference}) — not activating`,
+        )
+      }
     }
   } catch (error) {
     // Transient DB failure: don't ACK, so Straumur retries.

@@ -93,6 +93,41 @@ describe("recordWebhookEvent", () => {
     expect(rows[0].success).toBe(false);
     expect(rows[0].reason).toBe("REFUSED");
   });
+
+  it("keeps the first-seen recurringDetailReference on re-delivery and returns it", async () => {
+    // additionalData (and thus the token) is not HMAC-signed; a replayed event with a swapped token
+    // must not overwrite the card we'll later charge unattended — first-seen wins.
+    const first = await recordWebhookEvent(asDb(db), {
+      ...base,
+      pspReference: "psp_tok",
+      recurringDetailReference: "TOK_FIRST",
+    });
+    expect(first.recurringDetailReference).toBe("TOK_FIRST");
+
+    const second = await recordWebhookEvent(asDb(db), {
+      ...base,
+      pspReference: "psp_tok",
+      recurringDetailReference: "TOK_SWAPPED",
+    });
+    expect(second.recurringDetailReference).toBe("TOK_FIRST"); // returns stored, not incoming
+
+    const rows = await db
+      .select()
+      .from(straumurPayments)
+      .where(eq(straumurPayments.pspReference, "psp_tok"));
+    expect(rows[0].recurringDetailReference).toBe("TOK_FIRST"); // stored value untouched
+  });
+
+  it("stores and returns its own token for a new pspReference (card-update path)", async () => {
+    // A card update arrives as a *new* event (new pspReference), not a replay — it must store its
+    // own token, not inherit an earlier one.
+    const recorded = await recordWebhookEvent(asDb(db), {
+      ...base,
+      pspReference: "psp_newcard",
+      recurringDetailReference: "TOK_NEWCARD",
+    });
+    expect(recorded.recurringDetailReference).toBe("TOK_NEWCARD");
+  });
 });
 
 describe("activatePremiumFromAuthorization", () => {
