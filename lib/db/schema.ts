@@ -84,6 +84,11 @@ export const members = pgTable(
      * the app via `toLocale`; kept as free text to avoid a DB enum migration.
      */
     locale: text("locale"),
+    /**
+     * When this Member opted out of the Digest (#102, ADR-0019); `null` = subscribed (opt-out
+     * model, on by default). Set by the unsubscribe link / settings toggle, cleared on re-subscribe.
+     */
+    digestUnsubscribedAt: timestamp("digest_unsubscribed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   // Target for composite same-household foreign keys from upload/override actor columns.
@@ -144,6 +149,40 @@ export const householdInvites = pgTable(
     index("household_invites_email_pending_idx")
       .on(t.email)
       .where(sql`${t.status} = 'pending'`),
+  ],
+);
+
+/**
+ * Append-only idempotency ledger for the monthly Digest (#102, ADR-0019). Exactly one row per
+ * (Member, Statement cycle): the cron inserts a row as it sends, and the UNIQUE(member_id, cycle_key)
+ * makes a retried or double-fired run a no-op instead of a double-send. Not an audit trail (that is
+ * the Activity log, which the Digest never writes) — pure send-dedup bookkeeping, so it cascades away
+ * with the Member. `cycle_key` is the `YYYY-MM` Statement-cycle key.
+ */
+export const digestSends = pgTable(
+  "digest_sends",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    memberId: uuid("member_id").notNull(),
+    /** The Statement-cycle key the Digest covered, `YYYY-MM`. */
+    cycleKey: text("cycle_key").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Tenant isolation: the Member must belong to the same Household (composite FK); cascade so a
+    // departed Member's send bookkeeping is cleaned up (unlike the Activity log, this is not audit).
+    foreignKey({
+      columns: [t.householdId, t.memberId],
+      foreignColumns: [members.householdId, members.id],
+      name: "digest_sends_member_household_fk",
+    }).onDelete("cascade"),
+    // At most one Digest per (Member, cycle) — the DB backstop that makes the cron idempotent.
+    unique("digest_sends_member_cycle_key").on(t.memberId, t.cycleKey),
+    // `cycle_key` is a Statement-cycle key: four digits, a dash, two digits.
+    check("digest_sends_cycle_key_format", sql`${t.cycleKey} ~ '^[0-9]{4}-[0-9]{2}$'`),
   ],
 );
 
