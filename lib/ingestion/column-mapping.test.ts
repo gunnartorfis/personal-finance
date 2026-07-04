@@ -177,4 +177,14 @@ describe("headerSignature", () => {
       headerSignature(["Dagsetning", "Upphæð"]),
     );
   });
+
+  it("does not collide when a label contains the delimiter character", () => {
+    // A naive pipe-join would make both of these "a|b|c"; JSON serialization keeps them distinct.
+    expect(headerSignature(["a|b", "c"])).not.toBe(headerSignature(["a", "b|c"]));
+  });
+
+  it("yields a stable non-empty signature for an empty/all-blank header (never \"\")", () => {
+    expect(headerSignature([])).toBe("[]");
+    expect(headerSignature(["", "  "])).toBe("[]");
+  });
 });
