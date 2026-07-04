@@ -24,5 +24,6 @@ export function useNavLabels(): Record<NavLabelKey, string> {
     billing: t("billing"),
     account: t("account"),
     security: t("security"),
+    activity: t("activity"),
   }
 }

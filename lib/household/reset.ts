@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
+import { ActivityAction } from "@/lib/activity/actions";
 import { householdRepo } from "@/lib/db/household-repo";
 import {
   accounts,
@@ -67,7 +68,7 @@ export async function resetHouseholdFinancialData(
       .values({ householdId, name: DEFAULT_ACCOUNT_NAME, isDefault: true });
     // Record the reset itself — in the same tx, so it commits atomically with the wipe.
     await repo.activity.record(
-      { memberId: actor.memberId, actorName: actor.actorName, action: "data.reset" },
+      { memberId: actor.memberId, actorName: actor.actorName, action: ActivityAction.DataReset },
       tx,
     );
   });

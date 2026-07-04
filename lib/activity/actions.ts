@@ -41,6 +41,9 @@ export const ActivityAction = {
   BillingCancelled: "billing.cancelled",
   DataExported: "data.exported",
   BankDisconnected: "bank.disconnected",
+
+  // Household data reset (ADR-0017) — logged inside the reset transaction; the log itself survives.
+  DataReset: "data.reset",
 } as const;
 
 export type ActivityAction = (typeof ActivityAction)[keyof typeof ActivityAction];
