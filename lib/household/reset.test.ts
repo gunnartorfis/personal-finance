@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import {
   accounts,
+  activityLog,
   assistantConversations,
   assistantMessages,
   households,
@@ -17,6 +18,8 @@ import {
 } from "@/lib/db/schema";
 
 import { resetHouseholdFinancialData } from "./reset";
+
+const ACTOR = { memberId: "00000000-0000-0000-0000-0000000000aa", actorName: "Ada" };
 
 let db: ReturnType<typeof drizzle>;
 const asDb = (d: typeof db) => d as unknown as Parameters<typeof resetHouseholdFinancialData>[0];
@@ -84,7 +87,7 @@ describe("resetHouseholdFinancialData", () => {
       merchantRules: 1,
     });
 
-    await resetHouseholdFinancialData(asDb(db), householdId);
+    await resetHouseholdFinancialData(asDb(db), householdId, ACTOR);
 
     // A reset returns the household to its just-provisioned state: data gone, but the single
     // default account restored so the household never exists without one.
@@ -114,7 +117,7 @@ describe("resetHouseholdFinancialData", () => {
     const target = await seedHousehold("victim_user", "hash-b");
     const other = await seedHousehold("bystander_user", "hash-c");
 
-    await resetHouseholdFinancialData(asDb(db), target);
+    await resetHouseholdFinancialData(asDb(db), target, ACTOR);
 
     expect(await counts(other)).toEqual({
       accounts: 1,
@@ -135,7 +138,7 @@ describe("resetHouseholdFinancialData", () => {
       .insert(assistantMessages)
       .values({ householdId, conversationId: conv.id, memberId: null, role: "assistant", content: "…" });
 
-    await resetHouseholdFinancialData(asDb(db), householdId);
+    await resetHouseholdFinancialData(asDb(db), householdId, ACTOR);
 
     expect(
       await db
@@ -149,5 +152,43 @@ describe("resetHouseholdFinancialData", () => {
         .from(assistantMessages)
         .where(eq(assistantMessages.householdId, householdId)),
     ).toHaveLength(0);
+  });
+
+  // ADR-0017: the reset is itself a logged action, and the Activity log deliberately SURVIVES the
+  // data reset — a reset that erased the log would let one partner destroy the evidence of their
+  // edits, the exact failure the Trust feature exists to prevent.
+  it("records a data.reset activity entry attributed to the actor", async () => {
+    const householdId = await seedHousehold("reset_logs", "hash-r1");
+
+    await resetHouseholdFinancialData(asDb(db), householdId, ACTOR);
+
+    const log = await db
+      .select()
+      .from(activityLog)
+      .where(eq(activityLog.householdId, householdId));
+    expect(log).toHaveLength(1);
+    expect(log[0].action).toBe("data.reset");
+    expect(log[0].actorName).toBe("Ada");
+    expect(log[0].memberId).toBe(ACTOR.memberId);
+  });
+
+  it("keeps activity entries recorded before the reset (the log survives)", async () => {
+    const householdId = await seedHousehold("reset_survive", "hash-r2");
+    await db.insert(activityLog).values({
+      householdId,
+      memberId: ACTOR.memberId,
+      actorName: "Ada",
+      action: "transaction.excluded",
+      payload: { transactionId: "tx-1", summary: "Excluded Netflix" },
+    });
+
+    await resetHouseholdFinancialData(asDb(db), householdId, ACTOR);
+
+    const actions = (
+      await db.select().from(activityLog).where(eq(activityLog.householdId, householdId))
+    ).map((e) => e.action);
+    expect(actions).toContain("transaction.excluded"); // pre-reset entry survived
+    expect(actions).toContain("data.reset"); // reset logged itself
+    expect(actions).toHaveLength(2);
   });
 });
