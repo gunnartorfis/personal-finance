@@ -91,6 +91,8 @@ export async function drainPending(
         maxConfidence: t.maxConfidence,
       })),
   );
+  // Resolve classified Category slugs to this Household's leaf ids (ADR-0020); loaded once per drain.
+  const leafSlugToId = await repo.categories.leafSlugToId();
   let classifiedCount = await repo.transactions.countClassified();
 
   let classified = 0;
@@ -135,13 +137,14 @@ export async function drainPending(
     const hit = reuse.get(merchantKey);
     if (hit) {
       // Reuse the Household's own prior confident decision for this merchant — no model call.
-      // NOTE (ADR-0020, S2c): once the classified Category is persisted, this reuse map must also
-      // carry `category`/`categoryConfidence` and forward them here, so repeated merchants in one
-      // drain get the same Category rather than being left Uncategorized.
+      // Forward the resolved Category too (ADR-0020) so repeated merchants in one drain get the same
+      // Category; cross-run seed entries have no categoryId, so those stay Uncategorized (S7 backfill).
       const [row] = await repo.transactions.classify(txn.id, {
         expenseType: hit.type,
         confidence: hit.confidence ?? undefined,
         reasoning: REUSED_REASON,
+        categoryId: hit.categoryId ?? null,
+        categoryConfidence: hit.categoryConfidence ?? undefined,
       });
       if (row) {
         classified += 1;
@@ -157,16 +160,25 @@ export async function drainPending(
         rawCategory: txn.rawCategory,
         date: txn.date,
       });
-      const [row] = await repo.transactions.classify(txn.id, result);
+      // Resolve the model's Category slug to this Household's leaf id (ADR-0020). "" (abstain) or a
+      // slug that isn't one of the Household's leaves (e.g. a hidden/renamed seed) → Uncategorized.
+      const categoryId = result.category ? (leafSlugToId.get(result.category) ?? null) : null;
+      const categoryConfidence = categoryId ? result.categoryConfidence : undefined;
+      const [row] = await repo.transactions.classify(txn.id, { ...result, categoryId, categoryConfidence });
       if (row) {
         classified += 1;
         classifiedCount += 1;
       }
-      // Within-run reuse (ADR-0012): make this merchant's fresh type available to its later rows in
-      // the same drain, unconditionally (regardless of confidence) — a single upload stays
-      // internally consistent and costs one model call per distinct merchant. Low-confidence types
-      // are still not seeded across runs (reuseTallies applies the floor next time).
-      reuse.set(merchantKey, { type: result.expenseType, confidence: result.confidence ?? null });
+      // Within-run reuse (ADR-0012): make this merchant's fresh type + resolved Category available to
+      // its later rows in the same drain, unconditionally (regardless of confidence) — a single
+      // upload stays internally consistent and costs one model call per distinct merchant. Low-
+      // confidence types are still not seeded across runs (reuseTallies applies the floor next time).
+      reuse.set(merchantKey, {
+        type: result.expenseType,
+        confidence: result.confidence ?? null,
+        categoryId,
+        categoryConfidence: categoryConfidence ?? null,
+      });
     } catch (error) {
       // Surface the real cause on Vercel logs — the row is marked `failed` and the drain continues,
       // so without this the AI Gateway / schema-validation / rate-limit error vanishes silently. Log

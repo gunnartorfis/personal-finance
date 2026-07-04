@@ -31,6 +31,7 @@ import {
   accounts,
   activityLog,
   bankConnections,
+  categories,
   categoryBudgets,
   columnMappings,
   assistantConversations,
@@ -1168,15 +1169,22 @@ export function householdRepo(db: Db, householdId: string) {
           expenseType: ExpenseType
           confidence?: number
           reasoning?: string
+          /** Resolved semantic Category leaf id (ADR-0020); null/omitted = Uncategorized. */
+          categoryId?: string | null
+          categoryConfidence?: number
         }
-      ) =>
-        db
+      ) => {
+        // Confidence only rides along with an assigned Category (DB CHECK); force null otherwise.
+        const categoryId = result.categoryId ?? null
+        return db
           .update(transactions)
           .set({
             classificationStatus: "classified",
             expenseType: result.expenseType,
             confidence: result.confidence ?? null,
             reasoning: result.reasoning ?? null,
+            categoryId,
+            categoryConfidence: categoryId ? (result.categoryConfidence ?? null) : null,
           })
           .where(
             and(
@@ -1185,7 +1193,8 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.classificationStatus, "pending")
             )
           )
-          .returning(),
+          .returning()
+      },
       /**
        * Mark (or unmark) a credit as real income (ADR-0009). Scoped to the household and to
        * credits (`amount > 0`) — a debit id updates nothing (returns []) rather than tripping the
@@ -1335,6 +1344,28 @@ export function householdRepo(db: Db, householdId: string) {
             )
           )
           .returning(),
+    },
+    categories: {
+      /**
+       * Map of leaf-subcategory `slug → id` for this Household (ADR-0020) — used to resolve a
+       * classified/rule/override Category slug to its `category_id`. Leaves only (`parent_id`
+       * not null) and never hidden: a Transaction never attaches to a group, and a slug the
+       * Household has hidden resolves to nothing (→ Uncategorized), so auto-assignment can't
+       * revive a suppressed Category.
+       */
+      leafSlugToId: async (): Promise<Map<string, string>> => {
+        const rows = await db
+          .select({ slug: categories.slug, id: categories.id })
+          .from(categories)
+          .where(
+            and(
+              eq(categories.householdId, householdId),
+              isNotNull(categories.parentId),
+              eq(categories.hidden, false)
+            )
+          )
+        return new Map(rows.map((r) => [r.slug, r.id]))
+      },
     },
     merchantRules: {
       list: () =>

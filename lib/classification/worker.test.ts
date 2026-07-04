@@ -1,10 +1,12 @@
 import { PGlite } from "@electric-sql/pglite";
+import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { seedCategoriesForHousehold } from "@/lib/categories/seed-household";
 import { householdRepo } from "@/lib/db/household-repo";
-import { households } from "@/lib/db/schema";
+import { categories, households, transactions } from "@/lib/db/schema";
 
 import { REUSED_REASON } from "./reasons";
 import { drainPending, type Classifier } from "./worker";
@@ -37,7 +39,7 @@ async function setup() {
       rawCategory: "x",
       sourceRow: n++,
     });
-  return { repo, addTxn, accountId: account.id, uploadId: upload.id };
+  return { repo, addTxn, householdId: hh.id, accountId: account.id, uploadId: upload.id };
 }
 
 const always =
@@ -399,6 +401,86 @@ describe("drainPending", () => {
       expect(calls).toBe(0); // both handled by reuse, no model
       // First GYM reused (49→50); the second is over the cap and left pending.
       expect(result).toEqual({ classified: 1, failed: 0, capped: 1, reused: 1 });
+    });
+  });
+
+  describe("Category persistence (ADR-0020)", () => {
+    const withCategory =
+      (category: string): Classifier =>
+      async () => ({
+        expenseType: "Necessary",
+        confidence: 0.9,
+        reasoning: "test",
+        category,
+        categoryConfidence: 0.8,
+      });
+
+    async function rowsFor(householdId: string, merchant: string) {
+      // Scope by household: the shared PGlite db accumulates rows across tests.
+      return db
+        .select()
+        .from(transactions)
+        .where(and(eq(transactions.householdId, householdId), eq(transactions.merchant, merchant)));
+    }
+
+    it("resolves the classified category slug to the household's leaf category_id", async () => {
+      const { repo, addTxn, householdId } = await setup();
+      await seedCategoriesForHousehold(asDb(db), householdId);
+      await addTxn(-4200, "BONUS");
+      await drainPending(repo, withCategory("groceries"), { plan: "Premium" });
+
+      const groceriesId = (await repo.categories.leafSlugToId()).get("groceries");
+      const [row] = await rowsFor(householdId, "BONUS");
+      expect(row.categoryId).toBe(groceriesId);
+      expect(row.categoryConfidence).toBeCloseTo(0.8);
+    });
+
+    it("forwards the resolved Category to a repeated merchant via within-run reuse", async () => {
+      const { repo, addTxn, householdId } = await setup();
+      await seedCategoriesForHousehold(asDb(db), householdId);
+      await addTxn(-4200, "BONUS");
+      await addTxn(-1500, "BONUS"); // second row of same merchant → reuse path
+
+      let calls = 0;
+      const once: Classifier = async () => {
+        calls += 1;
+        return { expenseType: "Necessary", confidence: 0.9, category: "groceries", categoryConfidence: 0.8 };
+      };
+      const result = await drainPending(repo, once, { plan: "Premium" });
+
+      expect(calls).toBe(1); // one model call; the second BONUS row reused
+      expect(result.reused).toBe(1);
+      const groceriesId = (await repo.categories.leafSlugToId()).get("groceries");
+      const rows = await rowsFor(householdId, "BONUS");
+      expect(rows).toHaveLength(2);
+      expect(rows.every((r) => r.categoryId === groceriesId)).toBe(true);
+    });
+
+    it("leaves Uncategorized when the model abstains or the slug isn't a household leaf", async () => {
+      const { repo, addTxn, householdId } = await setup();
+      await seedCategoriesForHousehold(asDb(db), householdId);
+      await addTxn(-999, "MYSTERY");
+      await drainPending(repo, withCategory("not-a-real-slug"), { plan: "Premium" });
+
+      const [row] = await rowsFor(householdId, "MYSTERY");
+      expect(row.categoryId).toBeNull();
+      expect(row.categoryConfidence).toBeNull();
+      expect(row.expenseType).toBe("Necessary"); // expense type still classified
+    });
+
+    it("does not auto-assign a hidden Category — its slug falls back to Uncategorized", async () => {
+      const { repo, addTxn, householdId } = await setup();
+      await seedCategoriesForHousehold(asDb(db), householdId);
+      // The Household hid "groceries"; the model may still output it, but it must not be assigned.
+      await db
+        .update(categories)
+        .set({ hidden: true })
+        .where(and(eq(categories.householdId, householdId), eq(categories.slug, "groceries")));
+      await addTxn(-4200, "BONUS");
+      await drainPending(repo, withCategory("groceries"), { plan: "Premium" });
+
+      const [row] = await rowsFor(householdId, "BONUS");
+      expect(row.categoryId).toBeNull();
     });
   });
 });
