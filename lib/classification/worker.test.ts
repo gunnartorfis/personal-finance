@@ -493,6 +493,28 @@ describe("drainPending", () => {
       expect(row.expenseType).toBe("Necessary");
     });
 
+    it("a merchant rule pointing at a since-hidden Category falls back to Uncategorized", async () => {
+      const { repo, addTxn, householdId } = await setup();
+      await seedCategoriesForHousehold(asDb(db), householdId);
+      const groceriesId = (await repo.categories.leafSlugToId()).get("groceries")!;
+      await repo.merchantRules.create({
+        merchant: "BONUS",
+        flatType: "Necessary",
+        categoryId: groceriesId,
+      });
+      // Hide the Category after the rule was created — the rule must no longer assign it.
+      await db
+        .update(categories)
+        .set({ hidden: true })
+        .where(and(eq(categories.householdId, householdId), eq(categories.slug, "groceries")));
+      await addTxn(-4200, "BONUS");
+      await drainPending(repo, always("Fixed"), { plan: "Premium" });
+
+      const [row] = await rowsFor(householdId, "BONUS");
+      expect(row.categoryId).toBeNull(); // rule category suppressed like the model path
+      expect(row.expenseType).toBe("Necessary"); // the rule's Expense type still applies
+    });
+
     it("does not auto-assign a hidden Category — its slug falls back to Uncategorized", async () => {
       const { repo, addTxn, householdId } = await setup();
       await seedCategoriesForHousehold(asDb(db), householdId);

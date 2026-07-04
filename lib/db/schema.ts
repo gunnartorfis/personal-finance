@@ -721,7 +721,8 @@ export const merchantRules = pgTable(
     belowType: text("below_type"),
     /**
      * Optional semantic Category leaf (ADR-0020) applied alongside the Expense type on a match.
-     * Flat only — a merchant's Category doesn't vary by amount, so there's no split form. Null =
+     * A single value regardless of the flat/split shape — a merchant's Category doesn't vary by
+     * amount, so there is no threshold-split form for the Category (unlike the Expense type). Null =
      * the rule sets no Category (the row's Category still comes from Classification / Override).
      */
     categoryId: uuid("category_id"),
