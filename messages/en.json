@@ -648,6 +648,12 @@
       "title": "Mix over time",
       "mix": "{label} spending mix: {parts}",
       "noSpending": "{label}: no spending recorded"
+    },
+    "netWorthProjection": {
+      "title": "Net worth projection",
+      "subtitle": "At your typical saving, about {amount} by {month}.",
+      "netWorth": "Net worth",
+      "srPoint": "{label}: {amount}"
     }
   },
   "bankSync": {

@@ -10,6 +10,7 @@ import {
   computeNetWorth,
   computeRunwayMonths,
   loadNetWorth,
+  projectNetWorth,
   type BalanceSnapshot,
 } from "./net-worth";
 
@@ -65,6 +66,32 @@ describe("computeRunwayMonths", () => {
   it("is null when net worth is zero or negative (no runway to report)", () => {
     expect(computeRunwayMonths(0, 200_000)).toBeNull();
     expect(computeRunwayMonths(-500_000, 200_000)).toBeNull();
+  });
+});
+
+describe("projectNetWorth", () => {
+  it("anchors at today's net worth and carries forward at the monthly saving", () => {
+    const points = projectNetWorth({
+      startingNetWorth: 1_000_000,
+      monthlySaving: 50_000,
+      startCycle: "2026-07",
+      months: 12,
+    });
+    expect(points).toHaveLength(13); // index 0 (today) + 12 months
+    expect(points[0]).toEqual({ cycleKey: "2026-07", monthIndex: 0, netWorth: 1_000_000 });
+    expect(points[1]).toEqual({ cycleKey: "2026-08", monthIndex: 1, netWorth: 1_050_000 });
+    expect(points[12]).toEqual({ cycleKey: "2027-07", monthIndex: 12, netWorth: 1_600_000 });
+  });
+
+  it("projects a declining line when the household is losing money", () => {
+    const points = projectNetWorth({
+      startingNetWorth: 300_000,
+      monthlySaving: -100_000,
+      startCycle: "2026-11",
+      months: 3,
+    });
+    expect(points.map((p) => p.netWorth)).toEqual([300_000, 200_000, 100_000, 0]);
+    expect(points[3].cycleKey).toBe("2027-02"); // rolls across the year boundary
   });
 });
 

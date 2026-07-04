@@ -3,14 +3,16 @@ import { ActionBand } from "@/components/action-band"
 import { BiggestMovers } from "@/components/biggest-movers"
 import { CategoryMixModule } from "@/components/category-mix-module"
 import { FinancialHealthSection } from "@/components/financial-health-section"
+import { NetWorthProjectionChart } from "@/components/net-worth-projection-chart"
 import { SavingsProgressCard } from "@/components/savings-progress-card"
 import { SpendingTrendChart } from "@/components/spending-trend-chart"
 import { getTranslations } from "next-intl/server"
 
 import { ThisMonthHero } from "@/components/this-month-hero"
 import { TopMerchants } from "@/components/top-merchants"
+import { currentCycleKey } from "@/lib/dashboard/cycle"
 import { loadDashboardView } from "@/lib/dashboard/dashboard-view"
-import { loadNetWorthPanel } from "@/lib/dashboard/net-worth"
+import { loadNetWorthPanel, projectNetWorth } from "@/lib/dashboard/net-worth"
 import { loadSavingsProgress } from "@/lib/savings/assessment"
 import { requireHousehold } from "@/lib/household/current"
 import { resolveRequestLocale } from "@/lib/i18n/locale"
@@ -42,6 +44,19 @@ export default async function DashboardPage() {
   const hasMovers =
     view.modules.movers.merchants.length > 0 || view.modules.movers.categories.length > 0
 
+  // Project net worth 12 months out only when both inputs exist: a current net worth (a balance is
+  // recorded) and a typical monthly saving (enough completed-cycle history). No extra query — both
+  // come from data already loaded above.
+  const projection =
+    netWorthPanel.netWorth && view.financialHealth.avgMonthlySaving !== null
+      ? projectNetWorth({
+          startingNetWorth: netWorthPanel.netWorth.total,
+          monthlySaving: view.financialHealth.avgMonthlySaving,
+          startCycle: currentCycleKey(now),
+          months: 12,
+        })
+      : null
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6">
       <header className="flex flex-col gap-1">
@@ -60,6 +75,10 @@ export default async function DashboardPage() {
         accounts={netWorthPanel.accounts}
         currency={billingCurrency}
       />
+
+      {projection && (
+        <NetWorthProjectionChart points={projection} currency={billingCurrency} />
+      )}
 
       <SpendingTrendChart
         series={view.modules.series}
