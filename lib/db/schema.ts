@@ -6,6 +6,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -785,6 +786,47 @@ export const savingsOneOffAdjustments = pgTable(
       "savings_one_off_adjustments_cycle_key_format",
       sql`${t.cycleKey} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`,
     ),
+  ],
+);
+
+/**
+ * Member-facing Activity log (ADR-0017, issue #107 Trust): the Household's append-only record of
+ * *who did what, when*. Every Member reads the whole log — the point is transparency between
+ * partners sharing one financial picture.
+ *
+ * Deliberately decoupled from the financial tables so it can OUTLIVE them:
+ *  - It carries **NO foreign keys to financial rows** (transactions/uploads/accounts may be deleted
+ *    out from under an entry by a household data reset). Entities are referenced by id + summary
+ *    inside `payload` instead.
+ *  - `memberId` is a **plain uuid, not an FK**, and `actorName` is a **denormalized snapshot**, so a
+ *    departed Member's history stays attributed and readable after their `members` row is gone.
+ *  - The only FK is `household_id` → households (ON DELETE CASCADE): the log is removed only when
+ *    the Household itself is deleted. It is intentionally EXCLUDED from the household data reset
+ *    (`lib/household/reset.ts`) — a reset that erased the log would let one partner destroy the
+ *    evidence of their edits, the exact failure the Trust feature exists to prevent.
+ *
+ * Append-only: entries are never edited or deleted while the Household exists (ADR-0003 spirit).
+ */
+export const activityLog = pgTable(
+  "activity_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    /** The acting Member's id. PLAIN uuid, no FK: the entry survives the Member row (see above). */
+    memberId: uuid("member_id").notNull(),
+    /** Denormalized display name of the actor at record time — kept readable after they leave. */
+    actorName: text("actor_name").notNull(),
+    /** Intent-level action constant, e.g. `transaction.excluded` (recorded explicitly by routes). */
+    action: text("action").notNull(),
+    /** Entity id(s) + a human summary. JSON, never FKs — the referenced rows may be gone. */
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // The member-facing list reads this Household's entries newest-first.
+    index("activity_log_household_created_idx").on(t.householdId, t.createdAt.desc()),
   ],
 );
 

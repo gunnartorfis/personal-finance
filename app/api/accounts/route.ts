@@ -11,11 +11,17 @@ export async function GET() {
   return NextResponse.json(await repo.accounts.list())
 }
 
+/** Cap on an account name; ample for a card/bank label, bounded so it can't bloat a row. */
+const MAX_NAME_LENGTH = 100
+
 export async function POST(request: Request) {
   const body: unknown = await request.json().catch(() => null)
   const name = (body as { name?: unknown } | null)?.name
   if (typeof name !== "string" || name.trim() === "") {
     return NextResponse.json({ error: "name is required" }, { status: 400 })
+  }
+  if (name.trim().length > MAX_NAME_LENGTH) {
+    return NextResponse.json({ error: "name too long" }, { status: 400 })
   }
 
   const { repo } = await requireHousehold()

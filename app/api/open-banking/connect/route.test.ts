@@ -41,6 +41,18 @@ describe("POST /api/open-banking/connect", () => {
     expect((await POST(post({ country: "IS" }))).status).toBe(400)
   })
 
+  it("400s an over-long institutionName", async () => {
+    mockPlan("Premium")
+    const res = await POST(post({ institutionName: "x".repeat(201), country: "IS" }))
+    expect(res.status).toBe(400)
+  })
+
+  it("400s a country that isn't a 2-letter code", async () => {
+    mockPlan("Premium")
+    expect((await POST(post({ institutionName: "Landsbankinn", country: "ISL" }))).status).toBe(400)
+    expect((await POST(post({ institutionName: "Landsbankinn", country: "1x" }))).status).toBe(400)
+  })
+
   it("403s a Free household with upgrade_required (bank sync is Premium-only)", async () => {
     mockPlan("Free")
     const res = await POST(post(validBody))

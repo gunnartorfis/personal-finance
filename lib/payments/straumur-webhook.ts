@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
 import { isBillingPeriod, type BillingPeriod } from "@/lib/billing/pricing";
@@ -65,11 +65,18 @@ export interface RecordWebhookArgs {
 export async function recordWebhookEvent(
   db: Db,
   args: RecordWebhookArgs,
-): Promise<{ createdAt: Date }> {
+): Promise<{ createdAt: Date; recurringDetailReference: string | null }> {
   // Atomic upsert: two concurrent deliveries of the same event (Straumur retries immediately if it
   // doesn't get the [accepted] ACK) can't race a select-then-insert into a unique violation. Returns
   // `createdAt` — set once on first insert, unchanged on patch — a stable per-event anchor callers
   // use for renewal math so retries don't drift the date.
+  //
+  // `recurringDetailReference` uses first-seen-*non-null* wins: additionalData isn't HMAC-signed, so
+  // a replayed event with a swapped token must not overwrite the first-seen card we later charge
+  // unattended — but a first delivery can legitimately arrive with no token (Adyen tokenization is
+  // async), so a later re-delivery must still be able to *fill* a null. COALESCE keeps a stored
+  // non-null token and only backfills when the stored value is null. The upsert returns the
+  // resulting effective token, which the caller passes to activation.
   const [row] = await db
     .insert(straumurPayments)
     .values(args)
@@ -79,7 +86,7 @@ export async function recordWebhookEvent(
         householdId: args.householdId,
         merchantReference: args.merchantReference,
         checkoutReference: args.checkoutReference,
-        recurringDetailReference: args.recurringDetailReference,
+        recurringDetailReference: sql`coalesce(${straumurPayments.recurringDetailReference}, ${args.recurringDetailReference})`,
         amount: args.amount,
         currency: args.currency,
         success: args.success,
@@ -89,7 +96,20 @@ export async function recordWebhookEvent(
         receivedAt: new Date(),
       },
     })
-    .returning({ createdAt: straumurPayments.createdAt });
+    .returning({
+      createdAt: straumurPayments.createdAt,
+      recurringDetailReference: straumurPayments.recurringDetailReference,
+    });
+
+  // A non-null incoming token differing from the effective (returned) one means a re-delivery tried
+  // to swap an already-stored token — not a null backfill (COALESCE returns the incoming value there,
+  // so they match). Keep the swap attempt observable; ops can also reconcile Premium households whose
+  // straumurRecurringDetailReference stays null.
+  if (args.recurringDetailReference && args.recurringDetailReference !== row.recurringDetailReference) {
+    console.warn(
+      `[straumur-webhook] ignoring changed recurringDetailReference on re-delivery (psp=${args.pspReference}); first-seen token retained`,
+    );
+  }
   return row;
 }
 

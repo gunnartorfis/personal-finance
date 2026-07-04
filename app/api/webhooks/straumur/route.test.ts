@@ -35,11 +35,16 @@ async function sign(
 
 /** Build a signed Authorization webhook body for the given overrides. */
 async function authBody(over: Record<string, unknown> = {}) {
-  const merchantReference = `sub_${UUID}_monthly_1_abc`
-  const psp = (over.payfacReference as string) ?? "psp_route_1"
-  const amount = (over.amount as string) ?? "199000"
-  const currency = over.currency !== undefined ? (over.currency as string) : "ISK"
-  const success = (over.success as string) ?? "true"
+  // `householdId`/`period` are test-only knobs that derive the (signed) merchantReference; strip them
+  // from the emitted body so only real webhook fields ship.
+  const { householdId, period, ...bodyOver } = over
+  const merchantReference =
+    (bodyOver.merchantReference as string) ??
+    `sub_${(householdId as string) ?? UUID}_${(period as string) ?? "monthly"}_1_abc`
+  const psp = (bodyOver.payfacReference as string) ?? "psp_route_1"
+  const amount = (bodyOver.amount as string) ?? "199000"
+  const currency = bodyOver.currency !== undefined ? (bodyOver.currency as string) : "ISK"
+  const success = (bodyOver.success as string) ?? "true"
   // Signing string mirrors the 7 fields (additionalData is not signed).
   const hmacSignature = await sign(["", psp, merchantReference, amount, currency ?? "", "", success])
   return {
@@ -52,7 +57,7 @@ async function authBody(over: Record<string, unknown> = {}) {
     success,
     hmacSignature,
     additionalData: { eventType: "Authorization", "recurring.recurringDetailReference": "TOK_R" },
-    ...over,
+    ...bodyOver,
   }
 }
 
@@ -146,5 +151,80 @@ describe("POST /api/webhooks/straumur", () => {
     // currency empty: signed consistently, passes HMAC, but fails the field check.
     const res = await post(await authBody({ payfacReference: "psp_missing", currency: "" }))
     expect(res.status).toBe(400)
+  })
+
+  it("records but does not activate when the signed amount doesn't match the plan price", async () => {
+    const db = holder.db as ReturnType<typeof drizzle>
+    const [h] = await db.insert(households).values({}).returning()
+    const err = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    // "100" wire ≠ 199000 (monthly). amount/currency are HMAC-signed, so a mismatch is a mis-priced
+    // or tampered charge: record it (observable), never activate on it.
+    const res = await post(await authBody({ payfacReference: "psp_wrongamt", householdId: h.id, amount: "100" }))
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe("[accepted]")
+
+    const rows = await db.select().from(straumurPayments).where(eq(straumurPayments.pspReference, "psp_wrongamt"))
+    expect(rows).toHaveLength(1)
+    const [row] = await db.select().from(households).where(eq(households.id, h.id))
+    expect(row.plan).toBe("Free")
+    expect(err).toHaveBeenCalled()
+    err.mockRestore()
+  })
+
+  it("records but does not activate on a currency mismatch", async () => {
+    const db = holder.db as ReturnType<typeof drizzle>
+    const [h] = await db.insert(households).values({}).returning()
+    const err = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    const res = await post(await authBody({ payfacReference: "psp_wrongcur", householdId: h.id, currency: "EUR" }))
+    expect(res.status).toBe(200)
+
+    const [row] = await db.select().from(households).where(eq(households.id, h.id))
+    expect(row.plan).toBe("Free")
+    err.mockRestore()
+  })
+
+  it("activates on an annual authorization at the annual price", async () => {
+    const db = holder.db as ReturnType<typeof drizzle>
+    const [h] = await db.insert(households).values({}).returning()
+
+    // annual = round(1990*12*0.7) = 16716 ISK → 1671600 wire.
+    const res = await post(
+      await authBody({ payfacReference: "psp_annual", householdId: h.id, period: "annual", amount: "1671600" }),
+    )
+    expect(res.status).toBe(200)
+
+    const [row] = await db.select().from(households).where(eq(households.id, h.id))
+    expect(row.plan).toBe("Premium")
+    expect(row.subscriptionPeriod).toBe("annual")
+  })
+
+  it("keeps the first-seen card token when a re-delivered event carries a different one", async () => {
+    const db = holder.db as ReturnType<typeof drizzle>
+    const [h] = await db.insert(households).values({}).returning()
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+
+    await post(
+      await authBody({
+        payfacReference: "psp_replay",
+        householdId: h.id,
+        additionalData: { eventType: "Authorization", "recurring.recurringDetailReference": "TOK_ORIG" },
+      }),
+    )
+    let [row] = await db.select().from(households).where(eq(households.id, h.id))
+    expect(row.straumurRecurringDetailReference).toBe("TOK_ORIG")
+
+    // Replay the same pspReference carrying a swapped (unsigned) token — must not overwrite the stored one.
+    await post(
+      await authBody({
+        payfacReference: "psp_replay",
+        householdId: h.id,
+        additionalData: { eventType: "Authorization", "recurring.recurringDetailReference": "TOK_EVIL" },
+      }),
+    )
+    ;[row] = await db.select().from(households).where(eq(households.id, h.id))
+    expect(row.straumurRecurringDetailReference).toBe("TOK_ORIG")
+    warn.mockRestore()
   })
 })

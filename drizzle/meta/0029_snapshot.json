@@ -1,6 +1,6 @@
 {
-  "id": "b67f2ce0-4aec-44c9-bb5c-a801b9e1b2ec",
-  "prevId": "145d2d89-7f44-4344-abc9-f0b501e8192b",
+  "id": "be7733c7-d8a1-4ced-aa6c-fdb9483af065",
+  "prevId": "b67f2ce0-4aec-44c9-bb5c-a801b9e1b2ec",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -360,6 +360,278 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.assistant_conversations": {
+      "name": "assistant_conversations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "household_id": {
+          "name": "household_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_by_member_id": {
+          "name": "started_by_member_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "assistant_conversations_household_updated_idx": {
+          "name": "assistant_conversations_household_updated_idx",
+          "columns": [
+            {
+              "expression": "household_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "assistant_conversations_household_id_households_id_fk": {
+          "name": "assistant_conversations_household_id_households_id_fk",
+          "tableFrom": "assistant_conversations",
+          "tableTo": "households",
+          "columnsFrom": [
+            "household_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "assistant_conversations_member_household_fk": {
+          "name": "assistant_conversations_member_household_fk",
+          "tableFrom": "assistant_conversations",
+          "tableTo": "members",
+          "columnsFrom": [
+            "household_id",
+            "started_by_member_id"
+          ],
+          "columnsTo": [
+            "household_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "assistant_conversations_household_id_id_key": {
+          "name": "assistant_conversations_household_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "household_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "assistant_conversations_title_len": {
+          "name": "assistant_conversations_title_len",
+          "value": "char_length(\"assistant_conversations\".\"title\") BETWEEN 1 AND 200"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.assistant_messages": {
+      "name": "assistant_messages",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "household_id": {
+          "name": "household_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "conversation_id": {
+          "name": "conversation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "role": {
+          "name": "role",
+          "type": "assistant_message_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "assistant_messages_conversation_created_idx": {
+          "name": "assistant_messages_conversation_created_idx",
+          "columns": [
+            {
+              "expression": "conversation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "assistant_messages_household_user_created_idx": {
+          "name": "assistant_messages_household_user_created_idx",
+          "columns": [
+            {
+              "expression": "household_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"assistant_messages\".\"role\" = 'user'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "assistant_messages_household_id_households_id_fk": {
+          "name": "assistant_messages_household_id_households_id_fk",
+          "tableFrom": "assistant_messages",
+          "tableTo": "households",
+          "columnsFrom": [
+            "household_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "assistant_messages_conversation_household_fk": {
+          "name": "assistant_messages_conversation_household_fk",
+          "tableFrom": "assistant_messages",
+          "tableTo": "assistant_conversations",
+          "columnsFrom": [
+            "household_id",
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "household_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "assistant_messages_member_household_fk": {
+          "name": "assistant_messages_member_household_fk",
+          "tableFrom": "assistant_messages",
+          "tableTo": "members",
+          "columnsFrom": [
+            "household_id",
+            "member_id"
+          ],
+          "columnsTo": [
+            "household_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "assistant_messages_assistant_unattributed": {
+          "name": "assistant_messages_assistant_unattributed",
+          "value": "\"assistant_messages\".\"role\" <> 'assistant' OR \"assistant_messages\".\"member_id\" IS NULL"
+        },
+        "assistant_messages_content_len": {
+          "name": "assistant_messages_content_len",
+          "value": "char_length(\"assistant_messages\".\"content\") BETWEEN 1 AND 10000"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.bank_connection_intents": {
@@ -2031,6 +2303,14 @@
     }
   },
   "enums": {
+    "public.assistant_message_role": {
+      "name": "assistant_message_role",
+      "schema": "public",
+      "values": [
+        "user",
+        "assistant"
+      ]
+    },
     "public.balance_source": {
       "name": "balance_source",
       "schema": "public",

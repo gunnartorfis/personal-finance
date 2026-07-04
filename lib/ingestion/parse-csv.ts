@@ -21,6 +21,20 @@ export interface ParsedRow {
   rawCategory: string;
 }
 
+/**
+ * Cap on emitted data rows. A year of daily card use is <2k rows; 20k is generous headroom, and
+ * bounding here keeps one pathological upload from spiking memory/DB in a single insert. Thrown (like
+ * the missing-columns case) so the upload route's existing catch maps it to 422.
+ */
+const MAX_ROWS = 20_000;
+
+/**
+ * Cap on the free-text `merchant`/`rawCategory` cells. Truncated, not rejected — a legit statement
+ * row with an absurd cell should still import — and it also bounds what later flows into the
+ * classification prompt (cost-abuse defense; the classifier re-clamps independently).
+ */
+const MAX_FIELD_LENGTH = 200;
+
 /** "-2.979 kr." -> -2979 ; "100.000 kr." -> 100000 ; null if unparsable. */
 function parseAmount(s: string): number | null {
   const c = s.replace("kr.", "").replace(/\./g, "").replace(/\s/g, "").trim();
@@ -51,9 +65,12 @@ export function parseStatementCsv(text: string): ParsedRow[] {
       sourceRow: idx,
       date,
       amount,
-      merchant: (r[iMerch] ?? "").trim(),
-      rawCategory: (r[iCat] ?? "").trim(),
+      merchant: (r[iMerch] ?? "").trim().slice(0, MAX_FIELD_LENGTH),
+      rawCategory: (r[iCat] ?? "").trim().slice(0, MAX_FIELD_LENGTH),
     });
   });
+  if (out.length > MAX_ROWS) {
+    throw new Error(`too many rows: ${out.length} exceeds the ${MAX_ROWS} cap`);
+  }
   return out;
 }

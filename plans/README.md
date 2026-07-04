@@ -13,8 +13,8 @@ below so they aren't lost or re-audited.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 001  | Harden Straumur webhook trust boundary (amount gate + first-seen token) | P1 | M | — | TODO |
-| 002  | Bound untrusted input (CSV rows/fields, prompt clamps, route string caps, log PII) | P1 | S | — | TODO |
+| 001  | Harden Straumur webhook trust boundary (amount gate + first-seen token) | P1 | M | — | DONE |
+| 002  | Bound untrusted input (CSV rows/fields, prompt clamps, route string caps, log PII) | P1 | S | — | DONE |
 | 003  | Security response headers (HSTS, nosniff, frame-ancestors, report-only CSP) | P2 | M | — | TODO |
 | 004  | CSRF defense-in-depth (Sec-Fetch-Site check in middleware) | P2 | S | — | TODO |
 | 005  | Fix "encrypted at rest" bank-token decision drift | P3 | S | — | TODO |
