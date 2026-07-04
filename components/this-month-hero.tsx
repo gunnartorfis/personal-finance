@@ -47,7 +47,7 @@ export function ThisMonthHero({
     spentSoFar,
     cardSpend,
     offCardFixed,
-    cardByType,
+    spendByType,
     projected,
     income,
     difference,
@@ -104,9 +104,10 @@ export function ThisMonthHero({
         </dl>
       )}
 
-      {/* How the card spend so far splits across Fixed / Necessary / Nice to have (ADR-0020, axis A);
-          reuses the shared breakdown so it reads identically to the category-mix module below. */}
-      <SpendingByType summary={cardByType} currency={currency} headingLevel={3} />
+      {/* How spend so far splits across Fixed / Necessary / Nice to have (ADR-0020, axis A), with
+          off-card fixed costs folded into Fixed so it reconciles to the total; reuses the shared
+          breakdown so it reads identically to the "Hvert það fer" module below. */}
+      <SpendingByType summary={spendByType} currency={currency} headingLevel={3} />
 
       {hasInfo && (
         <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">

@@ -9,9 +9,11 @@ import type { ExpenseType } from "@/shared/types";
 
 import {
   buildCategoryTrend,
+  foldOffCardIntoFixed,
   loadCategoryTrend,
   type CategoryTrendPoint,
 } from "./category-trend";
+import type { MonthlySpendPoint } from "./monthly-series";
 
 /** Build an expected point, filling unmentioned buckets with zero. */
 function point(
@@ -49,6 +51,34 @@ describe("buildCategoryTrend", () => {
       point("2026-02", {}),
       point("2026-03", { "Nice to have": 50, "": 40 }),
     ]);
+  });
+});
+
+describe("foldOffCardIntoFixed", () => {
+  const spend = (month: string, spending: number): MonthlySpendPoint => ({
+    month,
+    spending,
+    income: 0,
+    difference: -spending,
+  });
+
+  it("adds each cycle's off-card fixed (total minus card debits) into its Fixed bucket", () => {
+    // Card debits = 300 Fixed + 100 unclassified = 400; total 550 -> 150 off-card fixed.
+    const trend = [point("2026-01", { Fixed: 300 }, 100)];
+    expect(foldOffCardIntoFixed(trend, [spend("2026-01", 550)])).toEqual([
+      point("2026-01", { Fixed: 450 }, 100),
+    ]);
+  });
+
+  it("adds nothing when the month is missing from the series or the total equals card debits", () => {
+    const trend = [point("2026-01", { Fixed: 300 }, 100)]; // card debits = 400
+    expect(foldOffCardIntoFixed(trend, [])).toEqual(trend); // missing month -> no off-card
+    expect(foldOffCardIntoFixed(trend, [spend("2026-01", 400)])).toEqual(trend); // equal -> none
+  });
+
+  it("clamps to zero and never subtracts when the total is below card debits", () => {
+    const trend = [point("2026-01", { Fixed: 300 }, 100)]; // card debits = 400
+    expect(foldOffCardIntoFixed(trend, [spend("2026-01", 250)])).toEqual(trend);
   });
 });
 

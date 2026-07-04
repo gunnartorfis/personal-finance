@@ -148,6 +148,7 @@ export default async function DashboardPage({
       />
       <CategoryMixModule
         categoryTrend={view.modules.categoryTrend}
+        series={view.modules.series}
         currentMonth={current}
         mostlyUnclassified={view.modules.categoryMostlyUnclassified}
         currency={billingCurrency}

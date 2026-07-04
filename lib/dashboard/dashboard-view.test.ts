@@ -111,10 +111,11 @@ describe("assembleDashboardView", () => {
     expect(view.hero.spentSoFar).toBe(150000);
     expect(view.hero.cardSpend).toBe(100000); // buckets (60k) + unclassified (40k)
     expect(view.hero.offCardFixed).toBe(50000); // the remainder of the total
-    // The by-type summary is signed (expenses <= 0) and sums back to the card spend.
-    expect(view.hero.cardByType.expense).toBe(-100000);
-    expect(view.hero.cardByType.byExpenseType.Fixed).toBe(-60000);
-    expect(view.hero.cardByType.unclassified).toBe(-40000);
+    // The by-type summary is signed (expenses <= 0), with off-card fixed folded into Fixed, so it
+    // reconciles to the full total (not just the card spend).
+    expect(view.hero.spendByType.expense).toBe(-150000);
+    expect(view.hero.spendByType.byExpenseType.Fixed).toBe(-110000); // 60k card + 50k off-card
+    expect(view.hero.spendByType.unclassified).toBe(-40000);
   });
 
   it("scopes the hero to a selected past cycle: final total, no projection, its own vs-average", () => {
@@ -142,7 +143,8 @@ describe("assembleDashboardView", () => {
     expect(view.hero.spentSoFar).toBe(360000);
     expect(view.hero.cardSpend).toBe(300000);
     expect(view.hero.offCardFixed).toBe(60000);
-    expect(view.hero.cardByType.byExpenseType.Fixed).toBe(-250000);
+    // 250k card Fixed + 60k off-card fixed, folded together.
+    expect(view.hero.spendByType.byExpenseType.Fixed).toBe(-310000);
     expect(view.hero.income).toBe(15000);
     expect(view.hero.difference).toBe(-345000);
     expect(view.hero.projected).toBeNull(); // a completed month is not projected
