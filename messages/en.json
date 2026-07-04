@@ -520,7 +520,39 @@
     "household": "Household",
     "billing": "Billing",
     "account": "Account",
-    "security": "Security"
+    "security": "Security",
+    "activity": "Activity"
+  },
+  "activityLog": {
+    "pageTitle": "Activity log",
+    "pageDescription": "A record of every change made in your household — who did what, and when. Kept even if the household data is reset.",
+    "empty": "No activity yet.",
+    "actions": {
+      "transactionExcluded": "excluded a transaction",
+      "transactionIncluded": "re-included a transaction",
+      "transactionIncomeMarked": "marked a transaction as income",
+      "transactionIncomeUnmarked": "unmarked a transaction as income",
+      "transactionRetyped": "changed a transaction's type",
+      "transactionRetypeCleared": "cleared a transaction's type override",
+      "transactionShareSet": "set a shared amount on a transaction",
+      "transactionShareCleared": "cleared a transaction's shared amount",
+      "accountCreated": "added an account",
+      "accountBalanceRecorded": "recorded account balances",
+      "merchantRuleCreated": "added a merchant rule",
+      "merchantRuleDeleted": "removed a merchant rule",
+      "inviteCreated": "sent an invite",
+      "inviteRevoked": "revoked an invite",
+      "inviteAccepted": "joined the household",
+      "memberLeft": "left the household",
+      "savingsConfigUpdated": "updated the savings setup",
+      "savingsGoalUpdated": "updated the savings goal",
+      "budgetsUpdated": "updated the budgets",
+      "billingCancelled": "cancelled the subscription",
+      "dataExported": "exported the household data",
+      "bankDisconnected": "disconnected a bank",
+      "dataReset": "reset the household data",
+      "unknown": "made a change"
+    }
   },
   "budgets": {
     "pageTitle": "Category budgets",

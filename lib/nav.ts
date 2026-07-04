@@ -22,6 +22,7 @@ export type NavLabelKey =
   | "billing"
   | "account"
   | "security"
+  | "activity"
 
 export type NavItem = {
   href: string
@@ -50,6 +51,7 @@ const SECONDARY_LABELS: ReadonlyArray<{ href: string; labelKey: NavLabelKey }> =
     { href: "/settings/income", labelKey: "income" },
     { href: "/settings/household", labelKey: "household" },
     { href: "/settings/billing", labelKey: "billing" },
+    { href: "/settings/activity", labelKey: "activity" },
     // The Neon Auth account/security views render under the Settings hub; label their breadcrumbs so
     // they don't fall through to the brand fallback.
     { href: "/settings/account", labelKey: "account" },

@@ -2,6 +2,7 @@
 
 import {
   CreditCard,
+  History,
   Shield,
   SlidersHorizontal,
   Target,
@@ -27,6 +28,7 @@ const SETTINGS_NAV: ReadonlyArray<{
   { href: "/settings/budgets", labelKey: "budgets", icon: Target },
   { href: "/settings/rules", labelKey: "rules", icon: SlidersHorizontal },
   { href: "/settings/household", labelKey: "household", icon: Users },
+  { href: "/settings/activity", labelKey: "activity", icon: History },
   { href: "/settings/billing", labelKey: "billing", icon: CreditCard },
   { href: "/settings/account", labelKey: "account", icon: UserCog },
   { href: "/settings/security", labelKey: "security", icon: Shield },

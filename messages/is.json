@@ -520,7 +520,39 @@
     "household": "Heimili",
     "billing": "Greiðslur",
     "account": "Aðgangur",
-    "security": "Öryggi"
+    "security": "Öryggi",
+    "activity": "Virkni"
+  },
+  "activityLog": {
+    "pageTitle": "Virknisaga",
+    "pageDescription": "Skrá yfir allar breytingar á heimilinu þínu — hver gerði hvað og hvenær. Hún helst þótt heimilisgögnin séu núllstillt.",
+    "empty": "Engin virkni ennþá.",
+    "actions": {
+      "transactionExcluded": "útilokaði færslu",
+      "transactionIncluded": "tók færslu aftur inn",
+      "transactionIncomeMarked": "merkti færslu sem tekjur",
+      "transactionIncomeUnmarked": "afmerkti færslu sem tekjur",
+      "transactionRetyped": "breytti tegund færslu",
+      "transactionRetypeCleared": "hreinsaði tegundarval færslu",
+      "transactionShareSet": "setti sameiginlega upphæð á færslu",
+      "transactionShareCleared": "hreinsaði sameiginlega upphæð færslu",
+      "accountCreated": "bætti við reikningi",
+      "accountBalanceRecorded": "skráði reikningsstöður",
+      "merchantRuleCreated": "bætti við söluaðilareglu",
+      "merchantRuleDeleted": "fjarlægði söluaðilareglu",
+      "inviteCreated": "sendi boð",
+      "inviteRevoked": "afturkallaði boð",
+      "inviteAccepted": "gekk í heimilið",
+      "memberLeft": "yfirgaf heimilið",
+      "savingsConfigUpdated": "uppfærði sparnaðaruppsetningu",
+      "savingsGoalUpdated": "uppfærði sparnaðarmarkmið",
+      "budgetsUpdated": "uppfærði fjárhagsáætlanir",
+      "billingCancelled": "sagði upp áskrift",
+      "dataExported": "flutti út heimilisgögn",
+      "bankDisconnected": "aftengdi banka",
+      "dataReset": "núllstillti heimilisgögn",
+      "unknown": "gerði breytingu"
+    }
   },
   "budgets": {
     "pageTitle": "Flokkaáætlun",
