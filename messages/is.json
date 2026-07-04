@@ -25,7 +25,6 @@
     "vsAverageWithAvg": "Síðasti heili mánuður var {delta} miðað við meðaltalið {average}.",
     "vsAverage": "Síðasti heili mánuður var {delta} miðað við meðaltalið þitt.",
     "monthVsAverageWithAvg": "{delta} miðað við meðaltalið {average}.",
-    "monthVsAverage": "{delta} miðað við meðaltalið þitt.",
     "largestCharge": "Stærsta færsla mánaðarins: {merchant} · {amount}.",
     "largestChargeSelected": "Stærsta færsla: {merchant} · {amount}.",
     "income": "Tekjur",

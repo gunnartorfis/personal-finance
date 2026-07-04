@@ -94,9 +94,9 @@ export function ThisMonthHero({
                   ? trailingAverage !== null
                     ? t("vsAverageWithAvg", { delta: deltaLabel, average: fmt(trailingAverage) })
                     : t("vsAverage", { delta: deltaLabel })
-                  : trailingAverage !== null
-                    ? t("monthVsAverageWithAvg", { delta: deltaLabel, average: fmt(trailingAverage) })
-                    : t("monthVsAverage", { delta: deltaLabel })}
+                  : /* Past months always carry a trailing average when vsAveragePct is set:
+                       compareCycleToAverage returns both together (see spending-trend). */
+                    t("monthVsAverageWithAvg", { delta: deltaLabel, average: fmt(trailingAverage ?? 0) })}
               </span>
             </p>
           )}

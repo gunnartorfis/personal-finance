@@ -25,7 +25,6 @@
     "vsAverageWithAvg": "Last full month ran {delta} vs your average of {average}.",
     "vsAverage": "Last full month ran {delta} vs your average.",
     "monthVsAverageWithAvg": "{delta} vs your average of {average}.",
-    "monthVsAverage": "{delta} vs your average.",
     "largestCharge": "Largest charge this month: {merchant} · {amount}.",
     "largestChargeSelected": "Largest charge: {merchant} · {amount}.",
     "income": "Income",
