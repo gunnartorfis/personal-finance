@@ -1,5 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -53,6 +53,15 @@ async function aLeafCategoryId(householdId: string) {
   return leaf.id;
 }
 
+async function aGroupCategoryId(householdId: string) {
+  const [group] = await db
+    .select()
+    .from(categories)
+    .where(and(eq(categories.householdId, householdId), isNull(categories.parentId)))
+    .limit(1);
+  return group.id;
+}
+
 function insertTxn(
   base: { householdId: string; accountId: string; uploadId: string },
   values: { categoryId?: string | null; categoryConfidence?: number | null },
@@ -100,5 +109,23 @@ describe("transactions.category_id (ADR-0020) schema", () => {
   it("rejects category_confidence without a Category", async () => {
     const base = await scaffold();
     await expect(insertTxn(base, { categoryConfidence: 0.5 })).rejects.toThrow();
+  });
+
+  it("rejects category_confidence outside [0, 1]", async () => {
+    const base = await scaffold();
+    const leafId = await aLeafCategoryId(base.householdId);
+    await expect(
+      insertTxn(base, { categoryId: leafId, categoryConfidence: 1.5 }),
+    ).rejects.toThrow();
+  });
+
+  it("permits a group-level Category at the DB (leaf-only is an app-layer invariant)", async () => {
+    // A CHECK can't assert the referenced row is a leaf (it depends on that row's parent_id, a
+    // cross-row read Postgres forbids). The FK accepts any same-Household category; leaf-only is
+    // enforced where categories are assigned (worker / merchant rule / override, S2c/S3).
+    const base = await scaffold();
+    const groupId = await aGroupCategoryId(base.householdId);
+    const [txn] = await insertTxn(base, { categoryId: groupId });
+    expect(txn.categoryId).toBe(groupId);
   });
 });

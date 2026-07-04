@@ -1,5 +1,5 @@
 {
-  "id": "6909a043-9c97-40bd-a3ab-8e7ed5c48e2a",
+  "id": "52958a3e-72e7-4636-b3cf-2c16bb0a65bd",
   "prevId": "4ee6b971-28e6-4dcb-898d-329e42a2179f",
   "version": "7",
   "dialect": "postgresql",
@@ -2403,6 +2403,27 @@
         }
       },
       "indexes": {
+        "transactions_household_category_idx": {
+          "name": "transactions_household_category_idx",
+          "columns": [
+            {
+              "expression": "household_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "category_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "transactions_household_account_external_key": {
           "name": "transactions_household_account_external_key",
           "columns": [
@@ -2560,6 +2581,10 @@
         "transactions_category_confidence_requires_category": {
           "name": "transactions_category_confidence_requires_category",
           "value": "\"transactions\".\"category_confidence\" IS NULL OR \"transactions\".\"category_id\" IS NOT NULL"
+        },
+        "transactions_category_confidence_range": {
+          "name": "transactions_category_confidence_range",
+          "value": "\"transactions\".\"category_confidence\" IS NULL OR (\"transactions\".\"category_confidence\" >= 0 AND \"transactions\".\"category_confidence\" <= 1)"
         },
         "transactions_source_provenance": {
           "name": "transactions_source_provenance",

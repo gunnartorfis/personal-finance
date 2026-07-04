@@ -525,9 +525,12 @@ export const transactions = pgTable(
     confidence: real("confidence"),
     reasoning: text("reasoning"),
     /**
-     * Semantic Category leaf (ADR-0020), orthogonal to `expenseType`. Null = Uncategorized (model
+     * Semantic Category (ADR-0020), orthogonal to `expenseType`. Null = Uncategorized (model
      * abstained, not yet processed, or a credit/transfer — which never carry a Category). Resolved
-     * on its own precedence chain (Override > Merchant rule > Classification).
+     * on its own precedence chain (Override > Merchant rule > Classification). Always a **leaf**
+     * subcategory: leaf-only can't be a CHECK (it depends on the referenced row's `parent_id`, a
+     * cross-row read Postgres CHECKs forbid — same limit as `categories_no_self_parent`), so it is
+     * enforced by the assignment layer (worker / merchant rule / override all resolve to leaf ids).
      */
     categoryId: uuid("category_id"),
     /** Model confidence for the Category assignment (0..1); independent of `confidence` (Expense type). */
@@ -627,10 +630,16 @@ export const transactions = pgTable(
       foreignColumns: [categories.householdId, categories.id],
       name: "transactions_category_household_fk",
     }),
-    // Category confidence only accompanies an assigned Category.
+    // Speeds the Category-breakdown aggregations (group/filter by category within a Household).
+    index("transactions_household_category_idx").on(t.householdId, t.categoryId),
+    // Category confidence only accompanies an assigned Category, and is a probability in [0, 1].
     check(
       "transactions_category_confidence_requires_category",
       sql`${t.categoryConfidence} IS NULL OR ${t.categoryId} IS NOT NULL`,
+    ),
+    check(
+      "transactions_category_confidence_range",
+      sql`${t.categoryConfidence} IS NULL OR (${t.categoryConfidence} >= 0 AND ${t.categoryConfidence} <= 1)`,
     ),
     // Provenance integrity: a CSV row carries an Upload and no external id; a synced row carries an
     // external id and no Upload.
