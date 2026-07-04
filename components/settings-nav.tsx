@@ -4,6 +4,7 @@ import {
   CreditCard,
   Shield,
   SlidersHorizontal,
+  Target,
   UserCog,
   Users,
   Wallet,
@@ -23,6 +24,7 @@ const SETTINGS_NAV: ReadonlyArray<{
   icon: ComponentType<SVGProps<SVGSVGElement>>
 }> = [
   { href: "/settings/income", labelKey: "income", icon: Wallet },
+  { href: "/settings/budgets", labelKey: "budgets", icon: Target },
   { href: "/settings/rules", labelKey: "rules", icon: SlidersHorizontal },
   { href: "/settings/household", labelKey: "household", icon: Users },
   { href: "/settings/billing", labelKey: "billing", icon: CreditCard },
