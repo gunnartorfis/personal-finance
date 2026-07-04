@@ -70,7 +70,7 @@ const VIEW: DashboardView = {
     spentSoFar: 100000,
     cardSpend: 100000,
     offCardFixed: 0,
-    cardByType: {
+    spendByType: {
       income: 0,
       expense: -100000,
       net: -100000,

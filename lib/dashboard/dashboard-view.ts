@@ -15,7 +15,7 @@ import type { FinancialHealth } from "./financial-health";
 import { loadFinancialHealth } from "./financial-health";
 import type { MonthlySpendPoint } from "./monthly-series";
 import { loadMonthlySpendSeries } from "./monthly-series";
-import type { NetSummary } from "./net-summary";
+import { addConfiguredAmounts, type NetSummary } from "./net-summary";
 import type { LargestCharge, Mover } from "./movers";
 import { loadBiggestMovers, loadLargestCharge } from "./movers";
 import type { RecurringSummary } from "./recurring";
@@ -68,8 +68,12 @@ export interface DashboardHero {
   cardSpend: number;
   /** The configured off-card fixed portion of `spentSoFar`; 0 when the Household has none. */
   offCardFixed: number;
-  /** The card debits' split by effective expense type (signed, ≤ 0), for the by-type breakdown. */
-  cardByType: NetSummary;
+  /**
+   * The cycle's spend split by effective expense type (signed, ≤ 0) for the by-type breakdown, with
+   * the configured off-card fixed costs folded into `Fixed` (ADR-0015) so it reconciles to
+   * `spentSoFar` — matching the "Hvert það fer" module and the Transactions overview.
+   */
+  spendByType: NetSummary;
   projected: number | null;
   income: number;
   difference: number;
@@ -156,6 +160,10 @@ export function assembleDashboardView(input: DashboardInputs): DashboardView {
   );
   const cardSpend = -cardByType.expense;
   const offCardFixed = Math.max(0, spentSoFar - cardSpend);
+  // Fold the off-card fixed costs into Fixed so the by-type breakdown reconciles to the full total,
+  // consistent with the "Hvert það fer" module; the card/off-card source split stays derived from
+  // the card-only figures above.
+  const spendByType = addConfiguredAmounts(cardByType, { monthlyIncome: 0, offCardFixed });
 
   // The vs-average line: for the in-progress month, reuse the trend's honest "last completed month
   // vs average" (never the partial current spend); for a past month, compare that month to the
@@ -177,7 +185,7 @@ export function assembleDashboardView(input: DashboardInputs): DashboardView {
       spentSoFar,
       cardSpend,
       offCardFixed,
-      cardByType,
+      spendByType,
       // Only the in-progress month is projected; a completed month's total is already final.
       projected: isCurrent ? (input.trend.projection?.projected ?? null) : null,
       income,
