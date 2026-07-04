@@ -28,6 +28,12 @@
     "difference": "Mismunur",
     "topMerchants": "Efstu söluaðilar",
     "spendingByAccount": "Útgjöld eftir reikningi",
+    "recurring": {
+      "title": "Áskriftir",
+      "subtitle": "Endurteknar færslur sem við greindum.",
+      "committed": "{amount} / mánuði",
+      "months": "{count, plural, one {# mánuður} other {# mánuðir}}"
+    },
     "movers": {
       "title": "Mesta breytingin",
       "subtitle": "Hvar útgjöldin hækkuðu mest miðað við venjulega.",

@@ -4,6 +4,7 @@ import { BiggestMovers } from "@/components/biggest-movers"
 import { CategoryMixModule } from "@/components/category-mix-module"
 import { FinancialHealthSection } from "@/components/financial-health-section"
 import { NetWorthProjectionChart } from "@/components/net-worth-projection-chart"
+import { RecurringSubscriptions } from "@/components/recurring-subscriptions"
 import { SavingsProgressCard } from "@/components/savings-progress-card"
 import { SpendingTrendChart } from "@/components/spending-trend-chart"
 import { getTranslations } from "next-intl/server"
@@ -112,6 +113,11 @@ export default async function DashboardPage() {
           />
         </div>
       )}
+      <RecurringSubscriptions
+        recurring={view.modules.recurring}
+        currency={billingCurrency}
+        locale={locale}
+      />
       <AccountBreakdown
         accounts={view.modules.accounts}
         currency={billingCurrency}
