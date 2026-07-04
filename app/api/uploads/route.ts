@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getDb } from "@/lib/db";
+import { householdRepo } from "@/lib/db/household-repo";
 import { requireHousehold } from "@/lib/household/current";
 import {
   headerSignature,
@@ -8,12 +9,11 @@ import {
   type ColumnMapping,
 } from "@/lib/ingestion/column-mapping";
 import {
-  attemptParse,
-  parseStatementCsv,
-  parseWithMapping,
+  parseWithMappingAndHeader,
   RowCapExceededError,
   type ParsedRow,
 } from "@/lib/ingestion/parse-csv";
+import { resolveUpload } from "@/lib/ingestion/resolve-mapping";
 import { ingestUpload } from "@/lib/ingestion/upload";
 
 /** Upper bound on a single CSV upload; statements are small, so this is generous headroom. */
@@ -58,18 +58,25 @@ export async function POST(request: Request) {
 
   const bytes = new Uint8Array(await file.arrayBuffer());
 
-  // Parse first so a malformed CSV is rejected before anything is written. With an explicit mapping
-  // we parse deterministically; otherwise we auto-detect (header + columns). A confirmed explicit
-  // mapping is remembered on success (keyed by the file's header signature) so it replays silently.
+  // Parse first so a malformed CSV is rejected before anything is written.
+  //  - explicit mapping (user confirmed/corrected it): parse deterministically and remember it,
+  //    keyed by the file's header signature, so the same shape imports silently next time;
+  //  - otherwise resolve remembered → heuristic (shared with the preview). A file neither the
+  //    heuristics nor a remembered mapping can resolve is a 422 — the user must map it via preview.
   let rows: ParsedRow[];
   let rememberMapping: { headerSignature: string; columns: ColumnMapping } | undefined;
   try {
     const text = new TextDecoder().decode(bytes);
     if (mapping) {
-      rows = parseWithMapping(text, mapping);
-      rememberMapping = { headerSignature: headerSignature(attemptParse(text).header), columns: mapping };
+      const parsed = parseWithMappingAndHeader(text, mapping);
+      rows = parsed.rows;
+      rememberMapping = { headerSignature: headerSignature(parsed.header), columns: mapping };
     } else {
-      rows = parseStatementCsv(text);
+      const resolved = await resolveUpload(householdRepo(getDb(), householdId).columnMappings, text);
+      if (resolved.unmatchedRoles.length > 0) {
+        return NextResponse.json({ error: "could not map CSV columns" }, { status: 422 });
+      }
+      rows = resolved.rows;
     }
   } catch (err) {
     if (err instanceof RowCapExceededError) {

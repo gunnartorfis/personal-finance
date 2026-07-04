@@ -86,17 +86,28 @@ function rowsToParsed(rows: string[][], mapping: ColumnMapping, headerIndex = 0)
 }
 
 /**
- * Parse a statement CSV with an explicit, caller-supplied column mapping — the deterministic core
- * used both by auto-detection here and (ADR-0018) by the commit path once a mapping is confirmed.
+ * Parse a statement CSV with an explicit, caller-supplied column mapping, also returning the header
+ * row — so a caller that needs the header (e.g. to compute a signature) needn't parse a second time.
  *
  * Expects a header-bearing CSV: the first row is treated as the header and skipped (the mapping's
  * indices point at columns in that header). This matches the commit path, which re-sends the same
  * header-bearing file the preview parsed. A headerless CSV would silently drop its first data row.
  */
-export function parseWithMapping(text: string, mapping: ColumnMapping): ParsedRow[] {
+export function parseWithMappingAndHeader(
+  text: string,
+  mapping: ColumnMapping,
+): { rows: ParsedRow[]; header: string[] } {
   const rows = Papa.parse<string[]>(text, { skipEmptyLines: false }).data;
-  if (rows.length === 0) return [];
-  return rowsToParsed(rows, mapping);
+  if (rows.length === 0) return { rows: [], header: [] };
+  return { rows: rowsToParsed(rows, mapping), header: rows[0] ?? [] };
+}
+
+/**
+ * Parse a statement CSV with an explicit, caller-supplied column mapping — the deterministic core
+ * used both by auto-detection here and (ADR-0018) by the commit path once a mapping is confirmed.
+ */
+export function parseWithMapping(text: string, mapping: ColumnMapping): ParsedRow[] {
+  return parseWithMappingAndHeader(text, mapping).rows;
 }
 
 /** The outcome of attempting to auto-detect and parse a statement CSV without throwing (ADR-0018). */

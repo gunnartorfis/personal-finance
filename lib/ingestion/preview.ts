@@ -5,8 +5,9 @@ import type * as schema from "@/lib/db/schema";
 import { partitionNewRows, type FingerprintInput } from "@/shared/dedup";
 import { hashUpload, type UploadBytes } from "@/shared/upload-hash";
 
-import { headerSignature, type ColumnMapping, type ColumnRole } from "./column-mapping";
-import { attemptParse, parseWithMapping, type ParsedRow } from "./parse-csv";
+import type { ColumnMapping, ColumnRole } from "./column-mapping";
+import type { ParsedRow } from "./parse-csv";
+import { resolveUpload, type MappingSource } from "./resolve-mapping";
 
 /**
  * Dry-run preview of an upload (ADR-0018): auto-detect the column mapping and, if complete, report
@@ -27,6 +28,12 @@ export type UploadPreview =
       status: "ok";
       /** Roles that resolved to a column (may be partial when `unmatchedRoles` is non-empty). */
       detectedMapping: Partial<ColumnMapping>;
+      /**
+       * How the mapping was resolved (ADR-0018): "heuristic" (auto, safe to auto-commit),
+       * "remembered" (replayed a confirmed mapping — the client should send it back on commit), or
+       * "none" (unresolved; `unmatchedRoles` is non-empty and the user must map the gaps).
+       */
+      mappingSource: MappingSource;
       /** Required roles with no matching column; when non-empty the UI must resolve them. */
       unmatchedRoles: ColumnRole[];
       /** Parsed rows the import would consider — empty while the mapping is incomplete. */
@@ -58,30 +65,16 @@ export async function previewUpload(
   );
 
   const text = new TextDecoder().decode(input.bytes);
-  const attempt = attemptParse(text);
-  let detectedMapping: Partial<ColumnMapping> = attempt.detectedMapping;
-  let unmatchedRoles: ColumnRole[] = attempt.unmatchedRoles;
-  let rows: ParsedRow[] = attempt.rows;
+  // Resolve remembered → heuristic (ADR-0018); shared with the commit route so both agree.
+  const resolved = await resolveUpload(repo.columnMappings, text);
 
-  // Precedence remembered → heuristic (ADR-0018): when the heuristics can't fully resolve the
-  // header, replay a mapping this Household confirmed before for the same file shape. When the
-  // heuristics fail the header sits at row 0 (findHeaderRow's fallback), so parseWithMapping applies.
-  if (unmatchedRoles.length > 0) {
-    const remembered = await repo.columnMappings.findBySignature(headerSignature(attempt.header));
-    if (remembered) {
-      detectedMapping = remembered.columns;
-      unmatchedRoles = [];
-      rows = parseWithMapping(text, remembered.columns);
-    }
-  }
-
-  // An incomplete mapping (no remembered fallback either) can't produce rows or a dedup count; the
-  // UI resolves the gaps first.
-  if (unmatchedRoles.length > 0) {
+  // An unresolved mapping can't produce rows or a dedup count; the UI resolves the gaps first.
+  if (resolved.unmatchedRoles.length > 0) {
     return {
       status: "ok",
-      detectedMapping,
-      unmatchedRoles,
+      detectedMapping: resolved.mapping,
+      mappingSource: resolved.source,
+      unmatchedRoles: resolved.unmatchedRoles,
       rows: [],
       newCount: 0,
       duplicateCount: 0,
@@ -97,16 +90,17 @@ export async function previewUpload(
     merchant: t.merchant,
     category: t.rawCategory,
   }));
-  const incoming = rows.map((r) => ({ ...r, category: r.rawCategory }));
+  const incoming = resolved.rows.map((r) => ({ ...r, category: r.rawCategory }));
   const { fresh, duplicates } = partitionNewRows(existing, incoming);
 
   return {
     status: "ok",
-    detectedMapping,
+    detectedMapping: resolved.mapping,
+    mappingSource: resolved.source,
     unmatchedRoles: [],
-    rows,
+    rows: resolved.rows,
     newCount: fresh.length,
     duplicateCount: duplicates.length,
-    wholeFileDuplicate: fileAlreadyImported || (rows.length > 0 && fresh.length === 0),
+    wholeFileDuplicate: fileAlreadyImported || (resolved.rows.length > 0 && fresh.length === 0),
   };
 }
