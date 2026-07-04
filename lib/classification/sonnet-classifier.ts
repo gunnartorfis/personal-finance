@@ -1,9 +1,20 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 
+import { CATEGORY_SEED, CATEGORY_SEED_LEAVES } from "@/lib/categories/seed";
 import { RULES_PROMPT } from "@/shared/rules";
 
 import type { Classifier } from "./worker";
+
+/** Seed leaf slugs the model may assign as the semantic Category (ADR-0020); "" = none fits. */
+const CATEGORY_LEAF_SLUGS = CATEGORY_SEED_LEAVES.map((l) => l.slug) as [string, ...string[]];
+
+/** Compact catalog (group → leaf slugs with Icelandic synonyms) to ground the model's choice. */
+const CATEGORY_CATALOG = CATEGORY_SEED.map(
+  (g) =>
+    `${g.slug}: ` +
+    g.children.map((l) => (l.synonyms.length ? `${l.slug} (${l.synonyms.join("/")})` : l.slug)).join(", "),
+).join("\n");
 
 /**
  * The real classifier (ADR-0005): classifies an expense Transaction with Sonnet 5 through the
@@ -19,6 +30,10 @@ const ClassificationSchema = z.object({
   expenseType: z.enum(["Fixed", "Necessary", "Nice to have", ""]),
   confidence: z.number().min(0).max(1),
   reasoning: z.string().max(200),
+  // Independent semantic axis (ADR-0020): the best-fitting leaf slug, or "" when none fits
+  // (Uncategorized). Orthogonal to expenseType and separately calibrated.
+  category: z.enum(["", ...CATEGORY_LEAF_SLUGS]),
+  categoryConfidence: z.number().min(0).max(1),
 });
 
 /**
@@ -46,10 +61,15 @@ export function sonnetClassifier(): Classifier {
       // model treats the content as data (prompt-injection defense).
       prompt: [
         "Classify this transaction into exactly one spending type.",
+        "Also assign the single best-fitting semantic category as a leaf slug from the catalog",
+        'below (what was bought — independent of the spending type), or "" if none fits. Give a',
+        "separate categoryConfidence.",
         `Merchant: <data>${clamp(txn.merchant)}</data>`,
         `Amount (ISK; negative = expense): ${txn.amount}`,
         `Category hint: <data>${clamp(txn.rawCategory)}</data>`,
         `Date: ${txn.date}`,
+        "Category catalog (group: leaf slugs, with Icelandic synonyms):",
+        CATEGORY_CATALOG,
       ].join("\n"),
     });
     return object;

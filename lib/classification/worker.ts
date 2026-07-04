@@ -37,10 +37,20 @@ export interface ClassifierInput {
   date: string;
 }
 
-/** Classify one expense transaction into an Expense type (with optional confidence + reasoning). */
+/**
+ * Classify one expense transaction into an Expense type (with optional confidence + reasoning) and,
+ * independently, a semantic Category leaf slug (ADR-0020) with its own confidence. `category` is a
+ * seed leaf slug, "" (none fits), or omitted; the worker resolves the slug to a category_id (S2c).
+ */
 export type Classifier = (
   txn: ClassifierInput,
-) => Promise<{ expenseType: ExpenseType; confidence?: number; reasoning?: string }>;
+) => Promise<{
+  expenseType: ExpenseType;
+  confidence?: number;
+  reasoning?: string;
+  category?: string;
+  categoryConfidence?: number;
+}>;
 
 export interface DrainResult {
   classified: number;
@@ -125,6 +135,9 @@ export async function drainPending(
     const hit = reuse.get(merchantKey);
     if (hit) {
       // Reuse the Household's own prior confident decision for this merchant — no model call.
+      // NOTE (ADR-0020, S2c): once the classified Category is persisted, this reuse map must also
+      // carry `category`/`categoryConfidence` and forward them here, so repeated merchants in one
+      // drain get the same Category rather than being left Uncategorized.
       const [row] = await repo.transactions.classify(txn.id, {
         expenseType: hit.type,
         confidence: hit.confidence ?? undefined,
