@@ -778,5 +778,34 @@
     "title": "Export your data",
     "description": "Download all of your household's financial data as a JSON file.",
     "download": "Export my data"
+  },
+  "assistant": {
+    "open": "Ask the assistant",
+    "title": "Assistant",
+    "subtitle": "Ask about your household finances",
+    "disclaimer": "Answers come from your own data and are not financial advice.",
+    "placeholder": "Ask a question…",
+    "send": "Send",
+    "you": "You",
+    "empty": {
+      "heading": "Ask your finances anything",
+      "hint": "Try one of these:",
+      "march": "Why was March higher?",
+      "merchants": "Top merchants this month",
+      "goal": "Am I on track for my goal?"
+    },
+    "error": {
+      "generic": "Something went wrong. Please try again.",
+      "retry": "Try again"
+    },
+    "cap": {
+      "title": "Daily limit reached",
+      "body": "You've reached today's question limit. Please try again tomorrow."
+    },
+    "upgrade": {
+      "title": "A Premium feature",
+      "body": "The assistant is part of Premium. Upgrade to ask questions about your finances.",
+      "cta": "See Premium"
+    }
   }
 }

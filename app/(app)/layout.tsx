@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 
 import { AppHeader } from "@/components/app-header"
 import { AppSidebar } from "@/components/app-sidebar"
+import { AssistantLauncher } from "@/components/assistant/assistant-launcher"
 import { ClassificationBanner } from "@/components/classification-banner"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { getCurrentUser } from "@/lib/auth/session"
@@ -40,6 +41,9 @@ export default async function AppLayout({
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
           <AppHeader />
+          <div className="ml-auto">
+            <AssistantLauncher />
+          </div>
         </header>
         <ClassificationBanner />
         {children}
