@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { requireHousehold } from "@/lib/household/current"
 
 const UUID_RE =
@@ -57,7 +59,8 @@ export async function PUT(
     return NextResponse.json({ error: parsed.error }, { status: 400 })
   }
 
-  const { repo } = await requireHousehold()
+  const ctx = await requireHousehold()
+  const { repo } = ctx
   const transaction = await repo.transactions.findById(id)
   if (!transaction) {
     return NextResponse.json({ error: "transaction not found" }, { status: 404 })
@@ -94,6 +97,14 @@ export async function PUT(
       { status: 409 }
     )
   }
+  if (updated.ownShareAmount !== transaction.ownShareAmount) {
+    await recordActivity(ctx, ActivityAction.TransactionShareSet, {
+      transactionId: id,
+      merchant: transaction.merchant,
+      amount: transaction.amount,
+      ownShareAmount: updated.ownShareAmount,
+    })
+  }
   return NextResponse.json({
     id: updated.id,
     ownShareAmount: updated.ownShareAmount,
@@ -109,7 +120,8 @@ export async function DELETE(
     return NextResponse.json({ error: "invalid transaction id" }, { status: 400 })
   }
 
-  const { repo } = await requireHousehold()
+  const ctx = await requireHousehold()
+  const { repo } = ctx
   const transaction = await repo.transactions.findById(id)
   if (!transaction) {
     return NextResponse.json({ error: "transaction not found" }, { status: 404 })
@@ -118,6 +130,13 @@ export async function DELETE(
   const [updated] = await repo.transactions.setOwnShare(id, null)
   if (!updated) {
     return NextResponse.json({ error: "transaction not found" }, { status: 404 })
+  }
+  // Only log a real change — clearing a share on a row that never had one is a no-op.
+  if (updated.ownShareAmount !== transaction.ownShareAmount) {
+    await recordActivity(ctx, ActivityAction.TransactionShareCleared, {
+      transactionId: id,
+      merchant: transaction.merchant,
+    })
   }
   return NextResponse.json({
     id: updated.id,

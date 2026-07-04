@@ -22,13 +22,18 @@ function householdWith(
   ]
 ) {
   const setOwnShare = vi.fn().mockResolvedValue(rows)
+  const record = vi.fn().mockResolvedValue([])
   return {
     setOwnShare,
+    record,
+    memberId: "member-1",
+    user: { name: "Ada", email: "ada@x.is" },
     repo: {
       transactions: {
         findById: vi.fn().mockResolvedValue(transaction),
         setOwnShare,
       },
+      activity: { record },
     },
   }
 }
@@ -97,6 +102,12 @@ describe("PUT /api/transactions/[id]/share", () => {
     const res = await PUT(req("PUT", { ownShareAmount: -28_571 }), ctx(ID))
     expect(res.status).toBe(200)
     expect(h.setOwnShare).toHaveBeenCalledWith(ID, -28_571)
+    expect(h.record).toHaveBeenCalledWith({
+      memberId: "member-1",
+      actorName: "Ada",
+      action: "transaction.share_set",
+      payload: { transactionId: ID, merchant: undefined, amount: -200_000, ownShareAmount: -28_571 },
+    })
     expect(await res.json()).toEqual({ id: ID, ownShareAmount: -28_571 })
   })
 
@@ -129,6 +140,19 @@ describe("DELETE /api/transactions/[id]/share", () => {
     const res = await DELETE(req("DELETE"), ctx(ID))
     expect(res.status).toBe(200)
     expect(h.setOwnShare).toHaveBeenCalledWith(ID, null)
+    expect(h.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "transaction.share_cleared" }),
+    )
     expect(await res.json()).toEqual({ id: ID, ownShareAmount: null })
+  })
+
+  it("does not log when clearing a share on a row that never had one (no-op)", async () => {
+    const h = householdWith({ id: ID, amount: -200_000, excluded: false, ownShareAmount: null }, [
+      { id: ID, ownShareAmount: null },
+    ])
+    requireHousehold.mockResolvedValue(h)
+    const res = await DELETE(req("DELETE"), ctx(ID))
+    expect(res.status).toBe(200)
+    expect(h.record).not.toHaveBeenCalled()
   })
 })

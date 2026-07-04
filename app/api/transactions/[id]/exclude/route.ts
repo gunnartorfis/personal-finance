@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { requireHousehold } from "@/lib/household/current"
 
 const UUID_RE =
@@ -27,7 +29,8 @@ async function setExcluded(id: string, excluded: boolean, note: string | null) {
     )
   }
 
-  const { repo } = await requireHousehold()
+  const ctx = await requireHousehold()
+  const { repo } = ctx
   const transaction = await repo.transactions.findById(id)
   if (!transaction) {
     return NextResponse.json(
@@ -42,6 +45,18 @@ async function setExcluded(id: string, excluded: boolean, note: string | null) {
     return NextResponse.json(
       { error: "transaction not found" },
       { status: 404 }
+    )
+  }
+  // Only log a real change — re-including an already-included row (or re-excluding with the same
+  // note) is a no-op and must not write a spurious audit entry.
+  const changed =
+    updated.excluded !== transaction.excluded ||
+    updated.exclusionNote !== transaction.exclusionNote
+  if (changed) {
+    await recordActivity(
+      ctx,
+      excluded ? ActivityAction.TransactionExcluded : ActivityAction.TransactionIncluded,
+      { transactionId: id, merchant: transaction.merchant, amount: transaction.amount, note },
     )
   }
   return NextResponse.json({
