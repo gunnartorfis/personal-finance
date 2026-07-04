@@ -11,6 +11,7 @@ export const ActivityAction = {
   TransactionIncomeUnmarked: "transaction.income_unmarked",
   TransactionRetyped: "transaction.retyped",
   TransactionRetypeCleared: "transaction.retype_cleared",
+  TransactionRecategorized: "transaction.recategorized",
   TransactionShareSet: "transaction.share_set",
   TransactionShareCleared: "transaction.share_cleared",
 

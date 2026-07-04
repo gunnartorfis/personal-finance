@@ -3,18 +3,19 @@ import { NextResponse } from "next/server"
 import { ActivityAction } from "@/lib/activity/actions"
 import { recordActivity } from "@/lib/activity/record"
 import { requireHousehold } from "@/lib/household/current"
-import { isExpenseType } from "@/shared/types"
+import { isExpenseType, type ExpenseType } from "@/shared/types"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
- * Manual expense-type override for a transaction (Phase F). The override takes precedence over the
- * classified type everywhere it's read (e.g. the dashboard net summary). Both verbs resolve the
- * transaction through the household-scoped repo first, so another tenant's id is a 404 — never a
- * silent write. `""` is a valid override (the not-bucketed / split type).
+ * Manual overrides for a transaction (Phase F, ADR-0020). An override takes precedence over the
+ * classified value everywhere it's read (dashboard net summary + category breakdown). The two axes
+ * are independent: a request may set the Expense type, the semantic Category, or both. Both verbs
+ * resolve the transaction through the household-scoped repo first, so another tenant's id is a 404 —
+ * never a silent write. `""` is a valid Expense-type override (the not-bucketed / split type).
  *
- * - PUT  `{ expenseType }` — set or change the override.
- * - DELETE                 — clear it, reverting to the classified type.
+ * - PUT  `{ expenseType?, categoryId? }` — set/change either axis (at least one required).
+ * - DELETE                              — clear the whole override, reverting to classified/rule.
  */
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -22,11 +23,23 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "invalid transaction id" }, { status: 400 })
   }
 
-  const body: unknown = await request.json().catch(() => null)
-  const expenseType = (body as { expenseType?: unknown } | null)?.expenseType
-  if (!isExpenseType(expenseType)) {
+  const body = (await request.json().catch(() => null)) as {
+    expenseType?: unknown
+    categoryId?: unknown
+  } | null
+  const hasType = body?.expenseType !== undefined
+  const hasCategory = body?.categoryId !== undefined && body?.categoryId !== null
+  if (!hasType && !hasCategory) {
+    return NextResponse.json({ error: "provide expenseType and/or categoryId" }, { status: 400 })
+  }
+  if (hasType && !isExpenseType(body!.expenseType)) {
     return NextResponse.json({ error: "invalid expenseType" }, { status: 400 })
   }
+  if (hasCategory && (typeof body!.categoryId !== "string" || !UUID_RE.test(body!.categoryId))) {
+    return NextResponse.json({ error: "invalid categoryId" }, { status: 400 })
+  }
+  const expenseType = hasType ? (body!.expenseType as ExpenseType) : undefined
+  const categoryId = hasCategory ? (body!.categoryId as string) : undefined
 
   const ctx = await requireHousehold()
   const { repo, memberId } = ctx
@@ -34,14 +47,30 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (!transaction) {
     return NextResponse.json({ error: "transaction not found" }, { status: 404 })
   }
+  // The Category (when set) must be one of this Household's own, visible leaves — same guard as the
+  // classifier/rule paths (ADR-0020), so a group/hidden/foreign id is a clean 400, not a 500 on the FK.
+  if (categoryId !== undefined) {
+    const visibleLeafIds = new Set((await repo.categories.leafSlugToId()).values())
+    if (!visibleLeafIds.has(categoryId)) {
+      return NextResponse.json({ error: "invalid categoryId" }, { status: 400 })
+    }
+  }
 
-  const [override] = await repo.overrides.upsert({ transactionId: id, expenseType, memberId })
+  const [override] = await repo.overrides.upsert({ transactionId: id, expenseType, categoryId, memberId })
   if (override) {
-    await recordActivity(ctx, ActivityAction.TransactionRetyped, {
-      transactionId: id,
-      merchant: transaction.merchant,
-      expenseType,
-    })
+    if (expenseType !== undefined) {
+      await recordActivity(ctx, ActivityAction.TransactionRetyped, {
+        transactionId: id,
+        merchant: transaction.merchant,
+        expenseType,
+      })
+    }
+    if (categoryId !== undefined) {
+      await recordActivity(ctx, ActivityAction.TransactionRecategorized, {
+        transactionId: id,
+        merchant: transaction.merchant,
+      })
+    }
   }
   return NextResponse.json(override)
 }

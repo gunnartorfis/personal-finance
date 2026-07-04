@@ -536,6 +536,7 @@
       "transactionIncomeUnmarked": "unmarked a transaction as income",
       "transactionRetyped": "changed a transaction's type",
       "transactionRetypeCleared": "cleared a transaction's type override",
+      "transactionRecategorized": "changed a transaction's category",
       "transactionShareSet": "set a shared amount on a transaction",
       "transactionShareCleared": "cleared a transaction's shared amount",
       "accountCreated": "added an account",
