@@ -90,6 +90,22 @@ describe("PUT /api/transactions/[id]/override", () => {
     )
   })
 
+  it("sets both axes in one request and logs each (retyped + recategorized)", async () => {
+    const h = householdWith({ id: ID })
+    requireHousehold.mockResolvedValue(h)
+    const res = await PUT(putReq({ expenseType: "Fixed", categoryId: CAT_ID }), ctx(ID))
+    expect(res.status).toBe(200)
+    expect(h.upsert).toHaveBeenCalledWith({
+      transactionId: ID,
+      expenseType: "Fixed",
+      categoryId: CAT_ID,
+      memberId: "mem1",
+    })
+    const actions = h.record.mock.calls.map((c) => (c[0] as { action: string }).action)
+    expect(actions).toContain("transaction.retyped")
+    expect(actions).toContain("transaction.recategorized")
+  })
+
   it("400s a malformed categoryId", async () => {
     const res = await PUT(putReq({ categoryId: "not-a-uuid" }), ctx(ID))
     expect(res.status).toBe(400)
