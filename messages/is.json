@@ -448,10 +448,23 @@
     "upload": "Hlaða upp",
     "rules": "Reglur",
     "income": "Tekjur",
+    "budgets": "Fjárhagsáætlun",
     "household": "Heimili",
     "billing": "Greiðslur",
     "account": "Aðgangur",
     "security": "Öryggi"
+  },
+  "budgets": {
+    "pageTitle": "Flokkaáætlun",
+    "pageDescription": "Settu mánaðarlega áætlun fyrir hvern flokk. Yfirlitið fylgist með útgjöldum þínum miðað við hana.",
+    "fixed": "Fastur",
+    "necessary": "Nauðsynlegt",
+    "niceToHave": "Munaður",
+    "amountPlaceholder": "Engin áætlun",
+    "save": "Vista áætlun",
+    "saving": "Vista…",
+    "saved": "Áætlun vistuð.",
+    "error": "Ekki tókst að vista áætlunina. Reyndu aftur."
   },
   "expenseCategory": {
     "fixed": "Fast",

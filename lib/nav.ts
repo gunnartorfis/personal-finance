@@ -17,6 +17,7 @@ export type NavLabelKey =
   | "upload"
   | "rules"
   | "income"
+  | "budgets"
   | "household"
   | "billing"
   | "account"

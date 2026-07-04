@@ -448,10 +448,23 @@
     "upload": "Upload",
     "rules": "Rules",
     "income": "Income",
+    "budgets": "Budgets",
     "household": "Household",
     "billing": "Billing",
     "account": "Account",
     "security": "Security"
+  },
+  "budgets": {
+    "pageTitle": "Category budgets",
+    "pageDescription": "Set a monthly budget per category. The dashboard tracks your spend against it.",
+    "fixed": "Fixed",
+    "necessary": "Necessary",
+    "niceToHave": "Nice to have",
+    "amountPlaceholder": "No budget",
+    "save": "Save budgets",
+    "saving": "Saving…",
+    "saved": "Budgets saved.",
+    "error": "Couldn't save your budgets. Please try again."
   },
   "expenseCategory": {
     "fixed": "Fixed",
