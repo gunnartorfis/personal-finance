@@ -17,6 +17,7 @@ import {
   notInArray,
   or,
   sql,
+  TransactionRollbackError,
 } from "drizzle-orm"
 import type { NodePgDatabase } from "drizzle-orm/node-postgres"
 
@@ -542,6 +543,9 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.householdId, householdId),
               // Excluded rows contribute to nothing (ADR-0011).
               eq(transactions.excluded, false),
+              // Both legs of a detected inter-account transfer are money movement, not spend or
+              // income — drop them so a card-bill payment doesn't double-count (issue #97).
+              isNull(transactions.transferGroupId),
               gte(transactions.date, range.from),
               lt(transactions.date, range.to)
             )
@@ -1097,6 +1101,44 @@ export function householdRepo(db: Db, householdId: string) {
             and(eq(transactions.id, id), eq(transactions.householdId, householdId))
           )
           .returning(),
+      /**
+       * Link two Transactions as the legs of one detected inter-account transfer (issue #97): they
+       * receive a shared, freshly-minted group id and are dropped from every spend/income
+       * aggregation. Atomic and tenant-safe — the read and write run in one `db.transaction`, and
+       * both ids must resolve to distinct, **not-yet-linked** rows in this Household or nothing is
+       * written (returns `rows: []`). This rejects a cross-tenant id, a self-pair, and re-linking a
+       * leg that already belongs to another pair (which would orphan its old partner), so no
+       * half-linked or overwritten leg can result. Detection ({@link detectTransferPairs}) supplies
+       * the pairing.
+       */
+      markTransferPair: (fromId: string, toId: string) => {
+        const groupId = crypto.randomUUID();
+        return db
+          .transaction(async (tx) => {
+            const rows = await tx
+              .update(transactions)
+              .set({ transferGroupId: groupId })
+              .where(
+                and(
+                  eq(transactions.householdId, householdId),
+                  inArray(transactions.id, [fromId, toId]),
+                  // Guard on the UPDATE itself — one atomic check-and-set. Only unlinked rows match,
+                  // so an already-linked group id is never overwritten even if a concurrent pairing
+                  // commits between statements (READ COMMITTED would let a separate SELECT go stale).
+                  isNull(transactions.transferGroupId)
+                )
+              )
+              .returning();
+            // Both legs must be present and unlinked; anything else (cross-tenant, self-pair,
+            // already-linked, or a leg deleted concurrently) rolls back so no half-linked leg lands.
+            if (rows.length !== 2) tx.rollback();
+            return { groupId, rows };
+          })
+          .catch((err) => {
+            if (err instanceof TransactionRollbackError) return { groupId: null, rows: [] };
+            throw err;
+          });
+      },
       /**
        * Set (or clear) a Transaction's Own share — the portion of a Shared expense that counts as
        * spend (ADR-0014). Scoped to the household. Setting is guarded to a non-excluded debit whose
