@@ -5,7 +5,7 @@ import { DefaultChatTransport, isTextUIPart, type UIMessage } from "ai"
 import { SendHorizontal } from "lucide-react"
 import { useTranslations } from "next-intl"
 import Link from "next/link"
-import { useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -53,6 +53,9 @@ export function AssistantChat() {
   const t = useTranslations("assistant")
   const [gate, setGate] = useState<Gate>(null)
   const [input, setInput] = useState("")
+  // Hold the chat until the plan is known, so a Free member never sees the input flash before the
+  // upgrade gate resolves.
+  const [ready, setReady] = useState(false)
 
   // A plain, stable holder (created once) for the server-assigned conversation id — not a React ref,
   // so the transport closures can read/write it without a render-time ref access.
@@ -83,6 +86,27 @@ export function AssistantChat() {
   const { messages, sendMessage, status, error } = useChat({ transport })
   const busy = status === "submitted" || status === "streaming"
 
+  // Gate proactively: show the upgrade CTA for a Free household without waiting for a rejected send.
+  useEffect(() => {
+    let cancelled = false
+    const controller = new AbortController()
+    fetch("/api/assistant/status", { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { plan?: string } | null) => {
+        if (!cancelled && data && data.plan !== "Premium") setGate("premium")
+      })
+      // Fail open on a status error: the streaming route's 403 is the authoritative gate, so a failed
+      // status probe just lets the member try — a Free send is still rejected + shows the upgrade.
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setReady(true)
+      })
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [])
+
   function ask(text: string) {
     const trimmed = text.trim()
     if (!trimmed || busy) return
@@ -109,6 +133,14 @@ export function AssistantChat() {
   }
   if (gate === "cap")
     return <AssistantNotice title={t("cap.title")} body={t("cap.body")} />
+  if (!ready)
+    return (
+      <div className="flex flex-1 items-center justify-center px-4 py-6">
+        <p className="text-sm text-muted-foreground" role="status">
+          {t("loading")}
+        </p>
+      </div>
+    )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

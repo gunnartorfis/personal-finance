@@ -787,6 +787,7 @@
     "placeholder": "Ask a question…",
     "send": "Send",
     "you": "You",
+    "loading": "Loading…",
     "empty": {
       "heading": "Ask your finances anything",
       "hint": "Try one of these:",
