@@ -51,8 +51,12 @@ export interface MonthlyDigestDeps {
   dashboardUrl: string
   send: EmailSender
   listRecipients: () => Promise<HouseholdDigestRecipients[]>
-  /** Load the just-closed cycle for a Household, or null when it has no data for that cycle. */
-  loadCycle: (householdId: string, cycleKey: CycleKey) => Promise<DigestCycleData | null>
+  /**
+   * Load a Household's trailing cycle data, or null when the Household has no data. Takes only the
+   * Household id: it returns the full trailing series and the assembler picks the closed cycle + its
+   * prior, so the loader never needs the cycle key (the `now`-relative window already contains it).
+   */
+  loadCycle: (householdId: string) => Promise<DigestCycleData | null>
   /** True when this Member was already sent the Digest for this cycle (ledger dedup). */
   hasSent: (memberId: string, cycleKey: CycleKey) => Promise<boolean>
   /** Record a successful send in the append-only ledger. */
@@ -93,7 +97,7 @@ export async function runMonthlyDigest(deps: MonthlyDigestDeps): Promise<DigestR
     // Isolate each Household: a flaky loadCycle (or any throw) must not abort the whole batch and
     // starve every later Household — bound the blast radius to this one.
     try {
-      const data = await deps.loadCycle(household.householdId, cycleKey)
+      const data = await deps.loadCycle(household.householdId)
       const model = data ? buildMonthlyDigest(assembleDigestInput(data, cycleKey)) : null
       if (!model || !model.hasActivity) {
         skippedEmpty += household.members.length
