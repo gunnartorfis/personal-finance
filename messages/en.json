@@ -788,6 +788,8 @@
     "send": "Send",
     "you": "You",
     "loading": "Loading…",
+    "newChat": "New chat",
+    "history": "History",
     "empty": {
       "heading": "Ask your finances anything",
       "hint": "Try one of these:",
