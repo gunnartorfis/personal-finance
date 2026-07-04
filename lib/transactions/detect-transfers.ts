@@ -33,8 +33,12 @@ function daysApart(a: string, b: string): number {
 /**
  * Pair each money-out leg with the equal-and-opposite money-in leg it landed as in another Account
  * within {@link DEFAULT_WINDOW_DAYS}. Greedy and order-stable: debits are matched in input order and
- * each credit is consumed at most once, so N same-amount debits pair with N distinct credits (a
+ * each leg is consumed at most once, so N same-amount debits pair with N distinct credits (a
  * left-over leg stays unpaired). Amounts must match exactly — near-miss/fee tolerance is future work.
+ *
+ * Candidate `id`s are assumed unique (they are DB primary keys); the function still defends against a
+ * duplicate `id` slipping in from an upstream dedup bug by consuming each debit and credit id once,
+ * so a repeated row can't manufacture spurious extra pairs.
  */
 export function detectTransferPairs(
   candidates: ReadonlyArray<TransferCandidate>,
@@ -45,7 +49,7 @@ export function detectTransferPairs(
   const pairs: TransferPair[] = [];
 
   for (const debit of candidates) {
-    if (debit.amount >= 0) continue;
+    if (debit.amount >= 0 || claimed.has(debit.id)) continue;
     const match = credits.find(
       (credit) =>
         !claimed.has(credit.id) &&
@@ -54,6 +58,7 @@ export function detectTransferPairs(
         daysApart(credit.date, debit.date) <= windowDays,
     );
     if (match) {
+      claimed.add(debit.id);
       claimed.add(match.id);
       pairs.push({ fromId: debit.id, toId: match.id });
     }
