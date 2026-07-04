@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 
 import { getDb } from "@/lib/db";
 import { requireHousehold } from "@/lib/household/current";
-import { parseStatementCsv, type ParsedRow } from "@/lib/ingestion/parse-csv";
+import { parseColumnMappingJson, type ColumnMapping } from "@/lib/ingestion/column-mapping";
+import { parseStatementCsv, parseWithMapping, RowCapExceededError, type ParsedRow } from "@/lib/ingestion/parse-csv";
 import { ingestUpload } from "@/lib/ingestion/upload";
 
 /** Upper bound on a single CSV upload; statements are small, so this is generous headroom. */
@@ -11,10 +12,14 @@ const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * POST /api/uploads — ingest a CSV upload for the current Household (ADR-0003). Multipart form:
- * `file` (the CSV) and `accountId`. The Upload and its parsed rows are written atomically. Returns
- * 201 with counts, 409 if this exact file was already imported, 404 for an unknown account, 413 if
- * it exceeds the size limit, 422 if the CSV can't be parsed.
+ * POST /api/uploads — ingest a CSV upload for the current Household (ADR-0003, ADR-0018). Multipart
+ * form: `file` (the CSV), `accountId`, and an optional `mapping` (JSON `{date,amount,merchant,
+ * category}` column indices, from a confirmed preview) — when present the file is parsed with that
+ * explicit mapping, otherwise columns are auto-detected. The Upload and its parsed rows are written
+ * atomically. Returns 201 with counts on a fresh import; 200 (a no-op) when this exact file was
+ * already imported — demoted from the old 409, since the row-fingerprint dedup is the real guard and
+ * a re-upload inserts nothing anyway; 404 for an unknown account; 413 if it exceeds the size limit;
+ * 400 for bad input; 422 if the CSV can't be parsed or has too many rows.
  */
 export async function POST(request: Request) {
   const { memberId, householdId } = await requireHousehold();
@@ -30,13 +35,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "file too large" }, { status: 413 });
   }
 
+  // A confirmed preview may supply an explicit column mapping; validate it before any work.
+  const mappingRaw = form.get("mapping");
+  let mapping: ColumnMapping | undefined;
+  if (typeof mappingRaw === "string" && mappingRaw.length > 0) {
+    try {
+      mapping = parseColumnMappingJson(mappingRaw);
+    } catch {
+      return NextResponse.json({ error: "invalid mapping" }, { status: 400 });
+    }
+  }
+
   const bytes = new Uint8Array(await file.arrayBuffer());
 
-  // Parse first so a malformed CSV is rejected before anything is written.
+  // Parse first so a malformed CSV is rejected before anything is written. With an explicit mapping
+  // we parse deterministically; otherwise we auto-detect (header + columns).
   let rows: ParsedRow[];
   try {
-    rows = parseStatementCsv(new TextDecoder().decode(bytes));
-  } catch {
+    const text = new TextDecoder().decode(bytes);
+    rows = mapping ? parseWithMapping(text, mapping) : parseStatementCsv(text);
+  } catch (err) {
+    if (err instanceof RowCapExceededError) {
+      return NextResponse.json({ error: err.message }, { status: 422 });
+    }
     return NextResponse.json({ error: "could not parse CSV" }, { status: 422 });
   }
 
@@ -48,7 +69,8 @@ export async function POST(request: Request) {
     rows,
   });
 
+  // "duplicate" is a successful no-op (the file was already imported), not an error — 200, not 409.
   const status =
-    result.status === "duplicate" ? 409 : result.status === "unknown-account" ? 404 : 201;
+    result.status === "unknown-account" ? 404 : result.status === "duplicate" ? 200 : 201;
   return NextResponse.json(result, { status });
 }

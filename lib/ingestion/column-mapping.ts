@@ -80,6 +80,28 @@ export function detectColumnMapping(header: ReadonlyArray<string>): ColumnMappin
   return { resolved, unmatched };
 }
 
+/**
+ * Parse and validate a client-supplied column mapping (ADR-0018 commit path): a JSON object with a
+ * non-negative integer index for each of the four roles. Extra keys are ignored. Throws on invalid
+ * JSON, a non-object, a missing role, or a non-integer/negative index — the route maps that to 400.
+ */
+export function parseColumnMappingJson(raw: string): ColumnMapping {
+  const parsed: unknown = JSON.parse(raw);
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("mapping must be a JSON object");
+  }
+  const obj = parsed as Record<string, unknown>;
+  const result = {} as ColumnMapping;
+  for (const role of ROLES) {
+    const value = obj[role];
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+      throw new Error(`mapping.${role} must be a non-negative integer`);
+    }
+    result[role] = value;
+  }
+  return result;
+}
+
 /** How many leading rows to scan for the header before giving up — bank preambles are short. */
 const MAX_HEADER_SCAN = 50;
 
