@@ -30,6 +30,18 @@ _Avoid_: Card (when a non-card account is possible)
 One CSV import into a Household: the file, its column mapping, the importing Member, and the Account the rows belong to.
 _Avoid_: Import, Batch, Statement
 
+**Column mapping**:
+The assignment of a file's columns to the roles a Transaction needs — `date`, `amount`, `merchant`, and optional `category` — so an arbitrary bank export becomes an Upload's rows. Each role binds to exactly one column, and `amount` must be a single signed column (a file with separate debit/credit columns is unsupported in v1). A mapping is derived one of three ways, in precedence order: a **Remembered mapping**, then header heuristics, then an AI suggestion. A confident mapping (Remembered or heuristic-complete) with new rows auto-commits silently; an uncertain one — an AI suggestion or a column left unmatched — or a file that adds zero new rows stops for a Member to confirm, correct, or acknowledge first (see **Import preview**).
+_Avoid_: Schema, Header map, Field mapping (drifts toward implementation)
+
+**Remembered mapping**:
+A Column mapping a Household has confirmed before, replayed automatically the next time a file of the same shape is uploaded — so a bank's format is taught once, then imports silently. Belongs to the file's shape, not to an Account, so two Accounts of the same bank share it. Degrades back to heuristics/AI if the bank later changes its columns.
+_Avoid_: Template, Saved mapping, Preset
+
+**Import preview**:
+The pre-commit view of what an Upload *would* do — the parsed rows, the chosen Account, the Column mapping, and how many rows are new vs. already imported — shown so a Member can confirm or fix the mapping before anything is written. Transient (nothing is persisted until commit); surfaced only when there is a real decision — an unmapped column, a mapping that needed the AI fallback (AI involvement is itself the uncertainty signal, so it always stops for a human nod even when every role resolved), or a file that adds zero new rows — and skipped when the import is unambiguous (a heuristic-complete or **Remembered mapping** with new rows auto-commits).
+_Avoid_: Draft, Staged import (nothing is stored pre-commit), Dry run (internal term, not user-facing)
+
 **Transaction**:
 One financial line belonging to an Account: date, merchant, the charged amount (in the Account's billing currency), Account, optional source category, and optional original amount+currency. Enters the Household one of two ways — a CSV **Upload** or a bank **Sync** — the source is recorded but the shape is identical.
 
