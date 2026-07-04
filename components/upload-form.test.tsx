@@ -16,12 +16,36 @@ const ACCOUNTS = [
   },
 ]
 
-/** Stateful fetch double: GET /api/accounts, POST /api/uploads, and the progress poll. */
-function stubApi(opts: { uploadStatus?: number; uploadBody?: unknown } = {}) {
+/** A confident heuristic preview (auto-commits): all roles mapped, no duplicates. */
+const OK_PREVIEW = {
+  status: "ok",
+  header: ["Date", "Merchant", "Amount"],
+  detectedMapping: { date: 0, merchant: 1, amount: 2, category: 0 },
+  mappingSource: "heuristic",
+  unmatchedRoles: [],
+  rows: [{ sourceRow: 0, date: "2026-01-01", amount: 100, merchant: "Cafe", rawCategory: "" }],
+  newCount: 3,
+  duplicateCount: 0,
+  wholeFileDuplicate: false,
+}
+
+/** Stateful fetch double: accounts, preview, commit, and the progress poll. */
+function stubApi(
+  opts: {
+    previewStatus?: number
+    previewBody?: unknown
+    uploadStatus?: number
+    uploadBody?: unknown
+  } = {},
+) {
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     const method = init?.method ?? "GET"
     if (url === "/api/accounts" && method === "GET") {
       return { ok: true, json: async () => ACCOUNTS }
+    }
+    if (url === "/api/uploads/preview" && method === "POST") {
+      const status = opts.previewStatus ?? 200
+      return { ok: status < 400, status, json: async () => opts.previewBody ?? OK_PREVIEW }
     }
     if (url === "/api/uploads" && method === "POST") {
       const status = opts.uploadStatus ?? 201
@@ -36,21 +60,11 @@ function stubApi(opts: { uploadStatus?: number; uploadBody?: unknown } = {}) {
     if (url.startsWith("/api/uploads/") && url.endsWith("/progress")) {
       return {
         ok: true,
-        json: async () => ({
-          total: 3,
-          pending: 0,
-          classified: 3,
-          failed: 0,
-          done: true,
-        }),
+        json: async () => ({ total: 3, pending: 0, classified: 3, failed: 0, done: true }),
       }
     }
     if (url === "/api/classify" && method === "POST") {
-      // auto-kicked after a successful upload; report nothing pending so the drain loop ends
-      return {
-        ok: true,
-        json: async () => ({ classified: 0, failed: 0, capped: 0 }),
-      }
+      return { ok: true, json: async () => ({ classified: 0, failed: 0, capped: 0 }) }
     }
     return { ok: false, status: 404, json: async () => ({}) }
   })
@@ -59,60 +73,48 @@ function stubApi(opts: { uploadStatus?: number; uploadBody?: unknown } = {}) {
 }
 
 function csvFile() {
-  return new File(
-    ["date,amount,merchant\n2026-01-01,100,Cafe"],
-    "statement.csv",
-    {
-      type: "text/csv",
-    }
-  )
+  return new File(["date,amount,merchant\n2026-01-01,100,Cafe"], "statement.csv", {
+    type: "text/csv",
+  })
+}
+
+const uploadPost = (m: ReturnType<typeof stubApi>) =>
+  m.mock.calls.find((c) => c[0] === "/api/uploads" && (c[1] as RequestInit)?.method === "POST")
+
+async function pickAndSubmit(accountId?: string) {
+  await screen.findByRole("option", { name: "Visa" })
+  if (accountId) await userEvent.selectOptions(screen.getByLabelText(/account/i), accountId)
+  await userEvent.upload(screen.getByLabelText(/csv file/i), csvFile())
+  await userEvent.click(screen.getByRole("button", { name: /upload/i }))
 }
 
 describe("UploadForm", () => {
   it("lists the household's accounts in the selector", async () => {
     stubApi()
     render(<UploadForm />)
-    expect(
-      await screen.findByRole("option", { name: "Visa" })
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole("option", { name: "Landsbankinn" })
-    ).toBeInTheDocument()
+    expect(await screen.findByRole("option", { name: "Visa" })).toBeInTheDocument()
+    expect(screen.getByRole("option", { name: "Landsbankinn" })).toBeInTheDocument()
   })
 
-  it("uploads the chosen file for the chosen account and shows progress", async () => {
+  it("auto-commits a confident preview and shows progress + summary", async () => {
     const fetchMock = stubApi()
     render(<UploadForm />)
-    await screen.findByRole("option", { name: "Visa" })
-
-    await userEvent.selectOptions(
-      screen.getByLabelText(/account/i),
-      ACCOUNTS[1].id
-    )
-    await userEvent.upload(screen.getByLabelText(/csv file/i), csvFile())
-    await userEvent.click(screen.getByRole("button", { name: /upload/i }))
+    await pickAndSubmit(ACCOUNTS[1].id)
 
     expect(await screen.findByRole("progressbar")).toBeInTheDocument()
+    expect(screen.getByRole("status")).toHaveTextContent(/3 added/i)
 
-    const post = fetchMock.mock.calls.find(
-      (c) => (c[1] as RequestInit)?.method === "POST"
-    )!
-    const body = (post[1] as RequestInit).body as FormData
+    const body = (uploadPost(fetchMock)![1] as RequestInit).body as FormData
     expect(body.get("accountId")).toBe(ACCOUNTS[1].id)
     expect((body.get("file") as File).name).toBe("statement.csv")
+    // A confident import commits without a mapping (the server replays heuristic/remembered).
+    expect(body.get("mapping")).toBeNull()
   })
 
-  it("surfaces a 4xx upload error inline", async () => {
-    stubApi({ uploadStatus: 422, uploadBody: { error: "could not parse CSV" } })
+  it("surfaces a 4xx preview error inline", async () => {
+    stubApi({ previewStatus: 422, previewBody: { error: "could not parse CSV" } })
     render(<UploadForm />)
-    await screen.findByRole("option", { name: "Visa" })
-
-    await userEvent.selectOptions(
-      screen.getByLabelText(/account/i),
-      ACCOUNTS[0].id
-    )
-    await userEvent.upload(screen.getByLabelText(/csv file/i), csvFile())
-    await userEvent.click(screen.getByRole("button", { name: /upload/i }))
+    await pickAndSubmit(ACCOUNTS[0].id)
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/parse/i)
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument()
@@ -121,128 +123,98 @@ describe("UploadForm", () => {
   it("shows an error when the accounts fail to load", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (url: string) => {
-        if (url === "/api/accounts")
-          return { ok: false, status: 500, json: async () => ({}) }
-        return { ok: false, status: 404, json: async () => ({}) }
-      })
+      vi.fn(async (url: string) =>
+        url === "/api/accounts"
+          ? { ok: false, status: 500, json: async () => ({}) }
+          : { ok: false, status: 404, json: async () => ({}) },
+      ),
     )
     render(<UploadForm />)
-    expect(
-      await screen.findByText(/couldn.t load accounts/i)
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/couldn.t load accounts/i)).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /upload/i })).toBeDisabled()
   })
 
-  it("resets the form after a successful upload so the same file isn't re-posted", async () => {
-    stubApi()
+  it("shows the Import preview for an AI-suggested mapping and commits with the mapping on confirm", async () => {
+    const fetchMock = stubApi({
+      previewBody: {
+        status: "ok",
+        header: ["Col A", "Col B", "Col C", "Col D"],
+        detectedMapping: { date: 0, merchant: 1, category: 2, amount: 3 },
+        mappingSource: "ai",
+        unmatchedRoles: [],
+        rows: [{ sourceRow: 0, date: "2026-01-01", amount: 100, merchant: "Cafe", rawCategory: "Food" }],
+        newCount: 1,
+        duplicateCount: 0,
+        wholeFileDuplicate: false,
+      },
+    })
     render(<UploadForm />)
-    await screen.findByRole("option", { name: "Visa" })
+    await pickAndSubmit(ACCOUNTS[0].id)
 
-    await userEvent.selectOptions(
-      screen.getByLabelText(/account/i),
-      ACCOUNTS[0].id
-    )
-    await userEvent.upload(screen.getByLabelText(/csv file/i), csvFile())
-    await userEvent.click(screen.getByRole("button", { name: /upload/i }))
+    // Not auto-committed: the review panel appears with a confirm action.
+    const confirm = await screen.findByRole("button", { name: /confirm import/i })
+    expect(uploadPost(fetchMock)).toBeUndefined()
 
+    await userEvent.click(confirm)
     await screen.findByRole("progressbar")
-    // file cleared → button disabled again, no second submit possible
-    expect(screen.getByRole("button", { name: /upload/i })).toBeDisabled()
-    expect((screen.getByLabelText(/csv file/i) as HTMLInputElement).value).toBe(
-      ""
-    )
-    // account resets to the default (not blank) so the picker-less flow stays submittable
-    expect((screen.getByLabelText(/account/i) as HTMLSelectElement).value).toBe(
-      ACCOUNTS[0].id
-    )
+    const body = (uploadPost(fetchMock)![1] as RequestInit).body as FormData
+    expect(JSON.parse(body.get("mapping") as string)).toEqual({
+      date: 0,
+      merchant: 1,
+      category: 2,
+      amount: 3,
+    })
   })
 
-  it("hides the picker and uploads to the default when it's the only account", async () => {
-    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+  it("shows a 'nothing new' notice for a whole-file duplicate and does not commit", async () => {
+    const fetchMock = stubApi({
+      previewBody: { ...OK_PREVIEW, newCount: 0, duplicateCount: 3, wholeFileDuplicate: true },
+    })
+    render(<UploadForm />)
+    await pickAndSubmit(ACCOUNTS[0].id)
+
+    expect(await screen.findByText(/nothing new to import/i)).toBeInTheDocument()
+    expect(uploadPost(fetchMock)).toBeUndefined()
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument()
+  })
+
+  it("maps a 404 (deleted account) preview to the unknown-account message", async () => {
+    stubApi({ previewStatus: 404, previewBody: { status: "unknown-account" } })
+    render(<UploadForm />)
+    await pickAndSubmit(ACCOUNTS[0].id)
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/no longer exists/i)
+  })
+
+  it("hides the picker and imports to the default when it's the only account", async () => {
+    const fetchMock = stubApi()
+    // Only one account: override the accounts response.
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET"
-      if (url === "/api/accounts" && method === "GET") {
-        return { ok: true, json: async () => [ACCOUNTS[0]] }
-      }
-      if (url === "/api/uploads" && method === "POST") {
+      if (url === "/api/accounts") return { ok: true, json: async () => [ACCOUNTS[0]] } as never
+      if (url === "/api/uploads/preview" && method === "POST")
+        return { ok: true, status: 200, json: async () => OK_PREVIEW } as never
+      if (url === "/api/uploads" && method === "POST")
         return {
           ok: true,
           status: 201,
-          json: async () => ({ status: "created", upload: { id: "upload-1" } }),
-        }
-      }
-      if (url.startsWith("/api/uploads/") && url.endsWith("/progress")) {
-        return {
-          ok: true,
-          json: async () => ({
-            total: 1,
-            pending: 0,
-            classified: 1,
-            failed: 0,
-            done: true,
-          }),
-        }
-      }
-      if (url === "/api/classify" && method === "POST") {
-        return {
-          ok: true,
-          json: async () => ({ classified: 0, failed: 0, capped: 0 }),
-        }
-      }
-      return { ok: false, status: 404, json: async () => ({}) }
+          json: async () => ({ status: "created", upload: { id: "u1" }, appended: 3, duplicates: 0 }),
+        } as never
+      if (url.startsWith("/api/uploads/") && url.endsWith("/progress"))
+        return { ok: true, json: async () => ({ total: 3, pending: 0, classified: 3, failed: 0, done: true }) } as never
+      if (url === "/api/classify" && method === "POST")
+        return { ok: true, json: async () => ({ classified: 0, failed: 0, capped: 0 }) } as never
+      return { ok: false, status: 404, json: async () => ({}) } as never
     })
-    vi.stubGlobal("fetch", fetchMock)
     render(<UploadForm />)
 
     await userEvent.upload(screen.getByLabelText(/csv file/i), csvFile())
-    // Once accounts load, the default is auto-selected → button enables with no picker shown.
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /upload/i })).toBeEnabled()
-    )
+    await waitFor(() => expect(screen.getByRole("button", { name: /upload/i })).toBeEnabled())
     expect(screen.queryByLabelText(/account/i)).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole("button", { name: /upload/i }))
-    const post = fetchMock.mock.calls.find(
-      (c) => (c[1] as RequestInit)?.method === "POST"
-    )!
-    const body = (post[1] as RequestInit).body as FormData
+    await screen.findByRole("progressbar")
+    const body = (uploadPost(fetchMock)![1] as RequestInit).body as FormData
     expect(body.get("accountId")).toBe(ACCOUNTS[0].id)
-  })
-
-  it("reports an already-imported file as a duplicate", async () => {
-    stubApi({
-      uploadStatus: 409,
-      uploadBody: { status: "duplicate", fileHash: "abc" },
-    })
-    render(<UploadForm />)
-    await screen.findByRole("option", { name: "Visa" })
-
-    await userEvent.selectOptions(
-      screen.getByLabelText(/account/i),
-      ACCOUNTS[0].id
-    )
-    await userEvent.upload(screen.getByLabelText(/csv file/i), csvFile())
-    await userEvent.click(screen.getByRole("button", { name: /upload/i }))
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      /already imported/i
-    )
-  })
-
-  it("maps a 404 (deleted account) to the unknown-account message", async () => {
-    stubApi({ uploadStatus: 404, uploadBody: { status: "unknown-account" } })
-    render(<UploadForm />)
-    await screen.findByRole("option", { name: "Visa" })
-
-    await userEvent.selectOptions(
-      screen.getByLabelText(/account/i),
-      ACCOUNTS[0].id
-    )
-    await userEvent.upload(screen.getByLabelText(/csv file/i), csvFile())
-    await userEvent.click(screen.getByRole("button", { name: /upload/i }))
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      /no longer exists/i
-    )
   })
 })

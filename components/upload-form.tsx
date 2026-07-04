@@ -1,10 +1,15 @@
 "use client"
 
-import { CircleAlert, Loader2, Upload } from "lucide-react"
+import { CircleAlert, CircleCheck, Loader2, Upload } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { type FormEvent, useEffect, useState } from "react"
 
 import { ClassifyTrigger } from "@/components/classify-trigger"
+import {
+  ImportPreview,
+  type ColumnMapping,
+  type UploadPreviewData,
+} from "@/components/import-preview"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { UploadProgress } from "@/components/upload-progress"
@@ -25,8 +30,14 @@ function defaultAccountId(list: Account[]): string {
 interface UploadResponse {
   status?: string
   upload?: { id: string }
+  appended?: number
+  duplicates?: number
   error?: string
 }
+
+/** `POST /api/uploads/preview` JSON: the `status:"ok"` body, or an error/unknown-account. */
+type PreviewOk = { status: "ok" } & UploadPreviewData
+type PreviewResponse = PreviewOk | { status?: "unknown-account"; error?: string }
 
 /**
  * A non-success upload outcome, as either a translation key (mapped from the status/known statuses)
@@ -64,6 +75,10 @@ export function UploadForm({ className }: { className?: string }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<UploadError | null>(null)
   const [uploadId, setUploadId] = useState<string | null>(null)
+  // The pending Import preview (set when an import needs a human decision), and the post-import
+  // summary (added / skipped counts) shown after a successful commit.
+  const [preview, setPreview] = useState<UploadPreviewData | null>(null)
+  const [summary, setSummary] = useState<{ added: number; skipped: number } | null>(null)
 
   useEffect(() => {
     let ignore = false
@@ -89,33 +104,81 @@ export function UploadForm({ className }: { className?: string }) {
     }
   }, [])
 
+  /** Fetch the dry-run preview; returns the ok body, or null after surfacing an error. */
+  async function fetchPreview(): Promise<PreviewOk | null> {
+    const body = new FormData()
+    body.set("file", file as File)
+    body.set("accountId", accountId)
+    const res = await fetch("/api/uploads/preview", { method: "POST", body })
+    const data = (await res.json().catch(() => null)) as PreviewResponse | null
+    if (!res.ok || !data || data.status !== "ok") {
+      setError(uploadError(res.status, data))
+      return null
+    }
+    return data
+  }
+
+  /** Commit the import (optionally with a confirmed mapping); handles the created/duplicate result. */
+  async function commit(mapping?: ColumnMapping) {
+    const body = new FormData()
+    body.set("file", file as File)
+    body.set("accountId", accountId)
+    if (mapping) body.set("mapping", JSON.stringify(mapping))
+    const res = await fetch("/api/uploads", { method: "POST", body })
+    const data = (await res.json().catch(() => null)) as UploadResponse | null
+    if (!res.ok) {
+      setError(uploadError(res.status, data))
+      return
+    }
+    if (data?.status === "created" && data.upload) {
+      setPreview(null)
+      setUploadId(data.upload.id)
+      setSummary({ added: data.appended ?? 0, skipped: data.duplicates ?? 0 })
+      // Clear the form so a stray second click can't re-post the same file (a duplicate no-op).
+      // Reset the account back to the default rather than blank so the picker-less single-account
+      // flow stays submittable.
+      setFile(null)
+      setAccountId(defaultAccountId(accounts))
+      setFileInputKey((key) => key + 1)
+    } else {
+      // A file-hash duplicate (a re-upload) or any other non-created outcome surfaces as a notice.
+      setPreview(null)
+      setError(uploadError(res.status, data))
+    }
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!file || !accountId) return
     setBusy(true)
     setError(null)
     setUploadId(null)
+    setSummary(null)
+    setPreview(null)
     try {
-      const body = new FormData()
-      body.set("file", file)
-      body.set("accountId", accountId)
-      const res = await fetch("/api/uploads", { method: "POST", body })
-      const data = (await res.json().catch(() => null)) as UploadResponse | null
-      if (!res.ok) {
-        setError(uploadError(res.status, data))
-        return
-      }
-      if (data?.status === "created" && data.upload) {
-        setUploadId(data.upload.id)
-        // Clear the form so a stray second click can't re-post the same file (a duplicate no-op).
-        // Reset the account back to the default rather than blank so the picker-less single-account
-        // flow stays submittable.
-        setFile(null)
-        setAccountId(defaultAccountId(accounts))
-        setFileInputKey((key) => key + 1)
-      } else {
-        setError(uploadError(res.status, data))
-      }
+      const data = await fetchPreview()
+      if (!data) return
+      // Interrupt only when unsure (ADR-0018): a confident mapping with new rows commits silently;
+      // anything needing a decision (AI-suggested/unmatched columns, or a whole-file duplicate) stops
+      // on the Import preview for the user to confirm or acknowledge.
+      const confident =
+        data.unmatchedRoles.length === 0 &&
+        (data.mappingSource === "heuristic" || data.mappingSource === "remembered") &&
+        !data.wholeFileDuplicate
+      if (confident) await commit()
+      else setPreview(data)
+    } catch {
+      setError({ key: "failed" })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function confirmImport(mapping: ColumnMapping) {
+    setBusy(true)
+    setError(null)
+    try {
+      await commit(mapping)
     } catch {
       setError({ key: "failed" })
     } finally {
@@ -135,8 +198,11 @@ export function UploadForm({ className }: { className?: string }) {
           ? t("errors.unknownAccount")
           : t("errors.failed")
 
+  const accountName = accounts.find((a) => a.id === accountId)?.name ?? ""
+
   return (
     <section className={cn("flex flex-col gap-6", className)}>
+      {!preview && (
       <form
         onSubmit={submit}
         className="flex flex-col gap-5 rounded-xl border border-border bg-card p-6"
@@ -208,9 +274,20 @@ export function UploadForm({ className }: { className?: string }) {
           className="self-start"
         >
           {busy ? <Loader2 className="animate-spin" /> : <Upload />}
-          {busy ? t("submitting") : t("submit")}
+          {busy ? t("reviewing") : t("submit")}
         </Button>
       </form>
+      )}
+
+      {preview && (
+        <ImportPreview
+          preview={preview}
+          accountName={accountName}
+          busy={busy}
+          onConfirm={confirmImport}
+          onCancel={() => setPreview(null)}
+        />
+      )}
 
       {errorText && (
         <div
@@ -219,6 +296,18 @@ export function UploadForm({ className }: { className?: string }) {
         >
           <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
           <p>{errorText}</p>
+        </div>
+      )}
+
+      {summary && (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400"
+        >
+          <CircleCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          <p className="tabular-nums">
+            {t("preview.summary", { added: summary.added, skipped: summary.skipped })}
+          </p>
         </div>
       )}
 

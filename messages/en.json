@@ -294,10 +294,33 @@
     "fileHint": "Export your statement as CSV, then choose it here.",
     "submit": "Upload",
     "submitting": "Uploading…",
+    "reviewing": "Reading your file…",
+    "preview": {
+      "reviewTitle": "Review before importing",
+      "account": "Account",
+      "newRows": "{count} new",
+      "duplicateRows": "{count} already imported",
+      "wholeFileDuplicate": "Nothing new to import — every row here is already imported.",
+      "aiNote": "We matched these columns automatically — check them before importing.",
+      "unmatchedNote": "We couldn't recognize every column — match them below.",
+      "mapHeading": "Match your columns",
+      "chooseColumn": "Choose a column…",
+      "roles": {
+        "date": "Date",
+        "amount": "Amount",
+        "merchant": "Merchant",
+        "category": "Category"
+      },
+      "sampleHeading": "Preview",
+      "confirm": "Confirm import",
+      "cancel": "Cancel",
+      "summary": "{added} added, {skipped} skipped"
+    },
     "errors": {
       "duplicate": "This file was already imported.",
       "unknownAccount": "That account no longer exists.",
-      "failed": "Upload failed. Please try again."
+      "failed": "Upload failed. Please try again.",
+      "incompleteMapping": "Match every column before importing."
     },
     "progress": {
       "label": "Classification progress",
