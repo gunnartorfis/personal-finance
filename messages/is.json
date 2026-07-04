@@ -834,5 +834,24 @@
       "body": "Aðstoðarmaðurinn er hluti af Premium. Uppfærðu til að spyrja um fjármálin þín.",
       "cta": "Skoða Premium"
     }
+  },
+  "digest": {
+    "subject": "Yfirlit þitt fyrir {month}",
+    "preheader": "Hvernig {month} kom út",
+    "heading": "Yfirlit þitt fyrir {month}",
+    "spendingLabel": "Eytt",
+    "incomeLabel": "Tekjur",
+    "differenceLabel": "Mismunur",
+    "vsLastMonth": "{pct} miðað við fyrri mánuð",
+    "firstMonth": "Fyrsti mánuðurinn þinn",
+    "splitHeading": "Hvert það fór",
+    "moversHeading": "Mesta hækkunin",
+    "moverDelta": "{delta} meira",
+    "savingsOnTrack": "Þú ert á áætlun með sparnaðarmarkmiðið.",
+    "savingsBehind": "Þú ert á eftir með sparnaðarmarkmiðið.",
+    "allowedNiceToHave": "Þú mátt eyða allt að {amount} í munað í næsta mánuði.",
+    "cta": "Opna mælaborðið",
+    "unsubscribe": "Afskrá þessi yfirlit",
+    "footer": "Þú færð þetta því þú tilheyrir heimili á Auratal."
   }
 }

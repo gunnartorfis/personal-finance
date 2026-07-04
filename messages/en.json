@@ -834,5 +834,24 @@
       "body": "The assistant is part of Premium. Upgrade to ask questions about your finances.",
       "cta": "See Premium"
     }
+  },
+  "digest": {
+    "subject": "Your {month} summary",
+    "preheader": "How {month} shaped up",
+    "heading": "Your {month} summary",
+    "spendingLabel": "Spent",
+    "incomeLabel": "Income",
+    "differenceLabel": "Difference",
+    "vsLastMonth": "{pct} vs the month before",
+    "firstMonth": "Your first tracked month",
+    "splitHeading": "Where it went",
+    "moversHeading": "Biggest rises",
+    "moverDelta": "{delta} more",
+    "savingsOnTrack": "You're on track for your savings goal.",
+    "savingsBehind": "You're behind on your savings goal.",
+    "allowedNiceToHave": "You can spend up to {amount} on nice-to-haves next month.",
+    "cta": "Open your dashboard",
+    "unsubscribe": "Unsubscribe from these summaries",
+    "footer": "You're getting this because you belong to a household on Auratal."
   }
 }
