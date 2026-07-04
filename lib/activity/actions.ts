@@ -21,6 +21,12 @@ export const ActivityAction = {
   // Merchant rules (Phase F).
   MerchantRuleCreated: "rule.created",
   MerchantRuleDeleted: "rule.deleted",
+
+  // Invites & membership (ADR-0010). Note: invite decline is an external, non-member action and is
+  // deliberately not logged; household deletion cascades the log away, so it is not logged either.
+  InviteCreated: "invite.created",
+  InviteRevoked: "invite.revoked",
+  MemberLeft: "member.left",
 } as const;
 
 export type ActivityAction = (typeof ActivityAction)[keyof typeof ActivityAction];

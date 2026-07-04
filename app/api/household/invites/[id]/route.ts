@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { requireHousehold } from "@/lib/household/current"
 
 // Auth- and tenant-scoped per-request mutation.
@@ -12,10 +14,14 @@ export const dynamic = "force-dynamic"
  */
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { repo } = await requireHousehold()
-  const [revoked] = await repo.invites.revoke(id)
+  const ctx = await requireHousehold()
+  const [revoked] = await ctx.repo.invites.revoke(id)
   if (!revoked) {
     return NextResponse.json({ error: "not_found" }, { status: 404 })
   }
+  await recordActivity(ctx, ActivityAction.InviteRevoked, {
+    inviteId: id,
+    email: revoked.email,
+  })
   return NextResponse.json({ ok: true })
 }
