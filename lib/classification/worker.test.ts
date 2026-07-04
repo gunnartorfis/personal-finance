@@ -6,7 +6,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { seedCategoriesForHousehold } from "@/lib/categories/seed-household";
 import { householdRepo } from "@/lib/db/household-repo";
-import { households, transactions } from "@/lib/db/schema";
+import { categories, households, transactions } from "@/lib/db/schema";
 
 import { REUSED_REASON } from "./reasons";
 import { drainPending, type Classifier } from "./worker";
@@ -466,6 +466,21 @@ describe("drainPending", () => {
       expect(row.categoryId).toBeNull();
       expect(row.categoryConfidence).toBeNull();
       expect(row.expenseType).toBe("Necessary"); // expense type still classified
+    });
+
+    it("does not auto-assign a hidden Category — its slug falls back to Uncategorized", async () => {
+      const { repo, addTxn, householdId } = await setup();
+      await seedCategoriesForHousehold(asDb(db), householdId);
+      // The Household hid "groceries"; the model may still output it, but it must not be assigned.
+      await db
+        .update(categories)
+        .set({ hidden: true })
+        .where(and(eq(categories.householdId, householdId), eq(categories.slug, "groceries")));
+      await addTxn(-4200, "BONUS");
+      await drainPending(repo, withCategory("groceries"), { plan: "Premium" });
+
+      const [row] = await rowsFor(householdId, "BONUS");
+      expect(row.categoryId).toBeNull();
     });
   });
 });

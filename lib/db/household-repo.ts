@@ -1349,14 +1349,20 @@ export function householdRepo(db: Db, householdId: string) {
       /**
        * Map of leaf-subcategory `slug → id` for this Household (ADR-0020) — used to resolve a
        * classified/rule/override Category slug to its `category_id`. Leaves only (`parent_id`
-       * not null): a Transaction never attaches to a group.
+       * not null) and never hidden: a Transaction never attaches to a group, and a slug the
+       * Household has hidden resolves to nothing (→ Uncategorized), so auto-assignment can't
+       * revive a suppressed Category.
        */
       leafSlugToId: async (): Promise<Map<string, string>> => {
         const rows = await db
           .select({ slug: categories.slug, id: categories.id })
           .from(categories)
           .where(
-            and(eq(categories.householdId, householdId), isNotNull(categories.parentId))
+            and(
+              eq(categories.householdId, householdId),
+              isNotNull(categories.parentId),
+              eq(categories.hidden, false)
+            )
           )
         return new Map(rows.map((r) => [r.slug, r.id]))
       },
