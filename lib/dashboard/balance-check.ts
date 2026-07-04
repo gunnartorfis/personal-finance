@@ -87,19 +87,26 @@ export async function loadBalanceChecks(
     byAccount.set(snapshot.accountId, list);
   }
 
-  const results: AccountBalanceCheck[] = [];
-  for (const [accountId, list] of byAccount) {
-    if (list.length < 2) continue;
-    const previous = list[list.length - 2];
-    const latest = list[list.length - 1];
-    const range = { from: nextDay(asOfDate(previous.asOf)), to: nextDay(asOfDate(latest.asOf)) };
-    const net = (await repo.transactions.netByAccount(range)).find((r) => r.accountId === accountId);
-    const check = computeBalanceCheck({
-      expected: latest.balance - previous.balance,
-      derived: net?.net ?? 0,
-      tolerance,
-    });
-    results.push({ accountId, name: nameById.get(accountId) ?? "", check });
-  }
-  return results;
+  // Each account's window differs (its own two latest snapshots), so a single aggregate query can't
+  // serve them all; instead run the per-account reads concurrently (N is bounded by account count).
+  const windows = [...byAccount]
+    .filter(([, list]) => list.length >= 2)
+    .map(([accountId, list]) => ({
+      accountId,
+      previous: list[list.length - 2],
+      latest: list[list.length - 1],
+    }));
+
+  return Promise.all(
+    windows.map(async ({ accountId, previous, latest }) => {
+      const range = { from: nextDay(asOfDate(previous.asOf)), to: nextDay(asOfDate(latest.asOf)) };
+      const net = (await repo.transactions.netByAccount(range)).find((r) => r.accountId === accountId);
+      const check = computeBalanceCheck({
+        expected: latest.balance - previous.balance,
+        derived: net?.net ?? 0,
+        tolerance,
+      });
+      return { accountId, name: nameById.get(accountId) ?? "", check };
+    }),
+  );
 }
