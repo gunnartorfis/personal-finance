@@ -68,4 +68,24 @@ describe("parseMerchantRuleInput", () => {
     expect(parseMerchantRuleInput(null).ok).toBe(false);
     expect(parseMerchantRuleInput("nope").ok).toBe(false);
   });
+
+  it("accepts an optional categoryId (ADR-0020) on flat and split rules", () => {
+    const uuid = "11111111-2222-4333-8444-555555555555";
+    const flat = parseMerchantRuleInput({ merchant: "BONUS", flatType: "Necessary", categoryId: uuid });
+    expect(flat.ok && flat.value.categoryId).toBe(uuid);
+    const split = parseMerchantRuleInput({
+      merchant: "GYM",
+      threshold: 5000,
+      atOrAboveType: "Fixed",
+      belowType: "Nice to have",
+      categoryId: uuid,
+    });
+    expect(split.ok && split.value.categoryId).toBe(uuid);
+  });
+
+  it("leaves categoryId undefined when omitted, and rejects a non-uuid categoryId", () => {
+    const none = parseMerchantRuleInput({ merchant: "X", flatType: "Fixed" });
+    expect(none.ok && none.value.categoryId).toBeUndefined();
+    expect(parseMerchantRuleInput({ merchant: "X", flatType: "Fixed", categoryId: "not-a-uuid" }).ok).toBe(false);
+  });
 });
