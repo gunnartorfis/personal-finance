@@ -787,3 +787,95 @@ export const savingsOneOffAdjustments = pgTable(
     ),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// Assistant (#101, ADR-0018): a Premium-only, read-only natural-language Q&A feature.
+// Conversations are Household-shared and organised as threads; each user message is attributed to
+// the asking Member, assistant messages are unattributed. Read-only — these tables never mirror an
+// Activity-log entry, and a data reset clears them (unlike the Activity log). See CONTEXT.md.
+// ---------------------------------------------------------------------------
+
+/** Who authored an Assistant message: the asking Member (`user`) or the model (`assistant`). */
+export const assistantMessageRoleEnum = pgEnum("assistant_message_role", ["user", "assistant"]);
+
+/**
+ * One Assistant conversation (thread) belonging to a Household. Household-shared: every Member reads
+ * every conversation. `startedByMemberId` attributes the thread to its opener (same-household
+ * composite FK; NO ACTION, nulled by the app when that Member leaves, like `overrides`). `title` is
+ * derived from the first question (see repo). The `(householdId, id)` unique key is the target of the
+ * same-household composite FK from `assistantMessages`.
+ */
+export const assistantConversations = pgTable(
+  "assistant_conversations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    /** The Member who opened the thread (same Household); nulled by the app if they leave. */
+    startedByMemberId: uuid("started_by_member_id"),
+    /** Short title derived from the first question; bounded to keep list rows tidy. */
+    title: text("title").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Target for the same-household composite FK from assistantMessages.
+    unique("assistant_conversations_household_id_id_key").on(t.householdId, t.id),
+    // The opener Member must belong to the same Household (NO ACTION; see overrides/uploads note).
+    foreignKey({
+      columns: [t.householdId, t.startedByMemberId],
+      foreignColumns: [members.householdId, members.id],
+      name: "assistant_conversations_member_household_fk",
+    }),
+    // List threads newest-touched first, scoped to the Household.
+    index("assistant_conversations_household_updated_idx").on(t.householdId, t.updatedAt),
+    check("assistant_conversations_title_len", sql`char_length(${t.title}) BETWEEN 1 AND 200`),
+  ],
+);
+
+/**
+ * One message in an Assistant conversation. Only the final rendered text is stored (user question or
+ * assistant answer) — tool-call internals are not persisted. `memberId` attributes a `user` message
+ * to its author (same-household composite FK; NO ACTION, nulled on leave); an `assistant` message is
+ * unattributed and a CHECK enforces `memberId IS NULL` for that role. The conversation FK is a
+ * same-household composite FK that cascades, so deleting a thread removes its messages.
+ */
+export const assistantMessages = pgTable(
+  "assistant_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    conversationId: uuid("conversation_id").notNull(),
+    /** Author of a `user` message (same Household); null for `assistant` messages and after leave. */
+    memberId: uuid("member_id"),
+    role: assistantMessageRoleEnum("role").notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // The conversation must belong to the same Household; deleting it cascades to its messages.
+    foreignKey({
+      columns: [t.householdId, t.conversationId],
+      foreignColumns: [assistantConversations.householdId, assistantConversations.id],
+      name: "assistant_messages_conversation_household_fk",
+    }).onDelete("cascade"),
+    // The author Member must belong to the same Household (NO ACTION; nulled by the app on leave).
+    foreignKey({
+      columns: [t.householdId, t.memberId],
+      foreignColumns: [members.householdId, members.id],
+      name: "assistant_messages_member_household_fk",
+    }),
+    // Load a thread in order.
+    index("assistant_messages_conversation_created_idx").on(t.conversationId, t.createdAt),
+    // Assistant messages are never attributed to a Member.
+    check(
+      "assistant_messages_assistant_unattributed",
+      sql`${t.role} <> 'assistant' OR ${t.memberId} IS NULL`,
+    ),
+    // Bound stored content (defense-in-depth against oversized input; plan 002 pattern).
+    check("assistant_messages_content_len", sql`char_length(${t.content}) BETWEEN 1 AND 10000`),
+  ],
+);

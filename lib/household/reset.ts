@@ -1,7 +1,14 @@
 import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
-import { accounts, merchantRules, overrides, transactions, uploads } from "@/lib/db/schema";
+import {
+  accounts,
+  assistantConversations,
+  merchantRules,
+  overrides,
+  transactions,
+  uploads,
+} from "@/lib/db/schema";
 import type * as schema from "@/lib/db/schema";
 
 import { DEFAULT_ACCOUNT_NAME } from "./default-account";
@@ -9,9 +16,10 @@ import { DEFAULT_ACCOUNT_NAME } from "./default-account";
 /**
  * Wipe a Household's entire financial dataset.
  *
- * Deletes every uploaded statement, transaction, manual override, account, and merchant rule for
- * `householdId`, then re-creates the single default account so the Household lands back in the exact
- * just-provisioned state (ADR-0004: every Household always has a default account). The Household
+ * Deletes every uploaded statement, transaction, manual override, account, merchant rule, and
+ * Assistant conversation (with its messages, ADR-0018) for `householdId`, then re-creates the single
+ * default account so the Household lands back in the exact just-provisioned state (ADR-0004: every
+ * Household always has a default account). The Household
  * itself, its members, and its plan/billing are intentionally kept — this resets the *data*, not the
  * tenant.
  *
@@ -27,6 +35,11 @@ type Db = NodePgDatabase<typeof schema>;
 
 export async function resetHouseholdFinancialData(db: Db, householdId: string): Promise<void> {
   await db.transaction(async (tx) => {
+    // Assistant threads quote financial figures, so they go with the data (ADR-0018) — messages
+    // cascade from the conversation delete via the composite FK.
+    await tx
+      .delete(assistantConversations)
+      .where(eq(assistantConversations.householdId, householdId));
     await tx.delete(overrides).where(eq(overrides.householdId, householdId));
     await tx.delete(transactions).where(eq(transactions.householdId, householdId));
     await tx.delete(uploads).where(eq(uploads.householdId, householdId));
