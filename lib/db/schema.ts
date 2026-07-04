@@ -420,6 +420,15 @@ export const transactions = pgTable(
     excluded: boolean("excluded").notNull().default(false),
     /** Optional free-text reason shown on the excluded row (e.g. "grandma's vacuum"); null otherwise. */
     exclusionNote: text("exclusion_note"),
+    /**
+     * Links the two legs of a detected inter-account transfer — a money-out leg in a funding Account
+     * and the equal-and-opposite money-in leg it landed as in another (a card-bill payment, a savings
+     * sweep). Both legs carry the same group id (issue #97). A row with a group id is money movement
+     * between the Household's own accounts, not spend or income, so it is dropped from every
+     * spend/income/Difference aggregation — the same effect as `excluded`, but auto-detected and
+     * paired rather than a Member's manual call. Null on an ordinary Transaction.
+     */
+    transferGroupId: uuid("transfer_group_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

@@ -542,6 +542,9 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.householdId, householdId),
               // Excluded rows contribute to nothing (ADR-0011).
               eq(transactions.excluded, false),
+              // Both legs of a detected inter-account transfer are money movement, not spend or
+              // income — drop them so a card-bill payment doesn't double-count (issue #97).
+              isNull(transactions.transferGroupId),
               gte(transactions.date, range.from),
               lt(transactions.date, range.to)
             )
@@ -1097,6 +1100,37 @@ export function householdRepo(db: Db, householdId: string) {
             and(eq(transactions.id, id), eq(transactions.householdId, householdId))
           )
           .returning(),
+      /**
+       * Link two Transactions as the legs of one detected inter-account transfer (issue #97): they
+       * receive a shared, freshly-minted group id and are dropped from every spend/income
+       * aggregation. Atomic and tenant-safe — both ids must resolve to distinct rows in this
+       * Household or nothing is written (returns `rows: []`), so a cross-tenant or self id can't leave
+       * a half-linked leg. Detection ({@link detectTransferPairs}) supplies the pairing.
+       */
+      markTransferPair: async (fromId: string, toId: string) => {
+        const legs = await db
+          .select({ id: transactions.id })
+          .from(transactions)
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              inArray(transactions.id, [fromId, toId])
+            )
+          );
+        if (legs.length !== 2) return { groupId: null, rows: [] };
+        const groupId = crypto.randomUUID();
+        const rows = await db
+          .update(transactions)
+          .set({ transferGroupId: groupId })
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              inArray(transactions.id, [fromId, toId])
+            )
+          )
+          .returning();
+        return { groupId, rows };
+      },
       /**
        * Set (or clear) a Transaction's Own share — the portion of a Shared expense that counts as
        * spend (ADR-0014). Scoped to the household. Setting is guarded to a non-excluded debit whose
