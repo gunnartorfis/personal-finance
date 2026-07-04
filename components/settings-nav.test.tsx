@@ -13,7 +13,7 @@ describe("SettingsNav", () => {
   it("renders a link for every settings section", () => {
     usePathname.mockReturnValue("/settings/account")
     render(<SettingsNav />)
-    expect(screen.getByRole("link", { name: "Income" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Income & expenses" })).toHaveAttribute(
       "href",
       "/settings/income"
     )
@@ -42,10 +42,9 @@ describe("SettingsNav", () => {
   it("marks the active section with aria-current", () => {
     usePathname.mockReturnValue("/settings/income")
     render(<SettingsNav />)
-    expect(screen.getByRole("link", { name: "Income" })).toHaveAttribute(
-      "aria-current",
-      "page"
-    )
+    expect(
+      screen.getByRole("link", { name: "Income & expenses" })
+    ).toHaveAttribute("aria-current", "page")
     expect(screen.getByRole("link", { name: "Account" })).not.toHaveAttribute(
       "aria-current"
     )

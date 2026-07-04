@@ -24,19 +24,19 @@ const SETTINGS_NAV: ReadonlyArray<{
   labelKey: NavLabelKey
   icon: ComponentType<SVGProps<SVGSVGElement>>
 }> = [
+  { href: "/settings/account", labelKey: "account", icon: UserCog },
+  { href: "/settings/security", labelKey: "security", icon: Shield },
   { href: "/settings/income", labelKey: "income", icon: Wallet },
   { href: "/settings/budgets", labelKey: "budgets", icon: Target },
   { href: "/settings/rules", labelKey: "rules", icon: SlidersHorizontal },
   { href: "/settings/household", labelKey: "household", icon: Users },
-  { href: "/settings/activity", labelKey: "activity", icon: History },
   { href: "/settings/billing", labelKey: "billing", icon: CreditCard },
-  { href: "/settings/account", labelKey: "account", icon: UserCog },
-  { href: "/settings/security", labelKey: "security", icon: Shield },
+  { href: "/settings/activity", labelKey: "activity", icon: History },
 ]
 
 /**
  * The persistent navigation for the Settings hub. A vertical sidebar on desktop; below `lg` it
- * becomes a horizontal, scrollable tab bar so the six sections stay reachable without pushing the
+ * becomes a horizontal, scrollable tab bar so every section stays reachable without pushing the
  * content down. Active state is conveyed with a muted background + full-contrast text/icon (never a
  * font-weight change), matching the app's other nav surfaces. Rendered once by the settings layout.
  */
