@@ -8,6 +8,7 @@ interface FakeChat {
     id: string
     role: string
     parts: Array<{ type: string; text: string }>
+    metadata?: { authorName: string | null }
   }>
   sendMessage: ReturnType<typeof vi.fn>
   setMessages: ReturnType<typeof vi.fn>
@@ -106,6 +107,20 @@ describe("AssistantChat", () => {
     expect(screen.getByText("You")).toBeInTheDocument()
   })
 
+  it("attributes a history turn to its author name (metadata), not just 'You'", async () => {
+    chat.messages = [
+      {
+        id: "1",
+        role: "user",
+        parts: [{ type: "text", text: "why higher?" }],
+        metadata: { authorName: "Ada" },
+      },
+    ]
+    renderWithIntl(<AssistantChat />)
+    expect(await screen.findByText("Ada")).toBeInTheDocument()
+    expect(screen.queryByText("You")).not.toBeInTheDocument()
+  })
+
   it("disables input and send while streaming", async () => {
     chat.status = "streaming"
     renderWithIntl(<AssistantChat />)
@@ -144,8 +159,13 @@ describe("AssistantChat", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Why was March higher?" }))
     await vi.waitFor(() => {
       expect(chat.setMessages).toHaveBeenCalledWith([
-        { id: "1", role: "user", parts: [{ type: "text", text: "why higher?" }] },
-        { id: "2", role: "assistant", parts: [{ type: "text", text: "Nice to have rose." }] },
+        { id: "1", role: "user", parts: [{ type: "text", text: "why higher?" }], metadata: { authorName: null } },
+        {
+          id: "2",
+          role: "assistant",
+          parts: [{ type: "text", text: "Nice to have rose." }],
+          metadata: { authorName: null },
+        },
       ])
     })
   })

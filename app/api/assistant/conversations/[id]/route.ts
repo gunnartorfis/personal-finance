@@ -1,7 +1,9 @@
 import { unstable_rethrow } from "next/navigation"
 import { NextResponse } from "next/server"
 
+import { getDb } from "@/lib/db"
 import { requireHousehold } from "@/lib/household/current"
+import { listMembersWithIdentity } from "@/lib/household/members-view"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -12,7 +14,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { repo } = await requireHousehold()
+    const { repo, householdId } = await requireHousehold()
     const { id } = await params
     if (!UUID_RE.test(id)) {
       return NextResponse.json({ error: "conversation_not_found" }, { status: 404 })
@@ -21,12 +23,19 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!conversation) {
       return NextResponse.json({ error: "conversation_not_found" }, { status: 404 })
     }
-    const messages = await repo.assistant.listMessages(id)
+    const [messages, members] = await Promise.all([
+      repo.assistant.listMessages(id),
+      listMembersWithIdentity(getDb(), householdId),
+    ])
+    // Resolve each user turn's author to a display name (5b); assistant turns + departed/unknown
+    // members resolve to null and render generically.
+    const nameByMember = new Map(members.map((member) => [member.id, member.name]))
     return NextResponse.json({
       messages: messages.map((message) => ({
         id: message.id,
         role: message.role,
         content: message.content,
+        authorName: message.memberId ? (nameByMember.get(message.memberId) ?? null) : null,
       })),
     })
   } catch (error) {

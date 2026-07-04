@@ -9,7 +9,7 @@ import { useEffect, useState, type FormEvent } from "react"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { toUiMessages } from "@/lib/assistant/ui-messages"
+import { toUiMessages, type AssistantMessageMetadata } from "@/lib/assistant/ui-messages"
 import { cn } from "@/lib/utils"
 
 /** One past thread in the history list. */
@@ -249,7 +249,12 @@ export function AssistantChat() {
             <EmptyState onPick={ask} />
           ) : (
             messages.map((message) => (
-              <Bubble key={message.id} role={message.role} you={t("you")}>
+              <Bubble
+                key={message.id}
+                role={message.role}
+                you={t("you")}
+                authorName={(message.metadata as AssistantMessageMetadata | undefined)?.authorName}
+              >
                 {messageText(message)}
               </Bubble>
             ))
@@ -300,10 +305,13 @@ export function AssistantChat() {
 function Bubble({
   role,
   you,
+  authorName,
   children,
 }: {
   role: string
   you: string
+  /** Resolved author name for a history turn; falls back to "you" for the current member's turns. */
+  authorName?: string | null
   children: string
 }) {
   const isUser = role === "user"
@@ -315,7 +323,7 @@ function Bubble({
       )}
     >
       {isUser ? (
-        <span className="text-xs text-muted-foreground">{you}</span>
+        <span className="text-xs text-muted-foreground">{authorName ?? you}</span>
       ) : null}
       <div
         className={cn(
