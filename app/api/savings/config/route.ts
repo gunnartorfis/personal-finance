@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { requireHousehold } from "@/lib/household/current"
 import { parseSavingsConfigInput } from "@/lib/savings/parse"
 
@@ -25,13 +27,20 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: parsed.error }, { status: 400 })
   }
 
-  const { repo } = await requireHousehold()
+  const ctx = await requireHousehold()
   // One transaction for all lists — the config can never commit half-updated. `oneOffAdjustments`
   // is undefined when the body omits it (leave existing one-offs untouched), an array to replace.
-  const saved = await repo.savings.replaceConfig(
+  const saved = await ctx.repo.savings.replaceConfig(
     parsed.value.incomeSources,
     parsed.value.offcardCosts,
     parsed.value.oneOffAdjustments
   )
+  // Source the counts from what was actually persisted (not the input), so the log can't diverge
+  // from reality — consistent with the budgets route. A null one-off count means "left untouched".
+  await recordActivity(ctx, ActivityAction.SavingsConfigUpdated, {
+    incomeSources: saved.incomeSources.length,
+    offcardCosts: saved.offcardCosts.length,
+    oneOffAdjustments: saved.oneOffAdjustments?.length ?? null,
+  })
   return NextResponse.json(saved)
 }

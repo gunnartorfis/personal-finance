@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { requireHousehold } from "@/lib/household/current"
 import { parseSavingsGoalInput } from "@/lib/savings/parse"
 
@@ -21,8 +23,9 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: parsed.error }, { status: 400 })
   }
 
-  const { repo } = await requireHousehold()
-  const [goal] = await repo.savings.goal.upsert(parsed.value)
+  const ctx = await requireHousehold()
+  const [goal] = await ctx.repo.savings.goal.upsert(parsed.value)
   if (!goal) throw new Error("savings goal upsert returned no rows")
+  await recordActivity(ctx, ActivityAction.SavingsGoalUpdated)
   return NextResponse.json(goal)
 }

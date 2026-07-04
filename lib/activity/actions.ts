@@ -28,6 +28,11 @@ export const ActivityAction = {
   InviteRevoked: "invite.revoked",
   InviteAccepted: "invite.accepted",
   MemberLeft: "member.left",
+
+  // Savings & budgets config (ADR-0007, #103). The forms save the whole set at once.
+  SavingsConfigUpdated: "savings.config_updated",
+  SavingsGoalUpdated: "savings.goal_updated",
+  BudgetsUpdated: "budgets.updated",
 } as const;
 
 export type ActivityAction = (typeof ActivityAction)[keyof typeof ActivityAction];
