@@ -2,8 +2,18 @@ import { NextResponse } from "next/server";
 
 import { getDb } from "@/lib/db";
 import { requireHousehold } from "@/lib/household/current";
-import { parseColumnMappingJson, type ColumnMapping } from "@/lib/ingestion/column-mapping";
-import { parseStatementCsv, parseWithMapping, RowCapExceededError, type ParsedRow } from "@/lib/ingestion/parse-csv";
+import {
+  headerSignature,
+  parseColumnMappingJson,
+  type ColumnMapping,
+} from "@/lib/ingestion/column-mapping";
+import {
+  attemptParse,
+  parseStatementCsv,
+  parseWithMapping,
+  RowCapExceededError,
+  type ParsedRow,
+} from "@/lib/ingestion/parse-csv";
 import { ingestUpload } from "@/lib/ingestion/upload";
 
 /** Upper bound on a single CSV upload; statements are small, so this is generous headroom. */
@@ -49,11 +59,18 @@ export async function POST(request: Request) {
   const bytes = new Uint8Array(await file.arrayBuffer());
 
   // Parse first so a malformed CSV is rejected before anything is written. With an explicit mapping
-  // we parse deterministically; otherwise we auto-detect (header + columns).
+  // we parse deterministically; otherwise we auto-detect (header + columns). A confirmed explicit
+  // mapping is remembered on success (keyed by the file's header signature) so it replays silently.
   let rows: ParsedRow[];
+  let rememberMapping: { headerSignature: string; columns: ColumnMapping } | undefined;
   try {
     const text = new TextDecoder().decode(bytes);
-    rows = mapping ? parseWithMapping(text, mapping) : parseStatementCsv(text);
+    if (mapping) {
+      rows = parseWithMapping(text, mapping);
+      rememberMapping = { headerSignature: headerSignature(attemptParse(text).header), columns: mapping };
+    } else {
+      rows = parseStatementCsv(text);
+    }
   } catch (err) {
     if (err instanceof RowCapExceededError) {
       return NextResponse.json({ error: err.message }, { status: 422 });
@@ -67,6 +84,7 @@ export async function POST(request: Request) {
     bytes,
     importedByMemberId: memberId,
     rows,
+    rememberMapping,
   });
 
   // "duplicate" is a successful no-op (the file was already imported), not an error — 200, not 409.

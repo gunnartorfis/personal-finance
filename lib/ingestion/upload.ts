@@ -9,6 +9,7 @@ import { hashUpload, type UploadBytes } from "@/shared/upload-hash";
 import { detectAndLinkTransfers } from "@/lib/transactions/link-transfers";
 
 import { appendTransactions } from "./append";
+import type { ColumnMapping } from "./column-mapping";
 import type { ParsedRow } from "./parse-csv";
 
 /**
@@ -26,6 +27,12 @@ export interface IngestUploadInput {
   bytes: UploadBytes;
   importedByMemberId?: string;
   rows: ParsedRow[];
+  /**
+   * When set (a confirmed, explicit column mapping — ADR-0018), the mapping is remembered for this
+   * Household under its header signature on a successful import, so the same file shape imports
+   * silently next time. Omitted for auto-detected imports (heuristics reproduce those for free).
+   */
+  rememberMapping?: { headerSignature: string; columns: ColumnMapping };
 }
 
 export type IngestResult =
@@ -64,6 +71,13 @@ export async function ingestUpload(
         accountId: input.accountId,
         rows: input.rows,
       });
+      // Remember the confirmed mapping in the same transaction, so a taught format replays next time.
+      if (input.rememberMapping) {
+        await txRepo.columnMappings.upsert(
+          input.rememberMapping.headerSignature,
+          input.rememberMapping.columns,
+        );
+      }
       return { status: "created" as const, upload, appended, duplicates };
     });
 

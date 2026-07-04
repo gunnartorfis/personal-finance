@@ -5,8 +5,8 @@ import type * as schema from "@/lib/db/schema";
 import { partitionNewRows, type FingerprintInput } from "@/shared/dedup";
 import { hashUpload, type UploadBytes } from "@/shared/upload-hash";
 
-import type { ColumnMapping, ColumnRole } from "./column-mapping";
-import { attemptParse, type ParsedRow } from "./parse-csv";
+import { headerSignature, type ColumnMapping, type ColumnRole } from "./column-mapping";
+import { attemptParse, parseWithMapping, type ParsedRow } from "./parse-csv";
 
 /**
  * Dry-run preview of an upload (ADR-0018): auto-detect the column mapping and, if complete, report
@@ -57,11 +57,26 @@ export async function previewUpload(
     await repo.uploads.findByFileHash(await hashUpload(input.bytes)),
   );
 
-  const { detectedMapping, unmatchedRoles, rows } = attemptParse(
-    new TextDecoder().decode(input.bytes),
-  );
+  const text = new TextDecoder().decode(input.bytes);
+  const attempt = attemptParse(text);
+  let detectedMapping: Partial<ColumnMapping> = attempt.detectedMapping;
+  let unmatchedRoles: ColumnRole[] = attempt.unmatchedRoles;
+  let rows: ParsedRow[] = attempt.rows;
 
-  // An incomplete mapping can't produce rows or a dedup count; the UI resolves the gaps first.
+  // Precedence remembered → heuristic (ADR-0018): when the heuristics can't fully resolve the
+  // header, replay a mapping this Household confirmed before for the same file shape. When the
+  // heuristics fail the header sits at row 0 (findHeaderRow's fallback), so parseWithMapping applies.
+  if (unmatchedRoles.length > 0) {
+    const remembered = await repo.columnMappings.findBySignature(headerSignature(attempt.header));
+    if (remembered) {
+      detectedMapping = remembered.columns;
+      unmatchedRoles = [];
+      rows = parseWithMapping(text, remembered.columns);
+    }
+  }
+
+  // An incomplete mapping (no remembered fallback either) can't produce rows or a dedup count; the
+  // UI resolves the gaps first.
   if (unmatchedRoles.length > 0) {
     return {
       status: "ok",

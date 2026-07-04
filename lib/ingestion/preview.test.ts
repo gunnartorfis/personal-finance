@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { householdRepo } from "@/lib/db/household-repo";
 import { households } from "@/lib/db/schema";
 
+import { headerSignature } from "./column-mapping";
 import { RowCapExceededError } from "./parse-csv";
 import { ingestUpload } from "./upload";
 import { previewUpload } from "./preview";
@@ -107,6 +108,25 @@ describe("previewUpload", () => {
     await expect(
       previewUpload(asDb(db), householdId, { accountId, bytes: bytes(csv(body)) }),
     ).rejects.toBeInstanceOf(RowCapExceededError);
+  });
+
+  it("resolves columns from a remembered mapping when heuristics can't", async () => {
+    const { householdId, accountId, repo } = await setup();
+    // A header the alias heuristics don't recognize at all.
+    const header = ["Foo", "Bar", "Baz", "Qux"];
+    const columns = { date: 0, merchant: 1, category: 2, amount: 3 };
+    await repo.columnMappings.upsert(headerSignature(header), columns);
+
+    const preview = await previewUpload(asDb(db), householdId, {
+      accountId,
+      bytes: bytes([header.join(","), "01.03.2026,NETFLIX,Afþreying,-1.990 kr."].join("\n")),
+    });
+    expect(preview.status).toBe("ok");
+    if (preview.status !== "ok") return;
+    expect(preview.unmatchedRoles).toEqual([]);
+    expect(preview.detectedMapping).toEqual(columns);
+    expect(preview.rows).toHaveLength(1);
+    expect(preview.newCount).toBe(1);
   });
 
   it("returns unknown-account for an account not in the household", async () => {

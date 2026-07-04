@@ -17,6 +17,7 @@ const parseWithMapping = vi.fn(() => [{ sourceRow: 0 }]);
 vi.mock("@/lib/ingestion/parse-csv", () => ({
   parseStatementCsv: () => parseStatementCsv(),
   parseWithMapping: () => parseWithMapping(),
+  attemptParse: () => ({ header: ["Dagsetning", "Mótaðili", "Tegund", "Upphæð"] }),
   RowCapExceededError,
 }));
 
@@ -80,6 +81,21 @@ describe("POST /api/uploads", () => {
     await POST(post({ file: csvFile(), accountId: ACCOUNT }));
     expect(parseStatementCsv).toHaveBeenCalledOnce();
     expect(parseWithMapping).not.toHaveBeenCalled();
+  });
+
+  it("passes rememberMapping to ingestUpload when an explicit mapping is supplied", async () => {
+    ingestUpload.mockResolvedValue({ status: "created", upload: { id: "u1" }, appended: 1, duplicates: 0 });
+    const columns = { date: 0, merchant: 1, category: 2, amount: 3 };
+    await POST(post({ file: csvFile(), accountId: ACCOUNT, mapping: JSON.stringify(columns) }));
+    const passed = ingestUpload.mock.calls[0]?.[2];
+    expect(passed.rememberMapping.columns).toEqual(columns);
+    expect(typeof passed.rememberMapping.headerSignature).toBe("string");
+  });
+
+  it("does not pass rememberMapping on an auto-detected import", async () => {
+    ingestUpload.mockResolvedValue({ status: "created", upload: { id: "u1" }, appended: 1, duplicates: 0 });
+    await POST(post({ file: csvFile(), accountId: ACCOUNT }));
+    expect(ingestUpload.mock.calls[0]?.[2].rememberMapping).toBeUndefined();
   });
 
   it("returns 422 when the file exceeds the row cap", async () => {
