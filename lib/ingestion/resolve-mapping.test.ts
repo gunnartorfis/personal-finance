@@ -37,6 +37,38 @@ describe("resolveUpload", () => {
     expect(r.rows).toEqual([]);
   });
 
+  it("falls back to the AI suggester when heuristics and remembered both miss", async () => {
+    const suggest = async () => ({ date: 0, merchant: 1, category: 2, amount: 3 });
+    const r = await resolveUpload(
+      noRemembered,
+      csv("Foo,Bar,Baz,Qux", "01.03.2026,NETFLIX,Afþreying,-1.990 kr."),
+      suggest,
+    );
+    expect(r.source).toBe("ai");
+    expect(r.unmatchedRoles).toEqual([]);
+    expect(r.rows).toHaveLength(1);
+  });
+
+  it("returns 'none' when the AI suggester also can't map the file", async () => {
+    const suggest = async () => null;
+    const r = await resolveUpload(noRemembered, csv("Foo,Bar,Baz,Qux", "1,2,3,4"), suggest);
+    expect(r.source).toBe("none");
+  });
+
+  it("does not call the AI suggester when heuristics succeed", async () => {
+    let called = 0;
+    const suggest = async () => {
+      called += 1;
+      return null;
+    };
+    await resolveUpload(
+      noRemembered,
+      csv("Dagsetning,Mótaðili,Tegund,Upphæð", "01.03.2026,X,Y,-1 kr."),
+      suggest,
+    );
+    expect(called).toBe(0);
+  });
+
   it("prefers heuristics over a remembered mapping (only looks up on a heuristic miss)", async () => {
     let lookups = 0;
     const remembered = {

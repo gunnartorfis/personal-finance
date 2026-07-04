@@ -122,7 +122,12 @@ export interface ParseAttempt {
   unmatchedRoles: ColumnRole[];
   /** Parsed data rows — populated only when `unmatchedRoles` is empty, otherwise `[]`. */
   rows: ParsedRow[];
+  /** A few raw data rows after the header (for the AI-fallback prompt); empty when there are none. */
+  sampleRows: string[][];
 }
+
+/** How many data rows to keep as samples for the AI-fallback prompt. */
+const SAMPLE_ROW_COUNT = 5;
 
 /**
  * Auto-detect the header + column mapping and, if complete, parse the data rows — without throwing
@@ -133,7 +138,7 @@ export interface ParseAttempt {
 export function attemptParse(text: string): ParseAttempt {
   const rows = Papa.parse<string[]>(text, { skipEmptyLines: false }).data;
   if (rows.length === 0) {
-    return { headerIndex: 0, header: [], detectedMapping: {}, unmatchedRoles: [], rows: [] };
+    return { headerIndex: 0, header: [], detectedMapping: {}, unmatchedRoles: [], rows: [], sampleRows: [] };
   }
   // Locate the header row first (bank exports often carry preamble lines — account no., statement
   // period, blanks — above it); findHeaderRow also returns the auto-detected date/amount/merchant/
@@ -150,6 +155,7 @@ export function attemptParse(text: string): ParseAttempt {
     detectedMapping: resolved,
     unmatchedRoles: unmatched,
     rows: parsed,
+    sampleRows: rows.slice(headerIndex + 1, headerIndex + 1 + SAMPLE_ROW_COUNT),
   };
 }
 

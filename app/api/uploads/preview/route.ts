@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getDb } from "@/lib/db";
 import { requireHousehold } from "@/lib/household/current";
+import { aiColumnMappingSuggester } from "@/lib/ingestion/ai-mapping";
 import { previewUpload } from "@/lib/ingestion/preview";
 import { RowCapExceededError } from "@/lib/ingestion/parse-csv";
 
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
 
   let preview;
   try {
-    preview = await previewUpload(getDb(), householdId, { accountId, bytes });
+    preview = await previewUpload(getDb(), householdId, { accountId, bytes }, aiColumnMappingSuggester());
   } catch (err) {
     // A too-large file is a distinct, actionable condition — report it as such, not "unreadable".
     if (err instanceof RowCapExceededError) {
