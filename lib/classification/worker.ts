@@ -135,6 +135,9 @@ export async function drainPending(
     const hit = reuse.get(merchantKey);
     if (hit) {
       // Reuse the Household's own prior confident decision for this merchant — no model call.
+      // NOTE (ADR-0020, S2c): once the classified Category is persisted, this reuse map must also
+      // carry `category`/`categoryConfidence` and forward them here, so repeated merchants in one
+      // drain get the same Category rather than being left Uncategorized.
       const [row] = await repo.transactions.classify(txn.id, {
         expenseType: hit.type,
         confidence: hit.confidence ?? undefined,
