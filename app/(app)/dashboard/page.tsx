@@ -13,15 +13,20 @@ import { getTranslations } from "next-intl/server"
 
 import { ThisMonthHero } from "@/components/this-month-hero"
 import { TopMerchants } from "@/components/top-merchants"
+import { type PeriodOption } from "@/components/period-selector"
 import { projectCashFlow } from "@/lib/dashboard/cash-flow"
 import { loadBalanceChecks } from "@/lib/dashboard/balance-check"
-import { currentCycleKey } from "@/lib/dashboard/cycle"
+import { currentCycleKey, isValidCycleKey, recentCycleKeys } from "@/lib/dashboard/cycle"
 import { loadDashboardView } from "@/lib/dashboard/dashboard-view"
 import { loadNetWorthPanel, projectNetWorth } from "@/lib/dashboard/net-worth"
 import { loadSavingsProgress } from "@/lib/savings/assessment"
+import { formatCycleMonth } from "@/lib/format/date"
 import { requireHousehold } from "@/lib/household/current"
 import { resolveRequestLocale } from "@/lib/i18n/locale"
 import { cn } from "@/lib/utils"
+
+/** Months of history the hero can step back through — matches {@link loadDashboardView}'s window. */
+const HERO_MONTHS = 12
 
 // Auth- and tenant-scoped, per-request data: always render dynamically (no static prerender).
 export const dynamic = "force-dynamic"
@@ -34,17 +39,42 @@ export const dynamic = "force-dynamic"
  * gates the thin-data cases. `requireHousehold` enforces the tenant guard (redirecting to sign-in),
  * so this page is always rendered dynamically.
  */
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ cycle?: string }>
+}) {
   const { repo, plan, billingCurrency } = await requireHousehold()
   const locale = await resolveRequestLocale()
   const t = await getTranslations("dashboard")
   const now = new Date()
+  const current = currentCycleKey(now)
+
+  // The hero can view any month in its rolling window (`?cycle=YYYY-MM`, shareable and refresh-safe);
+  // anything outside the window falls back to the current month so the shown figures always exist in
+  // the loaded series. Only the hero re-scopes — every other module stays on the live data.
+  const windowKeys = recentCycleKeys(now, HERO_MONTHS)
+  const { cycle } = await searchParams
+  const selected =
+    cycle && isValidCycleKey(cycle) && windowKeys.includes(cycle) ? cycle : current
+
   const [view, savingsProgress, netWorthPanel, balanceChecks] = await Promise.all([
-    loadDashboardView(repo, now, { plan }),
+    loadDashboardView(repo, now, { plan, count: HERO_MONTHS, selectedKey: selected }),
     loadSavingsProgress(repo, now),
     loadNetWorthPanel(repo),
     loadBalanceChecks(repo),
   ])
+
+  // Offer months with any activity, plus always the current and selected month, so the picker never
+  // hides where the user is yet stays free of empty pre-history months. Keys sort lexicographically
+  // the same as chronologically; newest-first for the selector.
+  const monthsWithData = new Set(
+    view.modules.series.filter((p) => p.spending > 0 || p.income > 0).map((p) => p.month),
+  )
+  const monthOptions: PeriodOption[] = windowKeys
+    .filter((key) => key === current || key === selected || monthsWithData.has(key))
+    .reverse()
+    .map((key) => ({ key, label: formatCycleMonth(key, locale) }))
 
   const hasMerchants = view.modules.topMerchants.length > 0
   const hasMovers =
@@ -83,7 +113,12 @@ export default async function DashboardPage() {
       </header>
 
       <ActionBand actionBand={view.actionBand} />
-      <ThisMonthHero hero={view.hero} currency={billingCurrency} />
+      <ThisMonthHero
+        hero={view.hero}
+        currency={billingCurrency}
+        options={monthOptions}
+        selected={selected}
+      />
 
       <SavingsProgressCard progress={savingsProgress} locale={locale} />
 
@@ -113,7 +148,7 @@ export default async function DashboardPage() {
       />
       <CategoryMixModule
         categoryTrend={view.modules.categoryTrend}
-        currentMonth={view.hero.month}
+        currentMonth={current}
         mostlyUnclassified={view.modules.categoryMostlyUnclassified}
         currency={billingCurrency}
       />
