@@ -129,6 +129,22 @@ describe("previewUpload", () => {
     expect(preview.newCount).toBe(1);
   });
 
+  it("surfaces an AI-suggested mapping as source 'ai' when heuristics and remembered miss", async () => {
+    const { householdId, accountId } = await setup();
+    const suggest = async () => ({ date: 0, merchant: 1, category: 2, amount: 3 });
+    const preview = await previewUpload(
+      asDb(db),
+      householdId,
+      { accountId, bytes: bytes(["Foo,Bar,Baz,Qux", "01.03.2026,NETFLIX,Afþreying,-1.990 kr."].join("\n")) },
+      suggest,
+    );
+    expect(preview.status).toBe("ok");
+    if (preview.status !== "ok") return;
+    expect(preview.mappingSource).toBe("ai");
+    expect(preview.unmatchedRoles).toEqual([]);
+    expect(preview.rows).toHaveLength(1);
+  });
+
   it("returns unknown-account for an account not in the household", async () => {
     const { householdId } = await setup();
     const preview = await previewUpload(asDb(db), householdId, {

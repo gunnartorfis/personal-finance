@@ -1,12 +1,13 @@
+import type { SuggestColumnMapping } from "./ai-mapping";
 import { headerSignature, type ColumnMapping, type ColumnRole } from "./column-mapping";
 import { attemptParse, parseWithMapping, type ParsedRow } from "./parse-csv";
 
 /**
- * How a file's column mapping was resolved (ADR-0018 precedence): a header-heuristic match, a
- * replay of a mapping the Household confirmed before, or `none` when neither could fully resolve it
- * (the caller then asks the user, or — later — the AI fallback).
+ * How a file's column mapping was resolved (ADR-0018 precedence): a header-heuristic match, a replay
+ * of a mapping the Household confirmed before, an AI suggestion (a guess — always shown for
+ * confirmation, never auto-committed), or `none` when nothing could resolve it (the user must map).
  */
-export type MappingSource = "heuristic" | "remembered" | "none";
+export type MappingSource = "heuristic" | "remembered" | "ai" | "none";
 
 export interface ResolvedUpload {
   /** The detected header row (for computing a signature / display). */
@@ -26,15 +27,17 @@ export interface RememberedMappingLookup {
 }
 
 /**
- * Resolve a file's column mapping with the ADR-0018 precedence **remembered → heuristic**, shared by
- * the preview (`previewUpload`) and the commit route so both agree on how an unrecognized header is
- * handled: the heuristics run first; if they leave any role unmatched, a mapping the Household
- * confirmed before for the same header signature is replayed. Returns `source: "none"` (with the
- * unmatched roles) when neither resolves it, so the caller can ask the user rather than fail.
+ * Resolve a file's column mapping with the ADR-0018 precedence **remembered → heuristic → AI**,
+ * shared by the preview (`previewUpload`) and the commit route so both agree on how an unrecognized
+ * header is handled: the heuristics run first; if they leave any role unmatched, a mapping the
+ * Household confirmed before for the same header signature is replayed; and if an optional AI
+ * `suggest` is provided (preview only — a suggestion always needs confirmation), it is the last
+ * resort. Returns `source: "none"` (with the unmatched roles) when nothing resolves it.
  */
 export async function resolveUpload(
   remembered: RememberedMappingLookup,
   text: string,
+  suggest?: SuggestColumnMapping,
 ): Promise<ResolvedUpload> {
   const attempt = attemptParse(text);
   if (attempt.unmatchedRoles.length === 0) {
@@ -47,10 +50,10 @@ export async function resolveUpload(
     };
   }
 
+  // Heuristics failing means the header sits at row 0 (findHeaderRow's fallback), so a remembered or
+  // AI-suggested mapping's indices align with parseWithMapping's row-0-header contract.
   const hit = await remembered.findBySignature(headerSignature(attempt.header));
   if (hit) {
-    // Heuristics failing means the header sits at row 0 (findHeaderRow's fallback), so the remembered
-    // indices align with parseWithMapping's row-0-header contract.
     return {
       header: attempt.header,
       mapping: hit.columns,
@@ -58,6 +61,19 @@ export async function resolveUpload(
       rows: parseWithMapping(text, hit.columns),
       source: "remembered",
     };
+  }
+
+  if (suggest) {
+    const ai = await suggest(attempt.header, attempt.sampleRows);
+    if (ai) {
+      return {
+        header: attempt.header,
+        mapping: ai,
+        unmatchedRoles: [],
+        rows: parseWithMapping(text, ai),
+        source: "ai",
+      };
+    }
   }
 
   return {

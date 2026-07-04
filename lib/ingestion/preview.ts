@@ -5,6 +5,7 @@ import type * as schema from "@/lib/db/schema";
 import { partitionNewRows, type FingerprintInput } from "@/shared/dedup";
 import { hashUpload, type UploadBytes } from "@/shared/upload-hash";
 
+import type { SuggestColumnMapping } from "./ai-mapping";
 import type { ColumnMapping, ColumnRole } from "./column-mapping";
 import type { ParsedRow } from "./parse-csv";
 import { resolveUpload, type MappingSource } from "./resolve-mapping";
@@ -30,8 +31,9 @@ export type UploadPreview =
       detectedMapping: Partial<ColumnMapping>;
       /**
        * How the mapping was resolved (ADR-0018): "heuristic" (auto, safe to auto-commit),
-       * "remembered" (replayed a confirmed mapping — the client should send it back on commit), or
-       * "none" (unresolved; `unmatchedRoles` is non-empty and the user must map the gaps).
+       * "remembered" (replayed a confirmed mapping — the client should send it back on commit), "ai"
+       * (a suggestion — always show for confirmation, never auto-commit), or "none" (unresolved;
+       * `unmatchedRoles` is non-empty and the user must map the gaps).
        */
       mappingSource: MappingSource;
       /** Required roles with no matching column; when non-empty the UI must resolve them. */
@@ -53,6 +55,7 @@ export async function previewUpload(
   db: Db,
   householdId: string,
   input: PreviewUploadInput,
+  suggest?: SuggestColumnMapping,
 ): Promise<UploadPreview> {
   const repo = householdRepo(db, householdId);
 
@@ -65,8 +68,9 @@ export async function previewUpload(
   );
 
   const text = new TextDecoder().decode(input.bytes);
-  // Resolve remembered → heuristic (ADR-0018); shared with the commit route so both agree.
-  const resolved = await resolveUpload(repo.columnMappings, text);
+  // Resolve remembered → heuristic → AI (ADR-0018); shared with the commit route so both agree. The
+  // AI fallback (`suggest`) is passed only here — a suggestion always needs the user's confirmation.
+  const resolved = await resolveUpload(repo.columnMappings, text, suggest);
 
   // An unresolved mapping can't produce rows or a dedup count; the UI resolves the gaps first.
   if (resolved.unmatchedRoles.length > 0) {
