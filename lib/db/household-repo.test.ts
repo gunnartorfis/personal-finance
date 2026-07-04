@@ -410,8 +410,14 @@ describe("householdRepo", () => {
       const slugToId = await a.categories.leafSlugToId();
       const [fuelId, groceriesId] = [slugToId.get("fuel")!, slugToId.get("groceries")!];
       const txn = await seedTransaction(a);
-      // Classified as fuel, then the Member overrides the Category to groceries.
-      await a.transactions.classify(txn.id, { expenseType: "Necessary", categoryId: fuelId, categoryConfidence: 0.9 });
+      // Classified as fuel, then the Member overrides the Category to groceries. Assert the classify
+      // actually landed (it no-ops on a non-pending row), so the override assertion isn't vacuous.
+      const classified = await a.transactions.classify(txn.id, {
+        expenseType: "Necessary",
+        categoryId: fuelId,
+        categoryConfidence: 0.9,
+      });
+      expect(classified).toHaveLength(1);
       await a.overrides.upsert({ transactionId: txn.id, categoryId: groceriesId });
 
       const breakdown = await loadCategoryBreakdown(a, { from: "2026-03-01", to: "2026-04-01" });
