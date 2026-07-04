@@ -889,6 +889,10 @@
       "title": "You've unsubscribed",
       "body": "You won't get the monthly summary anymore. You can turn it back on in your settings.",
       "invalid": "This unsubscribe link is invalid or has expired."
+    },
+    "settings": {
+      "title": "Monthly summary emails",
+      "description": "A recap of each month's spending and savings, emailed to you when the month closes."
     }
   }
 }

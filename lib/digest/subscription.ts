@@ -18,3 +18,16 @@ export async function setDigestSubscription(db: Db, memberId: string, subscribed
     .set({ digestUnsubscribedAt: subscribed ? null : new Date() })
     .where(eq(members.id, memberId))
 }
+
+/** Whether a Member currently receives the Digest (subscribed = `digest_unsubscribed_at` is null). */
+export async function isDigestSubscribed(db: Db, memberId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ unsubscribedAt: members.digestUnsubscribedAt })
+    .from(members)
+    .where(eq(members.id, memberId))
+    .limit(1)
+  // Subscribed unless a row explicitly says otherwise — matching the schema default (null column =
+  // subscribed). A missing row (only reachable via future tooling; the settings page always passes a
+  // real member) defaults subscribed too, rather than silently flipping the convention.
+  return row ? row.unsubscribedAt === null : true
+}
