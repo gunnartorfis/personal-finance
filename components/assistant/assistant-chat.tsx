@@ -239,7 +239,12 @@ export function AssistantChat() {
           ))}
         </ul>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
+        <div
+          className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3"
+          role="log"
+          aria-live="polite"
+          aria-busy={busy}
+        >
           {messages.length === 0 ? (
             <EmptyState onPick={ask} />
           ) : (
@@ -249,6 +254,11 @@ export function AssistantChat() {
               </Bubble>
             ))
           )}
+          {status === "submitted" ? (
+            <p className="text-sm text-muted-foreground" role="status">
+              {t("thinking")}
+            </p>
+          ) : null}
           {error ? (
             <p role="alert" className="text-sm text-destructive">
               {t("error.generic")}

@@ -44,8 +44,9 @@ Free households see the trigger and get an upgrade CTA.
 | 3b | **Streaming route**: `app/api/assistant/route.ts` — `streamText` + `toAiTools` + system prompt, `ASSISTANT_MODEL`, `stopWhen: stepCountIs`, Premium gate (`requireHousehold`), daily-cap 429, persist user+assistant text on finish. | `app/api/assistant/`, `lib/assistant/turn.ts` | MERGED #264 |
 | 4a | **Drawer UI — chat core**: Sheet drawer + header trigger + ⌘K, `@ai-sdk/react` `useChat` → `/api/assistant` (custom transport: body adapt + X-Conversation-Id capture), streaming bubbles, input/loading/error, reactive premium(403)/cap(429) gate + upgrade CTA, disclaimer, empty-state prompts. en+is `assistant` namespace. Built via /design. | `components/assistant/*`, `app/(app)/layout.tsx`, `messages/{en,is}.json` | MERGED #268 |
 | 4b | **Proactive premium gate**: `GET /api/assistant/status` → `{ plan }`; drawer shows the upgrade CTA immediately for Free (not only after a 403). | `app/api/assistant/status/`, `components/assistant/*` | PR-OPEN #270 |
-| 4c | **Drawer UI — history**: `GET /api/assistant/conversations` (+ `[id]`); past-thread list + switching + new-chat. | `app/api/assistant/conversations/`, `components/assistant/*`, `lib/assistant/ui-messages.ts` | PR-OPEN #274 |
-| 5 | **Polish**: per-message Member attribution (names via users_sync), tool-call/loading affordances, a11y pass. | `components/` | TODO |
+| 4c | **Drawer UI — history**: `GET /api/assistant/conversations` (+ `[id]`); past-thread list + switching + new-chat. | `app/api/assistant/conversations/`, `components/assistant/*`, `lib/assistant/ui-messages.ts` | MERGED #274 |
+| 5 | **Polish — loading + a11y**: streaming "thinking" affordance, `aria-live` message log, a11y sweep. | `components/assistant/*` | PR-OPEN |
+| 5b | **Attribution names**: resolve message author names via users_sync; show who asked in history. | `app/api/assistant/`, `components/assistant/*` | TODO |
 
 Status values: TODO | PR-OPEN #<n> | MERGED | BLOCKED (one-line reason).
 
