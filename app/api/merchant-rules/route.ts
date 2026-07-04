@@ -25,15 +25,11 @@ export async function POST(request: Request) {
   }
 
   const ctx = await requireHousehold()
+  let rule
   try {
     // Create the rule and re-type existing matching rows atomically, so the rule takes effect
     // immediately (CONTEXT.md) and a crash can't leave rows un-retyped. Overrides are untouched.
-    const { rule } = await ctx.repo.merchantRules.createAndApply(parsed.value)
-    await recordActivity(ctx, ActivityAction.MerchantRuleCreated, {
-      ruleId: rule.id,
-      merchant: rule.merchant,
-    })
-    return NextResponse.json(rule, { status: 201 })
+    ;({ rule } = await ctx.repo.merchantRules.createAndApply(parsed.value))
   } catch (error) {
     if (isUniqueViolation(error)) {
       return NextResponse.json(
@@ -43,4 +39,11 @@ export async function POST(request: Request) {
     }
     throw error
   }
+  // Log outside the try/catch — a logging failure must not be mistaken for a rule-creation error
+  // (the rule is already persisted at this point).
+  await recordActivity(ctx, ActivityAction.MerchantRuleCreated, {
+    ruleId: rule.id,
+    merchant: rule.merchant,
+  })
+  return NextResponse.json(rule, { status: 201 })
 }

@@ -23,7 +23,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   }
   await recordActivity(ctx, ActivityAction.MerchantRuleDeleted, {
     ruleId: id,
-    merchant: removed[0]?.merchant,
+    merchant: removed[0].merchant,
   })
   return NextResponse.json({ removed: true })
 }
