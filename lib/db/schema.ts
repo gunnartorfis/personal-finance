@@ -158,8 +158,10 @@ export const bankConnectionStatusEnum = pgEnum("bank_connection_status", [
 
 /**
  * A Household's authorized link to one bank via an open-banking aggregator (Enable Banking). Holds
- * the PSD2 consent (which expires — SCA re-consent ~every 90 days) and the aggregator tokens
- * (encrypted at rest by the app layer). One connection exposes one or more {@link accounts}.
+ * the PSD2 consent (which expires — SCA re-consent ~every 90 days). The consent/session handle
+ * (`providerConnectionId`) is stored plaintext — it is unusable without the app's Enable Banking RSA
+ * key + application id. Aggregator bearer tokens are never persisted: no write path exposes
+ * `accessToken`/`refreshToken` (see the repo layer). One connection exposes one or more {@link accounts}.
  */
 export const bankConnections = pgTable(
   "bank_connections",
@@ -178,7 +180,11 @@ export const bankConnections = pgTable(
     status: bankConnectionStatusEnum("status").notNull().default("active"),
     /** When the PSD2 consent expires and SCA re-consent is required. */
     consentExpiresAt: timestamp("consent_expires_at", { withTimezone: true }),
-    /** Aggregator access/refresh tokens; ciphertext (encrypted at rest by the app layer). */
+    /**
+     * Reserved: aggregator access/refresh tokens. Never written today — the repo layer exposes no
+     * write path. If persisting them ever becomes necessary, add app-layer encryption first (do not
+     * write raw bearer tokens).
+     */
     accessToken: text("access_token"),
     refreshToken: text("refresh_token"),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),

@@ -1,9 +1,14 @@
 import { PGlite } from "@electric-sql/pglite";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { householdRepo } from "./household-repo";
 import { accounts, bankConnections, households, transactions, uploads } from "./schema";
+
+const asRepoDb = (d: ReturnType<typeof drizzle>) =>
+  d as unknown as Parameters<typeof householdRepo>[0];
 
 function freshDb() {
   return drizzle(new PGlite(), {
@@ -183,5 +188,34 @@ describe("bank connections & ingestion-source schema (open-banking)", () => {
     await db.insert(transactions).values(csvRow);
     await db.insert(transactions).values({ ...csvRow, sourceRow: 1 });
     // both inserts succeed (no throw)
+  });
+
+  // Pins the "aggregator bearer tokens are never persisted" invariant so the (now-honest) comments
+  // can't silently rot: there is no repo write path for accessToken/refreshToken.
+  it("exposes no write path for accessToken/refreshToken (type-level guard)", () => {
+    // The assertion IS the @ts-expect-error below — if the repo type ever accepts a token field, the
+    // directive becomes unused and typecheck fails. The closure never runs, so no DB call fires.
+    const _guard = () => {
+      const repo = householdRepo(asRepoDb(db), householdId);
+      // @ts-expect-error accessToken must not be settable via the household repo
+      repo.bankConnections.create({ provider: "enable_banking", providerConnectionId: "x", accessToken: "t" });
+      // @ts-expect-error refreshToken must not be settable via the household repo
+      repo.bankConnections.update("some-id", { refreshToken: "t" });
+    };
+    expect(typeof _guard).toBe("function");
+  });
+
+  it("never persists tokens: a repo-created connection has null access/refresh tokens", async () => {
+    const repo = householdRepo(asRepoDb(db), householdId);
+    const [conn] = await repo.bankConnections.create({
+      provider: "enable_banking",
+      providerConnectionId: "consent_tokentest",
+    });
+    const [row] = await db
+      .select()
+      .from(bankConnections)
+      .where(eq(bankConnections.id, conn.id));
+    expect(row.accessToken).toBeNull();
+    expect(row.refreshToken).toBeNull();
   });
 });
