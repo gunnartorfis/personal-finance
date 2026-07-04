@@ -741,5 +741,10 @@
       "aria": "Reconnect {bank}",
       "error": "Couldn't start reconnect — try again."
     }
+  },
+  "dataExport": {
+    "title": "Export your data",
+    "description": "Download all of your household's financial data as a JSON file.",
+    "download": "Export my data"
   }
 }
