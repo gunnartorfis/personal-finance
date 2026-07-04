@@ -232,6 +232,13 @@
       "when": 1783196924322,
       "tag": "0032_slow_killraven",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1783199032842,
+      "tag": "0033_outgoing_patch",
+      "breakpoints": true
     }
   ]
 }
