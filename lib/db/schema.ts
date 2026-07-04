@@ -399,6 +399,78 @@ export const uploads = pgTable(
 );
 
 /**
+ * A Household's semantic Category (ADR-0020, #105) — the "what was bought" axis, orthogonal to the
+ * discretionary Expense type. Two levels: a **group** row (`parent_id` NULL) rolls up **leaf** rows
+ * that Transactions attach to. Seeded per-Household from `CATEGORY_SEED` (`lib/categories/seed.ts`);
+ * a Household may hide seed rows or add its own. Seed rows carry an i18n `label_key` (localized,
+ * `label` NULL); custom rows carry a literal `label` (`label_key` NULL). Expenses-only (ADR-0020) —
+ * credits/income/transfers/savings stay in their own models and never carry a Category.
+ *
+ * Declared before `transactions` because a Transaction's composite Category FK references it.
+ */
+export const categories = pgTable(
+  "categories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    /** Parent group for a leaf subcategory; NULL on a top-level group row. */
+    parentId: uuid("parent_id"),
+    /** Stable identifier, unique within the Household (seed slug, or a generated custom slug). */
+    slug: text("slug").notNull(),
+    /** i18n message key (namespace `categories`) for seed rows; NULL on custom rows. */
+    labelKey: text("label_key"),
+    /** Literal display label for custom rows; NULL on seed rows (which localize via `label_key`). */
+    label: text("label"),
+    /** Fallback discretionary Expense type (leaf rows); a hint only (ADR-0020). NULL on groups. */
+    defaultExpenseType: text("default_expense_type"),
+    /** Lucide icon name (kebab-case). */
+    icon: text("icon"),
+    /** Icelandic classifier / merchant-match hints (diacritic-folded at match time). */
+    synonyms: jsonb("synonyms").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    /** True for rows seeded from CATEGORY_SEED; false for Household-created rows. */
+    isSeed: boolean("is_seed").notNull().default(false),
+    /** The Household hid this Category from pickers and breakdowns (soft, reversible). */
+    hidden: boolean("hidden").notNull().default(false),
+    /** Display order within the parent group (or among groups). */
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // Mutable table (hide / reorder / rename), so it carries updated_at like columnMappings and
+    // assistantConversations; the app bumps it on write.
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Target for the composite same-Household self FK below.
+    unique("categories_household_id_id_key").on(t.householdId, t.id),
+    // Slug is the stable per-Household identifier.
+    unique("categories_household_slug_key").on(t.householdId, t.slug),
+    // A leaf's parent group must belong to the same Household (self-referential composite FK).
+    foreignKey({
+      columns: [t.householdId, t.parentId],
+      foreignColumns: [t.householdId, t.id],
+      name: "categories_parent_household_fk",
+    }).onDelete("cascade"),
+    index("categories_household_parent_idx").on(t.householdId, t.parentId),
+    // Exactly one label source: seed rows localize via `label_key`; custom rows carry `label`.
+    check(
+      "categories_label_source",
+      sql`(${t.labelKey} IS NOT NULL AND ${t.label} IS NULL) OR (${t.labelKey} IS NULL AND ${t.label} IS NOT NULL)`,
+    ),
+    // A group row (parent_id NULL) never carries a default Expense type; a leaf's fallback, when
+    // set, is a real discretionary bucket (never "" — categories are Expenses-only, ADR-0020).
+    check(
+      "categories_default_expense_type_valid",
+      sql`${t.defaultExpenseType} IS NULL OR (${t.parentId} IS NOT NULL AND ${t.defaultExpenseType} IN ('Fixed', 'Necessary', 'Nice to have'))`,
+    ),
+    // No self-parenting. The 2-level invariant (no grandchildren) can't be a CHECK — Postgres
+    // CHECKs can't reference other rows — so it is enforced by seeding and by the create-category
+    // app guard (a new leaf's parent must itself be a group), per ADR-0020.
+    check("categories_no_self_parent", sql`${t.parentId} IS NULL OR ${t.parentId} <> ${t.id}`),
+  ],
+);
+
+/**
  * One line from an Upload (ADR-0003/0004/0005). Append-only with a DB-generated PK; `sourceRow`
  * keeps the CSV row index for traceability. `amount` is the charged amount in the Household's
  * billing currency (the sole source of truth); `originalAmount`/`originalCurrency` are the foreign
@@ -452,6 +524,17 @@ export const transactions = pgTable(
     expenseType: text("expense_type"),
     confidence: real("confidence"),
     reasoning: text("reasoning"),
+    /**
+     * Semantic Category (ADR-0020), orthogonal to `expenseType`. Null = Uncategorized (model
+     * abstained, not yet processed, or a credit/transfer — which never carry a Category). Resolved
+     * on its own precedence chain (Override > Merchant rule > Classification). Always a **leaf**
+     * subcategory: leaf-only can't be a CHECK (it depends on the referenced row's `parent_id`, a
+     * cross-row read Postgres CHECKs forbid — same limit as `categories_no_self_parent`), so it is
+     * enforced by the assignment layer (worker / merchant rule / override all resolve to leaf ids).
+     */
+    categoryId: uuid("category_id"),
+    /** Model confidence for the Category assignment (0..1); independent of `confidence` (Expense type). */
+    categoryConfidence: real("category_confidence"),
     /**
      * A Member manually marked this credit as real income. Credits are excluded from every
      * calculation unless this is set — most card credits are inter-account transfers, card-bill
@@ -539,6 +622,25 @@ export const transactions = pgTable(
       foreignColumns: [uploads.householdId, uploads.id],
       name: "transactions_upload_household_fk",
     }).onDelete("cascade"),
+    // A Transaction's Category must belong to the same Household (ADR-0020). No onDelete action: a
+    // referenced Category can't be individually deleted (v1 customization is hide-only), while a
+    // whole-Household delete still cascades both sides (NO ACTION is checked at statement end).
+    foreignKey({
+      columns: [t.householdId, t.categoryId],
+      foreignColumns: [categories.householdId, categories.id],
+      name: "transactions_category_household_fk",
+    }),
+    // Speeds the Category-breakdown aggregations (group/filter by category within a Household).
+    index("transactions_household_category_idx").on(t.householdId, t.categoryId),
+    // Category confidence only accompanies an assigned Category, and is a probability in [0, 1].
+    check(
+      "transactions_category_confidence_requires_category",
+      sql`${t.categoryConfidence} IS NULL OR ${t.categoryId} IS NOT NULL`,
+    ),
+    check(
+      "transactions_category_confidence_range",
+      sql`${t.categoryConfidence} IS NULL OR (${t.categoryConfidence} >= 0 AND ${t.categoryConfidence} <= 1)`,
+    ),
     // Provenance integrity: a CSV row carries an Upload and no external id; a synced row carries an
     // external id and no Upload.
     check(
@@ -831,76 +933,6 @@ export const categoryBudgets = pgTable(
       "category_budgets_expense_type_valid",
       sql`${t.expenseType} IN ('Fixed', 'Necessary', 'Nice to have')`,
     ),
-  ],
-);
-
-/**
- * A Household's semantic Category (ADR-0020, #105) — the "what was bought" axis, orthogonal to the
- * discretionary Expense type. Two levels: a **group** row (`parent_id` NULL) rolls up **leaf** rows
- * that Transactions attach to. Seeded per-Household from `CATEGORY_SEED` (`lib/categories/seed.ts`);
- * a Household may hide seed rows or add its own. Seed rows carry an i18n `label_key` (localized,
- * `label` NULL); custom rows carry a literal `label` (`label_key` NULL). Expenses-only (ADR-0020) —
- * credits/income/transfers/savings stay in their own models and never carry a Category.
- */
-export const categories = pgTable(
-  "categories",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    householdId: uuid("household_id")
-      .notNull()
-      .references(() => households.id, { onDelete: "cascade" }),
-    /** Parent group for a leaf subcategory; NULL on a top-level group row. */
-    parentId: uuid("parent_id"),
-    /** Stable identifier, unique within the Household (seed slug, or a generated custom slug). */
-    slug: text("slug").notNull(),
-    /** i18n message key (namespace `categories`) for seed rows; NULL on custom rows. */
-    labelKey: text("label_key"),
-    /** Literal display label for custom rows; NULL on seed rows (which localize via `label_key`). */
-    label: text("label"),
-    /** Fallback discretionary Expense type (leaf rows); a hint only (ADR-0020). NULL on groups. */
-    defaultExpenseType: text("default_expense_type"),
-    /** Lucide icon name (kebab-case). */
-    icon: text("icon"),
-    /** Icelandic classifier / merchant-match hints (diacritic-folded at match time). */
-    synonyms: jsonb("synonyms").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
-    /** True for rows seeded from CATEGORY_SEED; false for Household-created rows. */
-    isSeed: boolean("is_seed").notNull().default(false),
-    /** The Household hid this Category from pickers and breakdowns (soft, reversible). */
-    hidden: boolean("hidden").notNull().default(false),
-    /** Display order within the parent group (or among groups). */
-    sortOrder: integer("sort_order").notNull().default(0),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    // Mutable table (hide / reorder / rename), so it carries updated_at like columnMappings and
-    // assistantConversations; the app bumps it on write.
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    // Target for the composite same-Household self FK below.
-    unique("categories_household_id_id_key").on(t.householdId, t.id),
-    // Slug is the stable per-Household identifier.
-    unique("categories_household_slug_key").on(t.householdId, t.slug),
-    // A leaf's parent group must belong to the same Household (self-referential composite FK).
-    foreignKey({
-      columns: [t.householdId, t.parentId],
-      foreignColumns: [t.householdId, t.id],
-      name: "categories_parent_household_fk",
-    }).onDelete("cascade"),
-    index("categories_household_parent_idx").on(t.householdId, t.parentId),
-    // Exactly one label source: seed rows localize via `label_key`; custom rows carry `label`.
-    check(
-      "categories_label_source",
-      sql`(${t.labelKey} IS NOT NULL AND ${t.label} IS NULL) OR (${t.labelKey} IS NULL AND ${t.label} IS NOT NULL)`,
-    ),
-    // A group row (parent_id NULL) never carries a default Expense type; a leaf's fallback, when
-    // set, is a real discretionary bucket (never "" — categories are Expenses-only, ADR-0020).
-    check(
-      "categories_default_expense_type_valid",
-      sql`${t.defaultExpenseType} IS NULL OR (${t.parentId} IS NOT NULL AND ${t.defaultExpenseType} IN ('Fixed', 'Necessary', 'Nice to have'))`,
-    ),
-    // No self-parenting. The 2-level invariant (no grandchildren) can't be a CHECK — Postgres
-    // CHECKs can't reference other rows — so it is enforced by seeding and by the create-category
-    // app guard (a new leaf's parent must itself be a group), per ADR-0020.
-    check("categories_no_self_parent", sql`${t.parentId} IS NULL OR ${t.parentId} <> ${t.id}`),
   ],
 );
 
