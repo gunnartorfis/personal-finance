@@ -13,7 +13,12 @@ import type { ExpenseType } from "@/shared/types";
  * inter-account transfer, card-bill payment, or refund — contributes to nothing here.
  */
 export interface NetSummary {
-  /** Sum of credits manually marked as income (amount > 0 and incomeMarked). */
+  /**
+   * Income for the cycle. From {@link computeNetSummary} this is the sum of credits manually marked
+   * as income (amount > 0 and incomeMarked); the Transactions overview layers the cycle's configured
+   * Monthly income on top via {@link addConfiguredIncome} (ADR-0015), so the figure reflects the
+   * Household's configured revenues even when no card credit is marked.
+   */
   income: number;
   /** Sum of expenses (amount <= 0); zero or negative. */
   expense: number;
@@ -77,6 +82,22 @@ export function computeNetSummary(rows: ReadonlyArray<NetSummaryRow>): NetSummar
   }
 
   return { income, expense, net: income + expense, byExpenseType, unclassified };
+}
+
+/**
+ * Layer the cycle's configured Monthly income (recurring Income-settings sources in force plus its
+ * one-off income adjustments, ADR-0015) on top of a transaction-derived {@link NetSummary}: it adds
+ * to both `income` and `net`, leaving the expense side untouched — so `income + expense === net`
+ * still holds. Kept separate from {@link computeNetSummary} (which stays purely about card rows) so
+ * only the surfaces that want the combined figure — the Transactions overview — opt in; the Savings
+ * math, which reads configured income on its own path, must not (it would double-count).
+ */
+export function addConfiguredIncome(summary: NetSummary, configuredIncome: number): NetSummary {
+  return {
+    ...summary,
+    income: summary.income + configuredIncome,
+    net: summary.net + configuredIncome,
+  };
 }
 
 /**
