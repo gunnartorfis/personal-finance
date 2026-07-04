@@ -84,9 +84,25 @@ export function parseSavingsGoalInput(body: unknown): GoalParseResult {
     return { ok: false, error: "currency must be a three-letter uppercase ISO code" };
   }
 
+  // Optional display name (chrome, not math). Trimmed; whitespace-only or absent (`null`/omitted)
+  // collapses to `null` so a GET→PUT round-trip of an unnamed goal doesn't 400 and editing can
+  // clear it. Capped at 60 chars to mirror the DB length check.
+  let title: string | null = null;
+  if (input.title !== undefined && input.title !== null) {
+    if (typeof input.title !== "string") {
+      return { ok: false, error: "title must be a string" };
+    }
+    const trimmed = input.title.trim();
+    if (trimmed.length > 60) {
+      return { ok: false, error: "title must be 60 characters or fewer" };
+    }
+    if (trimmed !== "") title = trimmed;
+  }
+
   return {
     ok: true,
     value: {
+      title,
       target: input.target,
       targetDate: input.targetDate,
       startingSaved,

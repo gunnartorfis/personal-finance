@@ -710,6 +710,9 @@
     "goal": {
       "loading": "Loading goal…",
       "regionLabel": "Savings goal",
+      "title": "Goal name",
+      "titleOptional": "(optional)",
+      "titlePlaceholder": "e.g. Wedding, New car",
       "target": "Target amount",
       "targetPlaceholder": "e.g. 3000000",
       "targetDate": "Target date",

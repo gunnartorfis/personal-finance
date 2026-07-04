@@ -180,6 +180,7 @@ describe("DashboardPage", () => {
 
   it("shows the savings progress card when a goal exists", async () => {
     loadSavingsProgress.mockResolvedValue({
+      title: null,
       target: 1_200_000,
       saved: 500_000,
       percent: 42,

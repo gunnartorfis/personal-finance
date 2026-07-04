@@ -19,15 +19,19 @@ export function SavingsAssessmentPanel({
   cycles,
   currency,
   locale,
+  title,
   className,
 }: {
   assessment: SavingsAssessment
   cycles: SavingsCycle[]
   currency: string
   locale: Locale
+  /** The goal's optional display name (e.g. "Wedding"); headlines the panel when set. */
+  title?: string | null
   className?: string
 }) {
   const t = useTranslations("savings.assessment")
+  const tGoal = useTranslations("savings.goal")
   const money = currencyFormatter(currency, locale)
   // Newest cycle first for the breakdown; the loader returns oldest first for the cumulative math.
   const newestFirst = [...cycles].sort((a, b) =>
@@ -41,7 +45,12 @@ export function SavingsAssessmentPanel({
     >
       <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6">
         <div className="flex flex-col gap-1">
-          <h2 className="text-base font-semibold">{t("heading")}</h2>
+          {title && (
+            <span className="text-xs font-medium text-muted-foreground">
+              {tGoal("regionLabel")}
+            </span>
+          )}
+          <h2 className="text-base font-semibold">{title ?? t("heading")}</h2>
           <p className="text-sm text-pretty text-muted-foreground">
             {t("subtitle")}
           </p>

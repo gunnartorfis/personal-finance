@@ -49,7 +49,11 @@ const cycles: SavingsCycle[] = [
 ]
 
 function renderPanel(
-  overrides?: Partial<{ assessment: SavingsAssessment; cycles: SavingsCycle[] }>
+  overrides?: Partial<{
+    assessment: SavingsAssessment
+    cycles: SavingsCycle[]
+    title: string | null
+  }>
 ) {
   return render(
     <SavingsAssessmentPanel
@@ -57,6 +61,7 @@ function renderPanel(
       cycles={overrides?.cycles ?? cycles}
       currency="ISK"
       locale="en"
+      title={overrides?.title ?? null}
     />
   )
 }
@@ -114,6 +119,25 @@ describe("SavingsAssessmentPanel", () => {
     ).toBeInTheDocument()
     // No tautological "needed by now" when nothing is due yet.
     expect(screen.queryByText(/needed by now/i)).not.toBeInTheDocument()
+  })
+
+  it("headlines the goal name with a 'Savings goal' eyebrow when titled", () => {
+    renderPanel({ title: "Wedding" })
+    expect(
+      screen.getByRole("heading", { name: "Wedding" })
+    ).toBeInTheDocument()
+    // The eyebrow keeps the generic label so the section stays self-explanatory.
+    expect(screen.getByText("Savings goal")).toBeInTheDocument()
+    // The default heading copy is replaced by the name.
+    expect(screen.queryByText(/where the goal stands/i)).not.toBeInTheDocument()
+  })
+
+  it("falls back to the generic heading and no eyebrow when unnamed", () => {
+    renderPanel({ title: null })
+    expect(
+      screen.getByRole("heading", { name: /where the goal stands/i })
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Savings goal")).not.toBeInTheDocument()
   })
 
   it("hides the provisional banner when the assessment is not provisional", () => {

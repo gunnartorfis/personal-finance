@@ -15,10 +15,17 @@ describe("buildSavingsProgress", () => {
 
   it("sums starting saved plus each cycle's inferred saving", () => {
     expect(buildSavingsProgress(goal, [250_000, 150_000])).toEqual({
+      title: null,
       target: 1_200_000,
       saved: 500_000, // 100k starting + 250k + 150k
       percent: 42, // round(500k / 1.2M * 100)
       currency: "ISK",
+    });
+  });
+
+  it("carries an optional goal title through", () => {
+    expect(buildSavingsProgress({ ...goal, title: "Wedding" }, [])).toMatchObject({
+      title: "Wedding",
     });
   });
 

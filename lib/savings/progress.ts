@@ -1,5 +1,7 @@
 /** What the dashboard's compact Savings progress card renders (ADR-0007, Phase J). */
 export interface SavingsProgress {
+  /** Optional goal name shown on the card (e.g. "Wedding"); `null` when unnamed. */
+  title: string | null;
   target: number;
   /** Inferred saved to date: startingSaved + every elapsed cycle's inferred saving. */
   saved: number;
@@ -15,12 +17,14 @@ export interface SavingsProgress {
  * filtering. `undefined` goal (none set) hides the card entirely.
  */
 export function buildSavingsProgress(
-  goal: { target: number; startingSaved: number; currency: string } | undefined,
+  goal:
+    | { target: number; startingSaved: number; currency: string; title?: string | null }
+    | undefined,
   cycleSavings: ReadonlyArray<number>,
 ): SavingsProgress | null {
   if (!goal) return null;
   let saved = goal.startingSaved;
   for (const saving of cycleSavings) saved += saving;
   const percent = Math.min(100, Math.max(0, Math.round((saved / goal.target) * 100)));
-  return { target: goal.target, saved, percent, currency: goal.currency };
+  return { title: goal.title ?? null, target: goal.target, saved, percent, currency: goal.currency };
 }
