@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { requireHousehold } from "@/lib/household/current"
 
 /**
@@ -28,7 +30,8 @@ export async function POST(request: Request) {
     parsed.push({ accountId, balance: Math.round(balance) })
   }
 
-  const { repo } = await requireHousehold()
+  const ctx = await requireHousehold()
+  const { repo } = ctx
   // Only accept Account ids that belong to this Household — the DB FK would also reject a foreign id,
   // but validating here returns a clean 400 instead of surfacing a constraint error.
   const ownAccountIds = new Set((await repo.accounts.list()).map((account) => account.id))
@@ -39,5 +42,9 @@ export async function POST(request: Request) {
   // One atomic multi-row insert, so a mid-batch failure can't leave net worth reflecting a partial
   // update (some Accounts' snapshots committed, others not).
   await repo.accounts.balances.insertMany(parsed)
+  await recordActivity(ctx, ActivityAction.AccountBalanceRecorded, {
+    count: parsed.length,
+    balances: parsed,
+  })
   return NextResponse.json({ ok: true }, { status: 201 })
 }

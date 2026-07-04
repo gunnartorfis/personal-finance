@@ -26,12 +26,23 @@ describe("DELETE /api/merchant-rules/[id]", () => {
     expect(remove).toHaveBeenCalledWith(ID)
   })
 
-  it("removes the rule", async () => {
-    const remove = vi.fn().mockResolvedValue([{ id: ID }])
-    requireHousehold.mockResolvedValue({ repo: { merchantRules: { remove } } })
+  it("removes the rule and logs it", async () => {
+    const remove = vi.fn().mockResolvedValue([{ id: ID, merchant: "NETFLIX" }])
+    const record = vi.fn().mockResolvedValue([])
+    requireHousehold.mockResolvedValue({
+      repo: { merchantRules: { remove }, activity: { record } },
+      memberId: "m1",
+      user: { name: "Ada", email: "a@x.is" },
+    })
 
     const res = await DELETE(new Request("http://test/", { method: "DELETE" }), ctx(ID))
     expect(res.status).toBe(200)
+    expect(record).toHaveBeenCalledWith({
+      memberId: "m1",
+      actorName: "Ada",
+      action: "rule.deleted",
+      payload: { ruleId: ID, merchant: "NETFLIX" },
+    })
     expect(await res.json()).toEqual({ removed: true })
   })
 })

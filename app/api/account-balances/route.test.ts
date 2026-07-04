@@ -25,13 +25,17 @@ describe("POST /api/account-balances", () => {
 
   it("inserts rounded snapshots for known accounts atomically and returns 201", async () => {
     const insertMany = vi.fn().mockResolvedValue([]);
+    const record = vi.fn().mockResolvedValue([]);
     requireHousehold.mockResolvedValue({
       repo: {
         accounts: {
           list: vi.fn().mockResolvedValue([{ id: "a1" }, { id: "a2" }]),
           balances: { insertMany },
         },
+        activity: { record },
       },
+      memberId: "m1",
+      user: { name: "Ada", email: "a@x.is" },
     });
 
     const res = await POST(
@@ -49,6 +53,18 @@ describe("POST /api/account-balances", () => {
       { accountId: "a1", balance: 120_001 },
       { accountId: "a2", balance: -5_000 },
     ]);
+    expect(record).toHaveBeenCalledWith({
+      memberId: "m1",
+      actorName: "Ada",
+      action: "account.balance_recorded",
+      payload: {
+        count: 2,
+        balances: [
+          { accountId: "a1", balance: 120_001 },
+          { accountId: "a2", balance: -5_000 },
+        ],
+      },
+    });
   });
 
   it("400s and inserts nothing when any account id is not in the household", async () => {

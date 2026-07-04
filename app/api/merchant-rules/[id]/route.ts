@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { requireHousehold } from "@/lib/household/current"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -14,10 +16,14 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "invalid rule id" }, { status: 400 })
   }
 
-  const { repo } = await requireHousehold()
-  const removed = await repo.merchantRules.remove(id)
+  const ctx = await requireHousehold()
+  const removed = await ctx.repo.merchantRules.remove(id)
   if (removed.length === 0) {
     return NextResponse.json({ error: "rule not found" }, { status: 404 })
   }
+  await recordActivity(ctx, ActivityAction.MerchantRuleDeleted, {
+    ruleId: id,
+    merchant: removed[0].merchant,
+  })
   return NextResponse.json({ removed: true })
 }

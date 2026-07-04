@@ -13,6 +13,14 @@ export const ActivityAction = {
   TransactionRetypeCleared: "transaction.retype_cleared",
   TransactionShareSet: "transaction.share_set",
   TransactionShareCleared: "transaction.share_cleared",
+
+  // Accounts & balances (ADR-0004/0016).
+  AccountCreated: "account.created",
+  AccountBalanceRecorded: "account.balance_recorded",
+
+  // Merchant rules (Phase F).
+  MerchantRuleCreated: "rule.created",
+  MerchantRuleDeleted: "rule.deleted",
 } as const;
 
 export type ActivityAction = (typeof ActivityAction)[keyof typeof ActivityAction];
