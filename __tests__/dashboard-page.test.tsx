@@ -90,6 +90,7 @@ const VIEW: DashboardView = {
       categories: [],
     },
     recurring: { subscriptions: [], committedMonthlyTotal: 0 },
+    budgetStatus: { envelopes: [], totalBudget: 0, totalSpent: 0, totalRemaining: 0 },
     accounts: null,
   },
   actionBand: {

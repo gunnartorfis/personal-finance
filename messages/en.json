@@ -28,6 +28,13 @@
     "difference": "Difference",
     "topMerchants": "Top merchants",
     "spendingByAccount": "Spending by account",
+    "budgetEnvelopes": {
+      "title": "Budgets",
+      "subtitle": "This cycle's spend against your category budgets.",
+      "ofBudget": "{spent} of {budget}",
+      "remaining": "{amount} left",
+      "over": "{amount} over"
+    },
     "recurring": {
       "title": "Subscriptions",
       "subtitle": "Recurring charges we detected.",

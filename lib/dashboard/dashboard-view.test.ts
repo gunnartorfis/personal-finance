@@ -58,6 +58,7 @@ function baseInputs(overrides: Partial<DashboardInputs> = {}): DashboardInputs {
     categoryTrend: [cat("2026-03", { Fixed: 60000 }, 40000)],
     movers: { merchants: [], categories: [] },
     recurring: { subscriptions: [], committedMonthlyTotal: 0 },
+    budgets: {},
     largestCharge: { merchant: "BIGSHOP", amount: 50000 },
     accountBreakdown: [{ accountId: "a1", name: "Visa", spending: 100000, share: 1 }],
     accountCount: 2,
@@ -92,6 +93,18 @@ describe("assembleDashboardView", () => {
     expect(view.hero.vsAveragePct).toBe(trend.vsAveragePct);
     expect(view.hero.trailingAverage).toBe(trend.trailingAverage);
     expect(view.hero.largestCharge).toEqual({ merchant: "BIGSHOP", amount: 50000 });
+  });
+
+  it("builds budget envelopes from the current cycle's category spend vs the set budgets", () => {
+    // Current cycle (2026-03) has Fixed spend 60000 from the categoryTrend fixture.
+    const view = assembleDashboardView(baseInputs({ budgets: { Fixed: 100_000 } }));
+    expect(view.modules.budgetStatus.envelopes).toEqual([
+      { type: "Fixed", budget: 100_000, spent: 60_000, remaining: 40_000, ratio: 0.6, level: "ok" },
+    ]);
+  });
+
+  it("has no budget envelopes when no budgets are set", () => {
+    expect(assembleDashboardView(baseInputs()).modules.budgetStatus.envelopes).toEqual([]);
   });
 
   it("gates modules: enough history, category nudge, and accounts shown only when >1 account", () => {

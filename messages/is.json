@@ -28,6 +28,13 @@
     "difference": "Mismunur",
     "topMerchants": "Efstu söluaðilar",
     "spendingByAccount": "Útgjöld eftir reikningi",
+    "budgetEnvelopes": {
+      "title": "Fjárhagsáætlun",
+      "subtitle": "Útgjöld þessa tímabils miðað við flokkaáætlun þína.",
+      "ofBudget": "{spent} af {budget}",
+      "remaining": "{amount} eftir",
+      "over": "{amount} umfram"
+    },
     "recurring": {
       "title": "Áskriftir",
       "subtitle": "Endurteknar færslur sem við greindum.",
