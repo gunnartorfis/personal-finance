@@ -55,8 +55,8 @@ export function computeCategoryBreakdown(
 /**
  * Load and compute the Category breakdown for the current Household over a half-open date range
  * `[from, to)`. Reads the same filtered, own-share-aware, transfer/excluded-dropped rows as the net
- * summary. The effective Category is the row's `category_id` (a manual Category override, S3b, will
- * take precedence here once it exists — mirroring `overrideType ?? classifiedType`).
+ * summary. The effective Category is the manual **Override** if set, else the row's classified/rule
+ * `category_id` — mirroring `overrideType ?? classifiedType` on the Expense-type axis (ADR-0020).
  */
 export async function loadCategoryBreakdown(
   repo: HouseholdRepo,
@@ -66,7 +66,7 @@ export async function loadCategoryBreakdown(
   return computeCategoryBreakdown(
     rows.map((row) => ({
       amount: row.amount,
-      categoryId: row.categoryId ?? null,
+      categoryId: row.overrideCategoryId ?? row.categoryId ?? null,
     })),
   );
 }

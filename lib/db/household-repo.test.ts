@@ -4,6 +4,7 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { seedCategoriesForHousehold } from "@/lib/categories/seed-household";
+import { loadCategoryBreakdown } from "@/lib/dashboard/category-breakdown";
 
 import { householdRepo } from "./household-repo";
 import { categories, households } from "./schema";
@@ -384,6 +385,44 @@ describe("householdRepo", () => {
       await a.overrides.upsert({ transactionId: txn.id, expenseType: "Fixed" });
       expect(await b.overrides.findByTransactionId(txn.id)).toBeUndefined();
       expect(await b.overrides.remove(txn.id)).toHaveLength(0);
+    });
+
+    it("sets each axis independently — Category and type overrides don't clobber each other (ADR-0020)", async () => {
+      const { a, aId } = await twoHouseholds();
+      await seedCategoriesForHousehold(asRepoDb(db), aId);
+      const groceriesId = (await a.categories.leafSlugToId()).get("groceries")!;
+      const txn = await seedTransaction(a);
+
+      await a.overrides.upsert({ transactionId: txn.id, expenseType: "Fixed" });
+      // Setting the Category axis must keep the existing type override.
+      const [both] = await a.overrides.upsert({ transactionId: txn.id, categoryId: groceriesId });
+      expect(both.expenseType).toBe("Fixed");
+      expect(both.categoryId).toBe(groceriesId);
+      // Changing the type again must keep the Category override.
+      const [t2] = await a.overrides.upsert({ transactionId: txn.id, expenseType: "Necessary" });
+      expect(t2.expenseType).toBe("Necessary");
+      expect(t2.categoryId).toBe(groceriesId);
+    });
+
+    it("loadCategoryBreakdown honours the Category override over the classified Category", async () => {
+      const { a, aId } = await twoHouseholds();
+      await seedCategoriesForHousehold(asRepoDb(db), aId);
+      const slugToId = await a.categories.leafSlugToId();
+      const [fuelId, groceriesId] = [slugToId.get("fuel")!, slugToId.get("groceries")!];
+      const txn = await seedTransaction(a);
+      // Classified as fuel, then the Member overrides the Category to groceries. Assert the classify
+      // actually landed (it no-ops on a non-pending row), so the override assertion isn't vacuous.
+      const classified = await a.transactions.classify(txn.id, {
+        expenseType: "Necessary",
+        categoryId: fuelId,
+        categoryConfidence: 0.9,
+      });
+      expect(classified).toHaveLength(1);
+      await a.overrides.upsert({ transactionId: txn.id, categoryId: groceriesId });
+
+      const breakdown = await loadCategoryBreakdown(a, { from: "2026-03-01", to: "2026-04-01" });
+      expect(breakdown.byCategory[groceriesId]).toBe(-1990); // override wins
+      expect(breakdown.byCategory[fuelId]).toBeUndefined(); // classified Category superseded
     });
   });
 
