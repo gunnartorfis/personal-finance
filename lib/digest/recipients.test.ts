@@ -121,6 +121,12 @@ describe("listDigestRecipients", () => {
     expect(result(await listDigestRecipients(asDb(db)), hh)[0].locale).toBeNull()
   })
 
+  it("degrades a stale/unsupported locale to null (validated via toLocale)", async () => {
+    const hh = await seedHousehold(db)
+    await seedMember(db, hh, "u-badlocale", { locale: "fr" })
+    expect(result(await listDigestRecipients(asDb(db)), hh)[0].locale).toBeNull()
+  })
+
   it("groups multiple eligible Members under one household", async () => {
     const hh = await seedHousehold(db)
     await seedMember(db, hh, "u-a")

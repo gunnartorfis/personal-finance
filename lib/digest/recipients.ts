@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm"
 import type { NodePgDatabase } from "drizzle-orm/node-postgres"
 
 import type * as schema from "@/lib/db/schema"
-import type { Locale } from "@/lib/i18n/config"
+import { toLocale, type Locale } from "@/lib/i18n/config"
 
 /**
  * Who should receive the Monthly Digest (#102, ADR-0019). A Member is eligible when they are
@@ -39,7 +39,9 @@ export async function listDigestRecipients(db: Db): Promise<HouseholdDigestRecip
     where m.digest_unsubscribed_at is null
       and u.deleted_at is null
       and u.email is not null
-      and (u.raw_json->>'primary_email_verified')::boolean is true
+      -- String compare (not ::boolean): a malformed value must exclude the row, never throw and
+      -- abort the whole cron run for every recipient.
+      and u.raw_json->>'primary_email_verified' = 'true'
     order by m.household_id, m.created_at asc
   `)
 
@@ -49,7 +51,9 @@ export async function listDigestRecipients(db: Db): Promise<HouseholdDigestRecip
     const member: DigestRecipient = {
       memberId: row.member_id,
       email: row.email,
-      locale: (row.locale as Locale | null) ?? null,
+      // Locale is stored as free text (schema note); validate at this boundary via toLocale, so a
+      // stale/unknown value (e.g. "fr") degrades to null (caller's default) rather than a lying cast.
+      locale: toLocale(row.locale),
     }
     const existing = byHousehold.get(row.household_id)
     if (existing) existing.push(member)
