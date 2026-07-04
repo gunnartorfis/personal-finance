@@ -28,6 +28,12 @@
     "difference": "Difference",
     "topMerchants": "Top merchants",
     "spendingByAccount": "Spending by account",
+    "recurring": {
+      "title": "Subscriptions",
+      "subtitle": "Recurring charges we detected.",
+      "committed": "{amount} / month",
+      "months": "{count, plural, one {# month} other {# months}}"
+    },
     "movers": {
       "title": "Biggest movers",
       "subtitle": "Where spending rose most vs your usual.",
