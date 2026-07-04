@@ -32,6 +32,9 @@ describe("transfer legs are excluded from every aggregation", () => {
     ]);
     await repo.transactions.classify(out.id, { expenseType: "Fixed" });
     await repo.transactions.classify(purchase.id, { expenseType: "Nice to have" });
+    // Income-mark the credit leg so the income side of the exclusion is actually exercised: without
+    // the transfer filter this +50k would count as income; the filter must drop it to 0.
+    await repo.transactions.setIncomeMarked(into.id, true);
     await repo.transactions.markTransferPair(out.id, into.id);
     return { repo, card };
   }
