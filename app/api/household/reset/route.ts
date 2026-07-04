@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { resolveActorName } from "@/lib/activity/actor"
 import { getDb } from "@/lib/db"
 import { requireHousehold } from "@/lib/household/current"
 import { resetHouseholdFinancialData } from "@/lib/household/reset"
@@ -18,7 +19,10 @@ export async function POST() {
     return NextResponse.json({ error: "not found" }, { status: 404 })
   }
 
-  const { householdId } = await requireHousehold()
-  await resetHouseholdFinancialData(getDb(), householdId)
+  const { user, householdId, memberId } = await requireHousehold()
+  await resetHouseholdFinancialData(getDb(), householdId, {
+    memberId,
+    actorName: resolveActorName(user),
+  })
   return NextResponse.json({ ok: true })
 }
