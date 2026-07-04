@@ -10,6 +10,9 @@ export type ParseResult = { ok: true; value: NewMerchantRule } | { ok: false; er
 /** Cap on a normalized merchant string; mirrors the ingest-time `MAX_FIELD_LENGTH` (parse-csv.ts). */
 const MAX_MERCHANT_LENGTH = 200;
 
+/** A v4-ish UUID shape; the DB FK enforces that it is a real same-Household Category (ADR-0020). */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Validate and normalize a merchant-rule create request (Phase F), mirroring the DB CHECK
  * constraints so a bad request is a clean 400 rather than a constraint violation. A rule is either
@@ -36,6 +39,16 @@ export function parseMerchantRuleInput(body: unknown): ParseResult {
     return { ok: false, error: "merchant too long" };
   }
 
+  // Optional semantic Category (ADR-0020), applied alongside the type on a match. Orthogonal to the
+  // flat/split shape. The DB FK enforces it's a real same-Household Category; here we only shape-check.
+  let categoryId: string | undefined;
+  if (input.categoryId !== undefined && input.categoryId !== null) {
+    if (typeof input.categoryId !== "string" || !UUID_RE.test(input.categoryId)) {
+      return { ok: false, error: "invalid categoryId" };
+    }
+    categoryId = input.categoryId;
+  }
+
   const hasFlat = input.flatType !== undefined;
   const hasSplit =
     input.threshold !== undefined ||
@@ -50,7 +63,7 @@ export function parseMerchantRuleInput(body: unknown): ParseResult {
     if (!isExpenseType(input.flatType)) {
       return { ok: false, error: "invalid flatType" };
     }
-    return { ok: true, value: { merchant, flatType: input.flatType } };
+    return { ok: true, value: { merchant, flatType: input.flatType, categoryId } };
   }
 
   if (hasSplit) {
@@ -71,6 +84,7 @@ export function parseMerchantRuleInput(body: unknown): ParseResult {
         threshold: input.threshold,
         atOrAboveType: input.atOrAboveType,
         belowType: input.belowType,
+        categoryId,
       },
     };
   }

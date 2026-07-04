@@ -3,8 +3,11 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { seedCategoriesForHousehold } from "@/lib/categories/seed-household";
+
 import { householdRepo } from "./household-repo";
-import { households } from "./schema";
+import { categories, households } from "./schema";
+import { and, eq } from "drizzle-orm";
 
 let db: ReturnType<typeof drizzle>;
 
@@ -852,6 +855,82 @@ describe("householdRepo", () => {
       expect(rule.merchant).toBe("NETFLIX");
       expect(retyped).toBe(1); // the just-created rule is visible to the re-type in the same tx
       expect((await a.transactions.findById(pending.id))?.expenseType).toBe("Fixed");
+    });
+
+    it("applies a rule's Category to matching rows; a type-only rule leaves an existing one (ADR-0020)", async () => {
+      const { a, aId } = await twoHouseholds();
+      await seedCategoriesForHousehold(asRepoDb(db), aId);
+      const groceriesId = (await a.categories.leafSlugToId()).get("groceries")!;
+      const { addTxn } = await seed(a, "cat");
+
+      const [ruled] = await addTxn("BONUS", -4200);
+      await a.merchantRules.createAndApply({
+        merchant: "BONUS",
+        flatType: "Necessary",
+        categoryId: groceriesId,
+      });
+      const afterRuled = await a.transactions.findById(ruled.id);
+      expect(afterRuled?.categoryId).toBe(groceriesId);
+      expect(afterRuled?.categoryConfidence).toBe(1);
+
+      // A type-only rule must re-type but NOT wipe a Category already set by Classification.
+      const [classified] = await addTxn("KAFFI", -800);
+      await a.transactions.classify(classified.id, {
+        expenseType: "Nice to have",
+        confidence: 0.9,
+        categoryId: groceriesId,
+        categoryConfidence: 0.8,
+      });
+      await a.merchantRules.createAndApply({ merchant: "KAFFI", flatType: "Fixed" });
+      const afterClassified = await a.transactions.findById(classified.id);
+      expect(afterClassified?.expenseType).toBe("Fixed"); // re-typed
+      expect(afterClassified?.categoryId).toBe(groceriesId); // Category preserved
+    });
+
+    it("applies a split rule's Category to both branches while types differ (ADR-0020)", async () => {
+      const { a, aId } = await twoHouseholds();
+      await seedCategoriesForHousehold(asRepoDb(db), aId);
+      const fitnessId = (await a.categories.leafSlugToId()).get("fitness")!;
+      const { addTxn } = await seed(a, "split-cat");
+      const [membership] = await addTxn("WORLD CLASS", -12000); // at-or-above → Fixed
+      const [dropin] = await addTxn("WORLD CLASS", -1500); // below → Nice to have
+
+      await a.merchantRules.createAndApply({
+        merchant: "WORLD CLASS",
+        threshold: 8000,
+        atOrAboveType: "Fixed",
+        belowType: "Nice to have",
+        categoryId: fitnessId,
+      });
+
+      const above = await a.transactions.findById(membership.id);
+      const below = await a.transactions.findById(dropin.id);
+      expect(above?.expenseType).toBe("Fixed");
+      expect(below?.expenseType).toBe("Nice to have");
+      // Both branches carry the same rule Category despite the two type groups.
+      expect(above?.categoryId).toBe(fitnessId);
+      expect(below?.categoryId).toBe(fitnessId);
+    });
+
+    it("does not apply a rule's hidden Category on re-type (ADR-0020 parity)", async () => {
+      const { a, aId } = await twoHouseholds();
+      await seedCategoriesForHousehold(asRepoDb(db), aId);
+      const groceriesId = (await a.categories.leafSlugToId()).get("groceries")!;
+      await db
+        .update(categories)
+        .set({ hidden: true })
+        .where(and(eq(categories.householdId, aId), eq(categories.slug, "groceries")));
+      const { addTxn } = await seed(a, "hidden");
+      const [row] = await addTxn("BONUS", -4200);
+
+      await a.merchantRules.createAndApply({
+        merchant: "BONUS",
+        flatType: "Necessary",
+        categoryId: groceriesId,
+      });
+      const after = await a.transactions.findById(row.id);
+      expect(after?.expenseType).toBe("Necessary"); // type still applied
+      expect(after?.categoryId).toBeNull(); // hidden Category not applied
     });
   });
 
