@@ -119,6 +119,8 @@ export function AssistantChat() {
 
   /** Rehydrate a past thread into the chat and continue it. */
   async function openThread(id: string) {
+    // Never swap the message list mid-stream — it would splice the new tokens onto the old thread.
+    if (busy) return
     setShowHistory(false)
     const response = await fetch(`/api/assistant/conversations/${id}`)
     if (!response.ok) return
@@ -130,6 +132,7 @@ export function AssistantChat() {
 
   /** Start a fresh conversation (the next send creates a new server thread). */
   function newChat() {
+    if (busy) return
     setMessages([])
     setConversationId(undefined)
     setShowHistory(false)
@@ -196,7 +199,7 @@ export function AssistantChat() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between gap-2 border-b px-4 py-2">
-        <Button variant="ghost" size="sm" onClick={newChat}>
+        <Button variant="ghost" size="sm" onClick={newChat} disabled={busy}>
           {t("newChat")}
         </Button>
         {conversations.length > 0 ? (
@@ -205,6 +208,7 @@ export function AssistantChat() {
             size="sm"
             aria-pressed={showHistory}
             onClick={() => setShowHistory((previous) => !previous)}
+            disabled={busy}
           >
             {t("history")}
           </Button>

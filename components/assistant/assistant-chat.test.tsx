@@ -155,6 +155,16 @@ describe("AssistantChat", () => {
     fireEvent.click(await screen.findByRole("button", { name: "New chat" }))
     expect(chat.setMessages).toHaveBeenCalledWith([])
   })
+
+  it("disables the history controls while streaming (no mid-stream thread swap)", async () => {
+    chat.status = "streaming"
+    stubFetch({
+      conversations: [{ id: "c1", title: "March", updatedAt: "2026-03-15T00:00:00.000Z" }],
+    })
+    renderWithIntl(<AssistantChat />)
+    expect(await screen.findByRole("button", { name: "New chat" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "History" })).toBeDisabled()
+  })
 })
 
 describe("applyAssistantResponse", () => {
