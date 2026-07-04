@@ -351,9 +351,10 @@ export function householdRepo(db: Db, householdId: string) {
           )
         return row
       },
-      // Tokens (accessToken/refreshToken) are intentionally NOT settable here: they must be written
-      // only as ciphertext via the encrypted write path introduced with the connect flow (#113), so
-      // this slice exposes no way to persist a raw bearer token.
+      // Tokens (accessToken/refreshToken) are intentionally NOT settable here — and no other write
+      // path exists anywhere, so a raw bearer token can never be persisted. If persisting aggregator
+      // tokens ever becomes necessary, add app-layer encryption first; do not widen this type to
+      // accept raw tokens.
       create: (
         value: Omit<
           typeof bankConnections.$inferInsert,

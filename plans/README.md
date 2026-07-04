@@ -17,7 +17,7 @@ below so they aren't lost or re-audited.
 | 002  | Bound untrusted input (CSV rows/fields, prompt clamps, route string caps, log PII) | P1 | S | — | DONE |
 | 003  | Security response headers (HSTS, nosniff, frame-ancestors, report-only CSP) | P2 | M | — | DONE |
 | 004  | CSRF defense-in-depth (Sec-Fetch-Site check in middleware) | P2 | S | — | DONE |
-| 005  | Fix "encrypted at rest" bank-token decision drift | P3 | S | — | TODO |
+| 005  | Fix "encrypted at rest" bank-token decision drift | P3 | S | — | DONE |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
