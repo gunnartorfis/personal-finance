@@ -42,20 +42,17 @@ function tokenize(label: string): string[] {
 }
 
 /**
- * A normalized, order-independent signature of a file's header labels — the key under which a
- * Household's confirmed Column mapping is remembered (ADR-0018). Each label is diacritic-folded,
- * lower-cased and trimmed; blanks are dropped; the set is sorted. The same bank format always yields
- * the same signature regardless of column order or casing, while a changed column set yields a new
- * one (a changed export re-learns rather than mis-replaying an old mapping). Serialized with
- * `JSON.stringify` so it is unambiguous — a label containing any delimiter can't collide with a
- * different set of labels — and total: an empty/all-blank header yields `"[]"`, never `""`.
+ * A normalized signature of a file's header row — the key under which a Household's confirmed Column
+ * mapping is remembered (ADR-0018). Each label is diacritic-folded, lower-cased and trimmed, and the
+ * labels are kept **in order** (not sorted, blanks not dropped). Because the remembered mapping is a
+ * set of *positional* column indices, the signature must encode position: an identical signature
+ * then guarantees an identical header layout, so replayed indices always line up. A reordered or
+ * otherwise changed header yields a new signature and simply re-learns, rather than mis-replaying an
+ * old mapping against the wrong columns. Serialized with `JSON.stringify` so it is unambiguous (a
+ * label containing any delimiter can't collide) and total (an empty header yields `"[]"`, never `""`).
  */
 export function headerSignature(header: ReadonlyArray<string>): string {
-  const labels = header
-    .map(foldLabel)
-    .filter((label) => label.length > 0)
-    .sort();
-  return JSON.stringify(labels);
+  return JSON.stringify(header.map(foldLabel));
 }
 
 const ALIASES: Record<ColumnRole, string[]> = {
