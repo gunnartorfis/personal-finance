@@ -26,5 +26,8 @@ export async function isDigestSubscribed(db: Db, memberId: string): Promise<bool
     .from(members)
     .where(eq(members.id, memberId))
     .limit(1)
-  return row ? row.unsubscribedAt === null : false
+  // Subscribed unless a row explicitly says otherwise — matching the schema default (null column =
+  // subscribed). A missing row (only reachable via future tooling; the settings page always passes a
+  // real member) defaults subscribed too, rather than silently flipping the convention.
+  return row ? row.unsubscribedAt === null : true
 }

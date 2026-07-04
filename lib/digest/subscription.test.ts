@@ -52,4 +52,8 @@ describe("setDigestSubscription", () => {
     await setDigestSubscription(asDb(db), memberId, false)
     expect(await isDigestSubscribed(asDb(db), memberId)).toBe(false)
   })
+
+  it("defaults to subscribed for a missing member (schema convention: null = subscribed)", async () => {
+    expect(await isDigestSubscribed(asDb(db), "00000000-0000-0000-0000-000000000000")).toBe(true)
+  })
 })
