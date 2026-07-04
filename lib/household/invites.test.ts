@@ -115,6 +115,9 @@ describe("acceptInvite", () => {
 
     const [member] = await db.select().from(members).where(eq(members.authUserId, "invitee"));
     expect(member.householdId).toBe(householdId);
+    // A fresh join reports the new member id and joined=true so the route can log invite.accepted.
+    expect(res.joined).toBe(true);
+    expect(res.memberId).toBe(member.id);
     const [invite] = await db.select().from(householdInvites);
     expect(invite.status).toBe("accepted");
     expect(invite.acceptedAt).not.toBeNull();
@@ -179,6 +182,8 @@ describe("acceptInvite", () => {
     await db.insert(members).values({ householdId, authUserId: "again-user" });
     const res = await acceptInvite({ db: asDb(db), locator: { rawToken }, authUserId: "again-user", email, emailVerified: true, now: NOW });
     expect(res.householdId).toBe(householdId);
+    // Idempotent re-accept is not a fresh join, so the route must NOT log another invite.accepted.
+    expect(res.joined).toBe(false);
     const mine = await db.select().from(members).where(and(eq(members.authUserId, "again-user"), eq(members.householdId, householdId)));
     expect(mine).toHaveLength(1); // no duplicate member row
   });

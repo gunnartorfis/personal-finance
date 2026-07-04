@@ -26,6 +26,7 @@ export const ActivityAction = {
   // deliberately not logged; household deletion cascades the log away, so it is not logged either.
   InviteCreated: "invite.created",
   InviteRevoked: "invite.revoked",
+  InviteAccepted: "invite.accepted",
   MemberLeft: "member.left",
 } as const;
 

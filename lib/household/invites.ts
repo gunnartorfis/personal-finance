@@ -292,7 +292,9 @@ export interface AcceptInviteInput {
  * cleared first ({@link switchOutOfHousehold}: deleted if they're its sole Member, otherwise left)
  * inside this same transaction, so the whole switch is all-or-nothing; without it, `already_in_household`.
  */
-export async function acceptInvite(input: AcceptInviteInput): Promise<{ householdId: string }> {
+export async function acceptInvite(
+  input: AcceptInviteInput,
+): Promise<{ householdId: string; memberId: string; joined: boolean }> {
   const { db, locator, authUserId, now } = input;
   const email = normalizeEmail(input.email);
 
@@ -318,7 +320,8 @@ export async function acceptInvite(input: AcceptInviteInput): Promise<{ househol
     // Already a Member of this exact Household — settle a still-pending Invite and no-op the join.
     if (existingMembership?.householdId === invite.householdId) {
       if (invite.status === "pending") await markAccepted(tx, invite.id, now);
-      return { householdId: invite.householdId };
+      // Not a fresh join — the caller must not log another invite.accepted.
+      return { householdId: invite.householdId, memberId: existingMembership.memberId, joined: false };
     }
 
     // Join (fresh or via a switch): the Invite must be live and addressed to this verified email.
@@ -354,18 +357,27 @@ export async function acceptInvite(input: AcceptInviteInput): Promise<{ househol
       .insert(members)
       .values({ householdId: invite.householdId, authUserId })
       .onConflictDoNothing({ target: members.authUserId })
-      .returning({ householdId: members.householdId });
+      .returning({ memberId: members.id });
 
-    if (inserted.length === 0) {
+    let memberId: string;
+    let joined: boolean;
+    if (inserted.length > 0) {
+      // We won the seat — a genuine fresh join, worth an invite.accepted log entry.
+      memberId = inserted[0].memberId;
+      joined = true;
+    } else {
+      // A racing accept created the member first; reconcile and let that winner do the logging.
       const [raced] = await tx
-        .select({ householdId: members.householdId })
+        .select({ householdId: members.householdId, memberId: members.id })
         .from(members)
         .where(eq(members.authUserId, authUserId));
       if (raced?.householdId !== invite.householdId) throw new InviteError("already_in_household");
+      memberId = raced.memberId;
+      joined = false;
     }
 
     await markAccepted(tx, invite.id, now);
-    return { householdId: invite.householdId };
+    return { householdId: invite.householdId, memberId, joined };
   });
 }
 

@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { getCurrentUser } from "@/lib/auth/session"
 import { getDb } from "@/lib/db"
+import { householdRepo } from "@/lib/db/household-repo"
 import {
   acceptInvite,
   InviteError,
@@ -37,7 +40,7 @@ export async function POST(request: Request) {
   const confirmDelete = readBoolean(body, "confirmDelete")
 
   try {
-    const { householdId } = await acceptInvite({
+    const { householdId, memberId, joined } = await acceptInvite({
       db: getDb(),
       locator,
       authUserId: user.id,
@@ -47,6 +50,17 @@ export async function POST(request: Request) {
       confirmDelete,
       now: new Date(),
     })
+    // Log the join into the household the user just joined — attributed to their new member id.
+    // Only on a fresh join (not an idempotent re-accept or a lost race). Best-effort: the join is
+    // already committed and irreversible, so a log failure must not turn success into a 500.
+    if (joined) {
+      try {
+        const repo = householdRepo(getDb(), householdId)
+        await recordActivity({ repo, memberId, user }, ActivityAction.InviteAccepted)
+      } catch (error) {
+        console.error("failed to record invite.accepted activity", error)
+      }
+    }
     return NextResponse.json({ ok: true, householdId })
   } catch (error) {
     if (error instanceof InviteError) {
