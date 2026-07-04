@@ -4,7 +4,7 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { householdRepo } from "@/lib/db/household-repo";
-import { households, members } from "@/lib/db/schema";
+import { assistantMessages, households, members } from "@/lib/db/schema";
 
 import { toAiTools } from "./ai-tools";
 import { assistantDailyCapReached, startOfUtcDay } from "./rate-limit";
@@ -82,5 +82,22 @@ describe("assistantDailyCapReached", () => {
     await repo.assistant.appendMessage({ conversationId: conv.id, memberId: m.id, role: "user", content: "1" });
     await repo.assistant.appendMessage({ conversationId: conv.id, memberId: m.id, role: "user", content: "2" });
     expect(await assistantDailyCapReached(repo, NOW, 2)).toBe(true);
+  });
+
+  it("excludes messages from a prior UTC day", async () => {
+    const [hh] = await db.insert(households).values({}).returning();
+    const [m] = await db.insert(members).values({ householdId: hh.id, authUserId: "cap-prior" }).returning();
+    const repo = householdRepo(asRepoDb(db), hh.id);
+    const conv = await repo.assistant.createConversation({ startedByMemberId: m.id, title: "t" });
+    // A message stamped just before the current UTC day's boundary must not count toward today.
+    await db.insert(assistantMessages).values({
+      householdId: hh.id,
+      conversationId: conv.id,
+      memberId: m.id,
+      role: "user",
+      content: "yesterday",
+      createdAt: new Date("2026-03-14T23:59:00Z"),
+    });
+    expect(await assistantDailyCapReached(repo, NOW, 1)).toBe(false);
   });
 });
