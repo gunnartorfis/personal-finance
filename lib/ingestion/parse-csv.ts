@@ -1,6 +1,6 @@
 import Papa from "papaparse";
 
-import { findHeaderRow, type ColumnMapping } from "./column-mapping";
+import { findHeaderRow, type ColumnMapping, type ColumnRole } from "./column-mapping";
 
 /**
  * Parse an Icelandic bank-statement CSV (ADR-0003) from decoded text — the web ingestion path
@@ -88,10 +88,28 @@ export function parseWithMapping(text: string, mapping: ColumnMapping): ParsedRo
   return rowsToParsed(rows, mapping);
 }
 
-export function parseStatementCsv(text: string): ParsedRow[] {
-  const rows = Papa.parse<string[]>(text, { skipEmptyLines: false }).data;
-  if (rows.length === 0) return [];
+/** The outcome of attempting to auto-detect and parse a statement CSV without throwing (ADR-0018). */
+export interface ParseAttempt {
+  /** Index of the detected header row (0 when no full header was found). */
+  headerIndex: number;
+  /** Roles that resolved to a column. */
+  detectedMapping: Partial<ColumnMapping>;
+  /** Required roles with no matching column; empty when the mapping is complete. */
+  unmatchedRoles: ColumnRole[];
+  /** Parsed data rows — populated only when `unmatchedRoles` is empty, otherwise `[]`. */
+  rows: ParsedRow[];
+}
 
+/**
+ * Auto-detect the header + column mapping and, if complete, parse the data rows — without throwing.
+ * The preview path (ADR-0018) uses this so an unmappable file yields `unmatchedRoles` for the UI
+ * rather than an error. `parseStatementCsv` is the throwing wrapper used by the direct commit path.
+ */
+export function attemptParse(text: string): ParseAttempt {
+  const rows = Papa.parse<string[]>(text, { skipEmptyLines: false }).data;
+  if (rows.length === 0) {
+    return { headerIndex: 0, detectedMapping: {}, unmatchedRoles: [], rows: [] };
+  }
   // Locate the header row first (bank exports often carry preamble lines — account no., statement
   // period, blanks — above it); findHeaderRow also returns the auto-detected date/amount/merchant/
   // category mapping for that row (#96), so we don't detect twice.
@@ -99,9 +117,19 @@ export function parseStatementCsv(text: string): ParsedRow[] {
     index: headerIndex,
     mapping: { resolved, unmatched },
   } = findHeaderRow(rows);
-  if (unmatched.length > 0) {
-    const header = rows[headerIndex] ?? [];
-    throw new Error(`missing required columns: ${unmatched.join(", ")} (header: ${header.join(", ")})`);
+  const parsed =
+    unmatched.length === 0 ? rowsToParsed(rows, resolved as ColumnMapping, headerIndex) : [];
+  return { headerIndex, detectedMapping: resolved, unmatchedRoles: unmatched, rows: parsed };
+}
+
+export function parseStatementCsv(text: string): ParsedRow[] {
+  const { headerIndex, unmatchedRoles, rows } = attemptParse(text);
+  if (unmatchedRoles.length > 0) {
+    // Re-parse just the header cells for the message; cheap and keeps attemptParse allocation-free.
+    const header = Papa.parse<string[]>(text, { skipEmptyLines: false }).data[headerIndex] ?? [];
+    throw new Error(
+      `missing required columns: ${unmatchedRoles.join(", ")} (header: ${header.join(", ")})`,
+    );
   }
-  return rowsToParsed(rows, resolved as ColumnMapping, headerIndex);
+  return rows;
 }
