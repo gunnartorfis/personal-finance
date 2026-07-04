@@ -145,4 +145,14 @@ describe("DELETE /api/transactions/[id]/share", () => {
     )
     expect(await res.json()).toEqual({ id: ID, ownShareAmount: null })
   })
+
+  it("does not log when clearing a share on a row that never had one (no-op)", async () => {
+    const h = householdWith({ id: ID, amount: -200_000, excluded: false, ownShareAmount: null }, [
+      { id: ID, ownShareAmount: null },
+    ])
+    requireHousehold.mockResolvedValue(h)
+    const res = await DELETE(req("DELETE"), ctx(ID))
+    expect(res.status).toBe(200)
+    expect(h.record).not.toHaveBeenCalled()
+  })
 })

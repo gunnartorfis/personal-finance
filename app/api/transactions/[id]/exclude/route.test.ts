@@ -176,4 +176,15 @@ describe("DELETE /api/transactions/[id]/exclude", () => {
       exclusionNote: null,
     })
   })
+
+  it("does not log when re-including an already-included transaction (no-op)", async () => {
+    const h = householdWith(
+      { id: ID, amount: -500, excluded: false, exclusionNote: null },
+      { id: ID, excluded: false, exclusionNote: null },
+    )
+    requireHousehold.mockResolvedValue(h)
+    const res = await DELETE(req("DELETE"), ctx(ID))
+    expect(res.status).toBe(200)
+    expect(h.record).not.toHaveBeenCalled()
+  })
 })

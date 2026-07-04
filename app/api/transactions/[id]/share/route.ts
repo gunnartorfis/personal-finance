@@ -97,12 +97,14 @@ export async function PUT(
       { status: 409 }
     )
   }
-  await recordActivity(ctx, ActivityAction.TransactionShareSet, {
-    transactionId: id,
-    merchant: transaction.merchant,
-    amount: transaction.amount,
-    ownShareAmount: updated.ownShareAmount,
-  })
+  if (updated.ownShareAmount !== transaction.ownShareAmount) {
+    await recordActivity(ctx, ActivityAction.TransactionShareSet, {
+      transactionId: id,
+      merchant: transaction.merchant,
+      amount: transaction.amount,
+      ownShareAmount: updated.ownShareAmount,
+    })
+  }
   return NextResponse.json({
     id: updated.id,
     ownShareAmount: updated.ownShareAmount,
@@ -129,10 +131,13 @@ export async function DELETE(
   if (!updated) {
     return NextResponse.json({ error: "transaction not found" }, { status: 404 })
   }
-  await recordActivity(ctx, ActivityAction.TransactionShareCleared, {
-    transactionId: id,
-    merchant: transaction.merchant,
-  })
+  // Only log a real change — clearing a share on a row that never had one is a no-op.
+  if (updated.ownShareAmount !== transaction.ownShareAmount) {
+    await recordActivity(ctx, ActivityAction.TransactionShareCleared, {
+      transactionId: id,
+      merchant: transaction.merchant,
+    })
+  }
   return NextResponse.json({
     id: updated.id,
     ownShareAmount: updated.ownShareAmount,

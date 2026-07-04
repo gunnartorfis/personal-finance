@@ -36,11 +36,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   }
 
   const [override] = await repo.overrides.upsert({ transactionId: id, expenseType, memberId })
-  await recordActivity(ctx, ActivityAction.TransactionRetyped, {
-    transactionId: id,
-    merchant: transaction.merchant,
-    expenseType,
-  })
+  if (override) {
+    await recordActivity(ctx, ActivityAction.TransactionRetyped, {
+      transactionId: id,
+      merchant: transaction.merchant,
+      expenseType,
+    })
+  }
   return NextResponse.json(override)
 }
 

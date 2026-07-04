@@ -106,4 +106,12 @@ describe("DELETE /api/transactions/[id]/income", () => {
     )
     expect(await res.json()).toEqual({ id: ID, incomeMarked: false })
   })
+
+  it("does not log when unmarking an already-unmarked credit (no-op)", async () => {
+    const h = householdWith({ id: ID, amount: 1000, incomeMarked: false }, false)
+    requireHousehold.mockResolvedValue(h)
+    const res = await DELETE(req("DELETE"), ctx(ID))
+    expect(res.status).toBe(200)
+    expect(h.record).not.toHaveBeenCalled()
+  })
 })

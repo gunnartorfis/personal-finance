@@ -46,13 +46,16 @@ async function setMarked(id: string, incomeMarked: boolean) {
     // The row can vanish (or stop qualifying) between findById and the guarded update.
     return NextResponse.json({ error: "transaction not found" }, { status: 404 })
   }
-  await recordActivity(
-    ctx,
-    incomeMarked
-      ? ActivityAction.TransactionIncomeMarked
-      : ActivityAction.TransactionIncomeUnmarked,
-    { transactionId: id, merchant: transaction.merchant, amount: transaction.amount },
-  )
+  // Only log a real change — unmarking an already-unmarked credit is a no-op.
+  if (updated.incomeMarked !== transaction.incomeMarked) {
+    await recordActivity(
+      ctx,
+      incomeMarked
+        ? ActivityAction.TransactionIncomeMarked
+        : ActivityAction.TransactionIncomeUnmarked,
+      { transactionId: id, merchant: transaction.merchant, amount: transaction.amount },
+    )
+  }
   return NextResponse.json({ id: updated.id, incomeMarked: updated.incomeMarked })
 }
 
