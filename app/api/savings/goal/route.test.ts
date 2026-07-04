@@ -47,11 +47,21 @@ describe("PUT /api/savings/goal", () => {
   it("upserts a valid goal and returns it", async () => {
     const row = { id: "g1", ...goalBody, currency: "ISK" };
     const upsert = vi.fn().mockResolvedValue([row]);
-    requireHousehold.mockResolvedValue({ repo: { savings: { goal: { upsert } } } });
+    const record = vi.fn().mockResolvedValue([]);
+    requireHousehold.mockResolvedValue({
+      repo: { savings: { goal: { upsert } }, activity: { record } },
+      memberId: "m1",
+      user: { name: "Ada", email: "ada@x.is" },
+    });
 
     const res = await PUT(putReq(goalBody));
     expect(res.status).toBe(200);
     expect(upsert).toHaveBeenCalledWith({ ...goalBody, currency: "ISK" });
+    expect(record).toHaveBeenCalledWith({
+      memberId: "m1",
+      actorName: "Ada",
+      action: "savings.goal_updated",
+    });
     expect(await res.json()).toMatchObject({ id: "g1" });
   });
 });

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { requireHousehold } from "@/lib/household/current"
 import { parseSavingsConfigInput } from "@/lib/savings/parse"
 
@@ -25,13 +27,18 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: parsed.error }, { status: 400 })
   }
 
-  const { repo } = await requireHousehold()
+  const ctx = await requireHousehold()
   // One transaction for all lists — the config can never commit half-updated. `oneOffAdjustments`
   // is undefined when the body omits it (leave existing one-offs untouched), an array to replace.
-  const saved = await repo.savings.replaceConfig(
+  const saved = await ctx.repo.savings.replaceConfig(
     parsed.value.incomeSources,
     parsed.value.offcardCosts,
     parsed.value.oneOffAdjustments
   )
+  await recordActivity(ctx, ActivityAction.SavingsConfigUpdated, {
+    incomeSources: parsed.value.incomeSources.length,
+    offcardCosts: parsed.value.offcardCosts.length,
+    oneOffAdjustments: parsed.value.oneOffAdjustments?.length ?? null,
+  })
   return NextResponse.json(saved)
 }

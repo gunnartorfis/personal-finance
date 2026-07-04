@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { parseBudgetInput } from "@/lib/budgets/parse"
 import { requireHousehold } from "@/lib/household/current"
 
@@ -19,7 +21,8 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: parsed.error }, { status: 400 })
   }
 
-  const { repo } = await requireHousehold()
-  const saved = await repo.budgets.replace(parsed.value)
+  const ctx = await requireHousehold()
+  const saved = await ctx.repo.budgets.replace(parsed.value)
+  await recordActivity(ctx, ActivityAction.BudgetsUpdated, { count: saved.length })
   return NextResponse.json({ budgets: saved })
 }

@@ -47,7 +47,12 @@ describe("PUT /api/savings/config", () => {
     const replaceConfig = vi
       .fn()
       .mockResolvedValue({ incomeSources: sources, offcardCosts: costs });
-    requireHousehold.mockResolvedValue({ repo: { savings: { replaceConfig } } });
+    const record = vi.fn().mockResolvedValue([]);
+    requireHousehold.mockResolvedValue({
+      repo: { savings: { replaceConfig }, activity: { record } },
+      memberId: "m1",
+      user: { name: "Ada", email: "ada@x.is" },
+    });
 
     const res = await PUT(
       putReq({
@@ -62,12 +67,23 @@ describe("PUT /api/savings/config", () => {
       [{ name: "Mortgage", monthlyAmount: 250_000, effectiveFrom: "0001-01" }],
       undefined,
     );
+    expect(record).toHaveBeenCalledWith({
+      memberId: "m1",
+      actorName: "Ada",
+      action: "savings.config_updated",
+      payload: { incomeSources: 1, offcardCosts: 1, oneOffAdjustments: null },
+    });
     expect(await res.json()).toEqual({ incomeSources: sources, offcardCosts: costs });
   });
 
   it("passes dated versions and one-off adjustments through to replaceConfig", async () => {
     const replaceConfig = vi.fn().mockResolvedValue({});
-    requireHousehold.mockResolvedValue({ repo: { savings: { replaceConfig } } });
+    const record = vi.fn().mockResolvedValue([]);
+    requireHousehold.mockResolvedValue({
+      repo: { savings: { replaceConfig }, activity: { record } },
+      memberId: "m1",
+      user: { name: "Ada", email: "ada@x.is" },
+    });
 
     const res = await PUT(
       putReq({
@@ -81,6 +97,12 @@ describe("PUT /api/savings/config", () => {
       [{ name: "Salary", amount: 600_000, effectiveFrom: "2026-07" }],
       [],
       [{ cycleKey: "2026-03", kind: "income", amount: 300_000, label: "Refund" }],
+    );
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "savings.config_updated",
+        payload: { incomeSources: 1, offcardCosts: 0, oneOffAdjustments: 1 },
+      }),
     );
   });
 });
