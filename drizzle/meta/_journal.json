@@ -246,6 +246,13 @@
       "when": 1783202363189,
       "tag": "0034_loving_sauron",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1783205552816,
+      "tag": "0035_faulty_hydra",
+      "breakpoints": true
     }
   ]
 }
