@@ -778,5 +778,34 @@
     "title": "Sæktu gögnin þín",
     "description": "Sæktu öll fjárhagsgögn heimilisins sem JSON-skrá.",
     "download": "Sækja gögnin mín"
+  },
+  "assistant": {
+    "open": "Spyrja aðstoðarmann",
+    "title": "Aðstoðarmaður",
+    "subtitle": "Spurðu um fjármál heimilisins",
+    "disclaimer": "Svör byggja á þínum eigin gögnum og eru ekki fjármálaráðgjöf.",
+    "placeholder": "Sláðu inn spurningu…",
+    "send": "Senda",
+    "you": "Þú",
+    "empty": {
+      "heading": "Spurðu um fjármálin þín",
+      "hint": "Prófaðu eina af þessum:",
+      "march": "Af hverju var mars hærri?",
+      "merchants": "Efstu söluaðilar í þessum mánuði",
+      "goal": "Er ég á áætlun með markmiðið?"
+    },
+    "error": {
+      "generic": "Eitthvað fór úrskeiðis. Reyndu aftur.",
+      "retry": "Reyna aftur"
+    },
+    "cap": {
+      "title": "Dagsmörkum náð",
+      "body": "Þú hefur náð hámarki spurninga dagsins. Reyndu aftur á morgun."
+    },
+    "upgrade": {
+      "title": "Premium eiginleiki",
+      "body": "Aðstoðarmaðurinn er hluti af Premium. Uppfærðu til að spyrja um fjármálin þín.",
+      "cta": "Skoða Premium"
+    }
   }
 }
