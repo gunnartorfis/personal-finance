@@ -239,6 +239,13 @@
       "when": 1783199501149,
       "tag": "0033_flat_the_order",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1783202363189,
+      "tag": "0034_loving_sauron",
+      "breakpoints": true
     }
   ]
 }

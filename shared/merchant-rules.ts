@@ -16,10 +16,15 @@ import type { ExpenseType } from "./types";
  * it regardless of merchant — the Expense-type model maps credits to `""` separately.
  */
 
-/** A household merchant rule: flat, or split by charge magnitude. */
-export type MerchantRule =
-  | { merchant: string; type: ExpenseType }
-  | { merchant: string; threshold: number; atOrAbove: ExpenseType; below: ExpenseType };
+/**
+ * A household merchant rule: flat, or split by charge magnitude, optionally also carrying a
+ * semantic Category leaf id (ADR-0020) applied alongside the Expense type on a match. Category is
+ * orthogonal to the flat/split shape — a merchant's category doesn't vary by amount.
+ */
+export type MerchantRule = { merchant: string; categoryId?: string | null } & (
+  | { type: ExpenseType }
+  | { threshold: number; atOrAbove: ExpenseType; below: ExpenseType }
+);
 
 /**
  * The stored shape of a merchant rule (the `merchant_rules` columns the matcher cares about).
@@ -32,18 +37,21 @@ export interface MerchantRuleRow {
   threshold: number | null;
   atOrAboveType: string | null;
   belowType: string | null;
+  categoryId?: string | null;
 }
 
 /** Convert a stored merchant-rules row into the matcher's flat-or-split {@link MerchantRule}. */
 export function toMerchantRule(r: MerchantRuleRow): MerchantRule {
+  const categoryId = r.categoryId ?? null;
   if (r.flatType !== null) {
-    return { merchant: r.merchant, type: r.flatType as ExpenseType };
+    return { merchant: r.merchant, type: r.flatType as ExpenseType, categoryId };
   }
   return {
     merchant: r.merchant,
     threshold: r.threshold as number,
     atOrAbove: r.atOrAboveType as ExpenseType,
     below: r.belowType as ExpenseType,
+    categoryId,
   };
 }
 
@@ -52,7 +60,9 @@ export function toMerchantRule(r: MerchantRuleRow): MerchantRule {
  * overloading a falsy value — a matched rule may legitimately yield the empty Expense type `""`
  * (e.g. an Aur split payment), which must not be confused with no match.
  */
-export type MerchantRuleMatch = { matched: true; type: ExpenseType } | { matched: false };
+export type MerchantRuleMatch =
+  | { matched: true; type: ExpenseType; categoryId: string | null }
+  | { matched: false };
 
 const NO_MATCH: MerchantRuleMatch = { matched: false };
 
@@ -95,7 +105,7 @@ export function applyMerchantRules(
         : Math.abs(txn.amount) >= rule.threshold
           ? rule.atOrAbove
           : rule.below;
-    return { matched: true, type };
+    return { matched: true, type, categoryId: rule.categoryId ?? null };
   }
   return NO_MATCH;
 }

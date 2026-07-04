@@ -115,11 +115,14 @@ export async function drainPending(
     const ruleMatch = applyMerchantRules(rules, { merchant: txn.merchant, amount: txn.amount });
     if (ruleMatch.matched) {
       // A deterministic Merchant rule wins over the model (precedence: Override > Merchant rule >
-      // Classification). Like credits it skips the model and is not gated by the Free cap.
+      // Classification). Like credits it skips the model and is not gated by the Free cap. The rule
+      // may also carry a Category (ADR-0020), applied here with full confidence.
       const [row] = await repo.transactions.classify(txn.id, {
         expenseType: ruleMatch.type,
         confidence: 1,
         reasoning: MERCHANT_RULE_REASON,
+        categoryId: ruleMatch.categoryId,
+        categoryConfidence: ruleMatch.categoryId ? 1 : undefined,
       });
       if (row) {
         classified += 1;

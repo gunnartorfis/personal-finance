@@ -23,6 +23,7 @@ describe("applyMerchantRules", () => {
     expect(applyMerchantRules(rules, { merchant: "Netflix", amount: -1990 })).toEqual({
       matched: true,
       type: "Fixed",
+      categoryId: null,
     });
   });
 
@@ -31,6 +32,7 @@ describe("applyMerchantRules", () => {
     expect(applyMerchantRules(rules, { merchant: "BONUS KRINGLAN 045", amount: -3200 })).toEqual({
       matched: true,
       type: "Necessary",
+      categoryId: null,
     });
   });
 
@@ -47,6 +49,7 @@ describe("applyMerchantRules", () => {
     expect(applyMerchantRules(rules, { merchant: "Aur", amount: -5000 })).toEqual({
       matched: true,
       type: "",
+      categoryId: null,
     });
   });
 
@@ -65,10 +68,12 @@ describe("applyMerchantRules", () => {
     expect(applyMerchantRules(rules, { merchant: "World Class", amount: -9000 })).toEqual({
       matched: true,
       type: "Fixed",
+      categoryId: null,
     });
     expect(applyMerchantRules(rules, { merchant: "World Class", amount: -3000 })).toEqual({
       matched: true,
       type: "Nice to have",
+      categoryId: null,
     });
   });
 
@@ -94,6 +99,31 @@ describe("applyMerchantRules", () => {
     expect(applyMerchantRules(rules, { merchant: "BONUS", amount: -1000 })).toEqual({
       matched: true,
       type: "Necessary",
+      categoryId: null,
+    });
+  });
+});
+
+describe("applyMerchantRules — Category (ADR-0020)", () => {
+  it("carries the rule's categoryId on a flat match", () => {
+    const rules: MerchantRule[] = [
+      { merchant: "BONUS", type: "Necessary", categoryId: "cat-groceries" },
+    ];
+    expect(applyMerchantRules(rules, { merchant: "Bonus", amount: -4200 })).toEqual({
+      matched: true,
+      type: "Necessary",
+      categoryId: "cat-groceries",
+    });
+  });
+
+  it("carries the rule's categoryId on a split match too", () => {
+    const rules: MerchantRule[] = [
+      { merchant: "GYM", threshold: 5000, atOrAbove: "Fixed", below: "Nice to have", categoryId: "cat-fitness" },
+    ];
+    expect(applyMerchantRules(rules, { merchant: "GYM", amount: -9000 })).toEqual({
+      matched: true,
+      type: "Fixed",
+      categoryId: "cat-fitness",
     });
   });
 });

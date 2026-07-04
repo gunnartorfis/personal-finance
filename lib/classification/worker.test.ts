@@ -468,6 +468,31 @@ describe("drainPending", () => {
       expect(row.expenseType).toBe("Necessary"); // expense type still classified
     });
 
+    it("applies a merchant rule's Category on match, with no model call", async () => {
+      const { repo, addTxn, householdId } = await setup();
+      await seedCategoriesForHousehold(asDb(db), householdId);
+      const groceriesId = (await repo.categories.leafSlugToId()).get("groceries")!;
+      await repo.merchantRules.create({
+        merchant: "BONUS",
+        flatType: "Necessary",
+        categoryId: groceriesId,
+      });
+      await addTxn(-4200, "BONUS");
+
+      let calls = 0;
+      const counting: Classifier = async () => {
+        calls += 1;
+        return { expenseType: "Fixed" };
+      };
+      await drainPending(repo, counting, { plan: "Premium" });
+
+      expect(calls).toBe(0); // rule short-circuits the model
+      const [row] = await rowsFor(householdId, "BONUS");
+      expect(row.categoryId).toBe(groceriesId);
+      expect(row.categoryConfidence).toBe(1);
+      expect(row.expenseType).toBe("Necessary");
+    });
+
     it("does not auto-assign a hidden Category — its slug falls back to Uncategorized", async () => {
       const { repo, addTxn, householdId } = await setup();
       await seedCategoriesForHousehold(asDb(db), householdId);
