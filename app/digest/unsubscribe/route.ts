@@ -17,8 +17,19 @@ export const dynamic = "force-dynamic"
 
 const catalogs: Record<Locale, typeof en> = { en, is }
 
+/** Escape interpolated text so the helper is XSS-safe by construction, whatever a caller passes. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+}
+
 function htmlPage(locale: Locale, heading: string, body: string, status: number): Response {
-  const doc = `<!DOCTYPE html><html lang="${bcp47[locale]}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${heading}</title></head><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1.5rem;color:#1c1917"><h1 style="font-size:1.25rem">${heading}</h1><p style="color:#57534e">${body}</p></body></html>`
+  const h = escapeHtml(heading)
+  const b = escapeHtml(body)
+  const doc = `<!DOCTYPE html><html lang="${bcp47[locale]}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${h}</title></head><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1.5rem;color:#1c1917"><h1 style="font-size:1.25rem">${h}</h1><p style="color:#57534e">${b}</p></body></html>`
   return new Response(doc, { status, headers: { "content-type": "text/html; charset=utf-8" } })
 }
 
@@ -28,6 +39,11 @@ async function handle(request: Request): Promise<Response> {
   const t = createTranslator({ locale, messages: catalogs[locale] })
 
   const secret = process.env.DIGEST_UNSUBSCRIBE_SECRET
+  if (!secret) {
+    // Fail safe (no token can verify) but make the misconfiguration diagnosable — otherwise every
+    // valid link looks like a "bad token" to both the user and the logs.
+    console.error("[digest] DIGEST_UNSUBSCRIBE_SECRET is not set; unsubscribe links cannot be verified")
+  }
   const token = url.searchParams.get("token") ?? ""
   const memberId = secret ? verifyDigestUnsubscribeToken(token, secret) : null
 

@@ -73,4 +73,17 @@ describe("GET /digest/unsubscribe", () => {
     const res = await GET(req("l=en"))
     expect(res.status).toBe(400)
   })
+
+  it("fails safe and logs when the signing secret is not configured", async () => {
+    vi.stubEnv("DIGEST_UNSUBSCRIBE_SECRET", "")
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    const memberId = await seedMember(db, "u-nosecret")
+    const token = digestUnsubscribeToken(memberId, SECRET)
+
+    const res = await GET(req(`token=${token}&l=en`))
+    expect(res.status).toBe(400)
+    expect(await unsubscribedAt(db, memberId)).toBeNull()
+    expect(errorSpy).toHaveBeenCalled()
+    errorSpy.mockRestore()
+  })
 })
