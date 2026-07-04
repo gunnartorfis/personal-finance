@@ -37,11 +37,15 @@ describe("sonnetClassifier", () => {
     generateObject.mockResolvedValue({ object: { expenseType: "", confidence: 0.5, reasoning: "x" } });
     const bigMerchant = "M".repeat(500);
     await sonnetClassifier()({ merchant: bigMerchant, amount: -100, rawCategory: "C".repeat(500), date: "2026-03-02" });
-    const { prompt } = generateObject.mock.calls[0][0];
+    const { prompt, system } = generateObject.mock.calls[0][0];
     // Untrusted fields wrapped so the model reads them as data, not instructions.
     expect(prompt).toContain(`<data>${"M".repeat(200)}</data>`);
     expect(prompt).toContain(`<data>${"C".repeat(200)}</data>`);
     // The full 500-char cell never reaches the model.
     expect(prompt).not.toContain("M".repeat(201));
+    // The data-framing instruction lives in the system turn (higher authority than the user turn that
+    // carries the injectable value) — prompt-injection hardening.
+    expect(system).toContain("<data>");
+    expect(system).toContain("never instructions");
   });
 });
