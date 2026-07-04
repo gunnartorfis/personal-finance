@@ -9,7 +9,7 @@ import { households } from "@/lib/db/schema";
 import type { ExpenseType } from "@/shared/types";
 
 import {
-  addConfiguredIncome,
+  addConfiguredAmounts,
   computeNetSummary,
   loadNetSummary,
   toEffectiveType,
@@ -91,28 +91,45 @@ describe("computeNetSummary", () => {
   });
 });
 
-describe("addConfiguredIncome", () => {
+describe("addConfiguredAmounts", () => {
   const base = computeNetSummary([
     { amount: 1000, incomeMarked: true, effectiveType: "" },
     { amount: -300, incomeMarked: false, effectiveType: "Fixed" },
   ]);
 
-  it("adds configured income to both income and net, leaving the expense side untouched", () => {
-    const summary = addConfiguredIncome(base, 5000);
-    expect(summary.income).toBe(6000);
-    expect(summary.net).toBe(5700); // 6000 income - 300 expense
-    expect(summary.expense).toBe(-300);
-    expect(summary.byExpenseType).toEqual(base.byExpenseType);
+  it("adds Monthly income to income and Off-card fixed costs to the expense side (Fixed bucket)", () => {
+    const summary = addConfiguredAmounts(base, { monthlyIncome: 5000, offCardFixed: 2000 });
+    expect(summary.income).toBe(6000); // 1000 marked + 5000 configured
+    expect(summary.expense).toBe(-2300); // -300 card debit - 2000 off-card
+    expect(summary.net).toBe(3700); // 6000 - 2300
+    expect(summary.byExpenseType.Fixed).toBe(-2300); // -300 card Fixed - 2000 off-card
     expect(summary.unclassified).toBe(base.unclassified);
   });
 
-  it("keeps the income + expense === net invariant", () => {
-    const summary = addConfiguredIncome(base, 5000);
+  it("keeps both reconciliation invariants", () => {
+    const summary = addConfiguredAmounts(base, { monthlyIncome: 5000, offCardFixed: 2000 });
+    const bucketed = Object.values(summary.byExpenseType).reduce((a, b) => a + b, 0);
+    expect(bucketed + summary.unclassified).toBe(summary.expense);
     expect(summary.income + summary.expense).toBe(summary.net);
   });
 
-  it("is a no-op for zero configured income", () => {
-    expect(addConfiguredIncome(base, 0)).toEqual(base);
+  it("only touches the Fixed bucket, leaving other expense types alone", () => {
+    const withTypes = computeNetSummary([
+      { amount: -300, incomeMarked: false, effectiveType: "Fixed" },
+      { amount: -200, incomeMarked: false, effectiveType: "Necessary" },
+      { amount: -100, incomeMarked: false, effectiveType: "Nice to have" },
+    ]);
+    const summary = addConfiguredAmounts(withTypes, { monthlyIncome: 0, offCardFixed: 2000 });
+    expect(summary.byExpenseType).toEqual({
+      Fixed: -2300,
+      Necessary: -200,
+      "Nice to have": -100,
+      "": 0,
+    });
+  });
+
+  it("is a no-op for zero configured amounts", () => {
+    expect(addConfiguredAmounts(base, { monthlyIncome: 0, offCardFixed: 0 })).toEqual(base);
   });
 });
 
