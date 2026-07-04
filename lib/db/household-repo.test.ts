@@ -887,6 +887,31 @@ describe("householdRepo", () => {
       expect(afterClassified?.categoryId).toBe(groceriesId); // Category preserved
     });
 
+    it("applies a split rule's Category to both branches while types differ (ADR-0020)", async () => {
+      const { a, aId } = await twoHouseholds();
+      await seedCategoriesForHousehold(asRepoDb(db), aId);
+      const fitnessId = (await a.categories.leafSlugToId()).get("fitness")!;
+      const { addTxn } = await seed(a, "split-cat");
+      const [membership] = await addTxn("WORLD CLASS", -12000); // at-or-above → Fixed
+      const [dropin] = await addTxn("WORLD CLASS", -1500); // below → Nice to have
+
+      await a.merchantRules.createAndApply({
+        merchant: "WORLD CLASS",
+        threshold: 8000,
+        atOrAboveType: "Fixed",
+        belowType: "Nice to have",
+        categoryId: fitnessId,
+      });
+
+      const above = await a.transactions.findById(membership.id);
+      const below = await a.transactions.findById(dropin.id);
+      expect(above?.expenseType).toBe("Fixed");
+      expect(below?.expenseType).toBe("Nice to have");
+      // Both branches carry the same rule Category despite the two type groups.
+      expect(above?.categoryId).toBe(fitnessId);
+      expect(below?.categoryId).toBe(fitnessId);
+    });
+
     it("does not apply a rule's hidden Category on re-type (ADR-0020 parity)", async () => {
       const { a, aId } = await twoHouseholds();
       await seedCategoriesForHousehold(asRepoDb(db), aId);
