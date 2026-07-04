@@ -884,6 +884,11 @@
     "allowedNiceToHave": "Þú mátt eyða allt að {amount} í munað í næsta mánuði.",
     "cta": "Opna mælaborðið",
     "unsubscribe": "Afskrá þessi yfirlit",
-    "footer": "Þú færð þetta því þú tilheyrir heimili á Auratal."
+    "footer": "Þú færð þetta því þú tilheyrir heimili á Auratal.",
+    "unsubscribed": {
+      "title": "Þú hefur afskráð þig",
+      "body": "Þú færð ekki mánaðarlega yfirlitið lengur. Þú getur kveikt aftur á því í stillingunum.",
+      "invalid": "Þessi afskráningarhlekkur er ógildur eða útrunninn."
+    }
   }
 }

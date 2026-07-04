@@ -884,6 +884,11 @@
     "allowedNiceToHave": "You can spend up to {amount} on nice-to-haves next month.",
     "cta": "Open your dashboard",
     "unsubscribe": "Unsubscribe from these summaries",
-    "footer": "You're getting this because you belong to a household on Auratal."
+    "footer": "You're getting this because you belong to a household on Auratal.",
+    "unsubscribed": {
+      "title": "You've unsubscribed",
+      "body": "You won't get the monthly summary anymore. You can turn it back on in your settings.",
+      "invalid": "This unsubscribe link is invalid or has expired."
+    }
   }
 }
