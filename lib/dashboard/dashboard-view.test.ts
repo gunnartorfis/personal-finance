@@ -127,11 +127,22 @@ describe("assembleDashboardView", () => {
       { month: "2026-03", spending: 100000, income: 20000, difference: -80000 },
     ];
     // 2026-02 spent 360000; the completed months before it (200000, 300000, 400000) average 300000,
-    // so it ran (360000-300000)/300000 = +20%.
-    const view = assembleDashboardView(baseInputs({ series, selectedKey: "2026-02" }));
+    // so it ran (360000-300000)/300000 = +20%. Its category trend covers 300000 of card debits
+    // (250000 Fixed + 50000 unclassified), so the decomposition attributes the remaining 60000 to
+    // off-card fixed — exercising the past-cycle path (not just the current month).
+    const view = assembleDashboardView(
+      baseInputs({
+        series,
+        selectedKey: "2026-02",
+        categoryTrend: [cat("2026-02", { Fixed: 250000 }, 50000)],
+      }),
+    );
     expect(view.hero.month).toBe("2026-02");
     expect(view.hero.isCurrent).toBe(false);
     expect(view.hero.spentSoFar).toBe(360000);
+    expect(view.hero.cardSpend).toBe(300000);
+    expect(view.hero.offCardFixed).toBe(60000);
+    expect(view.hero.cardByType.byExpenseType.Fixed).toBe(-250000);
     expect(view.hero.income).toBe(15000);
     expect(view.hero.difference).toBe(-345000);
     expect(view.hero.projected).toBeNull(); // a completed month is not projected
