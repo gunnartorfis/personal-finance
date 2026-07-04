@@ -57,6 +57,7 @@ function baseInputs(overrides: Partial<DashboardInputs> = {}): DashboardInputs {
     topMerchants: [{ merchant: "BONUS", spending: 100000, share: 1 }],
     categoryTrend: [cat("2026-03", { Fixed: 60000 }, 40000)],
     movers: { merchants: [], categories: [] },
+    recurring: { subscriptions: [], committedMonthlyTotal: 0 },
     largestCharge: { merchant: "BIGSHOP", amount: 50000 },
     accountBreakdown: [{ accountId: "a1", name: "Visa", spending: 100000, share: 1 }],
     accountCount: 2,

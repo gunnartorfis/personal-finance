@@ -89,6 +89,7 @@ const VIEW: DashboardView = {
       merchants: [{ name: "BONUS", lastMonth: 400, baselineAverage: 100, delta: 300, deltaPct: 300 }],
       categories: [],
     },
+    recurring: { subscriptions: [], committedMonthlyTotal: 0 },
     accounts: null,
   },
   actionBand: {

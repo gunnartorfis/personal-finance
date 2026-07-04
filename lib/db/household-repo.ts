@@ -733,6 +733,34 @@ export function householdRepo(db: Db, householdId: string) {
         }));
       },
       /**
+       * Individual debit charges (date, raw merchant, spend magnitude) over a half-open range
+       * `[from, to)` — the per-charge input to recurring/subscription detection (#100). Unlike
+       * {@link monthlyMerchantSpend} this does not aggregate: the pure detector needs each charge to
+       * judge monthly cadence and amount similarity. Credits, excluded rows, detected transfer legs,
+       * and the not-bucketed / split ("") type are excluded (so a split payment isn't mistaken for a
+       * subscription); pending rows (null type) are kept. Reads the Own share via `effectiveAmount`
+       * (ADR-0014). Scoped to the household.
+       */
+      merchantCharges: (range: { from: string; to: string }) =>
+        db
+          .select({
+            date: transactions.date,
+            merchant: transactions.merchant,
+            amount: transactions.effectiveAmount,
+          })
+          .from(transactions)
+          .where(
+            and(
+              eq(transactions.householdId, householdId),
+              lt(transactions.amount, 0),
+              eq(transactions.excluded, false),
+              isNull(transactions.transferGroupId),
+              sql`${transactions.expenseType} is distinct from ''`,
+              gte(transactions.date, range.from),
+              lt(transactions.date, range.to)
+            )
+          ),
+      /**
        * Per-calendar-month, per-raw-merchant debit magnitude over a half-open range `[from, to)` —
        * the input to the "biggest movers" (merchant) computation. Credits and out-of-range rows are
        * excluded; the pure layer normalises + re-aggregates. Transactions whose effective type

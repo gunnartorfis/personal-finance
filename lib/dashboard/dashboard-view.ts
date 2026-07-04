@@ -15,6 +15,8 @@ import type { MonthlySpendPoint } from "./monthly-series";
 import { loadMonthlySpendSeries } from "./monthly-series";
 import type { LargestCharge, Mover } from "./movers";
 import { loadBiggestMovers, loadLargestCharge } from "./movers";
+import type { RecurringSummary } from "./recurring";
+import { loadRecurring } from "./recurring";
 import { computeSpendingTrendStats, type SpendingTrendStats } from "./spending-trend";
 import type { MerchantSpend } from "./top-merchants";
 import { loadTopMerchants } from "./top-merchants";
@@ -32,6 +34,8 @@ export interface DashboardInputs {
   topMerchants: MerchantSpend[];
   categoryTrend: CategoryTrendPoint[];
   movers: { merchants: Mover[]; categories: Mover[] };
+  /** Detected recurring/subscription charges + total committed monthly spend (#100). */
+  recurring: RecurringSummary;
   largestCharge: LargestCharge | null;
   accountBreakdown: AccountSpend[];
   /** The Household's total Account count — the account module is shown only when this is > 1. */
@@ -68,6 +72,8 @@ export interface DashboardModules {
   categoryMostlyUnclassified: boolean;
   topMerchants: MerchantSpend[];
   movers: { merchants: Mover[]; categories: Mover[] };
+  /** Detected recurring/subscription charges + total committed monthly spend (#100). */
+  recurring: RecurringSummary;
   /** Null when the Household has a single Account (module hidden). */
   accounts: AccountSpend[] | null;
 }
@@ -134,6 +140,7 @@ export function assembleDashboardView(input: DashboardInputs): DashboardView {
       categoryMostlyUnclassified: isCategoryMostlyUnclassified(input.categoryTrend),
       topMerchants: input.topMerchants,
       movers: input.movers,
+      recurring: input.recurring,
       accounts: input.accountCount > 1 ? input.accountBreakdown : null,
     },
     actionBand: {
@@ -182,6 +189,7 @@ export async function loadDashboardView(
     classifiedCount,
     connections,
     financialHealth,
+    recurring,
   ] = await Promise.all([
     loadMonthlySpendSeries(repo, now, count),
     loadTopMerchants(repo, recentRange, TOP_MERCHANTS),
@@ -195,6 +203,7 @@ export async function loadDashboardView(
     repo.transactions.countClassified(),
     repo.bankConnections.list(),
     loadFinancialHealth(repo, now, count),
+    loadRecurring(repo, now),
   ]);
 
   // Reuse the already-loaded category trend for the category movers (avoids a second query).
@@ -210,6 +219,7 @@ export async function loadDashboardView(
     topMerchants,
     categoryTrend,
     movers,
+    recurring,
     largestCharge,
     accountBreakdown,
     accountCount: accountList.length,
