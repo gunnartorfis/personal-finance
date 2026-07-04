@@ -179,6 +179,20 @@ describe("AssistantChat", () => {
     expect(screen.getByRole("button", { name: "March" })).toBeInTheDocument()
   })
 
+  it("shows a thinking affordance while the request is in flight", async () => {
+    chat.status = "submitted"
+    renderWithIntl(<AssistantChat />)
+    // findByText waits past the initial "Loading…" status until the chat (and its "Thinking…") shows.
+    expect(await screen.findByText("Thinking…")).toBeInTheDocument()
+  })
+
+  it("renders the message log as an aria-live region", async () => {
+    chat.messages = [{ id: "1", role: "assistant", parts: [{ type: "text", text: "hi" }] }]
+    renderWithIntl(<AssistantChat />)
+    const log = await screen.findByRole("log")
+    expect(log).toHaveAttribute("aria-live", "polite")
+  })
+
   it("disables the history controls while streaming (no mid-stream thread swap)", async () => {
     chat.status = "streaming"
     stubFetch({
