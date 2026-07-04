@@ -35,6 +35,12 @@
       "remaining": "{amount} left",
       "over": "{amount} over"
     },
+    "balanceChecks": {
+      "title": "Balance check",
+      "subtitle": "Accounts whose imported transactions don't match the balance you recorded.",
+      "missing": "{amount} unaccounted for — a transaction may be missing.",
+      "duplicate": "{amount} extra — a transaction may be duplicated."
+    },
     "recurring": {
       "title": "Subscriptions",
       "subtitle": "Recurring charges we detected.",
