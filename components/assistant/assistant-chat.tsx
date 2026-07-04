@@ -255,9 +255,9 @@ export function AssistantChat() {
             ))
           )}
           {status === "submitted" ? (
-            <p className="text-sm text-muted-foreground" role="status">
-              {t("thinking")}
-            </p>
+            // No own live role: the enclosing role="log" aria-live region already announces this,
+            // and a nested live region would double-announce.
+            <p className="text-sm text-muted-foreground">{t("thinking")}</p>
           ) : null}
           {error ? (
             <p role="alert" className="text-sm text-destructive">
