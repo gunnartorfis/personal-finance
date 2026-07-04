@@ -19,18 +19,18 @@ export interface CategoryBreakdown {
   uncategorized: number;
 }
 
-/** One row's contribution: its effective amount, income mark, and resolved Category id. */
+/** One row's contribution: its effective amount and resolved Category id. */
 export interface CategoryBreakdownRow {
   amount: number;
-  incomeMarked: boolean;
   /** Effective Category leaf id, or null (Uncategorized). */
   categoryId: string | null;
 }
 
 /**
  * Fold rows into a {@link CategoryBreakdown}. Pure and side-effect free (the DB read lives in
- * {@link loadCategoryBreakdown}). Marked-income credits and unmarked credits alike add nothing to
- * the expense side (ADR-0009); every expense lands in its Category bucket, or `uncategorized`.
+ * {@link loadCategoryBreakdown}). Only the spend axis matters here: every credit (`amount > 0`) is
+ * skipped regardless of income marking (ADR-0009); each expense lands in its Category bucket, or
+ * `uncategorized`.
  */
 export function computeCategoryBreakdown(
   rows: ReadonlyArray<CategoryBreakdownRow>,
@@ -66,7 +66,6 @@ export async function loadCategoryBreakdown(
   return computeCategoryBreakdown(
     rows.map((row) => ({
       amount: row.amount,
-      incomeMarked: row.incomeMarked,
       categoryId: row.categoryId ?? null,
     })),
   );

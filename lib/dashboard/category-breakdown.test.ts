@@ -4,7 +4,6 @@ import { computeCategoryBreakdown, type CategoryBreakdownRow } from "./category-
 
 const row = (partial: Partial<CategoryBreakdownRow>): CategoryBreakdownRow => ({
   amount: -1000,
-  incomeMarked: false,
   categoryId: null,
   ...partial,
 });
@@ -32,10 +31,10 @@ describe("computeCategoryBreakdown (ADR-0020)", () => {
     expect(summed).toBe(result.expense);
   });
 
-  it("ignores credits (marked income and unmarked alike) on the spend axis", () => {
+  it("ignores credits on the spend axis", () => {
     const result = computeCategoryBreakdown([
-      row({ amount: 500000, incomeMarked: true, categoryId: null }),
-      row({ amount: 2000, incomeMarked: false, categoryId: "groceries" }), // credit, ignored
+      row({ amount: 500000, categoryId: null }), // marked-income-sized credit
+      row({ amount: 2000, categoryId: "groceries" }), // credit, ignored
       row({ amount: -4200, categoryId: "groceries" }),
     ]);
     expect(result.expense).toBe(-4200);
