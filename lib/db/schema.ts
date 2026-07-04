@@ -675,13 +675,22 @@ export const overrides = pgTable(
     transactionId: uuid("transaction_id").notNull().unique(),
     /** The Member who made the override (same Household); nulled by the app if they leave. */
     memberId: uuid("member_id"),
-    expenseType: text("expense_type").notNull(),
+    /** Manual Expense-type override; null when the override only sets a Category (ADR-0020). */
+    expenseType: text("expense_type"),
+    /** Manual semantic Category override (ADR-0020); null when the override only sets a type. */
+    categoryId: uuid("category_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     check(
       "overrides_expense_type_valid",
-      sql`${t.expenseType} IN ('Fixed', 'Necessary', 'Nice to have', '')`,
+      sql`${t.expenseType} IS NULL OR ${t.expenseType} IN ('Fixed', 'Necessary', 'Nice to have', '')`,
+    ),
+    // The two axes are independent (ADR-0020); an override row must set at least one, else it is a
+    // meaningless no-op that would shadow the classified/rule values with nothing.
+    check(
+      "overrides_at_least_one_axis",
+      sql`${t.expenseType} IS NOT NULL OR ${t.categoryId} IS NOT NULL`,
     ),
     // The Transaction must belong to the same Household as the Override.
     foreignKey({
@@ -689,6 +698,17 @@ export const overrides = pgTable(
       foreignColumns: [transactions.householdId, transactions.id],
       name: "overrides_transaction_household_fk",
     }).onDelete("cascade"),
+    // The overridden Category (when set) must be one of this Household's own (ADR-0020). No onDelete
+    // action, like transactions.category_id: v1 customization is hide-only (no single-Category
+    // delete), and a whole-Household delete still cascades both sides (NO ACTION is checked at
+    // statement end). A future hard-delete (S6) clears/reassigns referencing overrides first.
+    foreignKey({
+      columns: [t.householdId, t.categoryId],
+      foreignColumns: [categories.householdId, categories.id],
+      name: "overrides_category_household_fk",
+    }),
+    // Speeds S3b-2's effective-Category resolution (join/filter overrides by Category per Household).
+    index("overrides_household_category_idx").on(t.householdId, t.categoryId),
     // The actor Member must belong to the same Household (NO ACTION; see uploads importer note).
     foreignKey({
       columns: [t.householdId, t.memberId],
