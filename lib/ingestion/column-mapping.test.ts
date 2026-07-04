@@ -41,6 +41,18 @@ describe("detectColumnMapping", () => {
     expect(mapping?.amount).toBe(3);
   });
 
+  it("does not let a generic 'Name' column steal the merchant role from a real one", () => {
+    expect(
+      detectColumnMapping(["Dagsetning", "Account Name", "Mótaðili", "Tegund", "Upphæð"]),
+    ).toEqual({ date: 0, merchant: 2, category: 3, amount: 4 });
+  });
+
+  it("matches a multi-word date header on its component token without concatenating", () => {
+    // "Booking Date" matches via the "date" token; "Book ingdate" must NOT join to "bookingdate".
+    expect(detectColumnMapping(["Booking Date", "Mótaðili", "Tegund", "Upphæð"])?.date).toBe(0);
+    expect(detectColumnMapping(["Book ingdate", "Mótaðili", "Tegund", "Upphæð"])).toBeNull();
+  });
+
   it("returns null when a required role has no matching column", () => {
     // No amount column.
     expect(detectColumnMapping(["Dagsetning", "Mótaðili", "Tegund"])).toBeNull();

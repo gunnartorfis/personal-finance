@@ -25,7 +25,10 @@ function tokenize(label: string): string[] {
 const ALIASES: Record<ColumnRole, string[]> = {
   date: ["date", "dagsetning", "dags", "bokunardagur", "bokunardagsetning", "faersludagur", "bookingdate", "transactiondate", "valuedate"],
   amount: ["amount", "upphaed", "fjarhaed", "belag"],
-  merchant: ["merchant", "motadili", "lysing", "description", "desc", "text", "skyring", "payee", "seller", "nafn", "name", "verslun"],
+  // Deliberately specific: generic tokens like "name"/"text" are omitted — left-to-right resolution
+  // would let "Account Name" / "Reference Text" greedily claim the merchant role before the real
+  // column, so they'd do more harm than good.
+  merchant: ["merchant", "motadili", "lysing", "description", "skyring", "payee", "seller", "verslun"],
   category: ["category", "tegund", "flokkur", "type"],
 };
 
@@ -36,8 +39,9 @@ function labelMatchesRole(label: string, role: ColumnRole): boolean {
   const tokens = tokenize(label);
   if (role === "amount" && tokens.some((t) => FOREIGN_MARKERS.includes(t))) return false;
   const aliases = ALIASES[role];
-  // Whole-label match (e.g. "transactiondate") or any single token equal to an alias.
-  return aliases.includes(tokens.join("")) || tokens.some((t) => aliases.includes(t));
+  // A single token equal to an alias. Multi-word headers ("Booking Date") match on their component
+  // token ("date"); we don't concatenate tokens, which would accidentally match split labels.
+  return tokens.some((t) => aliases.includes(t));
 }
 
 /**
