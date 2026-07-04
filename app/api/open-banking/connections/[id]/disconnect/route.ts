@@ -33,8 +33,10 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "connection not found" }, { status: 404 })
   }
 
-  // Log only a real state change (a re-disconnect of an already-revoked connection is a no-op).
-  // Best-effort: the local revoke is already committed, so a log failure must not fail the request.
+  // Gate ONLY the activity log on a real state change: the revoke update above is idempotent and
+  // still runs for an already-revoked connection (harmless), but re-disconnecting one must not write
+  // a duplicate log entry. Best-effort: the local revoke is committed, so a log failure won't fail
+  // the request.
   if (connection.status !== "revoked") {
     try {
       await recordActivity(ctx, ActivityAction.BankDisconnected, {

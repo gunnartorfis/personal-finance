@@ -108,6 +108,13 @@ describe("POST /api/open-banking/connections/[id]/disconnect", () => {
     const res = await post(VALID)
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ id: VALID, status: "revoked" })
+    // This fixture has no institutionName — pin the null-institution payload shape.
+    expect(record).toHaveBeenCalledWith({
+      memberId: "m1",
+      actorName: "Ada",
+      action: "bank.disconnected",
+      payload: { connectionId: VALID, institutionName: undefined },
+    })
   })
 
   it("still succeeds when the provider is unconfigured (getIngestionProvider throws)", async () => {
