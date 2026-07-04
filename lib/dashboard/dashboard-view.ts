@@ -8,13 +8,14 @@ import { loadAccountBreakdown } from "./account-breakdown";
 import type { BudgetStatus } from "./budget-status";
 import { computeBudgetStatus } from "./budget-status";
 import type { CategoryTrendPoint } from "./category-trend";
-import { loadCategoryTrend } from "./category-trend";
+import { categoryPointToNetSummary, loadCategoryTrend } from "./category-trend";
 import type { CycleKey } from "./cycle";
 import { currentCycleKey, cycleKeyRange, recentCycleKeys } from "./cycle";
 import type { FinancialHealth } from "./financial-health";
 import { loadFinancialHealth } from "./financial-health";
 import type { MonthlySpendPoint } from "./monthly-series";
 import { loadMonthlySpendSeries } from "./monthly-series";
+import type { NetSummary } from "./net-summary";
 import type { LargestCharge, Mover } from "./movers";
 import { loadBiggestMovers, loadLargestCharge } from "./movers";
 import type { RecurringSummary } from "./recurring";
@@ -61,7 +62,14 @@ export interface DashboardHero {
   month: CycleKey;
   /** Whether `month` is the in-progress current cycle (vs a completed past month being viewed). */
   isCurrent: boolean;
+  /** Total spend for the cycle: card debits plus configured off-card fixed costs (ADR-0015). */
   spentSoFar: number;
+  /** The card-debit portion of `spentSoFar` (its by-type buckets sum to this). */
+  cardSpend: number;
+  /** The configured off-card fixed portion of `spentSoFar`; 0 when the Household has none. */
+  offCardFixed: number;
+  /** The card debits' split by effective expense type (signed, ≤ 0), for the by-type breakdown. */
+  cardByType: NetSummary;
   projected: number | null;
   income: number;
   difference: number;
@@ -138,6 +146,17 @@ export function assembleDashboardView(input: DashboardInputs): DashboardView {
   const spentSoFar = selected?.spending ?? 0;
   const income = selected?.income ?? 0;
 
+  // Decompose the hero total into its two ADR-0015 sources so the card can show card spend and
+  // off-card fixed separately, plus the card debits' by-type split — all from the already-loaded
+  // category trend (no extra query). The trend and the series share the same card-debit SQL, so the
+  // by-type buckets sum to the cycle's card debits; the remainder of `spentSoFar` is the configured
+  // off-card fixed (>= 0, clamped for safety).
+  const cardByType = categoryPointToNetSummary(
+    input.categoryTrend.find((point) => point.month === selectedKey),
+  );
+  const cardSpend = -cardByType.expense;
+  const offCardFixed = Math.max(0, spentSoFar - cardSpend);
+
   // The vs-average line: for the in-progress month, reuse the trend's honest "last completed month
   // vs average" (never the partial current spend); for a past month, compare that month to the
   // average of the completed months before it.
@@ -156,6 +175,9 @@ export function assembleDashboardView(input: DashboardInputs): DashboardView {
       month: selectedKey,
       isCurrent,
       spentSoFar,
+      cardSpend,
+      offCardFixed,
+      cardByType,
       // Only the in-progress month is projected; a completed month's total is already final.
       projected: isCurrent ? (input.trend.projection?.projected ?? null) : null,
       income,

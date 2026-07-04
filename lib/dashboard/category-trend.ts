@@ -3,7 +3,7 @@ import type { ExpenseType } from "@/shared/types";
 
 import type { CycleKey } from "./cycle";
 import { cycleKeyRange, recentCycleKeys } from "./cycle";
-import { emptyByExpenseType, toEffectiveType } from "./net-summary";
+import { emptyByExpenseType, toEffectiveType, type NetSummary } from "./net-summary";
 
 /**
  * One month in the stacked category-mix trend (Phase K, ADR-0008). `byExpenseType` holds the debit
@@ -51,6 +51,37 @@ export function buildCategoryTrend(
     }
   }
   return monthKeys.map((month) => points.get(month)!);
+}
+
+/**
+ * Adapt a {@link CategoryTrendPoint} (positive debit magnitudes) into the {@link NetSummary} shape
+ * the spending-by-type breakdown consumes (signed, expenses ≤ 0). Only the expense side carries
+ * meaning here; income/net mirror the negated expense total. A missing point (a cycle outside the
+ * trend window, or one with no card debits) yields an all-zero summary. Shared by the dashboard hero
+ * and the category-mix module so both read the card debits' type split identically.
+ */
+export function categoryPointToNetSummary(point: CategoryTrendPoint | undefined): NetSummary {
+  const byType = point?.byExpenseType ?? emptyByExpenseType();
+  const unclassified = point?.unclassified ?? 0;
+  const expense = -(
+    byType.Fixed +
+    byType.Necessary +
+    byType["Nice to have"] +
+    byType[""] +
+    unclassified
+  );
+  return {
+    income: 0,
+    expense,
+    net: expense,
+    byExpenseType: {
+      Fixed: -byType.Fixed,
+      Necessary: -byType.Necessary,
+      "Nice to have": -byType["Nice to have"],
+      "": -byType[""],
+    },
+    unclassified: -unclassified,
+  };
 }
 
 /**

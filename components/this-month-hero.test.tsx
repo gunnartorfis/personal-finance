@@ -8,10 +8,24 @@ import { renderWithIntl as render } from "@/lib/test/render"
 // The embedded PeriodSelector calls useRouter for its `?cycle=` navigation.
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }))
 
+// Card debits (60k of the 100k total, leaving 40k of configured off-card fixed) split 45k Fixed /
+// 15k Necessary. Signed (≤ 0), matching a NetSummary. Magnitudes are chosen not to collide with the
+// other figures the tests assert on (income 20k, difference 80k, total 100k, projection 310k).
+const CARD_BY_TYPE: DashboardHero["cardByType"] = {
+  income: 0,
+  expense: -60000,
+  net: -60000,
+  byExpenseType: { Fixed: -45000, Necessary: -15000, "Nice to have": 0, "": 0 },
+  unclassified: 0,
+}
+
 const HERO: DashboardHero = {
   month: "2026-03",
   isCurrent: true,
   spentSoFar: 100000,
+  cardSpend: 60000,
+  offCardFixed: 40000,
+  cardByType: CARD_BY_TYPE,
   projected: 310000,
   income: 20000,
   difference: -80000,
@@ -35,6 +49,35 @@ describe("ThisMonthHero", () => {
     expect(screen.getByText(/20,000/)).toBeInTheDocument()
     expect(screen.getByText("Difference")).toBeInTheDocument()
     expect(screen.getByText(/80,000/)).toBeInTheDocument() // difference magnitude
+  })
+
+  it("splits the total into card vs off-card and breaks the card spend down by type", () => {
+    render(<ThisMonthHero hero={HERO} currency="ISK" />)
+    // The two sources of the 100,000 total, labelled and summing back to it. Card spend (60,000)
+    // shows twice — once as the "On card" source, once as the by-type breakdown's total.
+    expect(screen.getByText("On card")).toBeInTheDocument()
+    expect(screen.getAllByText(/60,000/).length).toBeGreaterThan(0) // card spend
+    expect(screen.getByText("Off-card")).toBeInTheDocument()
+    expect(screen.getByText(/40,000/)).toBeInTheDocument() // off-card fixed
+    // The card debits' by-type breakdown (Fixed / Necessary) via the shared SpendingByType.
+    expect(screen.getByText(/Spending by type/i)).toBeInTheDocument()
+    expect(screen.getByText("Fixed")).toBeInTheDocument()
+    expect(screen.getByText(/45,000/)).toBeInTheDocument()
+    expect(screen.getByText("Necessary")).toBeInTheDocument()
+    expect(screen.getByText(/15,000/)).toBeInTheDocument()
+  })
+
+  it("hides the card/off-card split when there are no off-card fixed costs", () => {
+    render(
+      <ThisMonthHero
+        hero={{ ...HERO, spentSoFar: 60000, cardSpend: 60000, offCardFixed: 0 }}
+        currency="ISK"
+      />,
+    )
+    expect(screen.queryByText("On card")).not.toBeInTheDocument()
+    expect(screen.queryByText("Off-card")).not.toBeInTheDocument()
+    // The by-type breakdown still renders — it covers the card spend regardless.
+    expect(screen.getByText(/Spending by type/i)).toBeInTheDocument()
   })
 
   it("shows neutral info lines: signed vs-average and the largest charge", () => {

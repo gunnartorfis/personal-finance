@@ -21,6 +21,8 @@
     "thisMonth": "This month",
     "spendingSoFar": "Spending so far",
     "spentTotal": "Total spent",
+    "onCard": "On card",
+    "offCard": "Off-card",
     "projected": "Projected {amount} by month end.",
     "vsAverageWithAvg": "Last full month ran {delta} vs your average of {average}.",
     "vsAverage": "Last full month ran {delta} vs your average.",

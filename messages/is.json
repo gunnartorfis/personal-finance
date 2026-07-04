@@ -21,6 +21,8 @@
     "thisMonth": "Þessi mánuður",
     "spendingSoFar": "Eytt hingað til",
     "spentTotal": "Samtals eytt",
+    "onCard": "Á korti",
+    "offCard": "Utan korts",
     "projected": "Áætlað {amount} í lok mánaðar.",
     "vsAverageWithAvg": "Síðasti heili mánuður var {delta} miðað við meðaltalið {average}.",
     "vsAverage": "Síðasti heili mánuður var {delta} miðað við meðaltalið þitt.",

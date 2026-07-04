@@ -2,6 +2,7 @@ import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
 
 import { PeriodSelector, type PeriodOption } from "@/components/period-selector"
+import { SpendingByType } from "@/components/spending-by-type"
 import type { DashboardHero } from "@/lib/dashboard/dashboard-view"
 import { currencyFormatter } from "@/lib/format/currency"
 import { formatCycleMonth } from "@/lib/format/date"
@@ -44,6 +45,9 @@ export function ThisMonthHero({
     month,
     isCurrent,
     spentSoFar,
+    cardSpend,
+    offCardFixed,
+    cardByType,
     projected,
     income,
     difference,
@@ -51,6 +55,9 @@ export function ThisMonthHero({
     trailingAverage,
     largestCharge,
   } = hero
+  // Split the headline into its two sources only when off-card fixed costs actually contribute —
+  // otherwise the total already equals card spend and the breakout is noise.
+  const hasOffCard = offCardFixed > 0
   const hasInfo = vsAveragePct !== null || largestCharge !== null
   // Direction cue: up only when above average, down when below, flat at exactly the average.
   const TrendIcon = vsAveragePct === null || vsAveragePct === 0 ? Minus : vsAveragePct > 0 ? ArrowUpRight : ArrowDownRight
@@ -83,6 +90,23 @@ export function ThisMonthHero({
           </span>
         )}
       </div>
+
+      {hasOffCard && (
+        <dl className="grid grid-cols-2 gap-x-4">
+          <div className="flex flex-col gap-0.5">
+            <dt className="truncate text-sm text-muted-foreground">{t("onCard")}</dt>
+            <dd className="text-base font-medium tabular-nums">{fmt(cardSpend)}</dd>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <dt className="truncate text-sm text-muted-foreground">{t("offCard")}</dt>
+            <dd className="text-base font-medium tabular-nums">{fmt(offCardFixed)}</dd>
+          </div>
+        </dl>
+      )}
+
+      {/* How the card spend so far splits across Fixed / Necessary / Nice to have (ADR-0020, axis A);
+          reuses the shared breakdown so it reads identically to the category-mix module below. */}
+      <SpendingByType summary={cardByType} currency={currency} headingLevel={3} />
 
       {hasInfo && (
         <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
