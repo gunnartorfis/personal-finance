@@ -605,6 +605,38 @@ export const merchantRules = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// columnMappings — a Household's remembered CSV column mappings (ADR-0018)
+// ---------------------------------------------------------------------------
+
+/**
+ * A confirmed column mapping remembered per Household, keyed by a normalized header signature (the
+ * folded, sorted set of the file's column labels — see `headerSignature`). Replayed on the next
+ * upload of a file with the same shape so a bank's format is taught once, then imports silently.
+ * Belongs to the file's shape, not an Account, so two Accounts of the same bank share it.
+ */
+export const columnMappings = pgTable(
+  "column_mappings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    /** Normalized signature of the file's header labels. */
+    headerSignature: text("header_signature").notNull(),
+    /** Confirmed role → 0-based column index for files of this shape. */
+    columns: jsonb("columns")
+      .$type<Record<"date" | "amount" | "merchant" | "category", number>>()
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // One remembered mapping per file shape per Household (upsert target).
+    unique("column_mappings_household_id_header_signature_key").on(t.householdId, t.headerSignature),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // straumurPayments — webhook-sourced Straumur/Adyen payment records (ADR-0006)
 // ---------------------------------------------------------------------------
 // Authoritative record of `Authorization` (and related) events received via Straumur's payment
