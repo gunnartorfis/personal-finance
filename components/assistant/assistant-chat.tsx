@@ -9,7 +9,11 @@ import { useEffect, useState, type FormEvent } from "react"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { toUiMessages, type AssistantMessageMetadata } from "@/lib/assistant/ui-messages"
+import {
+  toUiMessages,
+  type AssistantMessageMetadata,
+  type StoredMessage,
+} from "@/lib/assistant/ui-messages"
 import { cn } from "@/lib/utils"
 
 /** One past thread in the history list. */
@@ -124,9 +128,7 @@ export function AssistantChat() {
     try {
       const response = await fetch(`/api/assistant/conversations/${id}`)
       if (!response.ok) return
-      const data = (await response.json()) as {
-        messages: Array<{ id: string; role: "user" | "assistant"; content: string }>
-      }
+      const data = (await response.json()) as { messages: StoredMessage[] }
       setMessages(toUiMessages(data.messages))
       setConversationId(id)
       setGate(null)
