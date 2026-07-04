@@ -1,7 +1,15 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
-import { households, householdInvites, members, overrides, uploads } from "@/lib/db/schema";
+import {
+  assistantConversations,
+  assistantMessages,
+  households,
+  householdInvites,
+  members,
+  overrides,
+  uploads,
+} from "@/lib/db/schema";
 import type * as schema from "@/lib/db/schema";
 import { toLocale, type Locale } from "@/lib/i18n/config";
 
@@ -33,7 +41,8 @@ export class LeaveError extends Error {
 
 /**
  * Detach a Member's row from a Household: null their actor references (upload importer, override
- * author, invite issuer — composite FKs are NO ACTION) so the row can go, then delete it. No
+ * author, invite issuer, Assistant conversation opener + message author — composite FKs are NO
+ * ACTION) so the row can go, then delete it. No
  * last-Member guard and no transaction of its own — the caller supplies both. Runs on a `Db` or a
  * transaction handle, so it composes inside a larger atomic operation (e.g. an Invite switch).
  */
@@ -54,6 +63,23 @@ async function releaseMembership(db: Db, householdId: string, memberId: string):
         eq(householdInvites.householdId, householdId),
         eq(householdInvites.invitedByMemberId, memberId),
       ),
+    );
+  // Assistant attributions (#101) are also NO-ACTION composite FKs; null them so the leaver's
+  // threads/messages stay (Household-owned) with attribution cleared, and the member row can go.
+  await db
+    .update(assistantConversations)
+    .set({ startedByMemberId: null })
+    .where(
+      and(
+        eq(assistantConversations.householdId, householdId),
+        eq(assistantConversations.startedByMemberId, memberId),
+      ),
+    );
+  await db
+    .update(assistantMessages)
+    .set({ memberId: null })
+    .where(
+      and(eq(assistantMessages.householdId, householdId), eq(assistantMessages.memberId, memberId)),
     );
   await db.delete(members).where(and(eq(members.id, memberId), eq(members.householdId, householdId)));
 }

@@ -7,6 +7,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import {
   accounts,
   activityLog,
+  assistantConversations,
+  assistantMessages,
   households,
   members,
   merchantRules,
@@ -124,6 +126,32 @@ describe("resetHouseholdFinancialData", () => {
       overrides: 1,
       merchantRules: 1,
     });
+  });
+
+  it("clears Assistant conversations and messages (ADR-0018: unlike the Activity log)", async () => {
+    const householdId = await seedHousehold("assistant_user", "hash-d");
+    const [conv] = await db
+      .insert(assistantConversations)
+      .values({ householdId, startedByMemberId: null, title: "Why was March higher?" })
+      .returning();
+    await db
+      .insert(assistantMessages)
+      .values({ householdId, conversationId: conv.id, memberId: null, role: "assistant", content: "…" });
+
+    await resetHouseholdFinancialData(asDb(db), householdId, ACTOR);
+
+    expect(
+      await db
+        .select()
+        .from(assistantConversations)
+        .where(eq(assistantConversations.householdId, householdId)),
+    ).toHaveLength(0);
+    expect(
+      await db
+        .select()
+        .from(assistantMessages)
+        .where(eq(assistantMessages.householdId, householdId)),
+    ).toHaveLength(0);
   });
 
   // ADR-0017: the reset is itself a logged action, and the Activity log deliberately SURVIVES the

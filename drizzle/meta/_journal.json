@@ -204,6 +204,13 @@
       "when": 1783160929363,
       "tag": "0028_groovy_butterfly",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1783163970547,
+      "tag": "0029_high_power_man",
+      "breakpoints": true
     }
   ]
 }

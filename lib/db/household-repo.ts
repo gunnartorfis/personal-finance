@@ -32,6 +32,8 @@ import {
   activityLog,
   bankConnections,
   categoryBudgets,
+  assistantConversations,
+  assistantMessages,
   householdInvites,
   members,
   merchantRules,
@@ -1567,6 +1569,100 @@ export function householdRepo(db: Db, householdId: string) {
             )
           )
           .returning(),
+    },
+    /**
+     * Assistant (#101, ADR-0018): read-only NLQ conversations, Household-shared and threaded. Every
+     * read is scoped to this Household; writes stamp `householdId`. The model orchestration lives in
+     * `lib/assistant/*` — this repo only persists/loads threads and meters usage.
+     */
+    assistant: {
+      /** Open a new thread, attributed to its opener (title derived by the caller from Q1). */
+      createConversation: async (value: { startedByMemberId: string | null; title: string }) => {
+        const [row] = await db
+          .insert(assistantConversations)
+          .values({ ...value, householdId })
+          .returning()
+        return row
+      },
+      /** A single thread in this Household, or undefined (also returned for a foreign id). */
+      getConversation: async (id: string) => {
+        const [row] = await db
+          .select()
+          .from(assistantConversations)
+          .where(
+            and(
+              eq(assistantConversations.id, id),
+              eq(assistantConversations.householdId, householdId)
+            )
+          )
+        return row
+      },
+      /** All threads, newest-activity first (list view). */
+      listConversations: () =>
+        db
+          .select()
+          .from(assistantConversations)
+          .where(eq(assistantConversations.householdId, householdId))
+          .orderBy(desc(assistantConversations.updatedAt)),
+      /**
+       * Append one message and float its thread to the top of the list (bump `updatedAt`). The
+       * conversation update is scoped to this Household, so a foreign `conversationId` bumps nothing;
+       * the message's composite FK independently rejects a cross-household insert.
+       */
+      appendMessage: async (value: {
+        conversationId: string
+        memberId: string | null
+        role: "user" | "assistant"
+        content: string
+      }) =>
+        db.transaction(async (tx) => {
+          const [row] = await tx
+            .insert(assistantMessages)
+            .values({ ...value, householdId })
+            .returning()
+          await tx
+            .update(assistantConversations)
+            // clock_timestamp() (real statement time), not now() (transaction start), so a bump is
+            // always strictly later than an earlier thread's creation — a stable "recent activity"
+            // sort even when rows are created microseconds apart.
+            .set({ updatedAt: sql`clock_timestamp()` })
+            .where(
+              and(
+                eq(assistantConversations.id, value.conversationId),
+                eq(assistantConversations.householdId, householdId)
+              )
+            )
+          return row
+        }),
+      /** A thread's messages in chronological order (scoped to this Household). */
+      listMessages: (conversationId: string) =>
+        db
+          .select()
+          .from(assistantMessages)
+          .where(
+            and(
+              eq(assistantMessages.householdId, householdId),
+              eq(assistantMessages.conversationId, conversationId)
+            )
+          )
+          .orderBy(asc(assistantMessages.createdAt)),
+      /**
+       * How many `user` messages this Household has sent since `since` — the numerator of the daily
+       * fair-use cap. Assistant replies don't count (they are not member-initiated).
+       */
+      countMessagesSince: async (since: Date) => {
+        const [row] = await db
+          .select({ value: count() })
+          .from(assistantMessages)
+          .where(
+            and(
+              eq(assistantMessages.householdId, householdId),
+              eq(assistantMessages.role, "user"),
+              gte(assistantMessages.createdAt, since)
+            )
+          )
+        return row?.value ?? 0
+      },
     },
     members: {
       /** All Members of this Household (identity name/email is resolved separately via users_sync). */
