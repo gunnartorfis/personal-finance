@@ -857,6 +857,8 @@ export const savingsGoals = pgTable(
     householdId: uuid("household_id")
       .notNull()
       .references(() => households.id, { onDelete: "cascade" }),
+    /** Optional display name for the goal (e.g. "Wedding", "New car") — chrome, never math. */
+    title: text("title"),
     /** Amount to accumulate by the target date, in whole billing-currency units. */
     target: integer("target").notNull(),
     /** The date the amount must be reached by. */
@@ -877,6 +879,11 @@ export const savingsGoals = pgTable(
     // Start cycle is a well-formed Statement-cycle key: YYYY-MM, month 01–12.
     check("savings_goals_start_cycle_format", sql`${t.startCycle} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
     check("savings_goals_currency_iso4217", sql`${t.currency} ~ '^[A-Z]{3}$'`),
+    // A set title is non-empty and capped at 60 chars; NULL (no title) is always allowed.
+    check(
+      "savings_goals_title_len",
+      sql`${t.title} is null or char_length(${t.title}) between 1 and 60`,
+    ),
     // The target date must fall after the start cycle begins — a goal cannot be already expired at
     // creation, which would drive cyclesRemaining <= 0 in the downstream savings math.
     check(

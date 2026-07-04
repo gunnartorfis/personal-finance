@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 
 interface SavingsGoal {
   id: string
+  title: string | null
   target: number
   targetDate: string
   startingSaved: number
@@ -25,6 +26,7 @@ interface SavingsGoal {
 export function SavingsGoalForm({ className }: { className?: string }) {
   const t = useTranslations("savings.goal")
   const [loading, setLoading] = useState(true)
+  const [title, setTitle] = useState("")
   const [target, setTarget] = useState("")
   const [targetDate, setTargetDate] = useState("")
   const [startingSaved, setStartingSaved] = useState("")
@@ -41,6 +43,7 @@ export function SavingsGoalForm({ className }: { className?: string }) {
         if (!res.ok) return
         const goal = (await res.json()) as SavingsGoal | null
         if (ignore || !goal) return
+        setTitle(goal.title ?? "")
         setTarget(String(goal.target))
         setTargetDate(goal.targetDate)
         setStartingSaved(String(goal.startingSaved))
@@ -65,6 +68,7 @@ export function SavingsGoalForm({ className }: { className?: string }) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          title: title.trim() === "" ? null : title.trim(),
           target: Number(target),
           targetDate,
           startingSaved: startingSaved === "" ? 0 : Number(startingSaved),
@@ -97,6 +101,23 @@ export function SavingsGoalForm({ className }: { className?: string }) {
       )}
     >
       <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <label htmlFor="goal-title" className="text-sm font-medium">
+            {t("title")}
+            <span className="ml-1.5 font-normal text-muted-foreground">
+              {t("titleOptional")}
+            </span>
+          </label>
+          <Input
+            id="goal-title"
+            name="title"
+            type="text"
+            maxLength={60}
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder={t("titlePlaceholder")}
+          />
+        </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="goal-target" className="text-sm font-medium">
             {t("target")}

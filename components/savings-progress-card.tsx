@@ -41,7 +41,14 @@ export function SavingsProgressCard({
         className="size-12"
       />
       <div className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <p className="truncate text-sm font-medium">{t("title")}</p>
+        <div className="flex min-w-0 flex-col">
+          {progress.title && (
+            <span className="text-xs text-muted-foreground">{t("title")}</span>
+          )}
+          <p className="truncate text-sm font-medium">
+            {progress.title ?? t("title")}
+          </p>
+        </div>
         <p className="text-sm tabular-nums">
           <span className="font-semibold">{format.format(progress.saved)}</span>{" "}
           <span className="text-muted-foreground">

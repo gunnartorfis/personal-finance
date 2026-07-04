@@ -56,7 +56,7 @@ describe("PUT /api/savings/goal", () => {
 
     const res = await PUT(putReq(goalBody));
     expect(res.status).toBe(200);
-    expect(upsert).toHaveBeenCalledWith({ ...goalBody, currency: "ISK" });
+    expect(upsert).toHaveBeenCalledWith({ ...goalBody, currency: "ISK", title: null });
     expect(record).toHaveBeenCalledWith({
       memberId: "m1",
       actorName: "Ada",

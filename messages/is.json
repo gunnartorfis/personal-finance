@@ -710,6 +710,9 @@
     "goal": {
       "loading": "Hleð markmiði…",
       "regionLabel": "Sparnaðarmarkmið",
+      "title": "Nafn markmiðs",
+      "titleOptional": "(valfrjálst)",
+      "titlePlaceholder": "t.d. Brúðkaup, Nýr bíll",
       "target": "Markmiðsupphæð",
       "targetPlaceholder": "t.d. 3000000",
       "targetDate": "Markmiðsdagsetning",

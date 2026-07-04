@@ -1,5 +1,5 @@
 {
-  "id": "c3943f19-0407-4b29-be76-a105f476dde4",
+  "id": "011173b7-a286-4388-b41d-25f1ed216c06",
   "prevId": "512a0e48-382b-4978-be35-22f4eded8053",
   "version": "7",
   "dialect": "postgresql",
@@ -1706,13 +1706,7 @@
           "name": "expense_type",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
-        },
-        "category_id": {
-          "name": "category_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "created_at": {
           "name": "created_at",
@@ -1722,29 +1716,7 @@
           "default": "now()"
         }
       },
-      "indexes": {
-        "overrides_household_category_idx": {
-          "name": "overrides_household_category_idx",
-          "columns": [
-            {
-              "expression": "household_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "category_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "overrides_household_id_households_id_fk": {
           "name": "overrides_household_id_households_id_fk",
@@ -1772,21 +1744,6 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "overrides_category_household_fk": {
-          "name": "overrides_category_household_fk",
-          "tableFrom": "overrides",
-          "tableTo": "categories",
-          "columnsFrom": [
-            "household_id",
-            "category_id"
-          ],
-          "columnsTo": [
-            "household_id",
-            "id"
-          ],
-          "onDelete": "no action",
           "onUpdate": "no action"
         },
         "overrides_member_household_fk": {
@@ -1819,11 +1776,7 @@
       "checkConstraints": {
         "overrides_expense_type_valid": {
           "name": "overrides_expense_type_valid",
-          "value": "\"overrides\".\"expense_type\" IS NULL OR \"overrides\".\"expense_type\" IN ('Fixed', 'Necessary', 'Nice to have', '')"
-        },
-        "overrides_at_least_one_axis": {
-          "name": "overrides_at_least_one_axis",
-          "value": "\"overrides\".\"expense_type\" IS NOT NULL OR \"overrides\".\"category_id\" IS NOT NULL"
+          "value": "\"overrides\".\"expense_type\" IN ('Fixed', 'Necessary', 'Nice to have', '')"
         }
       },
       "isRLSEnabled": false
@@ -1844,6 +1797,12 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "target": {
           "name": "target",
@@ -1928,6 +1887,10 @@
         "savings_goals_currency_iso4217": {
           "name": "savings_goals_currency_iso4217",
           "value": "\"savings_goals\".\"currency\" ~ '^[A-Z]{3}$'"
+        },
+        "savings_goals_title_len": {
+          "name": "savings_goals_title_len",
+          "value": "\"savings_goals\".\"title\" is null or char_length(\"savings_goals\".\"title\") between 1 and 60"
         },
         "savings_goals_target_after_start_cycle": {
           "name": "savings_goals_target_after_start_cycle",
