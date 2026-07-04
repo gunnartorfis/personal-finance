@@ -36,4 +36,18 @@ describe("RecurringSubscriptions", () => {
     // Committed monthly total is rendered (10,390 with grouping).
     expect(screen.getByText(/10[.,]390/)).toBeInTheDocument()
   })
+
+  it("uses the singular form for a subscription seen in exactly one month", () => {
+    render(
+      <RecurringSubscriptions
+        recurring={{
+          subscriptions: [{ merchant: "NEWSUB", monthlyAmount: 990, occurrences: 1, lastMonth: "2026-04" }],
+          committedMonthlyTotal: 990,
+        }}
+        currency="ISK"
+        locale="en"
+      />,
+    )
+    expect(screen.getByText("1 month")).toBeInTheDocument()
+  })
 })
