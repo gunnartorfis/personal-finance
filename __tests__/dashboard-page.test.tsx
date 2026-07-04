@@ -7,16 +7,22 @@ import en from "@/messages/en.json"
 
 // Mock the tenant guard (keeps Neon Auth / next/headers out of jsdom) and the data loader, so the
 // page test exercises pure assembly of the already-tested modules.
-const { requireHousehold, loadDashboardView, loadSavingsProgress, loadNetWorthPanel } = vi.hoisted(
-  () => ({
-    requireHousehold: vi.fn(),
-    loadDashboardView: vi.fn(),
-    loadSavingsProgress: vi.fn(),
-    loadNetWorthPanel: vi.fn(),
-  })
-)
+const {
+  requireHousehold,
+  loadDashboardView,
+  loadSavingsProgress,
+  loadNetWorthPanel,
+  loadBalanceChecks,
+} = vi.hoisted(() => ({
+  requireHousehold: vi.fn(),
+  loadDashboardView: vi.fn(),
+  loadSavingsProgress: vi.fn(),
+  loadNetWorthPanel: vi.fn(),
+  loadBalanceChecks: vi.fn(),
+}))
 vi.mock("@/lib/household/current", () => ({ requireHousehold }))
 vi.mock("@/lib/dashboard/dashboard-view", () => ({ loadDashboardView }))
+vi.mock("@/lib/dashboard/balance-check", () => ({ loadBalanceChecks }))
 vi.mock("@/lib/savings/assessment", () => ({ loadSavingsProgress }))
 vi.mock("@/lib/dashboard/net-worth", async (importOriginal) => ({
   // Keep computeRunwayMonths et al. real (the section imports them); only stub the loader.
@@ -119,6 +125,7 @@ describe("DashboardPage", () => {
     loadDashboardView.mockReset()
     loadSavingsProgress.mockReset()
     loadNetWorthPanel.mockReset()
+    loadBalanceChecks.mockReset()
     requireHousehold.mockResolvedValue({
       repo: {},
       plan: "Premium",
@@ -129,6 +136,8 @@ describe("DashboardPage", () => {
     loadSavingsProgress.mockResolvedValue(null)
     // No accounts by default, so the net-worth block stays hidden.
     loadNetWorthPanel.mockResolvedValue({ netWorth: null, accounts: [] })
+    // No balance drifts by default, so the balance-check card stays hidden.
+    loadBalanceChecks.mockResolvedValue([])
   })
 
   it("assembles the action band, hero, and the over-time modules in order", async () => {

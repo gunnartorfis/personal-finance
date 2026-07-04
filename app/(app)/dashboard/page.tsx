@@ -3,6 +3,7 @@ import { ActionBand } from "@/components/action-band"
 import { BiggestMovers } from "@/components/biggest-movers"
 import { CategoryMixModule } from "@/components/category-mix-module"
 import { FinancialHealthSection } from "@/components/financial-health-section"
+import { BalanceChecks } from "@/components/balance-checks"
 import { BudgetEnvelopes } from "@/components/budget-envelopes"
 import { NetWorthProjectionChart } from "@/components/net-worth-projection-chart"
 import { RecurringSubscriptions } from "@/components/recurring-subscriptions"
@@ -13,6 +14,7 @@ import { getTranslations } from "next-intl/server"
 import { ThisMonthHero } from "@/components/this-month-hero"
 import { TopMerchants } from "@/components/top-merchants"
 import { projectCashFlow } from "@/lib/dashboard/cash-flow"
+import { loadBalanceChecks } from "@/lib/dashboard/balance-check"
 import { currentCycleKey } from "@/lib/dashboard/cycle"
 import { loadDashboardView } from "@/lib/dashboard/dashboard-view"
 import { loadNetWorthPanel, projectNetWorth } from "@/lib/dashboard/net-worth"
@@ -37,10 +39,11 @@ export default async function DashboardPage() {
   const locale = await resolveRequestLocale()
   const t = await getTranslations("dashboard")
   const now = new Date()
-  const [view, savingsProgress, netWorthPanel] = await Promise.all([
+  const [view, savingsProgress, netWorthPanel, balanceChecks] = await Promise.all([
     loadDashboardView(repo, now, { plan }),
     loadSavingsProgress(repo, now),
     loadNetWorthPanel(repo),
+    loadBalanceChecks(repo),
   ])
 
   const hasMerchants = view.modules.topMerchants.length > 0
@@ -90,6 +93,8 @@ export default async function DashboardPage() {
         accounts={netWorthPanel.accounts}
         currency={billingCurrency}
       />
+
+      <BalanceChecks checks={balanceChecks} currency={billingCurrency} locale={locale} />
 
       {projection && (
         <NetWorthProjectionChart

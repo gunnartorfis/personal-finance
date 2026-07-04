@@ -35,6 +35,12 @@
       "remaining": "{amount} eftir",
       "over": "{amount} umfram"
     },
+    "balanceChecks": {
+      "title": "Stöðuathugun",
+      "subtitle": "Reikningar þar sem innfluttar færslur stemma ekki við skráða stöðu.",
+      "missing": "{amount} vantar — færslu gæti verið sleppt.",
+      "duplicate": "{amount} umfram — færsla gæti verið tvítekin."
+    },
     "recurring": {
       "title": "Áskriftir",
       "subtitle": "Endurteknar færslur sem við greindum.",
