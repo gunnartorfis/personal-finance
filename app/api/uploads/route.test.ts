@@ -9,12 +9,15 @@ vi.mock("@/lib/db", () => ({ getDb: () => getDb() }));
 const ingestUpload = vi.fn();
 vi.mock("@/lib/ingestion/upload", () => ({ ingestUpload: (...a: unknown[]) => ingestUpload(...a) }));
 
-const parseStatementCsv = vi.fn(() => [{ sourceRow: 0 }]);
+// Shared via vi.hoisted so both the mock factory (below) and the test body reference the SAME class
+// — required for the route's `err instanceof RowCapExceededError` check to match what a test throws.
+const { RowCapExceededError } = vi.hoisted(() => ({ RowCapExceededError: class extends Error {} }));
+const parseStatementCsv = vi.fn<() => unknown>(() => [{ sourceRow: 0 }]);
 const parseWithMapping = vi.fn(() => [{ sourceRow: 0 }]);
 vi.mock("@/lib/ingestion/parse-csv", () => ({
   parseStatementCsv: () => parseStatementCsv(),
   parseWithMapping: () => parseWithMapping(),
-  RowCapExceededError: class RowCapExceededError extends Error {},
+  RowCapExceededError,
 }));
 
 import { POST } from "./route";
@@ -77,6 +80,15 @@ describe("POST /api/uploads", () => {
     await POST(post({ file: csvFile(), accountId: ACCOUNT }));
     expect(parseStatementCsv).toHaveBeenCalledOnce();
     expect(parseWithMapping).not.toHaveBeenCalled();
+  });
+
+  it("returns 422 when the file exceeds the row cap", async () => {
+    parseStatementCsv.mockImplementationOnce(() => {
+      throw new RowCapExceededError("too many rows: 20001 exceeds the 20000 cap");
+    });
+    const res = await POST(post({ file: csvFile(), accountId: ACCOUNT }));
+    expect(res.status).toBe(422);
+    expect(ingestUpload).not.toHaveBeenCalled();
   });
 
   it("400s an invalid mapping payload before touching the DB", async () => {

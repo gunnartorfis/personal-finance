@@ -29,18 +29,18 @@ interface UploadResponse {
 }
 
 /**
- * A non-2xx upload, as either a translation key (mapped from the status/known statuses) or a raw
- * server message. The route returns `{ error }` for 400/413/422 (passed through as data — the API
- * owns that copy); 404 and 409 carry only a status, so map those by HTTP status to a catalog key.
- * Kept keyed (not pre-translated) so the alert re-translates on a locale change.
+ * A non-success upload outcome, as either a translation key (mapped from the status/known statuses)
+ * or a raw server message. The route returns `{ error }` for 400/413/422 (passed through as data —
+ * the API owns that copy); an already-imported file is a 200 with `status: "duplicate"` (ADR-0018)
+ * and an unknown account is a 404 with `status: "unknown-account"`, both mapped here to a catalog
+ * key. Kept keyed (not pre-translated) so the alert re-translates on a locale change.
  */
 type UploadError =
   | { key: "duplicate" | "unknownAccount" | "failed" }
   | { message: string }
 
 function uploadError(status: number, body: UploadResponse | null): UploadError {
-  if (status === 409 || body?.status === "duplicate")
-    return { key: "duplicate" }
+  if (body?.status === "duplicate") return { key: "duplicate" }
   if (status === 404 || body?.status === "unknown-account")
     return { key: "unknownAccount" }
   if (body?.error) return { message: body.error }
@@ -107,7 +107,7 @@ export function UploadForm({ className }: { className?: string }) {
       }
       if (data?.status === "created" && data.upload) {
         setUploadId(data.upload.id)
-        // Clear the form so a stray second click can't re-post the same file (→ 409 duplicate).
+        // Clear the form so a stray second click can't re-post the same file (a duplicate no-op).
         // Reset the account back to the default rather than blank so the picker-less single-account
         // flow stays submittable.
         setFile(null)
