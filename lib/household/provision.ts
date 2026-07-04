@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 
+import { seedCategoriesForHousehold } from "@/lib/categories/seed-household";
 import { isUniqueViolation } from "@/lib/db/errors";
 import { accounts, households, members } from "@/lib/db/schema";
 import type * as schema from "@/lib/db/schema";
@@ -46,6 +47,8 @@ export async function ensureHouseholdForUser(db: Db, authUserId: string): Promis
       await tx
         .insert(accounts)
         .values({ householdId: household.id, name: DEFAULT_ACCOUNT_NAME, isDefault: true });
+      // …and the curated Category taxonomy it can hide/extend (ADR-0020).
+      await seedCategoriesForHousehold(tx, household.id);
       return { householdId: household.id, memberId: member.id };
     });
   } catch (err) {

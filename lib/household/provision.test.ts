@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { accounts, households, members } from "@/lib/db/schema";
+import { accounts, categories, households, members } from "@/lib/db/schema";
 
 import { DEFAULT_ACCOUNT_NAME } from "./default-account";
 import { ensureHouseholdForUser } from "./provision";
@@ -61,5 +61,18 @@ describe("ensureHouseholdForUser", () => {
     expect(a.householdId).toBe(b.householdId);
     const all = await db.select().from(members).where(eq(members.authUserId, "race_user"));
     expect(all).toHaveLength(1);
+  });
+
+  it("seeds the curated Category taxonomy for a new household (ADR-0020)", async () => {
+    const { householdId } = await ensureHouseholdForUser(asDb(db), "stack_user_categories");
+    const rows = await db
+      .select()
+      .from(categories)
+      .where(eq(categories.householdId, householdId));
+    // 11 groups + 58 leaves, all seed rows.
+    expect(rows).toHaveLength(69);
+    expect(rows.filter((r) => r.parentId === null)).toHaveLength(11);
+    expect(rows.filter((r) => r.parentId !== null)).toHaveLength(58);
+    expect(rows.every((r) => r.isSeed)).toBe(true);
   });
 });
