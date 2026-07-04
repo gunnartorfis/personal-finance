@@ -6,6 +6,8 @@ import type * as schema from "@/lib/db/schema";
 import type { uploads } from "@/lib/db/schema";
 import { hashUpload, type UploadBytes } from "@/shared/upload-hash";
 
+import { detectAndLinkTransfers } from "@/lib/transactions/link-transfers";
+
 import { appendTransactions } from "./append";
 import type { ParsedRow } from "./parse-csv";
 
@@ -48,7 +50,7 @@ export async function ingestUpload(
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       const txRepo = householdRepo(tx as unknown as Db, householdId);
       const [upload] = await txRepo.uploads.create({
         accountId: input.accountId,
@@ -62,8 +64,21 @@ export async function ingestUpload(
         accountId: input.accountId,
         rows: input.rows,
       });
-      return { status: "created", upload, appended, duplicates };
+      return { status: "created" as const, upload, appended, duplicates };
     });
+
+    // Post-commit, best-effort: link any inter-account transfers now visible (issue #97). Runs after
+    // the transaction so markTransferPair's own transaction doesn't nest, and scans the full unlinked
+    // set so a freshly-imported leg pairs with an existing one (the other account's earlier import).
+    // The rows are already durably saved; a linking hiccup must never fail the import, so it's caught.
+    if (result.appended > 0) {
+      try {
+        await detectAndLinkTransfers(repo);
+      } catch {
+        // Detection is a re-runnable enrichment (the next import retries the same scan); swallow.
+      }
+    }
+    return result;
   } catch (err) {
     // A concurrent upload of the same file committed first; the rolled-back tx surfaces the
     // unique(household_id, file_hash) violation. Report it as a duplicate, not a 500.

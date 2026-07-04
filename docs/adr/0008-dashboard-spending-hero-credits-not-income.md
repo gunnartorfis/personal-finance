@@ -31,3 +31,6 @@ Difference to a true net (Monthly income − Spending, with transfer detection) 
 - Category totals can double-count in multi-account households (a card charge classified on the
   card, and the funding-account payment classified again) — an accepted, documented limitation
   until transfer detection ships.
+  - **Update (2026-07-04, #97):** transfer detection shipped — detected inter-account transfer legs
+    carry a `transfer_group_id` and are excluded from Money in, Spending, category totals, and the
+    largest-charge/movers baselines, so this double-count no longer occurs for detected pairs.

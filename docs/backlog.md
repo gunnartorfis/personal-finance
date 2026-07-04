@@ -260,6 +260,10 @@ a true net is not yet safe to compute on the dashboard.
 - [ ] **Wire Difference to real income** — once the savings **Monthly income** schema lands, offer a
   true dashboard net (Monthly income − Spending) instead of Money in − Spending. Needs transfer
   handling to avoid double-counting salary-bearing bank Accounts.
-- [ ] **Transfer detection** — recognise inter-account transfers and card-bill payments (a debit in
+- [x] **Transfer detection** — recognise inter-account transfers and card-bill payments (a debit in
   the funding Account matched to a credit on the card) and exclude them from Money in, Spending,
-  category totals, and anomaly baselines. New Transfer concept (type/flag) + matching logic.
+  category totals, and anomaly baselines. Shipped (#97): a `transfer_group_id` links the two legs
+  (`lib/db/schema.ts`), the pure matcher is `detectTransferPairs` (`lib/transactions/detect-transfers.ts`),
+  `detectAndLinkTransfers` runs after each CSV import (`lib/transactions/link-transfers.ts`,
+  `lib/ingestion/upload.ts`) and scanning the full unlinked set backfills history on the next import,
+  and every spend/income aggregation filters `transfer_group_id IS NULL` (`lib/db/household-repo.ts`).
