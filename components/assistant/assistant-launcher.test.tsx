@@ -39,13 +39,14 @@ describe("AssistantLauncher", () => {
     ).not.toBeInTheDocument()
   })
 
-  it("opens the drawer (with the chat) when the trigger is clicked", () => {
+  it("opens the drawer (with the chat) when the trigger is clicked", async () => {
     renderWithIntl(<AssistantLauncher />)
     fireEvent.click(screen.getByRole("button", { name: "Ask the assistant" }))
     expect(
       screen.getByText("Ask about your household finances")
     ).toBeInTheDocument()
-    expect(screen.getByText("Ask your finances anything")).toBeInTheDocument()
+    // The chat's empty state appears once the plan-status probe resolves.
+    expect(await screen.findByText("Ask your finances anything")).toBeInTheDocument()
   })
 
   it("toggles the drawer with the ⌘K / Ctrl-K shortcut", () => {

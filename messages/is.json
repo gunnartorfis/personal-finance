@@ -787,6 +787,7 @@
     "placeholder": "Sláðu inn spurningu…",
     "send": "Senda",
     "you": "Þú",
+    "loading": "Hleð…",
     "empty": {
       "heading": "Spurðu um fjármálin þín",
       "hint": "Prófaðu eina af þessum:",

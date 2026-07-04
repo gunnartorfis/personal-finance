@@ -42,30 +42,30 @@ afterEach(() => {
 })
 
 describe("AssistantChat", () => {
-  it("shows the empty state with example prompts and the disclaimer", () => {
+  it("shows the empty state with example prompts and the disclaimer", async () => {
     renderWithIntl(<AssistantChat />)
-    expect(screen.getByText("Ask your finances anything")).toBeInTheDocument()
+    expect(await screen.findByText("Ask your finances anything")).toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: "Why was March higher?" })
     ).toBeInTheDocument()
     expect(screen.getByText(/not financial advice/i)).toBeInTheDocument()
   })
 
-  it("sends an example prompt when clicked", () => {
+  it("sends an example prompt when clicked", async () => {
     renderWithIntl(<AssistantChat />)
     fireEvent.click(
-      screen.getByRole("button", { name: "Top merchants this month" })
+      await screen.findByRole("button", { name: "Top merchants this month" })
     )
     expect(chat.sendMessage).toHaveBeenCalledWith({
       text: "Top merchants this month",
     })
   })
 
-  it("sends the typed question and clears the input", () => {
+  it("sends the typed question and clears the input", async () => {
     renderWithIntl(<AssistantChat />)
-    const input = screen.getByPlaceholderText(
+    const input = (await screen.findByPlaceholderText(
       "Ask a question…"
-    ) as HTMLInputElement
+    )) as HTMLInputElement
     fireEvent.change(input, { target: { value: "how much on groceries?" } })
     fireEvent.submit(input.closest("form")!)
     expect(chat.sendMessage).toHaveBeenCalledWith({
@@ -74,7 +74,7 @@ describe("AssistantChat", () => {
     expect(input.value).toBe("")
   })
 
-  it("renders user and assistant turns, attributing the user's", () => {
+  it("renders user and assistant turns, attributing the user's", async () => {
     chat.messages = [
       { id: "1", role: "user", parts: [{ type: "text", text: "why higher?" }] },
       {
@@ -84,22 +84,22 @@ describe("AssistantChat", () => {
       },
     ]
     renderWithIntl(<AssistantChat />)
-    expect(screen.getByText("why higher?")).toBeInTheDocument()
+    expect(await screen.findByText("why higher?")).toBeInTheDocument()
     expect(screen.getByText("Nice to have rose.")).toBeInTheDocument()
     expect(screen.getByText("You")).toBeInTheDocument()
   })
 
-  it("disables input and send while streaming", () => {
+  it("disables input and send while streaming", async () => {
     chat.status = "streaming"
     renderWithIntl(<AssistantChat />)
-    expect(screen.getByPlaceholderText("Ask a question…")).toBeDisabled()
+    expect(await screen.findByPlaceholderText("Ask a question…")).toBeDisabled()
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled()
   })
 
-  it("surfaces a generic error", () => {
+  it("surfaces a generic error", async () => {
     chat.error = new Error("boom")
     renderWithIntl(<AssistantChat />)
-    expect(screen.getByRole("alert")).toHaveTextContent(
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       "Something went wrong. Please try again."
     )
   })
