@@ -64,7 +64,12 @@ describe("BalanceEntryForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }))
     expect(await screen.findByRole("alert")).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    // The failed save runs in a transition that disables Cancel while pending; wait for it to settle
+    // (Cancel re-enabled) before clicking, or the click is a no-op and the form never closes.
+    const cancel = screen.getByRole("button", { name: "Cancel" })
+    await waitFor(() => expect(cancel).toBeEnabled())
+    fireEvent.click(cancel)
+
     fireEvent.click(screen.getByRole("button", { name: "Update balances" }))
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
   })

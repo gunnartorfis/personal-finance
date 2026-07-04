@@ -236,9 +236,9 @@ describe("drainPending", () => {
   describe("classification reuse (ADR-0012)", () => {
     it("reuses a merchant's fresh type within one run — one model call for N rows", async () => {
       const { repo, addTxn } = await setup();
-      await addTxn(-1990, "COSTCO");
-      const [second] = await addTxn(-2500, "COSTCO");
-      await addTxn(-3000, "COSTCO 045"); // normalizes to COSTCO — same reuse key
+      const [a] = await addTxn(-1990, "COSTCO");
+      const [b] = await addTxn(-2500, "COSTCO");
+      const [c] = await addTxn(-3000, "COSTCO 045"); // normalizes to COSTCO — same reuse key
       let calls = 0;
       const counting: Classifier = async () => {
         calls += 1;
@@ -249,10 +249,13 @@ describe("drainPending", () => {
 
       expect(calls).toBe(1); // one model call, the other two reused
       expect(result).toEqual({ classified: 3, failed: 0, capped: 0, reused: 2 });
-      const row = await repo.transactions.findById(second.id);
-      expect(row?.expenseType).toBe("Necessary");
-      expect(row?.reasoning).toBe(REUSED_REASON);
-      expect(row?.confidence).toBe(0.9); // carries the source confidence
+      // All three land on the same type; exactly two were reused (which specific row seeded the model
+      // call depends on pending order, which ties on created_at — so assert order-agnostically).
+      const rows = await Promise.all([a, b, c].map((t) => repo.transactions.findById(t.id)));
+      expect(rows.map((r) => r?.expenseType)).toEqual(["Necessary", "Necessary", "Necessary"]);
+      const reused = rows.filter((r) => r?.reasoning === REUSED_REASON);
+      expect(reused).toHaveLength(2);
+      expect(reused.every((r) => r?.confidence === 0.9)).toBe(true); // reuse carries source confidence
     });
 
     it("reuses a confident type across runs — no model call on the second run", async () => {
