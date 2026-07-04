@@ -1,3 +1,4 @@
+import type { HouseholdRepo } from "@/lib/db/household-repo";
 import { normalizeMerchant } from "@/shared/merchant-rules";
 
 /** One debit charge considered for recurring detection: its date, merchant, and charged amount. */
@@ -112,7 +113,31 @@ export function computeRecurringCharges(
     });
   }
 
-  subscriptions.sort((a, b) => b.monthlyAmount - a.monthlyAmount || a.merchant.localeCompare(b.merchant));
+  // Tie-break by a deterministic code-unit comparison (not localeCompare, which varies with the
+  // runtime locale for Icelandic letters like Þ/Ð/Á), matching buildTopMerchants.
+  subscriptions.sort(
+    (a, b) =>
+      b.monthlyAmount - a.monthlyAmount ||
+      (a.merchant < b.merchant ? -1 : a.merchant > b.merchant ? 1 : 0),
+  );
   const committedMonthlyTotal = subscriptions.reduce((sum, s) => sum + s.monthlyAmount, 0);
   return { subscriptions, committedMonthlyTotal };
+}
+
+/**
+ * Load and compute the recurring-charge summary for the Household over the window ending at `now`
+ * (default 6 calendar months). The DB read (debits only, excluding transfers/excluded/split rows)
+ * lives in the repo; the pure {@link computeRecurringCharges} does the detection. The fetched range
+ * spans the same `windowMonths` the pure function then filters to, keyed by calendar month (UTC).
+ */
+export async function loadRecurring(
+  repo: HouseholdRepo,
+  now: Date,
+  options: RecurringOptions = DEFAULT_RECURRING_OPTIONS,
+): Promise<RecurringSummary> {
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (options.windowMonths - 1), 1));
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  const range = { from: start.toISOString().slice(0, 10), to: end.toISOString().slice(0, 10) };
+  const rows = await repo.transactions.merchantCharges(range);
+  return computeRecurringCharges(rows, now, options);
 }
