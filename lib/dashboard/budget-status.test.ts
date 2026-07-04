@@ -16,6 +16,11 @@ describe("computeBudgetStatus", () => {
     expect(envelope.level).toBe("warning");
   });
 
+  it("treats spending exactly the budget as warning (not over), with zero remaining", () => {
+    const [envelope] = computeBudgetStatus({ Fixed: 10_000 }, { Fixed: 10_000 }).envelopes;
+    expect(envelope).toMatchObject({ level: "warning", remaining: 0, ratio: 1 });
+  });
+
   it("flags an over-budget envelope as over with negative remaining", () => {
     const [envelope] = computeBudgetStatus({ "Nice to have": 5_000 }, { "Nice to have": 7_000 }).envelopes;
     expect(envelope).toMatchObject({ level: "over", remaining: -2_000 });
