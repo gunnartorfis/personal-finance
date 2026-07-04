@@ -181,8 +181,10 @@ export const digestSends = pgTable(
     }).onDelete("cascade"),
     // At most one Digest per (Member, cycle) — the DB backstop that makes the cron idempotent.
     unique("digest_sends_member_cycle_key").on(t.memberId, t.cycleKey),
-    // `cycle_key` is a Statement-cycle key: four digits, a dash, two digits.
-    check("digest_sends_cycle_key_format", sql`${t.cycleKey} ~ '^[0-9]{4}-[0-9]{2}$'`),
+    // `cycle_key` is a Statement-cycle key `YYYY-MM`: four-digit year, a real month 01–12. A tight
+    // month range (not just `[0-9]{2}`) means a misbehaving cron can't insert a `2026-00`/`2026-13`
+    // row that would never match a real cycle and silently defeat the idempotency backstop.
+    check("digest_sends_cycle_key_format", sql`${t.cycleKey} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
   ],
 );
 

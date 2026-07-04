@@ -84,6 +84,14 @@ describe("digest schema", () => {
     ).rejects.toThrow();
   });
 
+  it.each(["2026-00", "2026-13", "2026-99"])(
+    "rejects a cycle key with an out-of-range month (%s)",
+    async (cycleKey) => {
+      const { householdId, memberId } = await seed(db, `digest-send-badmonth-${cycleKey}`);
+      await expect(db.insert(digestSends).values({ householdId, memberId, cycleKey })).rejects.toThrow();
+    },
+  );
+
   it("rejects a send whose Member belongs to another Household (composite tenant FK)", async () => {
     const a = await seed(db, "digest-tenant-a");
     const b = await seed(db, "digest-tenant-b");

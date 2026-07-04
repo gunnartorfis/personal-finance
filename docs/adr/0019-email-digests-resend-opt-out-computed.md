@@ -8,8 +8,8 @@ cycle** (Spending, Income (marked), expense-type split, top movers, and — when
 exists — On track / behind + next cycle's **Allowed nice-to-have**). It is sent by a monthly Vercel
 cron (the same `CRON_SECRET` Bearer pattern as `/api/billing/renew` and `/api/open-banking/sync`),
 for the previous calendar month, skipping any Household with no Transactions in that cycle, and
-deduped by an append-only sent-ledger keyed by (Household, cycle) so a retry or double-run can never
-double-send.
+deduped by an append-only sent-ledger keyed by (Member, cycle) so a retry or double-run can never
+double-send (one email per Member, so the key is per-Member, not per-Household).
 
 Four coupled choices:
 

@@ -5,7 +5,7 @@ CREATE TABLE "digest_sends" (
 	"cycle_key" text NOT NULL,
 	"sent_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "digest_sends_member_cycle_key" UNIQUE("member_id","cycle_key"),
-	CONSTRAINT "digest_sends_cycle_key_format" CHECK ("digest_sends"."cycle_key" ~ '^[0-9]{4}-[0-9]{2}$')
+	CONSTRAINT "digest_sends_cycle_key_format" CHECK ("digest_sends"."cycle_key" ~ '^[0-9]{4}-(0[1-9]|1[0-2])$')
 );
 --> statement-breakpoint
 ALTER TABLE "members" ADD COLUMN "digest_unsubscribed_at" timestamp with time zone;--> statement-breakpoint

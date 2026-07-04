@@ -1,5 +1,5 @@
 {
-  "id": "a4ba1858-c09a-41f5-aa02-b21d934fbed2",
+  "id": "f3bb20c2-2c89-48ea-9c52-5eb1aafab55b",
   "prevId": "53c87d74-3124-4585-bf33-f7fc939a1b44",
   "version": "7",
   "dialect": "postgresql",
@@ -1042,7 +1042,7 @@
       "checkConstraints": {
         "digest_sends_cycle_key_format": {
           "name": "digest_sends_cycle_key_format",
-          "value": "\"digest_sends\".\"cycle_key\" ~ '^[0-9]{4}-[0-9]{2}$'"
+          "value": "\"digest_sends\".\"cycle_key\" ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'"
         }
       },
       "isRLSEnabled": false
