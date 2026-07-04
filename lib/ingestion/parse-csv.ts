@@ -27,10 +27,21 @@ export interface ParsedRow {
 
 /**
  * Cap on emitted data rows. A year of daily card use is <2k rows; 20k is generous headroom, and
- * bounding here keeps one pathological upload from spiking memory/DB in a single insert. Thrown (like
- * the missing-columns case) so the upload route's existing catch maps it to 422.
+ * bounding here keeps one pathological upload from spiking memory/DB in a single insert.
  */
-const MAX_ROWS = 20_000;
+export const MAX_ROWS = 20_000;
+
+/**
+ * Thrown when a file's data rows exceed {@link MAX_ROWS}. A distinct type (rather than a bare Error)
+ * so callers can tell "too big" apart from "unparseable" and report it accurately instead of a
+ * generic parse failure.
+ */
+export class RowCapExceededError extends Error {
+  constructor(readonly count: number) {
+    super(`too many rows: ${count} exceeds the ${MAX_ROWS} cap`);
+    this.name = "RowCapExceededError";
+  }
+}
 
 /**
  * Cap on the free-text `merchant`/`rawCategory` cells. Truncated, not rejected — a legit statement
@@ -69,7 +80,7 @@ function rowsToParsed(rows: string[][], mapping: ColumnMapping, headerIndex = 0)
     });
   });
   if (out.length > MAX_ROWS) {
-    throw new Error(`too many rows: ${out.length} exceeds the ${MAX_ROWS} cap`);
+    throw new RowCapExceededError(out.length);
   }
   return out;
 }
@@ -92,6 +103,8 @@ export function parseWithMapping(text: string, mapping: ColumnMapping): ParsedRo
 export interface ParseAttempt {
   /** Index of the detected header row (0 when no full header was found). */
   headerIndex: number;
+  /** The detected header row's cells (empty for an empty file), e.g. for error messages. */
+  header: string[];
   /** Roles that resolved to a column. */
   detectedMapping: Partial<ColumnMapping>;
   /** Required roles with no matching column; empty when the mapping is complete. */
@@ -101,14 +114,15 @@ export interface ParseAttempt {
 }
 
 /**
- * Auto-detect the header + column mapping and, if complete, parse the data rows — without throwing.
- * The preview path (ADR-0018) uses this so an unmappable file yields `unmatchedRoles` for the UI
- * rather than an error. `parseStatementCsv` is the throwing wrapper used by the direct commit path.
+ * Auto-detect the header + column mapping and, if complete, parse the data rows — without throwing
+ * on an unmappable file (a `RowCapExceededError` for an oversized file still propagates). The
+ * preview path (ADR-0018) uses this so an unmappable file yields `unmatchedRoles` for the UI rather
+ * than an error. `parseStatementCsv` is the throwing wrapper used by the direct commit path.
  */
 export function attemptParse(text: string): ParseAttempt {
   const rows = Papa.parse<string[]>(text, { skipEmptyLines: false }).data;
   if (rows.length === 0) {
-    return { headerIndex: 0, detectedMapping: {}, unmatchedRoles: [], rows: [] };
+    return { headerIndex: 0, header: [], detectedMapping: {}, unmatchedRoles: [], rows: [] };
   }
   // Locate the header row first (bank exports often carry preamble lines — account no., statement
   // period, blanks — above it); findHeaderRow also returns the auto-detected date/amount/merchant/
@@ -119,14 +133,18 @@ export function attemptParse(text: string): ParseAttempt {
   } = findHeaderRow(rows);
   const parsed =
     unmatched.length === 0 ? rowsToParsed(rows, resolved as ColumnMapping, headerIndex) : [];
-  return { headerIndex, detectedMapping: resolved, unmatchedRoles: unmatched, rows: parsed };
+  return {
+    headerIndex,
+    header: rows[headerIndex] ?? [],
+    detectedMapping: resolved,
+    unmatchedRoles: unmatched,
+    rows: parsed,
+  };
 }
 
 export function parseStatementCsv(text: string): ParsedRow[] {
-  const { headerIndex, unmatchedRoles, rows } = attemptParse(text);
+  const { header, unmatchedRoles, rows } = attemptParse(text);
   if (unmatchedRoles.length > 0) {
-    // Re-parse just the header cells for the message; cheap and keeps attemptParse allocation-free.
-    const header = Papa.parse<string[]>(text, { skipEmptyLines: false }).data[headerIndex] ?? [];
     throw new Error(
       `missing required columns: ${unmatchedRoles.join(", ")} (header: ${header.join(", ")})`,
     );

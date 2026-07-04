@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { householdRepo } from "@/lib/db/household-repo";
 import { households } from "@/lib/db/schema";
 
+import { RowCapExceededError } from "./parse-csv";
 import { ingestUpload } from "./upload";
 import { previewUpload } from "./preview";
 
@@ -98,6 +99,14 @@ describe("previewUpload", () => {
     expect(preview.status).toBe("ok");
     if (preview.status !== "ok") return;
     expect(preview.wholeFileDuplicate).toBe(true);
+  });
+
+  it("throws a typed RowCapExceededError for a file past the row cap (route maps it distinctly)", async () => {
+    const { householdId, accountId } = await setup();
+    const body = Array.from({ length: 20_001 }, () => "01.03.2026,SHOP,Verslun,-100 kr.").join("\n");
+    await expect(
+      previewUpload(asDb(db), householdId, { accountId, bytes: bytes(csv(body)) }),
+    ).rejects.toBeInstanceOf(RowCapExceededError);
   });
 
   it("returns unknown-account for an account not in the household", async () => {

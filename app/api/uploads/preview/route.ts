@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { requireHousehold } from "@/lib/household/current";
 import { previewUpload } from "@/lib/ingestion/preview";
+import { RowCapExceededError } from "@/lib/ingestion/parse-csv";
 
 /** Upper bound on a single CSV upload; matches the commit route's limit. */
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -33,7 +34,11 @@ export async function POST(request: Request) {
   let preview;
   try {
     preview = await previewUpload(getDb(), householdId, { accountId, bytes });
-  } catch {
+  } catch (err) {
+    // A too-large file is a distinct, actionable condition — report it as such, not "unreadable".
+    if (err instanceof RowCapExceededError) {
+      return NextResponse.json({ error: err.message }, { status: 422 });
+    }
     return NextResponse.json({ error: "could not read CSV" }, { status: 422 });
   }
 
