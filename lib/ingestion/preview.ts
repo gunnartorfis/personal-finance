@@ -27,6 +27,8 @@ export type UploadPreview =
   | { status: "unknown-account" }
   | {
       status: "ok";
+      /** The file's detected header row labels — the columns the mapping's indices point at. */
+      header: string[];
       /** Roles that resolved to a column (may be partial when `unmatchedRoles` is non-empty). */
       detectedMapping: Partial<ColumnMapping>;
       /**
@@ -76,6 +78,7 @@ export async function previewUpload(
   if (resolved.unmatchedRoles.length > 0) {
     return {
       status: "ok",
+      header: resolved.header,
       detectedMapping: resolved.mapping,
       mappingSource: resolved.source,
       unmatchedRoles: resolved.unmatchedRoles,
@@ -99,6 +102,7 @@ export async function previewUpload(
 
   return {
     status: "ok",
+    header: resolved.header,
     detectedMapping: resolved.mapping,
     mappingSource: resolved.source,
     unmatchedRoles: [],

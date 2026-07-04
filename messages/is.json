@@ -294,10 +294,33 @@
     "fileHint": "Flyttu yfirlitið út sem CSV og veldu það hér.",
     "submit": "Hlaða upp",
     "submitting": "Hleð upp…",
+    "reviewing": "Les skrána þína…",
+    "preview": {
+      "reviewTitle": "Yfirfarðu fyrir innflutning",
+      "account": "Reikningur",
+      "newRows": "{count} nýjar",
+      "duplicateRows": "{count} þegar fluttar inn",
+      "wholeFileDuplicate": "Ekkert nýtt að flytja inn — allar færslur hér hafa þegar verið fluttar inn.",
+      "aiNote": "Við pöruðum þessa dálka sjálfkrafa — yfirfarðu þá áður en þú flytur inn.",
+      "unmatchedNote": "Við þekktum ekki alla dálka — paraðu þá hér að neðan.",
+      "mapHeading": "Paraðu dálkana",
+      "chooseColumn": "Veldu dálk…",
+      "roles": {
+        "date": "Dagsetning",
+        "amount": "Upphæð",
+        "merchant": "Færsluaðili",
+        "category": "Tegund"
+      },
+      "sampleHeading": "Forskoðun",
+      "confirm": "Staðfesta innflutning",
+      "cancel": "Hætta við",
+      "summary": "{added} bætt við, {skipped} sleppt"
+    },
     "errors": {
       "duplicate": "Þessi skrá hefur þegar verið flutt inn.",
       "unknownAccount": "Þessi reikningur er ekki lengur til.",
-      "failed": "Upphleðsla mistókst. Reyndu aftur."
+      "failed": "Upphleðsla mistókst. Reyndu aftur.",
+      "incompleteMapping": "Paraðu alla dálka áður en þú flytur inn."
     },
     "progress": {
       "label": "Framvinda flokkunar",
