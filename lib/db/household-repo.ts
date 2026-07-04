@@ -269,6 +269,20 @@ export function householdRepo(db: Db, householdId: string) {
               desc(accountBalances.asOf),
               desc(accountBalances.createdAt)
             ),
+        /**
+         * Every balance snapshot for the Household, grouped-friendly (by account, then oldest first) —
+         * the history a balance check (#98) walks to compare consecutive snapshots.
+         */
+        list: () =>
+          db
+            .select()
+            .from(accountBalances)
+            .where(eq(accountBalances.householdId, householdId))
+            .orderBy(
+              accountBalances.accountId,
+              asc(accountBalances.asOf),
+              asc(accountBalances.createdAt)
+            ),
       },
     },
     bankConnections: {
