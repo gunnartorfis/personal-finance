@@ -10,6 +10,19 @@ export type ColumnRole = "date" | "amount" | "merchant" | "category";
 /** The resolved 0-based column index for each required role. */
 export type ColumnMapping = Record<ColumnRole, number>;
 
+/**
+ * The outcome of a detection pass: the roles that resolved to a column, and the roles that had no
+ * matching column. A complete mapping has `unmatched` empty; a partial one names the gaps so the
+ * preview / AI-fallback layers (ADR-0018) know exactly what a human or the model must still supply.
+ */
+export interface ColumnMappingResult {
+  resolved: Partial<ColumnMapping>;
+  unmatched: ColumnRole[];
+}
+
+/** Roles resolved in this fixed order; alias sets are disjoint across roles. */
+const ROLES = ["date", "amount", "merchant", "category"] as const;
+
 const DIACRITICS: Record<string, string> = {
   á: "a", é: "e", í: "i", ó: "o", ú: "u", ý: "y", ð: "d", þ: "th", æ: "ae", ö: "o",
 };
@@ -46,19 +59,23 @@ function labelMatchesRole(label: string, role: ColumnRole): boolean {
 
 /**
  * Resolve each required role to a column index by alias/token matching, left-to-right, consuming
- * each column at most once. Returns `null` if any role has no matching column (the caller reports
- * the unmapped header). Roles are resolved in a fixed order; alias sets are disjoint across roles.
+ * each column at most once. Never fails: a role with no matching column is reported in `unmatched`
+ * (in role order) rather than aborting, so a partial header still yields what it can.
  */
-export function detectColumnMapping(header: ReadonlyArray<string>): ColumnMapping | null {
+export function detectColumnMapping(header: ReadonlyArray<string>): ColumnMappingResult {
   const used = new Set<number>();
-  const mapping: Partial<ColumnMapping> = {};
+  const resolved: Partial<ColumnMapping> = {};
+  const unmatched: ColumnRole[] = [];
 
-  for (const role of ["date", "amount", "merchant", "category"] as const) {
+  for (const role of ROLES) {
     const index = header.findIndex((label, i) => !used.has(i) && labelMatchesRole(label, role));
-    if (index === -1) return null;
+    if (index === -1) {
+      unmatched.push(role);
+      continue;
+    }
     used.add(index);
-    mapping[role] = index;
+    resolved[role] = index;
   }
 
-  return mapping as ColumnMapping;
+  return { resolved, unmatched };
 }
