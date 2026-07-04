@@ -1,8 +1,11 @@
 import { AccountView } from "@neondatabase/auth-ui"
 import { getTranslations } from "next-intl/server"
 
+import { DigestPreferenceToggle } from "@/components/digest-preference-toggle"
 import { HouseholdReset } from "@/components/household-reset"
-import { requireUser } from "@/lib/auth/session"
+import { getDb } from "@/lib/db"
+import { isDigestSubscribed } from "@/lib/digest/subscription"
+import { requireHousehold } from "@/lib/household/current"
 import { isHouseholdResetEnabled } from "@/lib/household/reset-availability"
 
 // Auth-scoped, per-request session UI: always render dynamically (no static prerender).
@@ -18,11 +21,13 @@ export const dynamic = "force-dynamic"
  * the household's transaction data is appended below the Neon Auth view.
  */
 export default async function AccountSettingsPage() {
-  await requireUser()
+  const { memberId } = await requireHousehold()
   const t = await getTranslations("dataExport")
+  const digestSubscribed = await isDigestSubscribed(getDb(), memberId)
   return (
     <div className="flex flex-col gap-6">
       <AccountView path="account" hideNav />
+      <DigestPreferenceToggle subscribed={digestSubscribed} />
       <section className="flex flex-col items-start gap-2 rounded-xl border border-border bg-card p-6">
         <h2 className="text-base font-medium">{t("title")}</h2>
         <p className="text-sm text-pretty text-muted-foreground">{t("description")}</p>

@@ -7,7 +7,7 @@ import { beforeAll, describe, expect, it } from "vitest"
 import * as schema from "@/lib/db/schema"
 import { households, members } from "@/lib/db/schema"
 
-import { setDigestSubscription } from "./subscription"
+import { isDigestSubscribed, setDigestSubscription } from "./subscription"
 
 function freshDb() {
   return drizzle(new PGlite(), { schema })
@@ -44,5 +44,12 @@ describe("setDigestSubscription", () => {
     await setDigestSubscription(asDb(db), memberId, false)
     await setDigestSubscription(asDb(db), memberId, true)
     expect(await unsubscribedAt(db, memberId)).toBeNull()
+  })
+
+  it("reports subscribed by default and reflects an unsubscribe", async () => {
+    const memberId = await seedMember(db, "sub-status")
+    expect(await isDigestSubscribed(asDb(db), memberId)).toBe(true)
+    await setDigestSubscription(asDb(db), memberId, false)
+    expect(await isDigestSubscribed(asDb(db), memberId)).toBe(false)
   })
 })

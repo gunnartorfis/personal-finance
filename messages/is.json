@@ -889,6 +889,10 @@
       "title": "Þú hefur afskráð þig",
       "body": "Þú færð ekki mánaðarlega yfirlitið lengur. Þú getur kveikt aftur á því í stillingunum.",
       "invalid": "Þessi afskráningarhlekkur er ógildur eða útrunninn."
+    },
+    "settings": {
+      "title": "Mánaðarleg yfirlit í tölvupósti",
+      "description": "Samantekt á útgjöldum og sparnaði hvers mánaðar, send í tölvupósti þegar mánuðinum lýkur."
     }
   }
 }
