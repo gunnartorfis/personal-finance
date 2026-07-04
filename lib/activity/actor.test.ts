@@ -21,4 +21,8 @@ describe("resolveActorName", () => {
     expect(resolveActorName({ name: null, email: null })).toBe("Unknown member");
     expect(resolveActorName({})).toBe("Unknown member");
   });
+
+  it("falls through to the constant when both name and email are only whitespace", () => {
+    expect(resolveActorName({ name: "   ", email: "  " })).toBe("Unknown member");
+  });
 });
