@@ -1,6 +1,8 @@
 import * as lucide from "lucide-react";
 import { describe, expect, it } from "vitest";
 
+import enMessages from "@/messages/en.json";
+import isMessages from "@/messages/is.json";
 import { TYPES } from "@/shared/types";
 
 import { CATEGORY_SEED, CATEGORY_SEED_LEAVES } from "./seed";
@@ -61,6 +63,15 @@ describe("CATEGORY_SEED (ADR-0020)", () => {
   it("uses slug-safe identifiers (lowercase kebab-case)", () => {
     for (const slug of ALL_SLUGS) {
       expect(slug, slug).toMatch(/^[a-z][a-z0-9-]*$/);
+    }
+  });
+
+  it("has en + is catalog entries for every group and leaf label key", () => {
+    const en = (enMessages as { categories?: Record<string, string> }).categories ?? {};
+    const is = (isMessages as { categories?: Record<string, string> }).categories ?? {};
+    for (const slug of ALL_SLUGS) {
+      expect(en[slug], `en.categories.${slug}`).toBeTruthy();
+      expect(is[slug], `is.categories.${slug}`).toBeTruthy();
     }
   });
 });
