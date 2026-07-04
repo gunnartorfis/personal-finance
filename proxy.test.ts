@@ -60,6 +60,11 @@ describe("CSRF cross-site rejection on mutating API requests", () => {
     expect((res as Response).status).toBe(403)
   })
 
+  it("rejects cross-site PATCH and DELETE requests too (whole MUTATING set)", () => {
+    expect((middleware(req("/api/accounts", "PATCH", "cross-site")) as Response).status).toBe(403)
+    expect((middleware(req("/api/accounts", "DELETE", "cross-site")) as Response).status).toBe(403)
+  })
+
   it("allows a same-origin mutating API request", () => {
     expect(middleware(req("/api/accounts", "POST", "same-origin"))).toBeUndefined()
   })

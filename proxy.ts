@@ -12,7 +12,10 @@ const authMiddleware = auth.middleware({ loginUrl: "/auth/sign-in" });
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 // Paths that legitimately receive non-browser mutating POSTs: the Straumur webhook (HMAC is its
-// trust boundary) and Neon Auth's own handler (manages its own flows).
+// trust boundary) and Neon Auth's own handler (manages its own flows). The trailing slash is
+// deliberate — these are prefixes for subpaths (`/api/webhooks/straumur`, `/api/auth/[...path]`).
+// If a future maintainer adds a root-level handler at exactly `/api/auth` or `/api/webhooks` (no
+// subpath), extend the pattern, or a cross-site POST to it would be 403'd.
 const CSRF_EXEMPT = [/^\/api\/webhooks\//, /^\/api\/auth\//];
 
 /**
