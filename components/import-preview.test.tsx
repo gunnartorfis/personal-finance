@@ -57,6 +57,17 @@ describe("ImportPreview", () => {
     expect(onConfirm).toHaveBeenCalledWith({ date: 0, merchant: 1, category: 2, amount: 3 })
   })
 
+  it("keeps confirm disabled when two roles point at the same column", async () => {
+    render(
+      <ImportPreview preview={base} accountName="Visa" busy={false} onConfirm={vi.fn()} onCancel={vi.fn()} />,
+    )
+    const confirm = screen.getByRole("button", { name: /confirm import/i })
+    expect(confirm).toBeEnabled()
+    // Point amount at the same column as date → no longer a valid (distinct) mapping.
+    await userEvent.selectOptions(screen.getByLabelText(/amount/i), "0")
+    expect(confirm).toBeDisabled()
+  })
+
   it("shows a 'nothing new' notice and no confirm for a whole-file duplicate", () => {
     const onCancel = vi.fn()
     render(

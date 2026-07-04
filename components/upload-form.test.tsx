@@ -16,14 +16,14 @@ const ACCOUNTS = [
   },
 ]
 
-/** A confident heuristic preview (auto-commits): all roles mapped, no duplicates. */
+/** A confident heuristic preview (auto-commits): all roles mapped to distinct columns, no dupes. */
 const OK_PREVIEW = {
   status: "ok",
-  header: ["Date", "Merchant", "Amount"],
-  detectedMapping: { date: 0, merchant: 1, amount: 2, category: 0 },
+  header: ["Date", "Merchant", "Category", "Amount"],
+  detectedMapping: { date: 0, merchant: 1, category: 2, amount: 3 },
   mappingSource: "heuristic",
   unmatchedRoles: [],
-  rows: [{ sourceRow: 0, date: "2026-01-01", amount: 100, merchant: "Cafe", rawCategory: "" }],
+  rows: [{ sourceRow: 0, date: "2026-01-01", amount: 100, merchant: "Cafe", rawCategory: "Food" }],
   newCount: 3,
   duplicateCount: 0,
   wholeFileDuplicate: false,
@@ -176,6 +176,18 @@ describe("UploadForm", () => {
     expect(await screen.findByText(/nothing new to import/i)).toBeInTheDocument()
     expect(uploadPost(fetchMock)).toBeUndefined()
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument()
+  })
+
+  it("stops on the preview (does not auto-commit) when the file adds no new rows", async () => {
+    const fetchMock = stubApi({
+      previewBody: { ...OK_PREVIEW, newCount: 0, duplicateCount: 0, rows: [] },
+    })
+    render(<UploadForm />)
+    await pickAndSubmit(ACCOUNTS[0].id)
+
+    // Confident mapping but nothing new → review panel, not a silent commit.
+    expect(await screen.findByRole("button", { name: /confirm import/i })).toBeInTheDocument()
+    expect(uploadPost(fetchMock)).toBeUndefined()
   })
 
   it("maps a 404 (deleted account) preview to the unknown-account message", async () => {

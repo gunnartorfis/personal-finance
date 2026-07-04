@@ -23,9 +23,14 @@ export interface UploadPreviewData {
 
 const ROLES: readonly ColumnRole[] = ["date", "amount", "merchant", "category"]
 
-/** True once every role is mapped to a column (index ≥ 0). */
+/** True once every role is mapped to a *distinct* column (index ≥ 0) — no two roles share a column. */
 function isComplete(draft: Partial<ColumnMapping>): draft is ColumnMapping {
-  return ROLES.every((role) => typeof draft[role] === "number" && (draft[role] as number) >= 0)
+  const allMapped = ROLES.every(
+    (role) => typeof draft[role] === "number" && (draft[role] as number) >= 0,
+  )
+  if (!allMapped) return false
+  const indices = ROLES.map((role) => draft[role] as number)
+  return new Set(indices).size === indices.length
 }
 
 /**

@@ -159,9 +159,10 @@ export function UploadForm({ className }: { className?: string }) {
       const data = await fetchPreview()
       if (!data) return
       // Interrupt only when unsure (ADR-0018): a confident mapping with new rows commits silently;
-      // anything needing a decision (AI-suggested/unmatched columns, or a whole-file duplicate) stops
-      // on the Import preview for the user to confirm or acknowledge.
+      // anything needing a decision (AI-suggested/unmatched columns, a whole-file duplicate, or a
+      // file with no new rows at all — e.g. header-only) stops on the Import preview to confirm.
       const confident =
+        data.newCount > 0 &&
         data.unmatchedRoles.length === 0 &&
         (data.mappingSource === "heuristic" || data.mappingSource === "remembered") &&
         !data.wholeFileDuplicate
