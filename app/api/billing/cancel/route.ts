@@ -1,6 +1,8 @@
 import { unstable_rethrow } from "next/navigation"
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { downgradeToFree } from "@/lib/billing/dunning"
 import { getDb } from "@/lib/db"
 import { requireHousehold } from "@/lib/household/current"
@@ -14,11 +16,18 @@ import { requireHousehold } from "@/lib/household/current"
  */
 export async function POST() {
   try {
-    const { householdId, plan } = await requireHousehold()
-    if (plan !== "Premium") {
+    const ctx = await requireHousehold()
+    if (ctx.plan !== "Premium") {
       return NextResponse.json({ cancelled: false })
     }
-    await downgradeToFree(getDb(), householdId)
+    await downgradeToFree(getDb(), ctx.householdId)
+    // Best-effort audit log — the downgrade is already committed, so a log failure must not turn
+    // a successful cancel into a 500 (which the outer catch would do).
+    try {
+      await recordActivity(ctx, ActivityAction.BillingCancelled)
+    } catch (logError) {
+      console.error("failed to record billing.cancelled activity", logError)
+    }
     return NextResponse.json({ cancelled: true })
   } catch (error) {
     unstable_rethrow(error)

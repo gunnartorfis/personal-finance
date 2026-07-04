@@ -30,9 +30,22 @@ function repoStub() {
 
 describe("GET /api/export", () => {
   it("returns a JSON attachment with the household's data and no bank tokens", async () => {
-    requireHousehold.mockResolvedValue({ householdId: "h1", repo: repoStub() })
+    const record = vi.fn().mockResolvedValue([])
+    const repo = repoStub() as ReturnType<typeof repoStub> & { activity: { record: typeof record } }
+    repo.activity = { record }
+    requireHousehold.mockResolvedValue({
+      householdId: "h1",
+      memberId: "m1",
+      user: { name: "Ada", email: "ada@x.is" },
+      repo,
+    })
 
     const res = await GET()
+    expect(record).toHaveBeenCalledWith({
+      memberId: "m1",
+      actorName: "Ada",
+      action: "data.exported",
+    })
     expect(res.headers.get("content-type")).toContain("application/json")
     expect(res.headers.get("content-disposition")).toContain("attachment")
     expect(res.headers.get("cache-control")).toContain("no-store")

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { requireHousehold } from "@/lib/household/current"
 import { getIngestionProvider } from "@/lib/open-banking/provider-factory"
 
@@ -18,7 +20,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "invalid connection id" }, { status: 400 })
   }
 
-  const { repo } = await requireHousehold()
+  const ctx = await requireHousehold()
+  const { repo } = ctx
   const connection = await repo.bankConnections.findById(id)
   if (!connection) {
     return NextResponse.json({ error: "connection not found" }, { status: 404 })
@@ -28,6 +31,19 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (!updated) {
     // The findById above makes this near-impossible, but guard a TOCTOU rather than crash on undefined.
     return NextResponse.json({ error: "connection not found" }, { status: 404 })
+  }
+
+  // Log only a real state change (a re-disconnect of an already-revoked connection is a no-op).
+  // Best-effort: the local revoke is already committed, so a log failure must not fail the request.
+  if (connection.status !== "revoked") {
+    try {
+      await recordActivity(ctx, ActivityAction.BankDisconnected, {
+        connectionId: id,
+        institutionName: connection.institutionName,
+      })
+    } catch (logError) {
+      console.error("failed to record bank.disconnected activity", logError)
+    }
   }
 
   // Best-effort: withdraw consent at the aggregator too (PSD2). A failure here — or a missing/

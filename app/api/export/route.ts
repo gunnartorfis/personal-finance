@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { requireHousehold } from "@/lib/household/current"
 import { buildHouseholdExport } from "@/lib/household/export"
 
@@ -12,7 +14,8 @@ export const dynamic = "force-dynamic"
  * stripped by {@link buildHouseholdExport}. 2FA and an audit log are separate, deferred parts of #107.
  */
 export async function GET() {
-  const { repo, householdId } = await requireHousehold()
+  const ctx = await requireHousehold()
+  const { repo, householdId } = ctx
   const [
     accounts,
     balances,
@@ -52,6 +55,14 @@ export async function GET() {
     savings: { goal, incomeSources, offcardCosts, oneOffAdjustments },
     budgets,
   })
+
+  // Best-effort audit log of the export (a privacy-relevant member action, #107). Must not block
+  // the download if the log write fails.
+  try {
+    await recordActivity(ctx, ActivityAction.DataExported)
+  } catch (logError) {
+    console.error("failed to record data.exported activity", logError)
+  }
 
   const body = JSON.stringify({ householdId, data }, null, 2)
   return new NextResponse(body, {

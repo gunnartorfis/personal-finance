@@ -33,6 +33,14 @@ export const ActivityAction = {
   SavingsConfigUpdated: "savings.config_updated",
   SavingsGoalUpdated: "savings.goal_updated",
   BudgetsUpdated: "budgets.updated",
+
+  // Billing, data export, bank connections. Only member-initiated MUTATIONS are logged: the
+  // subscription downgrade, the export download, and a bank disconnect. Checkout-start and
+  // connect-start open external (Straumur / SCA) flows and don't mutate household data; their
+  // completions land in the webhook/callback, which ADR-0017 excludes as system/external.
+  BillingCancelled: "billing.cancelled",
+  DataExported: "data.exported",
+  BankDisconnected: "bank.disconnected",
 } as const;
 
 export type ActivityAction = (typeof ActivityAction)[keyof typeof ActivityAction];

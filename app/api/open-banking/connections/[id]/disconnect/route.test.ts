@@ -14,20 +14,25 @@ const post = (id: string) =>
     params: Promise.resolve({ id }),
   })
 
+const record = vi.fn()
 const repo = {
   bankConnections: {
     findById: vi.fn(),
     update: vi.fn(),
   },
+  activity: { record },
 }
 
 const deleteSession = vi.fn()
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(requireHousehold).mockResolvedValue({ repo } as unknown as Awaited<
-    ReturnType<typeof requireHousehold>
-  >)
+  record.mockResolvedValue([])
+  vi.mocked(requireHousehold).mockResolvedValue({
+    repo,
+    memberId: "m1",
+    user: { name: "Ada", email: "ada@x.is" },
+  } as unknown as Awaited<ReturnType<typeof requireHousehold>>)
   deleteSession.mockResolvedValue(undefined)
   vi.mocked(getIngestionProvider).mockReturnValue({ deleteSession } as unknown as ReturnType<
     typeof getIngestionProvider
@@ -59,6 +64,7 @@ describe("POST /api/open-banking/connections/[id]/disconnect", () => {
     repo.bankConnections.findById.mockResolvedValue({
       id: VALID,
       status: "active",
+      institutionName: "LANDSBANKINN",
       providerConnectionId: "sess-42",
     })
     repo.bankConnections.update.mockResolvedValue([{ id: VALID, status: "revoked" }])
@@ -68,6 +74,26 @@ describe("POST /api/open-banking/connections/[id]/disconnect", () => {
     expect(await res.json()).toEqual({ id: VALID, status: "revoked" })
     expect(repo.bankConnections.update).toHaveBeenCalledWith(VALID, { status: "revoked" })
     expect(deleteSession).toHaveBeenCalledWith("sess-42")
+    expect(record).toHaveBeenCalledWith({
+      memberId: "m1",
+      actorName: "Ada",
+      action: "bank.disconnected",
+      payload: { connectionId: VALID, institutionName: "LANDSBANKINN" },
+    })
+  })
+
+  it("does not log when the connection was already revoked (no-op)", async () => {
+    repo.bankConnections.findById.mockResolvedValue({
+      id: VALID,
+      status: "revoked",
+      institutionName: "LANDSBANKINN",
+      providerConnectionId: "sess-42",
+    })
+    repo.bankConnections.update.mockResolvedValue([{ id: VALID, status: "revoked" }])
+
+    const res = await post(VALID)
+    expect(res.status).toBe(200)
+    expect(record).not.toHaveBeenCalled()
   })
 
   it("still succeeds when the aggregator revoke fails (best-effort)", async () => {
