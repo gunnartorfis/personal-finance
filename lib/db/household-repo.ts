@@ -628,6 +628,7 @@ export function householdRepo(db: Db, householdId: string) {
             confidence: transactions.confidence,
             reasoning: transactions.reasoning,
             overrideType: overrides.expenseType,
+            transferGroupId: transactions.transferGroupId,
           })
           .from(transactions)
           .leftJoin(
