@@ -39,7 +39,7 @@ A Column mapping a Household has confirmed before, replayed automatically the ne
 _Avoid_: Template, Saved mapping, Preset
 
 **Import preview**:
-The pre-commit view of what an Upload *would* do — the parsed rows, the chosen Account, the Column mapping, and how many rows are new vs. already imported — shown so a Member can confirm or fix the mapping before anything is written. Transient (nothing is persisted until commit); surfaced only when there is a real decision (an unmapped column, or a file that adds zero new rows), and skipped when the import is unambiguous.
+The pre-commit view of what an Upload *would* do — the parsed rows, the chosen Account, the Column mapping, and how many rows are new vs. already imported — shown so a Member can confirm or fix the mapping before anything is written. Transient (nothing is persisted until commit); surfaced only when there is a real decision — an unmapped column, a mapping that needed the AI fallback (AI involvement is itself the uncertainty signal, so it always stops for a human nod even when every role resolved), or a file that adds zero new rows — and skipped when the import is unambiguous (a heuristic-complete or **Remembered mapping** with new rows auto-commits).
 _Avoid_: Draft, Staged import (nothing is stored pre-commit), Dry run (internal term, not user-facing)
 
 **Transaction**:
