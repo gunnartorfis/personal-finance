@@ -92,7 +92,10 @@ export async function drainPending(
       })),
   );
   // Resolve classified Category slugs to this Household's leaf ids (ADR-0020); loaded once per drain.
+  // Both maps exclude hidden leaves, so neither the model path (slug) nor the rule path (stored id)
+  // can assign a Category the Household has hidden.
   const leafSlugToId = await repo.categories.leafSlugToId();
+  const visibleLeafIds = new Set(leafSlugToId.values());
   let classifiedCount = await repo.transactions.countClassified();
 
   let classified = 0;
@@ -115,11 +118,18 @@ export async function drainPending(
     const ruleMatch = applyMerchantRules(rules, { merchant: txn.merchant, amount: txn.amount });
     if (ruleMatch.matched) {
       // A deterministic Merchant rule wins over the model (precedence: Override > Merchant rule >
-      // Classification). Like credits it skips the model and is not gated by the Free cap.
+      // Classification). Like credits it skips the model and is not gated by the Free cap. The rule
+      // may also carry a Category (ADR-0020), applied here with full confidence — but only if it is
+      // still visible, so hiding a Category suppresses it on the rule path too (parity with the
+      // model path). A rule pointing at a since-hidden Category → Uncategorized.
+      const ruleCategoryId =
+        ruleMatch.categoryId && visibleLeafIds.has(ruleMatch.categoryId) ? ruleMatch.categoryId : null;
       const [row] = await repo.transactions.classify(txn.id, {
         expenseType: ruleMatch.type,
         confidence: 1,
         reasoning: MERCHANT_RULE_REASON,
+        categoryId: ruleCategoryId,
+        categoryConfidence: ruleCategoryId ? 1 : undefined,
       });
       if (row) {
         classified += 1;

@@ -719,11 +719,24 @@ export const merchantRules = pgTable(
     threshold: integer("threshold"),
     atOrAboveType: text("at_or_above_type"),
     belowType: text("below_type"),
+    /**
+     * Optional semantic Category leaf (ADR-0020) applied alongside the Expense type on a match.
+     * A single value regardless of the flat/split shape — a merchant's Category doesn't vary by
+     * amount, so there is no threshold-split form for the Category (unlike the Expense type). Null =
+     * the rule sets no Category (the row's Category still comes from Classification / Override).
+     */
+    categoryId: uuid("category_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     // One rule per normalized merchant per Household.
     unique("merchant_rules_household_id_merchant_key").on(t.householdId, t.merchant),
+    // The Category, when set, must be one of this Household's own (composite tenant FK, ADR-0020).
+    foreignKey({
+      columns: [t.householdId, t.categoryId],
+      foreignColumns: [categories.householdId, categories.id],
+      name: "merchant_rules_category_household_fk",
+    }),
     // Exactly one shape: flat (only flatType) XOR split (threshold + both branch types).
     check(
       "merchant_rules_one_shape",
