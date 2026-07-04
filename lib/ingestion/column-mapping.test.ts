@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { detectColumnMapping, findHeaderRow } from "./column-mapping";
+import { detectColumnMapping, findHeaderRow, parseColumnMappingJson } from "./column-mapping";
 
 // Slice 2 (ADR-0018): detectColumnMapping now returns { resolved, unmatched }
 // instead of `ColumnMapping | null`, so a partial match can name the roles that
@@ -112,5 +112,40 @@ describe("findHeaderRow", () => {
       ["01.03.2026", "AMOUNT DUE STORE", "DATE NIGHT CAFE", "-1 kr."],
     ];
     expect(findHeaderRow(rows).index).toBe(0);
+  });
+});
+
+describe("parseColumnMappingJson", () => {
+  it("parses a valid mapping with all four role indices", () => {
+    expect(parseColumnMappingJson('{"date":2,"amount":0,"merchant":1,"category":3}')).toEqual({
+      date: 2,
+      amount: 0,
+      merchant: 1,
+      category: 3,
+    });
+  });
+
+  it("ignores extra keys, keeping only the four roles", () => {
+    expect(
+      parseColumnMappingJson('{"date":0,"amount":1,"merchant":2,"category":3,"junk":9}'),
+    ).toEqual({ date: 0, amount: 1, merchant: 2, category: 3 });
+  });
+
+  it("throws when a role is missing", () => {
+    expect(() => parseColumnMappingJson('{"date":0,"amount":1,"merchant":2}')).toThrow(/category/);
+  });
+
+  it("throws when a role index is not a non-negative integer", () => {
+    expect(() => parseColumnMappingJson('{"date":0,"amount":-1,"merchant":2,"category":3}')).toThrow(
+      /amount/,
+    );
+    expect(() =>
+      parseColumnMappingJson('{"date":0,"amount":1.5,"merchant":2,"category":3}'),
+    ).toThrow(/amount/);
+  });
+
+  it("throws on non-object / invalid JSON", () => {
+    expect(() => parseColumnMappingJson("not json")).toThrow();
+    expect(() => parseColumnMappingJson("[]")).toThrow();
   });
 });
