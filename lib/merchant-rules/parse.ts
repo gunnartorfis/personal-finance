@@ -7,6 +7,9 @@ export type NewMerchantRule = Omit<typeof merchantRules.$inferInsert, "household
 
 export type ParseResult = { ok: true; value: NewMerchantRule } | { ok: false; error: string };
 
+/** Cap on a normalized merchant string; mirrors the ingest-time `MAX_FIELD_LENGTH` (parse-csv.ts). */
+const MAX_MERCHANT_LENGTH = 200;
+
 /**
  * Validate and normalize a merchant-rule create request (Phase F), mirroring the DB CHECK
  * constraints so a bad request is a clean 400 rather than a constraint violation. A rule is either
@@ -26,6 +29,11 @@ export function parseMerchantRuleInput(body: unknown): ParseResult {
   const merchant = normalizeMerchant(input.merchant);
   if (merchant === "") {
     return { ok: false, error: "merchant is empty" };
+  }
+  // Bounded so a rule can't store an unbounded string (mirrors the 200-char cap on ingested
+  // merchants); the merchant is what matching compares against.
+  if (merchant.length > MAX_MERCHANT_LENGTH) {
+    return { ok: false, error: "merchant too long" };
   }
 
   const hasFlat = input.flatType !== undefined;

@@ -44,4 +44,19 @@ describe("parseStatementCsv", () => {
       { sourceRow: 0, date: "2026-03-01", amount: -1990, merchant: "NETFLIX", rawCategory: "Afþreying" },
     ]);
   });
+
+  it("throws on a file whose emitted rows exceed the row cap", () => {
+    // 20_001 valid data rows — one past MAX_ROWS. Built programmatically, never a fixture file.
+    const body = Array.from({ length: 20_001 }, () => "01.03.2026,SHOP,Verslun,-100 kr.").join("\n");
+    const csv = `Dagsetning,Mótaðili,Tegund,Upphæð\n${body}`;
+    expect(() => parseStatementCsv(csv)).toThrow(/too many rows/);
+  });
+
+  it("truncates an over-long merchant cell to the field cap instead of rejecting the row", () => {
+    const bigMerchant = "A".repeat(10_000);
+    const csv = `Dagsetning,Mótaðili,Tegund,Upphæð\n01.03.2026,${bigMerchant},Verslun,-100 kr.`;
+    const rows = parseStatementCsv(csv);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].merchant).toHaveLength(200);
+  });
 });

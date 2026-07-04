@@ -28,6 +28,11 @@ describe("POST /api/accounts", () => {
     expect(requireHousehold).not.toHaveBeenCalled()
   })
 
+  it("400s a name longer than the cap before resolving the household", async () => {
+    expect((await POST(postReq({ name: "x".repeat(101) }))).status).toBe(400)
+    expect(requireHousehold).not.toHaveBeenCalled()
+  })
+
   it("creates a trimmed account and returns 201", async () => {
     const create = vi.fn().mockResolvedValue([{ id: "a1", name: "Visa" }])
     requireHousehold.mockResolvedValue({ repo: { accounts: { create } } })

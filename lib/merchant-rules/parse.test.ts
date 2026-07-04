@@ -31,6 +31,11 @@ describe("parseMerchantRuleInput", () => {
     });
   });
 
+  it("rejects a merchant longer than the cap", () => {
+    const result = parseMerchantRuleInput({ merchant: "a".repeat(201), flatType: "Fixed" });
+    expect(result).toEqual({ ok: false, error: "merchant too long" });
+  });
+
   it("rejects a body that mixes flat and split fields", () => {
     const result = parseMerchantRuleInput({ merchant: "X", flatType: "Fixed", threshold: 10 });
     expect(result.ok).toBe(false);
