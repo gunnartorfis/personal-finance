@@ -1,4 +1,5 @@
 import type { HouseholdRepo } from "@/lib/db/household-repo";
+import type { CycleAmounts } from "@/shared/income-timeline";
 import { isExpenseType } from "@/shared/types";
 import type { ExpenseType } from "@/shared/types";
 
@@ -16,15 +17,23 @@ export interface NetSummary {
   /**
    * Income for the cycle. From {@link computeNetSummary} this is the sum of credits manually marked
    * as income (amount > 0 and incomeMarked); the Transactions overview layers the cycle's configured
-   * Monthly income on top via {@link addConfiguredIncome} (ADR-0015), so the figure reflects the
+   * Monthly income on top via {@link addConfiguredAmounts} (ADR-0015), so the figure reflects the
    * Household's configured revenues even when no card credit is marked.
    */
   income: number;
-  /** Sum of expenses (amount <= 0); zero or negative. */
+  /**
+   * Sum of expenses (amount <= 0); zero or negative. From {@link computeNetSummary} this is card
+   * debits only; the Transactions overview folds the cycle's configured Off-card fixed costs in via
+   * {@link addConfiguredAmounts} (they land in the `Fixed` bucket, being fixed by nature), so the
+   * expense magnitude mirrors income in reflecting off-card configuration.
+   */
   expense: number;
   /** `income + expense`: positive is a profit, negative a loss. */
   net: number;
-  /** Expense totals (signed, <= 0) per effective expense type. */
+  /**
+   * Expense totals (signed, <= 0) per effective expense type. {@link addConfiguredAmounts} adds the
+   * configured Off-card fixed costs to `Fixed`, keeping `sum(byExpenseType) + unclassified === expense`.
+   */
   byExpenseType: Record<ExpenseType, number>;
   /** Expense total (signed, <= 0) for rows with no effective type yet (pending / failed). */
   unclassified: number;
@@ -85,18 +94,26 @@ export function computeNetSummary(rows: ReadonlyArray<NetSummaryRow>): NetSummar
 }
 
 /**
- * Layer the cycle's configured Monthly income (recurring Income-settings sources in force plus its
- * one-off income adjustments, ADR-0015) on top of a transaction-derived {@link NetSummary}: it adds
- * to both `income` and `net`, leaving the expense side untouched — so `income + expense === net`
- * still holds. Kept separate from {@link computeNetSummary} (which stays purely about card rows) so
- * only the surfaces that want the combined figure — the Transactions overview — opt in; the Savings
- * math, which reads configured income on its own path, must not (it would double-count).
+ * Layer a cycle's configured amounts (recurring Income-settings sources in force plus its one-off
+ * adjustments, ADR-0015) on top of a transaction-derived {@link NetSummary}: the Monthly income adds
+ * to `income`, and the Off-card fixed costs add to the expense side — into the `Fixed` bucket, being
+ * fixed costs by nature, so `sum(byExpenseType) + unclassified === expense` and `income + expense
+ * === net` both still hold. Kept separate from {@link computeNetSummary} (which stays purely about
+ * card rows) so only the surfaces that want the combined figures — the Transactions overview — opt
+ * in; the Savings math, which reads these on its own path, must not (it would double-count).
  */
-export function addConfiguredIncome(summary: NetSummary, configuredIncome: number): NetSummary {
+export function addConfiguredAmounts(summary: NetSummary, amounts: CycleAmounts): NetSummary {
+  const income = summary.income + amounts.monthlyIncome;
+  const expense = summary.expense - amounts.offCardFixed;
   return {
-    ...summary,
-    income: summary.income + configuredIncome,
-    net: summary.net + configuredIncome,
+    income,
+    expense,
+    net: income + expense,
+    byExpenseType: {
+      ...summary.byExpenseType,
+      Fixed: summary.byExpenseType.Fixed - amounts.offCardFixed,
+    },
+    unclassified: summary.unclassified,
   };
 }
 

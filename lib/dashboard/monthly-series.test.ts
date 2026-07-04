@@ -124,6 +124,42 @@ describe("loadMonthlySpendSeries", () => {
     ]);
   });
 
+  it("folds configured off-card fixed costs + one-off costs into each cycle's spending", async () => {
+    const repo = await freshHousehold();
+    const [account] = await repo.accounts.create({ name: "Visa" });
+    const [upload] = await repo.uploads.create({
+      accountId: account.id,
+      fileName: "s.csv",
+      fileHash: "s",
+    });
+    const base = { accountId: account.id, uploadId: upload.id, rawCategory: "" };
+    // One card debit in March — off-card costs stack on top of it.
+    await repo.transactions.create({
+      ...base,
+      date: "2026-03-02",
+      amount: -50,
+      merchant: "BUS",
+      sourceRow: 0,
+    });
+    // Rent rising from 300 to 400 effective 2026-03.
+    await repo.savings.offcardCosts.replace([
+      { name: "Rent", monthlyAmount: 300, effectiveFrom: "2026-01" },
+      { name: "Rent", monthlyAmount: 400, effectiveFrom: "2026-03" },
+    ]);
+    // A one-off bill lands only on February.
+    await repo.savings.oneOffAdjustments.replace([
+      { cycleKey: "2026-02", kind: "cost", amount: 25 },
+    ]);
+
+    const series = await loadMonthlySpendSeries(repo, NOW, 3);
+    expect(series).toEqual([
+      { month: "2026-01", spending: 300, income: 0, difference: -300 },
+      { month: "2026-02", spending: 325, income: 0, difference: -325 },
+      // 400 off-card rent + 50 card debit.
+      { month: "2026-03", spending: 450, income: 0, difference: -450 },
+    ]);
+  });
+
   it("never counts another household's transactions", async () => {
     const a = await freshHousehold();
     const b = await freshHousehold();
