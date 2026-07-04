@@ -46,5 +46,9 @@ export async function seedCategoriesForHousehold(db: Db, householdId: string): P
     }));
   });
 
-  await db.insert(categories).values(leafValues);
+  // Guard the empty case so the function is self-defensive if a group ever ships with no children
+  // (Postgres/Drizzle reject INSERT … VALUES with zero rows); the seed test also enforces ≥1 leaf.
+  if (leafValues.length > 0) {
+    await db.insert(categories).values(leafValues);
+  }
 }
