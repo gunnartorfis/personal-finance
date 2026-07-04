@@ -60,14 +60,20 @@ const styles = {
     color: colors.muted,
     margin: "24px 0 8px",
   } as CSSProperties,
-  row: {
-    display: "flex",
-    justifyContent: "space-between",
+  table: { width: "100%", borderCollapse: "collapse" } as CSSProperties,
+  cell: {
     padding: "8px 0",
     borderBottom: `1px solid ${colors.border}`,
     fontSize: "15px",
+    verticalAlign: "top",
   } as CSSProperties,
-  rowValue: { fontWeight: 600 } as CSSProperties,
+  cellValue: {
+    padding: "8px 0",
+    borderBottom: `1px solid ${colors.border}`,
+    fontSize: "15px",
+    fontWeight: 600,
+    verticalAlign: "top",
+  } as CSSProperties,
   savings: {
     margin: "24px 0 0",
     padding: "16px",
@@ -86,62 +92,67 @@ const styles = {
     textDecoration: "none",
   } as CSSProperties,
   footer: { color: colors.muted, fontSize: "12px", margin: "32px 0 0", lineHeight: 1.5 } as CSSProperties,
-  unsubscribe: { color: colors.muted } as CSSProperties,
-  preheader: {
-    display: "none",
-    maxHeight: 0,
-    overflow: "hidden",
-    opacity: 0,
-  } as CSSProperties,
+  muteLink: { color: colors.muted } as CSSProperties,
+  preheader: { display: "none", maxHeight: 0, overflow: "hidden", opacity: 0 } as CSSProperties,
 } satisfies Record<string, CSSProperties>
 
-function Row({ label, value }: DigestRow) {
+/**
+ * A two-column label/value table. Table-based (not flexbox) so Outlook's Word rendering engine keeps
+ * the value right-aligned beside its label instead of stacking them.
+ */
+function RowsTable({ rows }: { rows: { label: string; value: string }[] }) {
   return (
-    <div style={styles.row}>
-      <span>{label}</span>
-      <span style={styles.rowValue}>{value}</span>
-    </div>
+    <table role="presentation" width="100%" cellPadding={0} cellSpacing={0} style={styles.table}>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.label}>
+            <td style={styles.cell}>{r.label}</td>
+            <td align="right" style={styles.cellValue}>
+              {r.value}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }
 
 /**
  * The Monthly Digest email body (#102, ADR-0019). Pure and presentational: every string is
  * pre-localized and every number pre-formatted by {@link renderMonthlyDigestEmail}, so this file
- * carries no translation or Intl logic. Inline styles + a simple block layout keep it email-safe.
+ * carries no translation or Intl logic. Table-based, inline-styled layout for email-client safety
+ * (incl. Outlook), with a `<head>` charset so Icelandic characters survive older clients.
  */
 export function MonthlyDigestEmail(props: MonthlyDigestEmailProps) {
   return (
     <html lang={props.lang}>
+      {/* eslint-disable-next-line @next/next/no-head-element -- standalone email document, not a Next page; next/head is inapplicable */}
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="color-scheme" content="light" />
+      </head>
       <body style={styles.body}>
         <span style={styles.preheader}>{props.preheader}</span>
         <div style={styles.container}>
           <h1 style={styles.heading}>{props.heading}</h1>
           {props.vsLastMonth ? <p style={styles.muted}>{props.vsLastMonth}</p> : null}
 
-          {props.headline.map((r) => (
-            <Row key={r.label} label={r.label} value={r.value} />
-          ))}
+          <RowsTable rows={props.headline} />
 
           {props.split.length > 0 ? (
             <>
               <p style={styles.sectionTitle}>{props.splitHeading}</p>
-              {props.split.map((r) => (
-                <Row key={r.label} label={r.label} value={r.value} />
-              ))}
+              <RowsTable rows={props.split} />
             </>
           ) : null}
 
           {props.movers.length > 0 ? (
             <>
               <p style={styles.sectionTitle}>{props.moversHeading}</p>
-              {props.movers.map((m) => (
-                <div key={m.name} style={styles.row}>
-                  <span>{m.name}</span>
-                  <span style={styles.rowValue}>
-                    {m.amount} <span style={styles.unsubscribe}>({m.delta})</span>
-                  </span>
-                </div>
-              ))}
+              <RowsTable
+                rows={props.movers.map((m) => ({ label: m.name, value: `${m.amount} (${m.delta})` }))}
+              />
             </>
           ) : null}
 
@@ -161,7 +172,7 @@ export function MonthlyDigestEmail(props: MonthlyDigestEmailProps) {
           <p style={styles.footer}>
             {props.footer}
             <br />
-            <a href={props.unsubscribeUrl} style={styles.unsubscribe}>
+            <a href={props.unsubscribeUrl} style={styles.muteLink}>
               {props.unsubscribeLabel}
             </a>
           </p>

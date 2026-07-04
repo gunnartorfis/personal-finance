@@ -40,6 +40,18 @@ describe("renderMonthlyDigestEmail", () => {
     expect(renderMonthlyDigestEmail({ model: model(), locale: "en", ...urls }).html).toContain('lang="en-US"')
   })
 
+  it("declares a utf-8 charset so Icelandic characters survive older clients", () => {
+    const { html } = renderMonthlyDigestEmail({ model: model(), locale: "is", ...urls })
+    // Attribute names are case-insensitive in HTML; React emits `charSet`, clients read it as charset.
+    expect(html.toLowerCase()).toContain('charset="utf-8"')
+  })
+
+  it("lays out rows in tables, not flexbox (Outlook renders with the Word engine)", () => {
+    const { html } = renderMonthlyDigestEmail({ model: model(), locale: "en", ...urls })
+    expect(html).toContain("<table")
+    expect(html).not.toContain("flex")
+  })
+
   it("localizes the subject with the cycle month (en)", () => {
     const { subject } = renderMonthlyDigestEmail({ model: model(), locale: "en", ...urls })
     expect(subject).toContain("March 2026")
