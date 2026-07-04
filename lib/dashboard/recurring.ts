@@ -80,6 +80,11 @@ export function computeRecurringCharges(
 ): RecurringSummary {
   const window = new Set(recentMonthKeys(now, options.windowMonths));
 
+  // Group on the exact normalized merchant (store-number stripped). We deliberately do NOT apply the
+  // rules-engine's prefix/location merge here: real subscriptions (Netflix, Spotify, SaaS, gyms) post
+  // as stable card-on-file strings, whereas location suffixes (KRINGLAN, REYKJAVIK) mark physical POS
+  // merchants that aren't subscriptions — prefix-merging them would falsely fuse distinct merchants
+  // into a phantom "recurring" charge. Revisit with a location dictionary if real data shows splits.
   // normalized merchant -> (month key -> summed charge magnitude that month).
   const byMerchant = new Map<string, Map<string, number>>();
   for (const row of rows) {
