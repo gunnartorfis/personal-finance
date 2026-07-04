@@ -20,8 +20,11 @@ describe("security response headers", () => {
     expect(map.get("X-Content-Type-Options")).toBe("nosniff")
     expect(map.get("X-Frame-Options")).toBe("DENY")
     expect(map.get("Referrer-Policy")).toBe("strict-origin-when-cross-origin")
-    expect(map.get("Strict-Transport-Security")).toMatch(/max-age=\d+/)
+    // Pin the exact value: `/max-age=\d+/` would also pass `max-age=0`, which silently disables HSTS.
+    expect(map.get("Strict-Transport-Security")).toBe("max-age=2592000")
     expect(map.get("Permissions-Policy")).toContain("camera=()")
+    expect(map.get("Permissions-Policy")).toContain("microphone=()")
+    expect(map.get("Permissions-Policy")).toContain("geolocation=()")
   })
 
   it("ships the CSP as Report-Only with frame-ancestors 'none'", async () => {
