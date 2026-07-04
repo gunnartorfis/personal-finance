@@ -1,5 +1,5 @@
 import { fireEvent, screen } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { renderWithIntl } from "@/lib/test/render"
 
@@ -17,6 +17,15 @@ import { AssistantLauncher } from "./assistant-launcher"
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // The drawer mounts AssistantChat, which fetches /api/assistant/status on open.
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(new Response(JSON.stringify({ plan: "Premium" }), { status: 200 }))
+  )
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 describe("AssistantLauncher", () => {

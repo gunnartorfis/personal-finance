@@ -1,5 +1,5 @@
 import { fireEvent, screen } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { renderWithIntl } from "@/lib/test/render"
 
@@ -19,6 +19,14 @@ vi.mock("@ai-sdk/react", () => ({ useChat: () => chat }))
 
 import { AssistantChat, applyAssistantResponse, type ThreadRef } from "./assistant-chat"
 
+/** Stub the status fetch (component gates proactively on mount). Default: a Premium household. */
+function stubStatus(plan: "Premium" | "Free") {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(new Response(JSON.stringify({ plan }), { status: 200 }))
+  )
+}
+
 beforeEach(() => {
   chat = {
     messages: [],
@@ -26,6 +34,11 @@ beforeEach(() => {
     status: "ready",
     error: undefined,
   }
+  stubStatus("Premium")
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 describe("AssistantChat", () => {
@@ -89,6 +102,16 @@ describe("AssistantChat", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Something went wrong. Please try again."
     )
+  })
+
+  it("proactively shows the upgrade CTA for a Free household", async () => {
+    stubStatus("Free")
+    renderWithIntl(<AssistantChat />)
+    expect(
+      await screen.findByRole("link", { name: "See Premium" })
+    ).toHaveAttribute("href", "/settings/billing")
+    // The chat input is not rendered behind the gate.
+    expect(screen.queryByPlaceholderText("Ask a question…")).not.toBeInTheDocument()
   })
 })
 
