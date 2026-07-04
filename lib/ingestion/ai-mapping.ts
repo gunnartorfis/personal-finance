@@ -20,10 +20,10 @@ export const AI_MAPPING_MODEL = "anthropic/claude-sonnet-5";
 const ROLES: readonly ColumnRole[] = ["date", "amount", "merchant", "category"];
 
 const AiMappingSchema = z.object({
-  date: z.number().int(),
-  amount: z.number().int(),
-  merchant: z.number().int(),
-  category: z.number().int(),
+  date: z.number().int().min(0),
+  amount: z.number().int().min(0),
+  merchant: z.number().int().min(0),
+  category: z.number().int().min(0),
 });
 
 /**

@@ -31,8 +31,9 @@ export type UploadPreview =
       detectedMapping: Partial<ColumnMapping>;
       /**
        * How the mapping was resolved (ADR-0018): "heuristic" (auto, safe to auto-commit),
-       * "remembered" (replayed a confirmed mapping — the client should send it back on commit), or
-       * "none" (unresolved; `unmatchedRoles` is non-empty and the user must map the gaps).
+       * "remembered" (replayed a confirmed mapping — the client should send it back on commit), "ai"
+       * (a suggestion — always show for confirmation, never auto-commit), or "none" (unresolved;
+       * `unmatchedRoles` is non-empty and the user must map the gaps).
        */
       mappingSource: MappingSource;
       /** Required roles with no matching column; when non-empty the UI must resolve them. */
