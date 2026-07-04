@@ -285,7 +285,9 @@ export interface AcceptInviteInput {
  * add the signing-in user as a Member of the Invite's Household and mark the Invite accepted —
  * atomically. Works from either the link's raw token or an invite id surfaced on `/join`; the
  * **verified-email match is the authorization** in both cases (the token only proves link
- * possession), so accept-by-id is equally safe. Returns the joined `householdId`.
+ * possession), so accept-by-id is equally safe. Returns the joined `householdId`, the accepter's
+ * `memberId`, and `joined` — true only on a genuine fresh insert (false on an idempotent re-accept
+ * or the losing side of a parallel race), so the caller logs `invite.accepted` exactly once.
  *
  * One-Household rule (ADR-0010): a user already in the *same* Household is a no-op (idempotent). One
  * in a *different* Household must opt into a switch — with `confirmSwitch`, their current Household is
