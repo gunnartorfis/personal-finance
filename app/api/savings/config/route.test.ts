@@ -77,7 +77,11 @@ describe("PUT /api/savings/config", () => {
   });
 
   it("passes dated versions and one-off adjustments through to replaceConfig", async () => {
-    const replaceConfig = vi.fn().mockResolvedValue({});
+    const replaceConfig = vi.fn().mockResolvedValue({
+      incomeSources: [{ id: "s1" }],
+      offcardCosts: [],
+      oneOffAdjustments: [{ id: "o1" }],
+    });
     const record = vi.fn().mockResolvedValue([]);
     requireHousehold.mockResolvedValue({
       repo: { savings: { replaceConfig }, activity: { record } },

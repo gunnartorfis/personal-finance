@@ -35,10 +35,12 @@ export async function PUT(request: Request) {
     parsed.value.offcardCosts,
     parsed.value.oneOffAdjustments
   )
+  // Source the counts from what was actually persisted (not the input), so the log can't diverge
+  // from reality — consistent with the budgets route. A null one-off count means "left untouched".
   await recordActivity(ctx, ActivityAction.SavingsConfigUpdated, {
-    incomeSources: parsed.value.incomeSources.length,
-    offcardCosts: parsed.value.offcardCosts.length,
-    oneOffAdjustments: parsed.value.oneOffAdjustments?.length ?? null,
+    incomeSources: saved.incomeSources.length,
+    offcardCosts: saved.offcardCosts.length,
+    oneOffAdjustments: saved.oneOffAdjustments?.length ?? null,
   })
   return NextResponse.json(saved)
 }
