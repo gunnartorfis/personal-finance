@@ -16,7 +16,8 @@ import {
   cycleKeyRange,
   isValidCycleKey,
 } from "@/lib/dashboard/cycle"
-import { loadNetSummary } from "@/lib/dashboard/net-summary"
+import { loadConfiguredIncome } from "@/lib/dashboard/configured-income"
+import { addConfiguredIncome, loadNetSummary } from "@/lib/dashboard/net-summary"
 import { formatCycleMonth } from "@/lib/format/date"
 import { requireHousehold } from "@/lib/household/current"
 import { resolveRequestLocale } from "@/lib/i18n/locale"
@@ -73,10 +74,16 @@ export default async function TransactionsPage({
   const selected = cycle && isValidCycleKey(cycle) ? cycle : fallback
   const range = cycleKeyRange(selected)
 
-  const [rawRows, summary] = await Promise.all([
+  // The Income figure combines this cycle's card credits marked as income (ADR-0009) with the
+  // configured Monthly income in force that cycle (ADR-0015), so the overview reflects the
+  // Household's real revenues, not only marked card credits. `addConfiguredIncome` folds it into
+  // both income and net, keeping `income + expense === net`.
+  const [rawRows, baseSummary, configuredIncome] = await Promise.all([
     repo.transactions.listWithOverrides(range),
     loadNetSummary(repo, range),
+    loadConfiguredIncome(repo, selected),
   ])
+  const summary = addConfiguredIncome(baseSummary, configuredIncome)
 
   // Always offer the current month and the selected period even before either has data, so the
   // picker never hides where the user is (or the obvious "this month" landing spot). Keys sort

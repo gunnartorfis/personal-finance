@@ -8,7 +8,12 @@ import { households } from "@/lib/db/schema";
 
 import type { ExpenseType } from "@/shared/types";
 
-import { computeNetSummary, loadNetSummary, toEffectiveType } from "./net-summary";
+import {
+  addConfiguredIncome,
+  computeNetSummary,
+  loadNetSummary,
+  toEffectiveType,
+} from "./net-summary";
 
 describe("toEffectiveType", () => {
   it("passes through known expense types (including the empty not-bucketed type)", () => {
@@ -83,6 +88,31 @@ describe("computeNetSummary", () => {
     const bucketed = Object.values(summary.byExpenseType).reduce((a, b) => a + b, 0);
     expect(bucketed + summary.unclassified).toBe(summary.expense);
     expect(summary.income + summary.expense).toBe(summary.net);
+  });
+});
+
+describe("addConfiguredIncome", () => {
+  const base = computeNetSummary([
+    { amount: 1000, incomeMarked: true, effectiveType: "" },
+    { amount: -300, incomeMarked: false, effectiveType: "Fixed" },
+  ]);
+
+  it("adds configured income to both income and net, leaving the expense side untouched", () => {
+    const summary = addConfiguredIncome(base, 5000);
+    expect(summary.income).toBe(6000);
+    expect(summary.net).toBe(5700); // 6000 income - 300 expense
+    expect(summary.expense).toBe(-300);
+    expect(summary.byExpenseType).toEqual(base.byExpenseType);
+    expect(summary.unclassified).toBe(base.unclassified);
+  });
+
+  it("keeps the income + expense === net invariant", () => {
+    const summary = addConfiguredIncome(base, 5000);
+    expect(summary.income + summary.expense).toBe(summary.net);
+  });
+
+  it("is a no-op for zero configured income", () => {
+    expect(addConfiguredIncome(base, 0)).toEqual(base);
   });
 });
 

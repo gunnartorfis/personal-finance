@@ -1,6 +1,6 @@
 import type { HouseholdRepo } from "@/lib/db/household-repo";
-import { resolveCycleAmounts, timelinesByName } from "@/shared/income-timeline";
 
+import { loadConfiguredIncomeByCycle } from "./configured-income";
 import type { CycleKey } from "./cycle";
 import { cycleKeyRange, recentCycleKeys } from "./cycle";
 
@@ -74,24 +74,9 @@ export async function loadMonthlySpendSeries(
     from: cycleKeyRange(keys[0]).from,
     to: cycleKeyRange(keys[keys.length - 1]).to,
   };
-  const [rows, sources, oneOffs] = await Promise.all([
+  const [rows, configuredIncomeByMonth] = await Promise.all([
     repo.transactions.monthlySpendSeries(range),
-    repo.savings.incomeSources.list(),
-    repo.savings.oneOffAdjustments.list(),
+    loadConfiguredIncomeByCycle(repo, keys),
   ]);
-  const resolved = resolveCycleAmounts(
-    {
-      incomeSources: timelinesByName(sources, (s) => s.amount),
-      offcardCostSources: [],
-      incomeOneOffs: oneOffs
-        .filter((o) => o.kind === "income")
-        .map((o) => ({ cycleKey: o.cycleKey, amount: o.amount })),
-      costOneOffs: [],
-    },
-    keys,
-  );
-  const configuredIncomeByMonth = new Map(
-    keys.map((key) => [key, resolved.get(key)!.monthlyIncome]),
-  );
   return buildMonthlySpendSeries(rows, keys, configuredIncomeByMonth);
 }
