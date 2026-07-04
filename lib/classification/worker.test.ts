@@ -1,7 +1,7 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { householdRepo } from "@/lib/db/household-repo";
 import { households } from "@/lib/db/schema";
@@ -165,6 +165,24 @@ describe("drainPending", () => {
     const result = await drainPending(repo, boom, { plan: "Premium" });
     expect(result).toEqual({ classified: 0, failed: 1, capped: 0, reused: 0 });
     expect(await repo.transactions.listPending()).toHaveLength(0); // moved to failed
+  });
+
+  it("does not log merchant or amount (PII) when a classification fails", async () => {
+    const { repo, addTxn } = await setup();
+    await addTxn(-4242, "SECRET-MERCHANT");
+    const errs: string[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+      errs.push(args.map(String).join(" "));
+    });
+    const boom: Classifier = async () => {
+      throw new Error("model error");
+    };
+    await drainPending(repo, boom, { plan: "Premium" });
+    spy.mockRestore();
+    const joined = errs.join("\n");
+    expect(joined).toContain("[classify] failed"); // still surfaces the failure + txn id
+    expect(joined).not.toContain("SECRET-MERCHANT");
+    expect(joined).not.toContain("4242");
   });
 
   it("is resumable — a second drain does nothing once the queue is empty", async () => {

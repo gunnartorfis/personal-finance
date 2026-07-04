@@ -11,6 +11,12 @@ import { canUseBankSync } from "@/shared/bank-sync"
 
 const CONSENT_DAYS = 90
 
+/** Cap on the institution name we persist against the connect intent; bounded so it can't bloat a row. */
+const MAX_INSTITUTION_NAME_LENGTH = 200
+
+/** Enable Banking takes an ISO-3166 alpha-2 country; the UI sends e.g. "IS". */
+const COUNTRY_RE = /^[A-Z]{2}$/
+
 /**
  * Begin a bank connection (slice #113): start the aggregator's consent authorization and return the
  * bank redirect URL for the client to send the user to (eID / SCA). A random `state` is stored in an
@@ -23,9 +29,13 @@ export async function POST(request: Request) {
     country?: unknown
   } | null
   const institutionName = body?.institutionName
-  const country = body?.country
+  const country = typeof body?.country === "string" ? body.country.toUpperCase() : body?.country
   if (typeof institutionName !== "string" || typeof country !== "string") {
     return NextResponse.json({ error: "institutionName and country are required" }, { status: 400 })
+  }
+  // Bound the persisted name and require a well-formed 2-letter country before any provider/DB work.
+  if (institutionName.length > MAX_INSTITUTION_NAME_LENGTH || !COUNTRY_RE.test(country)) {
+    return NextResponse.json({ error: "invalid institutionName or country" }, { status: 400 })
   }
 
   // Bank auto-sync is Premium-only (#117); a Free household is told to upgrade before any provider
