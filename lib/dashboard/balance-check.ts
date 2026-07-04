@@ -29,7 +29,8 @@ export function computeBalanceCheck(input: {
   derived: number;
   tolerance?: number;
 }): BalanceCheck {
-  const tolerance = input.tolerance ?? 0;
+  // Clamp so a stray negative tolerance can't make an exact match report as a mismatch.
+  const tolerance = Math.max(0, input.tolerance ?? 0);
   const drift = input.expected - input.derived;
   return {
     expected: input.expected,

@@ -24,9 +24,15 @@ describe("computeBalanceCheck", () => {
     expect(check.matches).toBe(false);
   });
 
-  it("matches within an explicit tolerance", () => {
+  it("matches within an explicit tolerance, inclusive at the boundary", () => {
     expect(computeBalanceCheck({ expected: 100_000, derived: 99_950, tolerance: 100 }).matches).toBe(true);
+    // |drift| === tolerance is inclusive.
+    expect(computeBalanceCheck({ expected: 100_000, derived: 99_900, tolerance: 100 }).matches).toBe(true);
     expect(computeBalanceCheck({ expected: 100_000, derived: 99_800, tolerance: 100 }).matches).toBe(false);
+  });
+
+  it("clamps a negative tolerance to an exact check", () => {
+    expect(computeBalanceCheck({ expected: 100_000, derived: 100_000, tolerance: -1 }).matches).toBe(true);
   });
 
   it("defaults to an exact (zero-tolerance) check", () => {
