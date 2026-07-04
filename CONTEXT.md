@@ -31,7 +31,7 @@ One CSV import into a Household: the file, its column mapping, the importing Mem
 _Avoid_: Import, Batch, Statement
 
 **Column mapping**:
-The assignment of a file's columns to the roles a Transaction needs — `date`, `amount`, `merchant`, and optional `category` — so an arbitrary bank export becomes an Upload's rows. Each role binds to exactly one column, and `amount` must be a single signed column (a file with separate debit/credit columns is unsupported in v1). A mapping is derived one of three ways, in precedence order: a **Remembered mapping**, then header heuristics, then an AI suggestion. A confident mapping (Remembered or heuristic-complete) auto-commits silently; only an uncertain one — an AI suggestion, or a column left unmatched — stops for a Member to confirm or correct first (see **Import preview**).
+The assignment of a file's columns to the roles a Transaction needs — `date`, `amount`, `merchant`, and optional `category` — so an arbitrary bank export becomes an Upload's rows. Each role binds to exactly one column, and `amount` must be a single signed column (a file with separate debit/credit columns is unsupported in v1). A mapping is derived one of three ways, in precedence order: a **Remembered mapping**, then header heuristics, then an AI suggestion. A confident mapping (Remembered or heuristic-complete) with new rows auto-commits silently; an uncertain one — an AI suggestion or a column left unmatched — or a file that adds zero new rows stops for a Member to confirm, correct, or acknowledge first (see **Import preview**).
 _Avoid_: Schema, Header map, Field mapping (drifts toward implementation)
 
 **Remembered mapping**:
