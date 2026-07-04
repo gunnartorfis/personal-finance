@@ -3,6 +3,7 @@ import type { ExpenseType } from "@/shared/types";
 
 import type { CycleKey } from "./cycle";
 import { cycleKeyRange, recentCycleKeys } from "./cycle";
+import type { MonthlySpendPoint } from "./monthly-series";
 import { emptyByExpenseType, toEffectiveType, type NetSummary } from "./net-summary";
 
 /**
@@ -51,6 +52,39 @@ export function buildCategoryTrend(
     }
   }
   return monthKeys.map((month) => points.get(month)!);
+}
+
+/**
+ * Fold each cycle's configured off-card fixed costs (ADR-0015) into its `Fixed` bucket, so a
+ * spending-by-type view built from the returned trend reconciles to the true total — card debits
+ * **plus** off-card fixed — rather than card debits alone. The off-card amount for a cycle is the
+ * gap between its total spend (`series.spending`, which already includes off-card fixed) and its
+ * card debits (the sum of the trend point's buckets), clamped at zero; a month missing from `series`
+ * contributes none. Pure and side-effect free. Every other consumer keeps reading the card-only
+ * `CategoryTrendPoint` (budgets, movers, the unclassified-nudge) — only the by-type spend view opts
+ * into this fold, mirroring {@link addConfiguredAmounts} for the {@link NetSummary} path.
+ */
+export function foldOffCardIntoFixed(
+  trend: ReadonlyArray<CategoryTrendPoint>,
+  series: ReadonlyArray<MonthlySpendPoint>,
+): CategoryTrendPoint[] {
+  const totalByMonth = new Map(series.map((point) => [point.month, point.spending]));
+  return trend.map((point) => {
+    const cardSpend =
+      point.byExpenseType.Fixed +
+      point.byExpenseType.Necessary +
+      point.byExpenseType["Nice to have"] +
+      point.byExpenseType[""] +
+      point.unclassified;
+    const offCardFixed = Math.max(0, (totalByMonth.get(point.month) ?? cardSpend) - cardSpend);
+    return {
+      ...point,
+      byExpenseType: {
+        ...point.byExpenseType,
+        Fixed: point.byExpenseType.Fixed + offCardFixed,
+      },
+    };
+  });
 }
 
 /**

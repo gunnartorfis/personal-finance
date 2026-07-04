@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest"
 import { CategoryMixModule } from "@/components/category-mix-module"
 import { renderWithIntl as render } from "@/lib/test/render"
 import type { CategoryTrendPoint } from "@/lib/dashboard/category-trend"
+import type { MonthlySpendPoint } from "@/lib/dashboard/monthly-series"
 
 function cat(
   month: string,
@@ -28,11 +29,19 @@ const TREND: CategoryTrendPoint[] = [
   cat("2026-03", { Fixed: 60000, "Nice to have": 40000 }), // current
 ]
 
+// Spend series whose totals equal each month's card debits, so no off-card fixed is folded in — the
+// baseline for tests that assert the card-only mix. (One test overrides this to exercise folding.)
+const SERIES: MonthlySpendPoint[] = [
+  { month: "2026-02", spending: 150000, income: 0, difference: -150000 },
+  { month: "2026-03", spending: 100000, income: 0, difference: -100000 },
+]
+
 describe("CategoryMixModule", () => {
   it("shows the current-period breakdown (reusing SpendingByType) and the mix-over-time labels", () => {
     render(
       <CategoryMixModule
         categoryTrend={TREND}
+        series={SERIES}
         currentMonth="2026-03"
         mostlyUnclassified={false}
         currency="ISK"
@@ -51,6 +60,7 @@ describe("CategoryMixModule", () => {
     render(
       <CategoryMixModule
         categoryTrend={TREND}
+        series={SERIES}
         currentMonth="2026-03"
         mostlyUnclassified={false}
         currency="ISK"
@@ -70,6 +80,7 @@ describe("CategoryMixModule", () => {
     render(
       <CategoryMixModule
         categoryTrend={TREND}
+        series={SERIES}
         currentMonth="2026-03"
         mostlyUnclassified={false}
         currency="ISK"
@@ -85,6 +96,7 @@ describe("CategoryMixModule", () => {
     render(
       <CategoryMixModule
         categoryTrend={TREND}
+        series={SERIES}
         currentMonth="2026-03"
         mostlyUnclassified
         currency="ISK"
@@ -98,6 +110,7 @@ describe("CategoryMixModule", () => {
     render(
       <CategoryMixModule
         categoryTrend={TREND}
+        series={SERIES}
         currentMonth="2026-03"
         mostlyUnclassified={false}
         currency="ISK"
@@ -106,5 +119,23 @@ describe("CategoryMixModule", () => {
     expect(
       screen.queryByRole("link", { name: /classify transactions/i })
     ).not.toBeInTheDocument()
+  })
+
+  it("folds each cycle's configured off-card fixed costs into Fixed from the spend series", () => {
+    render(
+      <CategoryMixModule
+        categoryTrend={TREND}
+        // 2026-03 total 150000 vs 100000 card debits -> 50000 off-card fixed folds into Fixed.
+        series={[
+          { month: "2026-02", spending: 150000, income: 0, difference: -150000 },
+          { month: "2026-03", spending: 150000, income: 20000, difference: -130000 },
+        ]}
+        currentMonth="2026-03"
+        mostlyUnclassified={false}
+        currency="ISK"
+      />
+    )
+    // Current-cycle Fixed = 60000 card + 50000 off-card = 110000 in the SpendingByType legend.
+    expect(screen.getByText(/110,000/)).toBeInTheDocument()
   })
 })

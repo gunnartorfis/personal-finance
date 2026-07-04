@@ -5,9 +5,11 @@ import { MixOverTimeChart } from "@/components/mix-over-time-chart"
 import { SpendingByType } from "@/components/spending-by-type"
 import {
   categoryPointToNetSummary,
+  foldOffCardIntoFixed,
   type CategoryTrendPoint,
 } from "@/lib/dashboard/category-trend"
 import type { CycleKey } from "@/lib/dashboard/cycle"
+import type { MonthlySpendPoint } from "@/lib/dashboard/monthly-series"
 import { cn } from "@/lib/utils"
 
 /**
@@ -18,20 +20,25 @@ import { cn } from "@/lib/utils"
  */
 export function CategoryMixModule({
   categoryTrend,
+  series,
   currentMonth,
   mostlyUnclassified,
   currency,
   className,
 }: {
   categoryTrend: CategoryTrendPoint[]
+  /** The spend series (card + off-card fixed per cycle) used to fold off-card costs into Fixed. */
+  series: MonthlySpendPoint[]
   currentMonth: CycleKey
   mostlyUnclassified: boolean
   currency: string
   className?: string
 }) {
   const t = useTranslations("charts.categoryMix")
-  const current =
-    categoryTrend.find((point) => point.month === currentMonth) ?? null
+  // Fold each cycle's configured off-card fixed costs into its Fixed bucket so both the current-cycle
+  // breakdown and the over-time strip reflect true total spend, not just card debits (ADR-0015).
+  const trend = foldOffCardIntoFixed(categoryTrend, series)
+  const current = trend.find((point) => point.month === currentMonth) ?? null
 
   return (
     <section
@@ -65,7 +72,7 @@ export function CategoryMixModule({
         />
       )}
 
-      <MixOverTimeChart categoryTrend={categoryTrend} currency={currency} />
+      <MixOverTimeChart categoryTrend={trend} currency={currency} />
     </section>
   )
 }
