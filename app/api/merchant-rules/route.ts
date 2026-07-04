@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { isUniqueViolation } from "@/lib/db/errors"
 import { requireHousehold } from "@/lib/household/current"
 import { parseMerchantRuleInput } from "@/lib/merchant-rules/parse"
@@ -22,11 +24,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error }, { status: 400 })
   }
 
-  const { repo } = await requireHousehold()
+  const ctx = await requireHousehold()
   try {
     // Create the rule and re-type existing matching rows atomically, so the rule takes effect
     // immediately (CONTEXT.md) and a crash can't leave rows un-retyped. Overrides are untouched.
-    const { rule } = await repo.merchantRules.createAndApply(parsed.value)
+    const { rule } = await ctx.repo.merchantRules.createAndApply(parsed.value)
+    await recordActivity(ctx, ActivityAction.MerchantRuleCreated, {
+      ruleId: rule.id,
+      merchant: rule.merchant,
+    })
     return NextResponse.json(rule, { status: 201 })
   } catch (error) {
     if (isUniqueViolation(error)) {

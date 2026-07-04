@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { requireHousehold } from "@/lib/household/current"
 
 /**
@@ -24,7 +26,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "name too long" }, { status: 400 })
   }
 
-  const { repo } = await requireHousehold()
-  const [account] = await repo.accounts.create({ name: name.trim() })
+  const ctx = await requireHousehold()
+  const [account] = await ctx.repo.accounts.create({ name: name.trim() })
+  if (account) {
+    await recordActivity(ctx, ActivityAction.AccountCreated, {
+      accountId: account.id,
+      name: account.name,
+    })
+  }
   return NextResponse.json(account, { status: 201 })
 }

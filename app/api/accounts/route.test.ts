@@ -33,13 +33,24 @@ describe("POST /api/accounts", () => {
     expect(requireHousehold).not.toHaveBeenCalled()
   })
 
-  it("creates a trimmed account and returns 201", async () => {
+  it("creates a trimmed account, logs it, and returns 201", async () => {
     const create = vi.fn().mockResolvedValue([{ id: "a1", name: "Visa" }])
-    requireHousehold.mockResolvedValue({ repo: { accounts: { create } } })
+    const record = vi.fn().mockResolvedValue([])
+    requireHousehold.mockResolvedValue({
+      repo: { accounts: { create }, activity: { record } },
+      memberId: "m1",
+      user: { name: "Ada", email: "a@x.is" },
+    })
 
     const res = await POST(postReq({ name: "  Visa  " }))
     expect(res.status).toBe(201)
     expect(create).toHaveBeenCalledWith({ name: "Visa" })
+    expect(record).toHaveBeenCalledWith({
+      memberId: "m1",
+      actorName: "Ada",
+      action: "account.created",
+      payload: { accountId: "a1", name: "Visa" },
+    })
     expect(await res.json()).toEqual({ id: "a1", name: "Visa" })
   })
 })

@@ -32,11 +32,22 @@ describe("POST /api/merchant-rules", () => {
     const createAndApply = vi
       .fn()
       .mockResolvedValue({ rule: { id: "r1", merchant: "NETFLIX", flatType: "Fixed" }, retyped: 3 })
-    requireHousehold.mockResolvedValue({ repo: { merchantRules: { createAndApply } } })
+    const record = vi.fn().mockResolvedValue([])
+    requireHousehold.mockResolvedValue({
+      repo: { merchantRules: { createAndApply }, activity: { record } },
+      memberId: "m1",
+      user: { name: "Ada", email: "a@x.is" },
+    })
 
     const res = await POST(postReq({ merchant: "  netflix ", flatType: "Fixed" }))
     expect(res.status).toBe(201)
     expect(createAndApply).toHaveBeenCalledWith({ merchant: "NETFLIX", flatType: "Fixed" })
+    expect(record).toHaveBeenCalledWith({
+      memberId: "m1",
+      actorName: "Ada",
+      action: "rule.created",
+      payload: { ruleId: "r1", merchant: "NETFLIX" },
+    })
     expect(await res.json()).toMatchObject({ id: "r1", merchant: "NETFLIX" })
   })
 
@@ -49,7 +60,12 @@ describe("POST /api/merchant-rules", () => {
       belowType: "Nice to have",
     }
     const createAndApply = vi.fn().mockResolvedValue({ rule, retyped: 0 })
-    requireHousehold.mockResolvedValue({ repo: { merchantRules: { createAndApply } } })
+    const record = vi.fn().mockResolvedValue([])
+    requireHousehold.mockResolvedValue({
+      repo: { merchantRules: { createAndApply }, activity: { record } },
+      memberId: "m1",
+      user: { name: "Ada", email: "a@x.is" },
+    })
 
     const res = await POST(
       postReq({
@@ -66,6 +82,9 @@ describe("POST /api/merchant-rules", () => {
       atOrAboveType: "Fixed",
       belowType: "Nice to have",
     })
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "rule.created", payload: { ruleId: "r2", merchant: "WORLD CLASS" } }),
+    )
   })
 
   it("409s a duplicate merchant", async () => {
