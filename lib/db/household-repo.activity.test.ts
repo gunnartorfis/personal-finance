@@ -4,7 +4,7 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { householdRepo } from "./household-repo";
-import { households } from "./schema";
+import { activityLog, households } from "./schema";
 
 let db: ReturnType<typeof drizzle>;
 
@@ -60,20 +60,54 @@ describe("householdRepo.activity", () => {
   });
 
   it("lists entries newest-first", async () => {
-    const { repo } = await freshHousehold();
-    await repo.activity.record({
-      memberId: A_MEMBER,
-      actorName: "Ada",
-      action: "first",
-      createdAt: new Date("2026-01-01T00:00:00Z"),
-    });
-    await repo.activity.record({
-      memberId: A_MEMBER,
-      actorName: "Ada",
-      action: "second",
-      createdAt: new Date("2026-02-01T00:00:00Z"),
-    });
+    const { repo, id } = await freshHousehold();
+    // Seed distinct timestamps via the low-level insert — record() intentionally does not accept
+    // createdAt (it is DB-stamped), so ordering is exercised with explicitly back-dated rows here.
+    await db.insert(activityLog).values([
+      {
+        householdId: id,
+        memberId: A_MEMBER,
+        actorName: "Ada",
+        action: "first",
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+      },
+      {
+        householdId: id,
+        memberId: A_MEMBER,
+        actorName: "Ada",
+        action: "second",
+        createdAt: new Date("2026-02-01T00:00:00Z"),
+      },
+    ]);
     const log = await repo.activity.list();
     expect(log.map((e) => e.action)).toEqual(["second", "first"]);
+  });
+
+  it("stamps createdAt itself (callers cannot supply it)", async () => {
+    const { repo } = await freshHousehold();
+    const before = Date.now();
+    const [entry] = await repo.activity.record({
+      memberId: A_MEMBER,
+      actorName: "Ada",
+      action: "data.reset",
+    });
+    // DB-stamped to ~now, never a caller-controlled value — the "when" is trustworthy.
+    expect(entry.createdAt.getTime()).toBeGreaterThanOrEqual(before - 1000);
+    expect(entry.createdAt.getTime()).toBeLessThanOrEqual(Date.now() + 1000);
+  });
+
+  it("does not persist the entry when the surrounding transaction rolls back", async () => {
+    const { repo } = await freshHousehold();
+    await expect(
+      db.transaction(async (tx) => {
+        await repo.activity.record(
+          { memberId: A_MEMBER, actorName: "Ada", action: "will.rollback" },
+          tx as unknown as Parameters<typeof householdRepo>[0],
+        );
+        throw new Error("boom");
+      }),
+    ).rejects.toThrow("boom");
+    const log = await repo.activity.list();
+    expect(log.find((e) => e.action === "will.rollback")).toBeUndefined();
   });
 });

@@ -1657,9 +1657,13 @@ export function householdRepo(db: Db, householdId: string) {
        * `actorName` snapshot), the intent `action`, and a `payload` of entity id(s) + summary —
        * never FKs to financial rows, which a data reset may delete. Accepts an optional `tx` so a
        * mutation and its log entry commit atomically (e.g. the data reset logs itself).
+       *
+       * `id` and `createdAt` are intentionally NOT accepted: the timestamp is stamped by the DB
+       * (`defaultNow()`) so a caller can never back-date or future-date an entry — the "when" is as
+       * trustworthy as the "who" (ADR-0017 Trust).
        */
       record: (
-        entry: Omit<typeof activityLog.$inferInsert, "householdId">,
+        entry: Omit<typeof activityLog.$inferInsert, "householdId" | "id" | "createdAt">,
         tx: DbOrTx = db,
       ) =>
         tx
