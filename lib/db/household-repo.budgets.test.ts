@@ -37,6 +37,13 @@ describe("category budgets repo", () => {
     expect((await a.budgets.list()).map((b) => b.expenseType)).toEqual(["Nice to have"]);
   });
 
+  it("clears all budgets when replaced with an empty list", async () => {
+    const { a } = await twoHouseholds();
+    await a.budgets.replace([{ expenseType: "Fixed", monthlyAmount: 100_000 }]);
+    await a.budgets.replace([]);
+    expect(await a.budgets.list()).toEqual([]);
+  });
+
   it("scopes budgets to the household", async () => {
     const { a, b } = await twoHouseholds();
     await a.budgets.replace([{ expenseType: "Fixed", monthlyAmount: 100_000 }]);
