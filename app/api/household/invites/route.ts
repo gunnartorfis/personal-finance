@@ -48,8 +48,14 @@ export async function POST(request: Request) {
     }
     throw error
   }
-  // Log outside the try/catch so a logging failure isn't mistaken for an invite error.
-  await recordActivity(ctx, ActivityAction.InviteCreated, { email, expiresAt })
+  // Best-effort audit log: the 201 below carries a ONE-TIME token that is never recoverable, so a
+  // failed log write must not turn into a 500 that loses it. (Other routes let a log failure surface
+  // as 500 because their result is re-queryable; an invite token is not.)
+  try {
+    await recordActivity(ctx, ActivityAction.InviteCreated, { email, expiresAt })
+  } catch (error) {
+    console.error("failed to record invite.created activity", error)
+  }
   // `token` is returned exactly once; the client turns it into `${origin}/join/${token}`.
   return NextResponse.json({ token: rawToken, path: `/join/${rawToken}`, expiresAt }, { status: 201 })
 }

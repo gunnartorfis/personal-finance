@@ -91,6 +91,20 @@ describe("POST /api/household/invites", () => {
     })
   })
 
+  it("still returns the one-time token (201) even if the audit log write fails", async () => {
+    const { ctx, record } = householdCtx()
+    record.mockRejectedValue(new Error("db blip"))
+    requireHousehold.mockResolvedValue(ctx)
+    createInvite.mockResolvedValue({ rawToken: "tok123", expiresAt: EXPIRES })
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    const res = await POST(postReq({ email: "invitee@x.is" }))
+    expect(res.status).toBe(201)
+    expect(await res.json()).toMatchObject({ token: "tok123", path: "/join/tok123" })
+    expect(consoleError).toHaveBeenCalled()
+    consoleError.mockRestore()
+  })
+
   it("maps an InviteError to its status and does not log", async () => {
     const { ctx, record } = householdCtx()
     requireHousehold.mockResolvedValue(ctx)
