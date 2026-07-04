@@ -29,6 +29,7 @@ import type { ExpenseType } from "@/shared/types"
 import {
   accountBalances,
   accounts,
+  activityLog,
   bankConnections,
   categoryBudgets,
   householdInvites,
@@ -1648,6 +1649,34 @@ export function householdRepo(db: Db, householdId: string) {
             )
           )
           .returning(),
+    },
+    activity: {
+      /**
+       * Append one entry to the Household's Activity log (ADR-0017). Append-only: there is
+       * deliberately no update/delete surface. Callers pass the actor (`memberId` + denormalized
+       * `actorName` snapshot), the intent `action`, and a `payload` of entity id(s) + summary —
+       * never FKs to financial rows, which a data reset may delete. Accepts an optional `tx` so a
+       * mutation and its log entry commit atomically (e.g. the data reset logs itself).
+       *
+       * `id` and `createdAt` are intentionally NOT accepted: the timestamp is stamped by the DB
+       * (`defaultNow()`) so a caller can never back-date or future-date an entry — the "when" is as
+       * trustworthy as the "who" (ADR-0017 Trust).
+       */
+      record: (
+        entry: Omit<typeof activityLog.$inferInsert, "householdId" | "id" | "createdAt">,
+        tx: DbOrTx = db,
+      ) =>
+        tx
+          .insert(activityLog)
+          .values({ ...entry, householdId })
+          .returning(),
+      /** This Household's whole log, newest first — every Member reads it (ADR-0017 transparency). */
+      list: () =>
+        db
+          .select()
+          .from(activityLog)
+          .where(eq(activityLog.householdId, householdId))
+          .orderBy(desc(activityLog.createdAt)),
     },
   }
 }
