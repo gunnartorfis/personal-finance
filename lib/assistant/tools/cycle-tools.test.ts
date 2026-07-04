@@ -4,7 +4,7 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { householdRepo } from "@/lib/db/household-repo";
-import { households } from "@/lib/db/schema";
+import { households, savingsIncomeSources, savingsOffcardCosts } from "@/lib/db/schema";
 
 import { compareCyclesTool } from "./compare-cycles";
 import { cycleSummaryTool } from "./cycle-summary";
@@ -49,6 +49,47 @@ async function seedContext(authUserId: string): Promise<AssistantToolContext> {
   for (let i = 0; i < rows.length; i++) {
     if (rows[i].amount < 0) await repo.transactions.classify(created[i].id, { expenseType: rows[i].type });
   }
+  return { repo, now: NOW };
+}
+
+/**
+ * A Household with configured off-card amounts (5000 income, 1500 off-card fixed) and March card
+ * spend of 3500 — so the folded figures should match the Transactions overview, not the raw card sum.
+ */
+async function seedConfigured(authUserId: string): Promise<AssistantToolContext> {
+  const [hh] = await db.insert(households).values({}).returning();
+  const repo = householdRepo(asRepoDb(db), hh.id);
+  const [acct] = await repo.accounts.create({ name: "Visa" });
+  const [up] = await repo.uploads.create({ accountId: acct.id, fileName: "s.csv", fileHash: authUserId });
+  const created = await repo.transactions.createMany([
+    { accountId: acct.id, uploadId: up.id, date: "2026-03-10", amount: -1500, merchant: "Netto", rawCategory: "", sourceRow: 0 },
+    { accountId: acct.id, uploadId: up.id, date: "2026-03-12", amount: -2000, merchant: "Kaffi", rawCategory: "", sourceRow: 1 },
+  ]);
+  await repo.transactions.classify(created[0].id, { expenseType: "Necessary" });
+  await repo.transactions.classify(created[1].id, { expenseType: "Nice to have" });
+  await db.insert(savingsIncomeSources).values({ householdId: hh.id, name: "Salary", amount: 5000 });
+  await db.insert(savingsOffcardCosts).values({ householdId: hh.id, name: "Rent", monthlyAmount: 1500 });
+  return { repo, now: NOW };
+}
+
+/**
+ * A Household with a debit explicitly bucketed as "" (not-bucketed): Feb Necessary 1000; March
+ * Necessary 1000 + a "" debit 800. The "" row is excluded from the merchant query but counts in the
+ * totals — the exact residual `unclassifiedDelta` exists to surface.
+ */
+async function seedUnclassified(authUserId: string): Promise<AssistantToolContext> {
+  const [hh] = await db.insert(households).values({}).returning();
+  const repo = householdRepo(asRepoDb(db), hh.id);
+  const [acct] = await repo.accounts.create({ name: "Visa" });
+  const [up] = await repo.uploads.create({ accountId: acct.id, fileName: "s.csv", fileHash: authUserId });
+  const created = await repo.transactions.createMany([
+    { accountId: acct.id, uploadId: up.id, date: "2026-02-10", amount: -1000, merchant: "Netto", rawCategory: "", sourceRow: 0 },
+    { accountId: acct.id, uploadId: up.id, date: "2026-03-10", amount: -1000, merchant: "Netto", rawCategory: "", sourceRow: 1 },
+    { accountId: acct.id, uploadId: up.id, date: "2026-03-15", amount: -800, merchant: "Mystery", rawCategory: "", sourceRow: 2 },
+  ]);
+  await repo.transactions.classify(created[0].id, { expenseType: "Necessary" });
+  await repo.transactions.classify(created[1].id, { expenseType: "Necessary" });
+  await repo.transactions.classify(created[2].id, { expenseType: "" });
   return { repo, now: NOW };
 }
 
@@ -110,6 +151,46 @@ describe("assistant cycle tools", () => {
     it("accepts an explicit baseline", async () => {
       const out = await compareCyclesTool.run(ctx, { cycle: "2026-03", baseline: "2026-02" });
       expect(out.baseline.key).toBe("2026-02");
+    });
+  });
+
+  describe("configured off-card amounts (ADR-0015) — matches the Transactions overview", () => {
+    let cfg: AssistantToolContext;
+    beforeAll(async () => {
+      cfg = await seedConfigured("configured");
+    });
+
+    it("getCycleSummary folds in configured income and off-card fixed costs", async () => {
+      const out = await cycleSummaryTool.run(cfg, { cycle: "2026-03" });
+      // card spend 3500 + 1500 off-card rent = 5000; income 0 marked + 5000 configured; difference 0.
+      expect(out).toMatchObject({ spending: 5000, income: 5000, difference: 0 });
+    });
+
+    it("spendByType folds off-card fixed costs into the Fixed bucket", async () => {
+      const out = await spendByTypeTool.run(cfg, { cycle: "2026-03" });
+      expect(out.byType).toEqual({ Fixed: 1500, Necessary: 1500, "Nice to have": 2000 });
+      expect(out.totalSpending).toBe(5000);
+    });
+  });
+
+  describe("unclassified residual", () => {
+    let un: AssistantToolContext;
+    beforeAll(async () => {
+      un = await seedUnclassified("unclassified");
+    });
+
+    it("spendByType surfaces not-bucketed spend separately from the buckets", async () => {
+      const out = await spendByTypeTool.run(un, { cycle: "2026-03" });
+      expect(out.byType).toEqual({ Fixed: 0, Necessary: 1000, "Nice to have": 0 });
+      expect(out.unclassified).toBe(800);
+      expect(out.totalSpending).toBe(1800);
+    });
+
+    it("compareCycles reports the unclassified delta the merchant risers can't explain", async () => {
+      const out = await compareCyclesTool.run(un, { cycle: "2026-03", baseline: "2026-02" });
+      expect(out.spendingDelta).toBe(800); // 1800 vs 1000
+      expect(out.unclassifiedDelta).toBe(800); // the "" row, absent from topRisers
+      expect(out.topRisers).toHaveLength(0); // Netto flat (1000→1000), Mystery excluded as not-bucketed
     });
   });
 });

@@ -1,7 +1,11 @@
-import { cycleKeyRange } from "@/lib/dashboard/cycle";
-import { loadNetSummary } from "@/lib/dashboard/net-summary";
-
-import { magnitude, optionalCycleSchema, resolveCycleKey, type OptionalCycleInput } from "./cycle-input";
+import {
+  loadCycleSummary,
+  magnitude,
+  optionalCycleSchema,
+  resolveCycleKey,
+  unclassifiedMagnitude,
+  type OptionalCycleInput,
+} from "./cycle-input";
 import type { AssistantTool } from "./types";
 
 /** A cycle's spend split across the real expense-type buckets, as positive magnitudes. */
@@ -23,17 +27,18 @@ export const spendByTypeTool: AssistantTool<OptionalCycleInput, SpendByTypeResul
   inputSchema: optionalCycleSchema,
   async run(ctx, input) {
     const cycle = resolveCycleKey(ctx, input.cycle);
-    const summary = await loadNetSummary(ctx.repo, cycleKeyRange(cycle));
+    const summary = await loadCycleSummary(ctx, cycle);
     return {
       cycle,
       byType: {
+        // Fixed folds in configured Off-card fixed costs (ADR-0015), matching the Transactions view.
         Fixed: magnitude(summary.byExpenseType.Fixed),
         Necessary: magnitude(summary.byExpenseType.Necessary),
         "Nice to have": magnitude(summary.byExpenseType["Nice to have"]),
       },
       // The explicit "" bucket (not-bucketed) and rows with no effective type are both "not
       // categorized" to a reader, so surface them together.
-      unclassified: magnitude(summary.unclassified + summary.byExpenseType[""]),
+      unclassified: unclassifiedMagnitude(summary),
       totalSpending: magnitude(summary.expense),
     };
   },

@@ -1,15 +1,10 @@
 import { z } from "zod";
 
-import {
-  currentCycleKey,
-  cycleKeyLabel,
-  cycleKeyRange,
-  previousCycleKey,
-} from "@/lib/dashboard/cycle";
-import { loadNetSummary, type NetSummary } from "@/lib/dashboard/net-summary";
+import { currentCycleKey, cycleKeyLabel, cycleKeyRange, previousCycleKey } from "@/lib/dashboard/cycle";
+import type { NetSummary } from "@/lib/dashboard/net-summary";
 import { buildTopMerchants } from "@/lib/dashboard/top-merchants";
 
-import { cycleKeySchema, magnitude } from "./cycle-input";
+import { cycleKeySchema, loadCycleSummary, magnitude, unclassifiedMagnitude } from "./cycle-input";
 import type { AssistantTool, AssistantToolContext } from "./types";
 
 const compareCyclesSchema = z.object({
@@ -33,6 +28,12 @@ export interface CompareCyclesResult {
   /** cycle.spending − baseline.spending (positive = the cycle spent more). */
   spendingDelta: number;
   byTypeDelta: { Fixed: number; Necessary: number; "Nice to have": number };
+  /**
+   * Change in not-yet-bucketed card spend between the cycles. `topRisers` is built from merchant
+   * spend, which excludes these rows, so this surfaces the residual that risers can't explain (the
+   * rest of any gap is off-card fixed costs, visible in `byTypeDelta.Fixed`).
+   */
+  unclassifiedDelta: number;
   topRisers: MerchantRiser[];
 }
 
@@ -64,8 +65,8 @@ export const compareCyclesTool: AssistantTool<CompareCyclesInput, CompareCyclesR
     const baselineKey = input.baseline ?? previousCycleKey(cycleKey);
 
     const [cycleSummary, baselineSummary, cycleMerchants, baselineMerchants] = await Promise.all([
-      loadNetSummary(ctx.repo, cycleKeyRange(cycleKey)),
-      loadNetSummary(ctx.repo, cycleKeyRange(baselineKey)),
+      loadCycleSummary(ctx, cycleKey),
+      loadCycleSummary(ctx, baselineKey),
       merchantSpend(ctx, cycleKey),
       merchantSpend(ctx, baselineKey),
     ]);
@@ -93,6 +94,7 @@ export const compareCyclesTool: AssistantTool<CompareCyclesInput, CompareCyclesR
         "Nice to have":
           typeMagnitude(cycleSummary, "Nice to have") - typeMagnitude(baselineSummary, "Nice to have"),
       },
+      unclassifiedDelta: unclassifiedMagnitude(cycleSummary) - unclassifiedMagnitude(baselineSummary),
       topRisers,
     };
   },

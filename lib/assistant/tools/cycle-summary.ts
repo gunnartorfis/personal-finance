@@ -1,7 +1,12 @@
-import { cycleKeyLabel, cycleKeyRange } from "@/lib/dashboard/cycle";
-import { loadNetSummary } from "@/lib/dashboard/net-summary";
+import { cycleKeyLabel } from "@/lib/dashboard/cycle";
 
-import { magnitude, optionalCycleSchema, resolveCycleKey, type OptionalCycleInput } from "./cycle-input";
+import {
+  loadCycleSummary,
+  magnitude,
+  optionalCycleSchema,
+  resolveCycleKey,
+  type OptionalCycleInput,
+} from "./cycle-input";
 import type { AssistantTool } from "./types";
 
 /** Headline figures for one statement cycle. Amounts are in the household's billing currency. */
@@ -26,7 +31,7 @@ export const cycleSummaryTool: AssistantTool<OptionalCycleInput, CycleSummaryRes
   inputSchema: optionalCycleSchema,
   async run(ctx, input) {
     const cycle = resolveCycleKey(ctx, input.cycle);
-    const summary = await loadNetSummary(ctx.repo, cycleKeyRange(cycle));
+    const summary = await loadCycleSummary(ctx, cycle);
     return {
       cycle,
       label: cycleKeyLabel(cycle),

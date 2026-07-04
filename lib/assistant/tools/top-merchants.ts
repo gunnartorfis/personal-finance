@@ -3,11 +3,10 @@ import { z } from "zod";
 import { cycleKeyRange } from "@/lib/dashboard/cycle";
 import { buildTopMerchants, type MerchantSpend } from "@/lib/dashboard/top-merchants";
 
-import { cycleKeySchema, resolveCycleKey } from "./cycle-input";
+import { optionalCycleSchema, resolveCycleKey } from "./cycle-input";
 import type { AssistantTool } from "./types";
 
-const topMerchantsSchema = z.object({
-  cycle: cycleKeySchema.optional(),
+const topMerchantsSchema = optionalCycleSchema.extend({
   limit: z.number().int().min(1).max(20).optional(),
 });
 type TopMerchantsInput = z.infer<typeof topMerchantsSchema>;
