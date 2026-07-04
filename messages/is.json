@@ -741,5 +741,10 @@
       "aria": "Tengja aftur {bank}",
       "error": "Tókst ekki að hefja endurtengingu — reyndu aftur."
     }
+  },
+  "dataExport": {
+    "title": "Sæktu gögnin þín",
+    "description": "Sæktu öll fjárhagsgögn heimilisins sem JSON-skrá.",
+    "download": "Sækja gögnin mín"
   }
 }
