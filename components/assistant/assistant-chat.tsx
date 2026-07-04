@@ -121,13 +121,20 @@ export function AssistantChat() {
   async function openThread(id: string) {
     // Never swap the message list mid-stream — it would splice the new tokens onto the old thread.
     if (busy) return
-    setShowHistory(false)
-    const response = await fetch(`/api/assistant/conversations/${id}`)
-    if (!response.ok) return
-    const data = (await response.json()) as { messages: Array<{ id: string; role: "user" | "assistant"; content: string }> }
-    setMessages(toUiMessages(data.messages))
-    setConversationId(id)
-    setGate(null)
+    try {
+      const response = await fetch(`/api/assistant/conversations/${id}`)
+      if (!response.ok) return
+      const data = (await response.json()) as {
+        messages: Array<{ id: string; role: "user" | "assistant"; content: string }>
+      }
+      setMessages(toUiMessages(data.messages))
+      setConversationId(id)
+      setGate(null)
+      // Close history only after a successful load, so a failure leaves the list up to retry.
+      setShowHistory(false)
+    } catch {
+      // Network / parse failure: keep the history panel open; the user can pick again.
+    }
   }
 
   /** Start a fresh conversation (the next send creates a new server thread). */

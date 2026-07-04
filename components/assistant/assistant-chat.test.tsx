@@ -156,6 +156,29 @@ describe("AssistantChat", () => {
     expect(chat.setMessages).toHaveBeenCalledWith([])
   })
 
+  it("keeps history open (no crash) when loading a thread fails", async () => {
+    const json = (body: unknown) => Promise.resolve(new Response(JSON.stringify(body), { status: 200 }))
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string | URL) => {
+        const u = String(url)
+        if (u.includes("/status")) return json({ plan: "Premium" })
+        if (/\/conversations\/[^/]+$/.test(u)) return Promise.reject(new Error("network down"))
+        if (u.includes("/conversations"))
+          return json({ conversations: [{ id: "c1", title: "March", updatedAt: "2026-03-15T00:00:00.000Z" }] })
+        return json({})
+      })
+    )
+    renderWithIntl(<AssistantChat />)
+    fireEvent.click(await screen.findByRole("button", { name: "History" }))
+    const item = await screen.findByRole("button", { name: "March" })
+    fireEvent.click(item)
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/assistant/conversations/c1"))
+    expect(chat.setMessages).not.toHaveBeenCalled()
+    // History stays open so the member can retry.
+    expect(screen.getByRole("button", { name: "March" })).toBeInTheDocument()
+  })
+
   it("disables the history controls while streaming (no mid-stream thread swap)", async () => {
     chat.status = "streaming"
     stubFetch({
