@@ -59,6 +59,27 @@ describe("loadRecurring", () => {
     expect(summary.committedMonthlyTotal).toBe(1_990);
   });
 
+  it("excludes a charge whose expense type is overridden to the split marker", async () => {
+    const repo = await freshHousehold();
+    const [acct] = await repo.accounts.create({ name: "Visa" });
+    const [up] = await repo.uploads.create({ accountId: acct.id, fileName: "o.csv", fileHash: "o" });
+    const rows = await repo.transactions.createMany(
+      ["2026-02-05", "2026-03-05", "2026-04-05"].map((date, i) => ({
+        accountId: acct.id,
+        uploadId: up.id,
+        date,
+        amount: -2_500,
+        merchant: "SPLITSUB",
+        rawCategory: "",
+        sourceRow: i,
+      })),
+    );
+    // Override one month to the "" split type — it must drop out, leaving only 2 occurrences.
+    await repo.overrides.create({ transactionId: rows[0].id, expenseType: "" });
+
+    expect(await loadRecurring(repo, NOW)).toEqual({ subscriptions: [], committedMonthlyTotal: 0 });
+  });
+
   it("never sees another household's charges", async () => {
     const a = await freshHousehold();
     const b = await freshHousehold();

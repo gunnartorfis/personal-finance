@@ -737,9 +737,10 @@ export function householdRepo(db: Db, householdId: string) {
        * `[from, to)` — the per-charge input to recurring/subscription detection (#100). Unlike
        * {@link monthlyMerchantSpend} this does not aggregate: the pure detector needs each charge to
        * judge monthly cadence and amount similarity. Credits, excluded rows, detected transfer legs,
-       * and the not-bucketed / split ("") type are excluded (so a split payment isn't mistaken for a
-       * subscription); pending rows (null type) are kept. Reads the Own share via `effectiveAmount`
-       * (ADR-0014). Scoped to the household.
+       * and the not-bucketed / split ("") effective type — `coalesce(override, classified)`, so a
+       * manual Override to "" counts too — are excluded (a split payment isn't a subscription);
+       * pending rows (null type) are kept. Reads the Own share via `effectiveAmount` (ADR-0014).
+       * Scoped to the household on both the transactions filter and the override join.
        */
       merchantCharges: (range: { from: string; to: string }) =>
         db
@@ -749,13 +750,20 @@ export function householdRepo(db: Db, householdId: string) {
             amount: transactions.effectiveAmount,
           })
           .from(transactions)
+          .leftJoin(
+            overrides,
+            and(
+              eq(overrides.householdId, householdId),
+              eq(overrides.transactionId, transactions.id)
+            )
+          )
           .where(
             and(
               eq(transactions.householdId, householdId),
               lt(transactions.amount, 0),
               eq(transactions.excluded, false),
               isNull(transactions.transferGroupId),
-              sql`${transactions.expenseType} is distinct from ''`,
+              sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`,
               gte(transactions.date, range.from),
               lt(transactions.date, range.to)
             )
