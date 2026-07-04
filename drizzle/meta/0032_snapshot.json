@@ -1,5 +1,5 @@
 {
-  "id": "f158c5a3-89b1-4cea-b5f1-025a6d9b82e6",
+  "id": "4ee6b971-28e6-4dcb-898d-329e42a2179f",
   "prevId": "f3bb20c2-2c89-48ea-9c52-5eb1aafab55b",
   "version": "7",
   "dialect": "postgresql",
@@ -894,6 +894,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {
@@ -976,7 +983,11 @@
         },
         "categories_default_expense_type_valid": {
           "name": "categories_default_expense_type_valid",
-          "value": "\"categories\".\"default_expense_type\" IS NULL OR \"categories\".\"default_expense_type\" IN ('Fixed', 'Necessary', 'Nice to have')"
+          "value": "\"categories\".\"default_expense_type\" IS NULL OR (\"categories\".\"parent_id\" IS NOT NULL AND \"categories\".\"default_expense_type\" IN ('Fixed', 'Necessary', 'Nice to have'))"
+        },
+        "categories_no_self_parent": {
+          "name": "categories_no_self_parent",
+          "value": "\"categories\".\"parent_id\" IS NULL OR \"categories\".\"parent_id\" <> \"categories\".\"id\""
         }
       },
       "isRLSEnabled": false

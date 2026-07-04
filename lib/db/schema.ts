@@ -870,6 +870,9 @@ export const categories = pgTable(
     /** Display order within the parent group (or among groups). */
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // Mutable table (hide / reorder / rename), so it carries updated_at like columnMappings and
+    // assistantConversations; the app bumps it on write.
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     // Target for the composite same-Household self FK below.
@@ -888,12 +891,16 @@ export const categories = pgTable(
       "categories_label_source",
       sql`(${t.labelKey} IS NOT NULL AND ${t.label} IS NULL) OR (${t.labelKey} IS NULL AND ${t.label} IS NOT NULL)`,
     ),
-    // When present, the fallback is a real discretionary bucket (never "" — categories are
-    // Expenses-only, ADR-0020).
+    // A group row (parent_id NULL) never carries a default Expense type; a leaf's fallback, when
+    // set, is a real discretionary bucket (never "" — categories are Expenses-only, ADR-0020).
     check(
       "categories_default_expense_type_valid",
-      sql`${t.defaultExpenseType} IS NULL OR ${t.defaultExpenseType} IN ('Fixed', 'Necessary', 'Nice to have')`,
+      sql`${t.defaultExpenseType} IS NULL OR (${t.parentId} IS NOT NULL AND ${t.defaultExpenseType} IN ('Fixed', 'Necessary', 'Nice to have'))`,
     ),
+    // No self-parenting. The 2-level invariant (no grandchildren) can't be a CHECK — Postgres
+    // CHECKs can't reference other rows — so it is enforced by seeding and by the create-category
+    // app guard (a new leaf's parent must itself be a group), per ADR-0020.
+    check("categories_no_self_parent", sql`${t.parentId} IS NULL OR ${t.parentId} <> ${t.id}`),
   ],
 );
 

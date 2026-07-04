@@ -12,10 +12,12 @@ CREATE TABLE "categories" (
 	"hidden" boolean DEFAULT false NOT NULL,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "categories_household_id_id_key" UNIQUE("household_id","id"),
 	CONSTRAINT "categories_household_slug_key" UNIQUE("household_id","slug"),
 	CONSTRAINT "categories_label_source" CHECK (("categories"."label_key" IS NOT NULL AND "categories"."label" IS NULL) OR ("categories"."label_key" IS NULL AND "categories"."label" IS NOT NULL)),
-	CONSTRAINT "categories_default_expense_type_valid" CHECK ("categories"."default_expense_type" IS NULL OR "categories"."default_expense_type" IN ('Fixed', 'Necessary', 'Nice to have'))
+	CONSTRAINT "categories_default_expense_type_valid" CHECK ("categories"."default_expense_type" IS NULL OR ("categories"."parent_id" IS NOT NULL AND "categories"."default_expense_type" IN ('Fixed', 'Necessary', 'Nice to have'))),
+	CONSTRAINT "categories_no_self_parent" CHECK ("categories"."parent_id" IS NULL OR "categories"."parent_id" <> "categories"."id")
 );
 --> statement-breakpoint
 ALTER TABLE "categories" ADD CONSTRAINT "categories_household_id_households_id_fk" FOREIGN KEY ("household_id") REFERENCES "public"."households"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
