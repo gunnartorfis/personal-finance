@@ -1,5 +1,8 @@
 import type { HouseholdRepo } from "@/lib/db/household-repo";
 
+import type { CycleKey } from "./cycle";
+import { nextCycleKey } from "./cycle";
+
 /**
  * Net worth for a Household (ADR-0016): the sum of the latest balance snapshot across its Accounts.
  * Balances are append-only observations (manual entry now, bank-balance sync later), so "current"
@@ -110,4 +113,42 @@ export function computeRunwayMonths(
   if (monthlyBurn === null || monthlyBurn <= 0) return null;
   if (netWorthTotal <= 0) return null;
   return Math.floor(netWorthTotal / monthlyBurn);
+}
+
+/** One month on the net-worth projection: the cycle it lands in and the projected total then. */
+export interface ProjectionPoint {
+  cycleKey: CycleKey;
+  /** Months from `startCycle` (0 = today's balance, the anchor point). */
+  monthIndex: number;
+  /** Projected net worth in whole billing-currency units. */
+  netWorth: number;
+}
+
+/**
+ * A straight-line net-worth projection (ADR-0016): today's net worth carried forward `months` cycles
+ * at the Household's typical monthly saving. Index 0 is the current cycle at `startingNetWorth`
+ * (the anchor), so the series has `months + 1` points. `monthlySaving` may be negative — a losing
+ * stretch projects a declining line, which is the honest picture ("at this rate, broke in N months").
+ *
+ * v1 is deliberately flat: it does not fold in future-dated income/cost changes (ADR-0015) or an
+ * uncertainty band — those are follow-ups. Pure so it unit-tests directly; the caller supplies the
+ * starting net worth (latest balances) and typical saving (trailing average) it already has.
+ */
+export function projectNetWorth(input: {
+  startingNetWorth: number;
+  monthlySaving: number;
+  startCycle: CycleKey;
+  months: number;
+}): ProjectionPoint[] {
+  const points: ProjectionPoint[] = [];
+  let cycleKey = input.startCycle;
+  for (let monthIndex = 0; monthIndex <= input.months; monthIndex++) {
+    points.push({
+      cycleKey,
+      monthIndex,
+      netWorth: Math.round(input.startingNetWorth + input.monthlySaving * monthIndex),
+    });
+    cycleKey = nextCycleKey(cycleKey);
+  }
+  return points;
 }

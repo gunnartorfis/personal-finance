@@ -648,6 +648,12 @@
       "title": "Skipting yfir tíma",
       "mix": "{label} eyðsluskipting: {parts}",
       "noSpending": "{label}: engin eyðsla skráð"
+    },
+    "netWorthProjection": {
+      "title": "Spá um hreina eign",
+      "subtitle": "Miðað við dæmigerðan sparnað, um {amount} eftir ár.",
+      "netWorth": "Hrein eign",
+      "srPoint": "{label}: {amount}"
     }
   },
   "bankSync": {
