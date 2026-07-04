@@ -1797,13 +1797,19 @@ export function householdRepo(db: Db, householdId: string) {
           .insert(activityLog)
           .values({ ...entry, householdId })
           .returning(),
-      /** This Household's whole log, newest first — every Member reads it (ADR-0017 transparency). */
-      list: () =>
-        db
+      /**
+       * This Household's log, newest first — every Member reads it (ADR-0017 transparency). An
+       * optional `limit` bounds the read so the page can't fetch an ever-growing history in one
+       * query (the member-facing loader passes a cap; omit for an unbounded read).
+       */
+      list: (limit?: number) => {
+        const query = db
           .select()
           .from(activityLog)
           .where(eq(activityLog.householdId, householdId))
-          .orderBy(desc(activityLog.createdAt)),
+          .orderBy(desc(activityLog.createdAt))
+        return limit === undefined ? query : query.limit(limit)
+      },
     },
   }
 }

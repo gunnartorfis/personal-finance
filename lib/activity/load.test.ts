@@ -4,7 +4,7 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { householdRepo } from "@/lib/db/household-repo";
-import { households } from "@/lib/db/schema";
+import { activityLog, households } from "@/lib/db/schema";
 
 import { loadActivityLog } from "./load";
 
@@ -39,5 +39,23 @@ describe("loadActivityLog", () => {
     await repoB.activity.record({ memberId: A_MEMBER, actorName: "B", action: "b.did" });
 
     expect((await loadActivityLog(repoB)).map((e) => e.action)).toEqual(["b.did"]);
+  });
+
+  it("caps the read at the given limit (most recent first)", async () => {
+    const [h] = await db.insert(households).values({}).returning();
+    const repo = householdRepo(asRepoDb(db), h.id);
+    // Seed distinct timestamps via the low-level insert (record() is DB-stamped, so back-to-back
+    // calls would tie on created_at and make the ordering non-deterministic).
+    await db.insert(activityLog).values(
+      ["first", "second", "third"].map((action, i) => ({
+        householdId: h.id,
+        memberId: A_MEMBER,
+        actorName: "Ada",
+        action,
+        createdAt: new Date(`2026-01-0${i + 1}T00:00:00Z`),
+      })),
+    );
+    const entries = await loadActivityLog(repo, 2);
+    expect(entries.map((e) => e.action)).toEqual(["third", "second"]);
   });
 });

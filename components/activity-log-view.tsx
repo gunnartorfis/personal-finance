@@ -54,7 +54,7 @@ export function ActivityLogView({ entries }: ActivityLogViewProps) {
             )}
           >
             <div className="flex min-w-0 flex-col gap-0.5">
-              <p className="text-sm text-foreground">
+              <p className="text-sm break-words text-foreground">
                 <span className="font-medium">{entry.actorName}</span>{" "}
                 {t(`actions.${activityActionLabelKey(entry.action)}`)}
               </p>
