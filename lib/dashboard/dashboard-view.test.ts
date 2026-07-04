@@ -96,6 +96,27 @@ describe("assembleDashboardView", () => {
     expect(view.hero.largestCharge).toEqual({ merchant: "BIGSHOP", amount: 50000 });
   });
 
+  it("decomposes the hero total into card spend, off-card fixed, and a signed by-type split", () => {
+    // 2026-03: 100k card debits (60k Fixed + 40k unclassified, from the category trend) plus 50k of
+    // configured off-card fixed folded into the series -> 150k total.
+    const series: MonthlySpendPoint[] = [
+      { month: "2025-12", spending: 200000, income: 0, difference: -200000 },
+      { month: "2026-01", spending: 300000, income: 0, difference: -300000 },
+      { month: "2026-02", spending: 350000, income: 0, difference: -350000 },
+      { month: "2026-03", spending: 150000, income: 20000, difference: -130000 },
+    ];
+    const view = assembleDashboardView(
+      baseInputs({ series, categoryTrend: [cat("2026-03", { Fixed: 60000 }, 40000)] }),
+    );
+    expect(view.hero.spentSoFar).toBe(150000);
+    expect(view.hero.cardSpend).toBe(100000); // buckets (60k) + unclassified (40k)
+    expect(view.hero.offCardFixed).toBe(50000); // the remainder of the total
+    // The by-type summary is signed (expenses <= 0) and sums back to the card spend.
+    expect(view.hero.cardByType.expense).toBe(-100000);
+    expect(view.hero.cardByType.byExpenseType.Fixed).toBe(-60000);
+    expect(view.hero.cardByType.unclassified).toBe(-40000);
+  });
+
   it("scopes the hero to a selected past cycle: final total, no projection, its own vs-average", () => {
     // A longer series so the selected past month has the required ≥3 completed months before it.
     const series: MonthlySpendPoint[] = [

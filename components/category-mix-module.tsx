@@ -3,38 +3,12 @@ import Link from "next/link"
 
 import { MixOverTimeChart } from "@/components/mix-over-time-chart"
 import { SpendingByType } from "@/components/spending-by-type"
-import type { CategoryTrendPoint } from "@/lib/dashboard/category-trend"
+import {
+  categoryPointToNetSummary,
+  type CategoryTrendPoint,
+} from "@/lib/dashboard/category-trend"
 import type { CycleKey } from "@/lib/dashboard/cycle"
-import type { NetSummary } from "@/lib/dashboard/net-summary"
 import { cn } from "@/lib/utils"
-
-/**
- * Adapt a category-trend point (positive magnitudes) to the {@link NetSummary} shape
- * {@link SpendingByType} consumes. Only the expense-side fields matter to that component; income/net
- * are unused, so they mirror the (negated) expense total.
- */
-function pointToNetSummary(point: CategoryTrendPoint): NetSummary {
-  const byType = point.byExpenseType
-  const expense = -(
-    byType.Fixed +
-    byType.Necessary +
-    byType["Nice to have"] +
-    byType[""] +
-    point.unclassified
-  )
-  return {
-    income: 0,
-    expense,
-    net: expense,
-    byExpenseType: {
-      Fixed: -byType.Fixed,
-      Necessary: -byType.Necessary,
-      "Nice to have": -byType["Nice to have"],
-      "": -byType[""],
-    },
-    unclassified: -point.unclassified,
-  }
-}
 
 /**
  * The category-mix module (Phase K, K12): the current cycle's spending-by-type breakdown (reusing
@@ -85,7 +59,7 @@ export function CategoryMixModule({
 
       {current && (
         <SpendingByType
-          summary={pointToNetSummary(current)}
+          summary={categoryPointToNetSummary(current)}
           currency={currency}
           headingLevel={3}
         />
