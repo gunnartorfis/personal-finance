@@ -12,20 +12,32 @@ const DEFAULT_LIMIT = 20;
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be YYYY-MM-DD");
 
-const searchSchema = z.object({
-  /** Case-insensitive merchant match on the normalized name (store numbers stripped). */
-  text: z.string().min(1).max(100).optional(),
-  /** Restrict to one cycle (YYYY-MM). Overrides from/to. */
-  cycle: cycleKeySchema.optional(),
-  /** Explicit half-open date window `[from, to)` (YYYY-MM-DD); both required together. */
-  from: isoDate.optional(),
-  to: isoDate.optional(),
-  /** Filter by charge magnitude (absolute value), inclusive. */
-  minAmount: z.number().nonnegative().optional(),
-  maxAmount: z.number().nonnegative().optional(),
-  expenseType: z.enum(EXPENSE_TYPES).optional(),
-  limit: z.number().int().min(1).max(100).optional(),
-});
+const searchSchema = z
+  .object({
+    /** Case-insensitive merchant match on the normalized name (store numbers stripped). */
+    text: z.string().min(1).max(100).optional(),
+    /** Restrict to one cycle (YYYY-MM). Overrides from/to. */
+    cycle: cycleKeySchema.optional(),
+    /** Explicit half-open date window `[from, to)` (YYYY-MM-DD); both required together. */
+    from: isoDate.optional(),
+    to: isoDate.optional(),
+    /** Filter by charge magnitude (absolute value), inclusive. */
+    minAmount: z.number().nonnegative().optional(),
+    maxAmount: z.number().nonnegative().optional(),
+    expenseType: z.enum(EXPENSE_TYPES).optional(),
+    limit: z.number().int().min(1).max(100).optional(),
+  })
+  // Reject a one-sided window: a lone `from`/`to` would otherwise silently fall back to the default
+  // range, dropping the caller's date intent with no signal to retry.
+  .refine((d) => (d.from == null) === (d.to == null), {
+    message: "from and to must be provided together",
+    path: ["to"],
+  })
+  // Reject an inverted window, which would vacuously match nothing and read as "no transactions".
+  .refine((d) => d.from == null || d.to == null || d.from <= d.to, {
+    message: "from must not be after to",
+    path: ["to"],
+  });
 type SearchInput = z.infer<typeof searchSchema>;
 
 /** One matched transaction (trimmed for the model). `amount` keeps its sign (debits negative). */
@@ -37,6 +49,11 @@ export interface FoundTransaction {
   expenseType: ExpenseType | null;
   /** Dropped from all math (ADR-0011) — surfaced so the model doesn't sum it as spend. */
   excluded: boolean;
+  /**
+   * An inter-account transfer leg (e.g. a card-bill payment, #97). Spend-math helpers drop these, so
+   * it's flagged here to keep the model from double-counting a transfer as spend.
+   */
+  isTransfer: boolean;
   incomeMarked: boolean;
 }
 
@@ -91,6 +108,7 @@ export const searchTransactionsTool: AssistantTool<SearchInput, SearchTransactio
         amount: row.amount,
         expenseType: (row.overrideType ?? row.classifiedType) as ExpenseType | null,
         excluded: row.excluded,
+        isTransfer: row.transferGroupId != null,
         incomeMarked: row.incomeMarked,
       })),
     };

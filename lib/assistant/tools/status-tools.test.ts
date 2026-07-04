@@ -90,6 +90,31 @@ describe("assistant status tools", () => {
       expect(out.count).toBe(2);
       expect(out.transactions.some((t) => t.excluded)).toBe(true);
     });
+
+    it("rejects a one-sided date window (from without to)", () => {
+      expect(() => searchTransactionsTool.inputSchema.parse({ from: "2026-01-01" })).toThrow();
+    });
+
+    it("rejects an inverted date window (from after to)", () => {
+      expect(() =>
+        searchTransactionsTool.inputSchema.parse({ from: "2026-03-01", to: "2026-01-01" }),
+      ).toThrow();
+    });
+
+    it("flags inter-account transfer legs so they aren't summed as spend", async () => {
+      const repo = await newHousehold();
+      const [acct] = await repo.accounts.create({ name: "Visa" });
+      const [up] = await repo.uploads.create({ accountId: acct.id, fileName: "s.csv", fileHash: "xfer" });
+      const [row] = await repo.transactions.createMany([
+        { accountId: acct.id, uploadId: up.id, date: "2026-03-10", amount: -50000, merchant: "CARD PAYMENT", rawCategory: "", sourceRow: 0 },
+      ]);
+      await db
+        .update(transactions)
+        .set({ transferGroupId: "00000000-0000-0000-0000-0000000000ab" })
+        .where(eq(transactions.id, row.id));
+      const out = await searchTransactionsTool.run({ repo, now: NOW }, { cycle: "2026-03" });
+      expect(out.transactions[0]).toMatchObject({ isTransfer: true, amount: -50000 });
+    });
   });
 
   describe("getSpendingTrend", () => {
