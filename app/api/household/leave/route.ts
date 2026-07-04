@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { getDb } from "@/lib/db"
 import { requireHousehold } from "@/lib/household/current"
 import { leaveHousehold, LeaveError } from "@/lib/household/membership"
@@ -13,14 +15,18 @@ export const dynamic = "force-dynamic"
  * belongs to any Household — the client should route them to sign-in / a fresh start.
  */
 export async function POST() {
-  const { householdId, memberId } = await requireHousehold()
+  const ctx = await requireHousehold()
   try {
-    await leaveHousehold(getDb(), householdId, memberId)
-    return NextResponse.json({ ok: true })
+    await leaveHousehold(getDb(), ctx.householdId, ctx.memberId)
   } catch (error) {
     if (error instanceof LeaveError) {
       return NextResponse.json({ error: error.code }, { status: 409 })
     }
     throw error
   }
+  // Record the departure into the (still-existing) Household's log AFTER the leave succeeds. The
+  // member row is now gone, but memberId is a plain uuid (no FK) and actorName is a snapshot, so
+  // the departed member's action stays attributed and readable (ADR-0017).
+  await recordActivity(ctx, ActivityAction.MemberLeft)
+  return NextResponse.json({ ok: true })
 }

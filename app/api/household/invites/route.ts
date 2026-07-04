@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { ActivityAction } from "@/lib/activity/actions"
+import { recordActivity } from "@/lib/activity/record"
 import { getDb } from "@/lib/db"
 import { requireHousehold } from "@/lib/household/current"
 import { createInvite, InviteError, inviteErrorStatus } from "@/lib/household/invites"
@@ -28,22 +30,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "email_required" }, { status: 400 })
   }
 
-  const { householdId, memberId, plan } = await requireHousehold()
+  const ctx = await requireHousehold()
+  let rawToken: string
+  let expiresAt: Date
   try {
-    const { rawToken, expiresAt } = await createInvite({
+    ;({ rawToken, expiresAt } = await createInvite({
       db: getDb(),
-      householdId,
-      plan,
-      invitedByMemberId: memberId,
+      householdId: ctx.householdId,
+      plan: ctx.plan,
+      invitedByMemberId: ctx.memberId,
       email,
       now: new Date(),
-    })
-    // `token` is returned exactly once; the client turns it into `${origin}/join/${token}`.
-    return NextResponse.json({ token: rawToken, path: `/join/${rawToken}`, expiresAt }, { status: 201 })
+    }))
   } catch (error) {
     if (error instanceof InviteError) {
       return NextResponse.json({ error: error.code }, { status: inviteErrorStatus(error.code) })
     }
     throw error
   }
+  // Log outside the try/catch so a logging failure isn't mistaken for an invite error.
+  await recordActivity(ctx, ActivityAction.InviteCreated, { email, expiresAt })
+  // `token` is returned exactly once; the client turns it into `${origin}/join/${token}`.
+  return NextResponse.json({ token: rawToken, path: `/join/${rawToken}`, expiresAt }, { status: 201 })
 }
