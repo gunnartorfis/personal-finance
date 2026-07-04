@@ -54,6 +54,13 @@ describe("buildMonthlyDigest", () => {
     expect(m.spendingDelta).toEqual({ abs: 40_000, pct: 0.25 });
   });
 
+  it("reports a negative delta when spending fell vs the prior cycle", () => {
+    const m = buildMonthlyDigest(
+      input({ cycle: point("2026-02", 120_000, 500_000), priorCycle: point("2026-01", 160_000, 500_000) }),
+    );
+    expect(m.spendingDelta).toEqual({ abs: -40_000, pct: -0.25 });
+  });
+
   it("has a null spending delta when there is no prior cycle", () => {
     const m = buildMonthlyDigest(input({ priorCycle: null }));
     expect(m.spendingDelta).toBeNull();
