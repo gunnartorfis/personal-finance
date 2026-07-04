@@ -1103,34 +1103,40 @@ export function householdRepo(db: Db, householdId: string) {
       /**
        * Link two Transactions as the legs of one detected inter-account transfer (issue #97): they
        * receive a shared, freshly-minted group id and are dropped from every spend/income
-       * aggregation. Atomic and tenant-safe — both ids must resolve to distinct rows in this
-       * Household or nothing is written (returns `rows: []`), so a cross-tenant or self id can't leave
-       * a half-linked leg. Detection ({@link detectTransferPairs}) supplies the pairing.
+       * aggregation. Atomic and tenant-safe — the read and write run in one `db.transaction`, and
+       * both ids must resolve to distinct, **not-yet-linked** rows in this Household or nothing is
+       * written (returns `rows: []`). This rejects a cross-tenant id, a self-pair, and re-linking a
+       * leg that already belongs to another pair (which would orphan its old partner), so no
+       * half-linked or overwritten leg can result. Detection ({@link detectTransferPairs}) supplies
+       * the pairing.
        */
-      markTransferPair: async (fromId: string, toId: string) => {
-        const legs = await db
-          .select({ id: transactions.id })
-          .from(transactions)
-          .where(
-            and(
-              eq(transactions.householdId, householdId),
-              inArray(transactions.id, [fromId, toId])
+      markTransferPair: (fromId: string, toId: string) =>
+        db.transaction(async (tx) => {
+          const legs = await tx
+            .select({ id: transactions.id })
+            .from(transactions)
+            .where(
+              and(
+                eq(transactions.householdId, householdId),
+                inArray(transactions.id, [fromId, toId]),
+                // Only pair rows that aren't already part of a transfer — never overwrite a group id.
+                isNull(transactions.transferGroupId)
+              )
+            );
+          if (legs.length !== 2) return { groupId: null, rows: [] };
+          const groupId = crypto.randomUUID();
+          const rows = await tx
+            .update(transactions)
+            .set({ transferGroupId: groupId })
+            .where(
+              and(
+                eq(transactions.householdId, householdId),
+                inArray(transactions.id, [fromId, toId])
+              )
             )
-          );
-        if (legs.length !== 2) return { groupId: null, rows: [] };
-        const groupId = crypto.randomUUID();
-        const rows = await db
-          .update(transactions)
-          .set({ transferGroupId: groupId })
-          .where(
-            and(
-              eq(transactions.householdId, householdId),
-              inArray(transactions.id, [fromId, toId])
-            )
-          )
-          .returning();
-        return { groupId, rows };
-      },
+            .returning();
+          return { groupId, rows };
+        }),
       /**
        * Set (or clear) a Transaction's Own share — the portion of a Shared expense that counts as
        * spend (ADR-0014). Scoped to the household. Setting is guarded to a non-excluded debit whose

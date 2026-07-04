@@ -505,6 +505,11 @@ export const transactions = pgTable(
       .where(sql`${t.externalId} IS NOT NULL`),
     // Target for the composite same-household FK from overrides.
     unique("transactions_household_id_id_key").on(t.householdId, t.id),
+    // Transfer legs are a tiny minority; a partial index lets aggregations that filter
+    // `transfer_group_id IS NULL` and group-id lookups (backfill/unlink) skip a full scan (#97).
+    index("transactions_transfer_group_id_idx")
+      .on(t.transferGroupId)
+      .where(sql`${t.transferGroupId} IS NOT NULL`),
   ],
 );
 

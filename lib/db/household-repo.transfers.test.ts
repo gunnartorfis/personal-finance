@@ -63,19 +63,35 @@ describe("transaction transfer links", () => {
     expect(await transferGroupOf(into.id)).toBe(groupId);
   });
 
-  it("drops a transfer's debit leg from the net summary (no double-count)", async () => {
+  it("drops both legs of a transfer from the net summary (no double-count, income side too)", async () => {
     const repo = await freshHousehold();
     const { out, into } = await seed(repo);
+    // Force the income side to count pre-marking: an income-marked credit would otherwise be income.
+    await repo.transactions.setIncomeMarked(into.id, true);
 
-    // Before marking: the -50k card payment double-counts on top of the -8k purchase.
+    // Before marking: -50k card payment double-counts as spend AND the +50k credit counts as income.
     const before = await loadNetSummary(repo, MARCH);
     expect(before.expense).toBe(-58_000);
+    expect(before.income).toBe(50_000);
 
     await repo.transactions.markTransferPair(out.id, into.id);
 
+    // After: both legs are suppressed — only the real -8k purchase remains.
     const after = await loadNetSummary(repo, MARCH);
     expect(after.expense).toBe(-8_000);
     expect(after.income).toBe(0);
+  });
+
+  it("refuses to re-link a leg that already belongs to a transfer (no silent overwrite)", async () => {
+    const repo = await freshHousehold();
+    const { out, into, purchase } = await seed(repo);
+    const first = await repo.transactions.markTransferPair(out.id, into.id);
+
+    // A second call reusing an already-linked leg must touch nothing and keep the original group id.
+    const second = await repo.transactions.markTransferPair(out.id, purchase.id);
+    expect(second.rows).toHaveLength(0);
+    expect(await transferGroupOf(out.id)).toBe(first.groupId);
+    expect(await transferGroupOf(purchase.id)).toBeNull();
   });
 
   it("never links another household's transactions", async () => {

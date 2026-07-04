@@ -183,6 +183,13 @@
       "when": 1783126565107,
       "tag": "0025_hard_taskmaster",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1783127428967,
+      "tag": "0026_fine_ares",
+      "breakpoints": true
     }
   ]
 }
