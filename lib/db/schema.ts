@@ -698,12 +698,17 @@ export const overrides = pgTable(
       foreignColumns: [transactions.householdId, transactions.id],
       name: "overrides_transaction_household_fk",
     }).onDelete("cascade"),
-    // The overridden Category (when set) must be one of this Household's own (ADR-0020).
+    // The overridden Category (when set) must be one of this Household's own (ADR-0020). No onDelete
+    // action, like transactions.category_id: v1 customization is hide-only (no single-Category
+    // delete), and a whole-Household delete still cascades both sides (NO ACTION is checked at
+    // statement end). A future hard-delete (S6) clears/reassigns referencing overrides first.
     foreignKey({
       columns: [t.householdId, t.categoryId],
       foreignColumns: [categories.householdId, categories.id],
       name: "overrides_category_household_fk",
     }),
+    // Speeds S3b-2's effective-Category resolution (join/filter overrides by Category per Household).
+    index("overrides_household_category_idx").on(t.householdId, t.categoryId),
     // The actor Member must belong to the same Household (NO ACTION; see uploads importer note).
     foreignKey({
       columns: [t.householdId, t.memberId],

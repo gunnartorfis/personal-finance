@@ -1,5 +1,5 @@
 {
-  "id": "ca61bc13-a3d4-468a-a60a-174ce1d52758",
+  "id": "c3943f19-0407-4b29-be76-a105f476dde4",
   "prevId": "512a0e48-382b-4978-be35-22f4eded8053",
   "version": "7",
   "dialect": "postgresql",
@@ -1722,7 +1722,29 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "overrides_household_category_idx": {
+          "name": "overrides_household_category_idx",
+          "columns": [
+            {
+              "expression": "household_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "category_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "overrides_household_id_households_id_fk": {
           "name": "overrides_household_id_households_id_fk",
