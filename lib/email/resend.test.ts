@@ -60,6 +60,12 @@ describe("createResendSender", () => {
     expect(result).toEqual({ ok: true, id: "email_abc" })
   })
 
+  it("returns an error result when a 2xx response omits the email id", async () => {
+    const fetchImpl = fakeFetch(200, {})
+    const result = await createResendSender("re_k", fetchImpl as unknown as typeof fetch).send(params)
+    expect(result).toEqual({ ok: false, error: "Resend response missing an email id" })
+  })
+
   it("returns an error result on a non-2xx response", async () => {
     const fetchImpl = fakeFetch(422, { name: "validation_error", message: "Invalid `to` field" })
     const result = await createResendSender("re_k", fetchImpl as unknown as typeof fetch).send(params)
