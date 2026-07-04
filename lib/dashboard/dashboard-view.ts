@@ -1,10 +1,12 @@
 import { freeCapStatus, type FreeCapStatus } from "@/lib/billing/free-cap-status";
 import type { HouseholdRepo } from "@/lib/db/household-repo";
 import { reconnectPrompts, type ReconnectPrompt } from "@/lib/open-banking/reconnect";
-import type { Plan } from "@/shared/types";
+import type { Plan, RealType } from "@/shared/types";
 
 import type { AccountSpend } from "./account-breakdown";
 import { loadAccountBreakdown } from "./account-breakdown";
+import type { BudgetStatus } from "./budget-status";
+import { computeBudgetStatus } from "./budget-status";
 import type { CategoryTrendPoint } from "./category-trend";
 import { loadCategoryTrend } from "./category-trend";
 import type { CycleKey } from "./cycle";
@@ -36,6 +38,8 @@ export interface DashboardInputs {
   movers: { merchants: Mover[]; categories: Mover[] };
   /** Detected recurring/subscription charges + total committed monthly spend (#100). */
   recurring: RecurringSummary;
+  /** Per-category monthly budgets (#103), keyed by expense type; empty when none are set. */
+  budgets: Partial<Record<RealType, number>>;
   largestCharge: LargestCharge | null;
   accountBreakdown: AccountSpend[];
   /** The Household's total Account count — the account module is shown only when this is > 1. */
@@ -74,6 +78,8 @@ export interface DashboardModules {
   movers: { merchants: Mover[]; categories: Mover[] };
   /** Detected recurring/subscription charges + total committed monthly spend (#100). */
   recurring: RecurringSummary;
+  /** Per-category budget envelopes vs current-cycle spend (#103); no envelopes when none are set. */
+  budgetStatus: BudgetStatus;
   /** Null when the Household has a single Account (module hidden). */
   accounts: AccountSpend[] | null;
 }
@@ -121,6 +127,11 @@ export function assembleDashboardView(input: DashboardInputs): DashboardView {
   const spentSoFar = current?.spending ?? 0;
   const income = current?.income ?? 0;
 
+  // Budget envelopes compare each category budget against this cycle's spend, taken from the
+  // already-loaded category trend (no extra query) — its byExpenseType holds debit magnitudes.
+  const currentCategorySpend = input.categoryTrend.find((point) => point.month === currentKey);
+  const budgetStatus = computeBudgetStatus(input.budgets, currentCategorySpend?.byExpenseType ?? {});
+
   return {
     hero: {
       month: currentKey,
@@ -141,6 +152,7 @@ export function assembleDashboardView(input: DashboardInputs): DashboardView {
       topMerchants: input.topMerchants,
       movers: input.movers,
       recurring: input.recurring,
+      budgetStatus,
       accounts: input.accountCount > 1 ? input.accountBreakdown : null,
     },
     actionBand: {
@@ -190,6 +202,7 @@ export async function loadDashboardView(
     connections,
     financialHealth,
     recurring,
+    budgetRows,
   ] = await Promise.all([
     loadMonthlySpendSeries(repo, now, count),
     loadTopMerchants(repo, recentRange, TOP_MERCHANTS),
@@ -204,7 +217,13 @@ export async function loadDashboardView(
     repo.bankConnections.list(),
     loadFinancialHealth(repo, now, count),
     loadRecurring(repo, now),
+    repo.budgets.list(),
   ]);
+
+  // The expense_type CHECK constraint guarantees each row's type is a RealType.
+  const budgets = Object.fromEntries(
+    budgetRows.map((b) => [b.expenseType, b.monthlyAmount]),
+  ) as Partial<Record<RealType, number>>;
 
   // Reuse the already-loaded category trend for the category movers (avoids a second query).
   const movers = await loadBiggestMovers(repo, now, count, categoryTrend);
@@ -220,6 +239,7 @@ export async function loadDashboardView(
     categoryTrend,
     movers,
     recurring,
+    budgets,
     largestCharge,
     accountBreakdown,
     accountCount: accountList.length,

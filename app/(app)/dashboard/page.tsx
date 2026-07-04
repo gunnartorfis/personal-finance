@@ -3,6 +3,7 @@ import { ActionBand } from "@/components/action-band"
 import { BiggestMovers } from "@/components/biggest-movers"
 import { CategoryMixModule } from "@/components/category-mix-module"
 import { FinancialHealthSection } from "@/components/financial-health-section"
+import { BudgetEnvelopes } from "@/components/budget-envelopes"
 import { NetWorthProjectionChart } from "@/components/net-worth-projection-chart"
 import { RecurringSubscriptions } from "@/components/recurring-subscriptions"
 import { SavingsProgressCard } from "@/components/savings-progress-card"
@@ -113,6 +114,11 @@ export default async function DashboardPage() {
           />
         </div>
       )}
+      <BudgetEnvelopes
+        status={view.modules.budgetStatus}
+        currency={billingCurrency}
+        locale={locale}
+      />
       <RecurringSubscriptions
         recurring={view.modules.recurring}
         currency={billingCurrency}
