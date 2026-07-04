@@ -25,6 +25,14 @@ export interface ReuseTally {
 export interface ReuseEntry {
   type: ExpenseType;
   confidence: number | null;
+  /**
+   * Resolved semantic Category for this merchant, forwarded to its later rows in the same drain
+   * (ADR-0020). Only populated for within-run entries (the model path resolves the slug to a leaf
+   * id); the cross-run seed leaves it undefined — those rows stay Uncategorized until re-classified
+   * or backfilled (S7).
+   */
+  categoryId?: string | null;
+  categoryConfidence?: number | null;
 }
 
 /**
