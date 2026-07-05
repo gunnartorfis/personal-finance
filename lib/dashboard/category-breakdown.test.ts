@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { computeCategoryBreakdown, type CategoryBreakdownRow } from "./category-breakdown";
+import {
+  computeCategoryBreakdown,
+  rankCategoryBreakdown,
+  type CategoryBreakdown,
+  type CategoryBreakdownRow,
+} from "./category-breakdown";
 
 const row = (partial: Partial<CategoryBreakdownRow>): CategoryBreakdownRow => ({
   amount: -1000,
@@ -44,5 +49,64 @@ describe("computeCategoryBreakdown (ADR-0020)", () => {
 
   it("returns empty buckets for no rows", () => {
     expect(computeCategoryBreakdown([])).toEqual({ expense: 0, byCategory: {}, uncategorized: 0 });
+  });
+});
+
+const breakdown = (partial: Partial<CategoryBreakdown>): CategoryBreakdown => ({
+  expense: 0,
+  byCategory: {},
+  uncategorized: 0,
+  ...partial,
+});
+
+describe("rankCategoryBreakdown (ADR-0020, S5b)", () => {
+  it("ranks categories by magnitude desc, carrying each row's share of total spend", () => {
+    const result = rankCategoryBreakdown(
+      breakdown({ expense: -10000, byCategory: { groceries: -6000, fuel: -4000 } }),
+    );
+    expect(result.total).toBe(10000);
+    expect(result.rows).toEqual([
+      { kind: "category", categoryId: "groceries", magnitude: 6000, share: 0.6 },
+      { kind: "category", categoryId: "fuel", magnitude: 4000, share: 0.4 },
+    ]);
+  });
+
+  it("collapses the tail beyond topN into a single 'other' row", () => {
+    const result = rankCategoryBreakdown(
+      breakdown({
+        expense: -1000,
+        byCategory: { a: -500, b: -300, c: -150, d: -50 },
+      }),
+      { topN: 2 },
+    );
+    expect(result.rows).toEqual([
+      { kind: "category", categoryId: "a", magnitude: 500, share: 0.5 },
+      { kind: "category", categoryId: "b", magnitude: 300, share: 0.3 },
+      { kind: "other", count: 2, magnitude: 200, share: 0.2 },
+    ]);
+  });
+
+  it("appends an 'uncategorized' row last when there is uncategorized spend", () => {
+    const result = rankCategoryBreakdown(
+      breakdown({ expense: -1000, byCategory: { a: -600 }, uncategorized: -400 }),
+    );
+    expect(result.rows).toEqual([
+      { kind: "category", categoryId: "a", magnitude: 600, share: 0.6 },
+      { kind: "uncategorized", magnitude: 400, share: 0.4 },
+    ]);
+  });
+
+  it("breaks magnitude ties deterministically by category id", () => {
+    const result = rankCategoryBreakdown(
+      breakdown({ expense: -2000, byCategory: { zebra: -1000, apple: -1000 } }),
+    );
+    expect(result.rows.map((r) => (r.kind === "category" ? r.categoryId : r.kind))).toEqual([
+      "apple",
+      "zebra",
+    ]);
+  });
+
+  it("returns no rows and zero total when there is no spend", () => {
+    expect(rankCategoryBreakdown(breakdown({}))).toEqual({ rows: [], total: 0 });
   });
 });
