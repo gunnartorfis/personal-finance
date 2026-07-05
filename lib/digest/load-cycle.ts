@@ -1,6 +1,8 @@
 import { eq } from "drizzle-orm"
 import type { NodePgDatabase } from "drizzle-orm/node-postgres"
 
+import { loadCategoryBreakdown } from "@/lib/dashboard/category-breakdown"
+import { currentCycleKey, cycleKeyRange, previousCycleKey } from "@/lib/dashboard/cycle"
 import { loadDashboardView } from "@/lib/dashboard/dashboard-view"
 import { householdRepo } from "@/lib/db/household-repo"
 import { households } from "@/lib/db/schema"
@@ -32,15 +34,22 @@ export async function loadDigestCycleData(db: Db, householdId: string, now: Date
   if (!household) return null
 
   const repo = householdRepo(db, householdId)
-  const [view, snapshot] = await Promise.all([
+  // The Digest covers the just-closed cycle; load that cycle's Category breakdown specifically (the
+  // dashboard's own breakdown is a trailing window, wrong period here). Same cycle the assembler and
+  // runMonthlyDigest derive from `now`, so they always agree.
+  const closedCycle = previousCycleKey(currentCycleKey(now))
+  const [view, snapshot, categoryBreakdown] = await Promise.all([
     loadDashboardView(repo, now, { plan: household.plan }),
     loadSavingsSnapshot(repo, now),
+    loadCategoryBreakdown(repo, cycleKeyRange(closedCycle)),
   ])
 
   return {
     currency: household.billingCurrency,
     series: view.modules.series,
     categoryTrend: view.modules.categoryTrend,
+    categoryBreakdown,
+    categories: view.modules.categories,
     movers: view.modules.movers.merchants,
     savings: snapshot?.assessment ?? null,
   }

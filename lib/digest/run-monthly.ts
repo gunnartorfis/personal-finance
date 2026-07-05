@@ -1,5 +1,7 @@
+import type { CategoryBreakdown } from "@/lib/dashboard/category-breakdown"
 import type { CategoryTrendPoint } from "@/lib/dashboard/category-trend"
 import { currentCycleKey, previousCycleKey, type CycleKey } from "@/lib/dashboard/cycle"
+import type { CategoryLeafLabel } from "@/lib/dashboard/dashboard-view"
 import type { MonthlySpendPoint } from "@/lib/dashboard/monthly-series"
 import type { Mover } from "@/lib/dashboard/movers"
 import type { EmailSender } from "@/lib/email/resend"
@@ -15,6 +17,10 @@ export interface DigestCycleData {
   currency: string
   series: MonthlySpendPoint[]
   categoryTrend: CategoryTrendPoint[]
+  /** The just-closed cycle's spend split by semantic Category (ADR-0020) — already cycle-scoped by the loader. */
+  categoryBreakdown: CategoryBreakdown
+  /** The Household's Category leaves (id + label parts), for resolving the top-categories labels. */
+  categories: CategoryLeafLabel[]
   movers: Mover[]
   savings: SavingsAssessment | null
 }
@@ -39,6 +45,9 @@ export function assembleDigestInput(data: DigestCycleData, cycleKey: CycleKey): 
     cycle,
     priorCycle,
     byExpenseType,
+    // Already scoped to the just-closed cycle by the loader (the same cycle this assembler targets).
+    categoryBreakdown: data.categoryBreakdown,
+    categories: data.categories,
     movers: data.movers,
     savings: data.savings ? { onTrack: data.savings.onTrack, allowedNiceToHave: data.savings.allowedNiceToHave } : null,
   }

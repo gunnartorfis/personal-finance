@@ -17,6 +17,12 @@ function model(overrides: Partial<MonthlyDigestModel> = {}): MonthlyDigestModel 
       { type: "Necessary", amount: 50_000 },
       { type: "Nice to have", amount: 30_000 },
     ],
+    topCategories: [
+      { kind: "category", labelKey: "groceries", label: null, amount: 104_200, share: 0.38 },
+      { kind: "category", labelKey: null, label: "Sundlaug", amount: 40_300, share: 0.15 },
+      { kind: "other", count: 6, amount: 27_650, share: 0.1 },
+      { kind: "uncategorized", amount: 12_000, share: 0.04 },
+    ],
     topMovers: [{ name: "Bónus", amount: 90_000, delta: 50_000 }],
     savings: { onTrack: true, allowedNiceToHave: 45_000 },
     ...overrides,
@@ -78,6 +84,37 @@ describe("renderMonthlyDigestEmail", () => {
   it("shows each highlighted mover", () => {
     const { html } = renderMonthlyDigestEmail({ model: model(), locale: "en", ...urls })
     expect(html).toContain("Bónus")
+  })
+
+  it("renders the top-categories section: localized seed label, custom literal, Other + Uncategorized", () => {
+    const { html } = renderMonthlyDigestEmail({ model: model(), locale: "en", ...urls })
+    expect(html).toContain("Top categories")
+    expect(html).toContain("Groceries") // seed row localized via the categories catalog
+    expect(html).toContain("Sundlaug") // custom row shows its literal label
+    expect(html).toContain("Other (6)")
+    expect(html).toContain("Uncategorized")
+  })
+
+  it("falls back to the Uncategorized copy for an orphaned category (null label parts)", () => {
+    const { html } = renderMonthlyDigestEmail({
+      model: model({
+        // A single category row whose leaf was removed → null label parts. This model has no real
+        // uncategorized row, so "Uncategorized" appearing proves the empty-label fallback fired.
+        topCategories: [{ kind: "category", labelKey: null, label: null, amount: 5_000, share: 1 }],
+      }),
+      locale: "en",
+      ...urls,
+    })
+    expect(html).toContain("Uncategorized")
+    // The label cell isn't blank (no empty <td>…></td> pair where the label belongs).
+    expect(html).not.toMatch(/<td[^>]*><\/td>/)
+  })
+
+  it("localizes the top-categories copy in Icelandic", () => {
+    const { html } = renderMonthlyDigestEmail({ model: model(), locale: "is", ...urls })
+    expect(html).toContain("Efstu flokkar")
+    expect(html).toContain("Óflokkað")
+    expect(html).toContain("Annað (6)")
   })
 
   it("shows the savings block when a goal exists", () => {
