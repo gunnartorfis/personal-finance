@@ -1,5 +1,6 @@
 import { createTranslator } from "next-intl"
 
+import { resolveCategoryLabel } from "@/lib/categories/label"
 import { currencyFormatter } from "@/lib/format/currency"
 import { formatCycleMonth } from "@/lib/format/date"
 import { percentFormatter } from "@/lib/format/percent"
@@ -67,6 +68,24 @@ export function renderMonthlyDigestEmail(input: RenderMonthlyDigestInput): Rende
     value: money.format(bucket.amount),
   }))
 
+  // Top semantic Categories: seed rows localize via their labelKey (the `categories` catalog), custom
+  // rows show their literal label, and the pseudo-rows get their own copy. Value is "amount · share".
+  const pct = percentFormatter(locale)
+  const categoryLabel = (row: Extract<(typeof model.topCategories)[number], { kind: "category" }>) =>
+    resolveCategoryLabel(
+      { labelKey: row.labelKey, label: row.label },
+      (key) => (catalogs[locale].categories as Record<string, string>)[key] ?? key,
+    )
+  const categories: DigestRow[] = model.topCategories.map((row) => {
+    const label =
+      row.kind === "category"
+        ? categoryLabel(row)
+        : row.kind === "other"
+          ? t("digest.categoriesOther", { count: row.count })
+          : t("digest.categoriesUncategorized")
+    return { label, value: `${money.format(row.amount)} · ${pct.format(row.share)}` }
+  })
+
   const movers = model.topMovers.map((m) => ({
     name: m.name,
     amount: money.format(m.amount),
@@ -88,6 +107,8 @@ export function renderMonthlyDigestEmail(input: RenderMonthlyDigestInput): Rende
     vsLastMonth,
     splitHeading: t("digest.splitHeading"),
     split,
+    categoriesHeading: t("digest.categoriesHeading"),
+    categories,
     moversHeading: t("digest.moversHeading"),
     movers,
     savings,

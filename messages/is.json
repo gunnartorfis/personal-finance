@@ -1005,6 +1005,9 @@
     "settings": {
       "title": "Mánaðarleg yfirlit í tölvupósti",
       "description": "Samantekt á útgjöldum og sparnaði hvers mánaðar, send í tölvupósti þegar mánuðinum lýkur."
-    }
+    },
+    "categoriesHeading": "Efstu flokkar",
+    "categoriesOther": "Annað ({count})",
+    "categoriesUncategorized": "Óflokkað"
   }
 }

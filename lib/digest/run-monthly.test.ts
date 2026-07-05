@@ -23,6 +23,8 @@ function cycleData(overrides: Partial<DigestCycleData> = {}): DigestCycleData {
     currency: "ISK",
     series: [point("2026-06", 160_000, 500_000), point("2026-07", 200_000, 500_000)],
     categoryTrend: [trend("2026-07", { Fixed: 120_000, Necessary: 50_000, "Nice to have": 30_000 })],
+    categoryBreakdown: { expense: 0, byCategory: {}, uncategorized: 0 },
+    categories: [],
     movers: [],
     savings: null,
     ...overrides,

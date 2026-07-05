@@ -16,6 +16,9 @@ export interface MonthlyDigestEmailProps {
   vsLastMonth: string | null
   splitHeading: string
   split: DigestRow[]
+  /** Top semantic Categories for the cycle (label + formatted "amount · share"); empty hides the section. */
+  categoriesHeading: string
+  categories: DigestRow[]
   moversHeading: string
   /** Rising merchants (name + formatted amount + formatted "+X more"); empty hides the section. */
   movers: { name: string; amount: string; delta: string }[]
@@ -102,6 +105,7 @@ export function renderMonthlyDigestEmailBody(props: MonthlyDigestEmailProps): st
     vsLast +
     rowsTable(props.headline) +
     section(props.splitHeading, props.split) +
+    section(props.categoriesHeading, props.categories) +
     section(props.moversHeading, movers) +
     savings +
     `<div><a href="${esc(props.ctaUrl)}" style="${css.cta}">${esc(props.ctaLabel)}</a></div>` +

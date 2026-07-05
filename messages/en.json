@@ -1005,6 +1005,9 @@
     "settings": {
       "title": "Monthly summary emails",
       "description": "A recap of each month's spending and savings, emailed to you when the month closes."
-    }
+    },
+    "categoriesHeading": "Top categories",
+    "categoriesOther": "Other ({count})",
+    "categoriesUncategorized": "Uncategorized"
   }
 }

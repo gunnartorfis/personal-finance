@@ -33,6 +33,8 @@ function input(overrides: Partial<MonthlyDigestInput> = {}): MonthlyDigestInput 
     cycle: point("2026-02", 200_000, 500_000),
     priorCycle: point("2026-01", 160_000, 500_000),
     byExpenseType: byType({ Fixed: 120_000, Necessary: 50_000, "Nice to have": 30_000 }),
+    categoryBreakdown: { expense: 0, byCategory: {}, uncategorized: 0 },
+    categories: [],
     movers: [],
     savings: null,
     ...overrides,
@@ -79,6 +81,45 @@ describe("buildMonthlyDigest", () => {
       { type: "Necessary", amount: 90_000 },
       { type: "Fixed", amount: 30_000 },
     ]);
+  });
+
+  it("ranks the top categories, resolves label parts, and folds the tail into 'other' (ADR-0020)", () => {
+    const m = buildMonthlyDigest(
+      input({
+        categoryBreakdown: {
+          expense: -10_000,
+          byCategory: { g: -6_000, f: -2_500, x: -1_000 },
+          uncategorized: -500,
+        },
+        categories: [
+          { id: "g", labelKey: "groceries", label: null },
+          { id: "f", labelKey: null, label: "Sundlaug" }, // custom leaf → literal label
+          // "x" intentionally has no leaf entry → label parts resolve to null (render falls back)
+        ],
+      }),
+    );
+    expect(m.topCategories).toEqual([
+      { kind: "category", labelKey: "groceries", label: null, amount: 6_000, share: 0.6 },
+      { kind: "category", labelKey: null, label: "Sundlaug", amount: 2_500, share: 0.25 },
+      { kind: "category", labelKey: null, label: null, amount: 1_000, share: 0.1 },
+      { kind: "uncategorized", amount: 500, share: 0.05 },
+    ]);
+  });
+
+  it("folds categories beyond the top 5 into a single 'other' row", () => {
+    const m = buildMonthlyDigest(
+      input({
+        categoryBreakdown: {
+          expense: -2_100,
+          byCategory: { a: -600, b: -500, c: -400, d: -300, e: -200, f: -100 },
+          uncategorized: 0,
+        },
+        categories: [],
+      }),
+    );
+    const other = m.topCategories.find((r) => r.kind === "other");
+    expect(other).toEqual({ kind: "other", count: 1, amount: 100, share: 100 / 2100 });
+    expect(m.topCategories.filter((r) => r.kind === "category")).toHaveLength(5);
   });
 
   it("highlights only rising merchants, biggest rise first, capped at three", () => {
