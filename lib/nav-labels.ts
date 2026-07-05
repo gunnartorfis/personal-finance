@@ -18,6 +18,7 @@ export function useNavLabels(): Record<NavLabelKey, string> {
     settings: t("settings"),
     upload: t("upload"),
     rules: t("rules"),
+    categories: t("categories"),
     income: t("income"),
     budgets: t("budgets"),
     household: t("household"),

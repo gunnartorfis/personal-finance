@@ -520,6 +520,7 @@
     "settings": "Settings",
     "upload": "Upload",
     "rules": "Rules",
+    "categories": "Categories",
     "income": "Income & expenses",
     "budgets": "Budgets",
     "household": "Household",
@@ -527,6 +528,30 @@
     "account": "Account",
     "security": "Security",
     "activity": "Activity"
+  },
+  "categoriesManager": {
+    "title": "Categories",
+    "subtitle": "Tune the category taxonomy: hide the ones you don't use and add your own.",
+    "regionLabel": "Category management",
+    "groupLabel": "Group",
+    "groupPlaceholder": "Choose a group",
+    "nameLabel": "Name",
+    "namePlaceholder": "e.g. Swimming pool",
+    "defaultTypeLabel": "Default type",
+    "defaultTypeNone": "No default",
+    "types": {
+      "fixed": "Fixed",
+      "necessary": "Necessary",
+      "niceToHave": "Nice to have"
+    },
+    "add": "Add",
+    "addError": "Couldn't add the category.",
+    "hideError": "Couldn't update the category.",
+    "loading": "Loading…",
+    "hide": "Hide",
+    "show": "Show",
+    "hideAria": "Hide {name}",
+    "showAria": "Show {name}"
   },
   "activityLog": {
     "pageTitle": "Activity log",
