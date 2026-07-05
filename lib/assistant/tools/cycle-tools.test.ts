@@ -3,11 +3,13 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { seedCategoriesForHousehold } from "@/lib/categories/seed-household";
 import { householdRepo } from "@/lib/db/household-repo";
 import { households, savingsIncomeSources, savingsOffcardCosts } from "@/lib/db/schema";
 
 import { compareCyclesTool } from "./compare-cycles";
 import { cycleSummaryTool } from "./cycle-summary";
+import { spendByCategoryTool } from "./spend-by-category";
 import { spendByTypeTool } from "./spend-by-type";
 import { topMerchantsTool } from "./top-merchants";
 import type { AssistantToolContext } from "./types";
@@ -194,3 +196,56 @@ describe("assistant cycle tools", () => {
     });
   });
 });
+
+describe("spendByCategory (ADR-0020)", () => {
+  // Self-contained DB init so this block runs standalone (e.g. `vitest -t "splits spend by category"`)
+  // without depending on a sibling describe's beforeAll.
+  beforeAll(async () => {
+    db = drizzle(new PGlite());
+    await migrate(db, { migrationsFolder: "./drizzle" });
+  });
+
+  async function seedCategoryContext(authUserId: string): Promise<AssistantToolContext> {
+    const [hh] = await db.insert(households).values({}).returning();
+    await seedCategoriesForHousehold(asRepoDb(db), hh.id);
+    const repo = householdRepo(asRepoDb(db), hh.id);
+    const slugToId = await repo.categories.leafSlugToId();
+    const [acct] = await repo.accounts.create({ name: "Visa" });
+    const [up] = await repo.uploads.create({ accountId: acct.id, fileName: "c.csv", fileHash: authUserId });
+    const rows = [
+      { amount: -1000, merchant: "Netto", cat: "groceries" },
+      { amount: -1500, merchant: "Bonus", cat: "groceries" },
+      { amount: -3000, merchant: "N1", cat: "fuel" },
+      { amount: -800, merchant: "Mystery", cat: null }, // classified type, no category → uncategorized
+    ];
+    const created = await repo.transactions.createMany(
+      rows.map((r, i) => ({
+        accountId: acct.id,
+        uploadId: up.id,
+        date: "2026-03-10",
+        amount: r.amount,
+        merchant: r.merchant,
+        rawCategory: "",
+        sourceRow: i,
+      })),
+    );
+    for (let i = 0; i < rows.length; i++) {
+      const catId = rows[i].cat ? slugToId.get(rows[i].cat!) : null;
+      await repo.transactions.classify(created[i].id, {
+        expenseType: "Necessary",
+        categoryId: catId,
+        categoryConfidence: catId ? 0.9 : undefined,
+      });
+    }
+    return { repo, now: NOW };
+  }
+
+  it("splits spend by category slug, with uncategorized and total kept separate", async () => {
+    const ctx = await seedCategoryContext("spend-by-category");
+    const out = await spendByCategoryTool.run(ctx, { cycle: "2026-03" });
+    expect(out.cycle).toBe("2026-03");
+    expect(out.byCategory).toEqual({ groceries: 2500, fuel: 3000 });
+    expect(out.uncategorized).toBe(800);
+    expect(out.totalSpending).toBe(6300);
+  });
+})
