@@ -95,4 +95,33 @@ describe("CategoriesManager", () => {
     })
     await waitFor(() => expect(screen.getByText("Bakery")).toBeInTheDocument())
   })
+
+  it("rejects a whitespace-only label client-side with a translated error (no POST)", async () => {
+    const fetchMock = stubApi([group("g-food", "food")])
+    render(<CategoriesManager />)
+    await screen.findByRole("heading", { name: "Food & groceries" })
+
+    await userEvent.selectOptions(screen.getByLabelText("Group"), "g-food")
+    await userEvent.type(screen.getByLabelText("Name"), "   ")
+    await userEvent.click(screen.getByRole("button", { name: "Add" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't add/i)
+    expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit)?.method === "POST")).toBe(false)
+  })
+
+  it("shows an error when a hide toggle hits a network failure", async () => {
+    // GET succeeds once for the initial load, then PATCH rejects at the network layer.
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "GET") {
+        return { ok: true, json: async () => [group("g-food", "food"), leaf("l-groceries", "g-food", "groceries", null)] }
+      }
+      throw new Error("offline")
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    render(<CategoriesManager />)
+    await screen.findByText("Groceries")
+
+    await userEvent.click(screen.getByRole("button", { name: /hide groceries/i }))
+    expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't update/i)
+  })
 })

@@ -85,6 +85,13 @@ export function CategoriesManager({ className }: { className?: string }) {
 
   async function addCustom(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    // A whitespace-only label passes the browser's `required` check but the server rejects it with
+    // an (English) message; catch it client-side and show the translated error instead.
+    const trimmed = label.trim()
+    if (trimmed === "") {
+      setError({ key: "add" })
+      return
+    }
     setAdding(true)
     setError(null)
     try {
@@ -93,7 +100,7 @@ export function CategoriesManager({ className }: { className?: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           parentId,
-          label,
+          label: trimmed,
           // Only send a fallback Expense type when one is chosen.
           ...(defaultExpenseType ? { defaultExpenseType } : {}),
         }),
@@ -106,6 +113,9 @@ export function CategoriesManager({ className }: { className?: string }) {
       setLabel("")
       setDefaultExpenseType("")
       await refresh()
+    } catch {
+      // A network-level failure (offline / DNS) never reaches the ok-check above.
+      setError({ key: "add" })
     } finally {
       setAdding(false)
     }
@@ -122,6 +132,9 @@ export function CategoriesManager({ className }: { className?: string }) {
       })
       if (res.ok) await refresh()
       else setError({ key: "hide" })
+    } catch {
+      // Surface network-level failures too, so the spinner never clears without feedback.
+      setError({ key: "hide" })
     } finally {
       setTogglingId(null)
     }
