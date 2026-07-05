@@ -60,6 +60,14 @@ describe("POST /api/categories", () => {
     })
   })
 
+  it("400s an over-long icon name without touching the repo", async () => {
+    const createCustom = vi.fn()
+    requireHousehold.mockResolvedValue({ repo: { categories: { createCustom } } })
+    const res = await POST(req({ parentId: GROUP, label: "X", icon: "a".repeat(41) }))
+    expect(res.status).toBe(400)
+    expect(createCustom).not.toHaveBeenCalled()
+  })
+
   it("maps parent_not_found → 404 and parent_not_group → 409", async () => {
     const createCustom = vi
       .fn()

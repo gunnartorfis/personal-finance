@@ -17,14 +17,21 @@ function req(body: unknown) {
 beforeEach(() => requireHousehold.mockReset())
 
 describe("PATCH /api/categories/[id]", () => {
-  it("hides a category and returns the updated row", async () => {
-    const setHidden = vi.fn(async () => ({ id: ID, hidden: true }))
+  it("hides a leaf and returns the updated row", async () => {
+    const setHidden = vi.fn(async () => ({ ok: true, row: { id: ID, hidden: true } }))
     requireHousehold.mockResolvedValue({ repo: { categories: { setHidden } } })
 
     const res = await PATCH(req({ hidden: true }), { params: Promise.resolve({ id: ID }) })
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ id: ID, hidden: true })
     expect(setHidden).toHaveBeenCalledWith(ID, true)
+  })
+
+  it("409s an attempt to hide a group", async () => {
+    const setHidden = vi.fn(async () => ({ ok: false, error: "is_group" }))
+    requireHousehold.mockResolvedValue({ repo: { categories: { setHidden } } })
+    const res = await PATCH(req({ hidden: true }), { params: Promise.resolve({ id: ID }) })
+    expect(res.status).toBe(409)
   })
 
   it("400s a non-boolean hidden", async () => {
@@ -42,7 +49,7 @@ describe("PATCH /api/categories/[id]", () => {
   })
 
   it("404s when the category isn't in this Household", async () => {
-    const setHidden = vi.fn(async () => undefined)
+    const setHidden = vi.fn(async () => ({ ok: false, error: "not_found" }))
     requireHousehold.mockResolvedValue({ repo: { categories: { setHidden } } })
     const res = await PATCH(req({ hidden: true }), { params: Promise.resolve({ id: ID }) })
     expect(res.status).toBe(404)

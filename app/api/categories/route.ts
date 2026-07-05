@@ -6,6 +6,8 @@ import { TYPES, type RealType } from "@/shared/types"
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 /** Cap a custom Category label so a row can't carry an unbounded string. */
 const MAX_LABEL = 60
+/** Cap the Lucide icon name (kebab-case slugs are short); the DB column is unbounded `text`. */
+const MAX_ICON = 40
 
 /**
  * Custom Categories for the current Household (ADR-0020).
@@ -42,6 +44,9 @@ export async function POST(request: Request) {
     defaultExpenseType = body.defaultExpenseType as RealType
   }
   const icon = typeof body.icon === "string" && body.icon !== "" ? body.icon : null
+  if (icon !== null && icon.length > MAX_ICON) {
+    return NextResponse.json({ error: "icon name too long" }, { status: 400 })
+  }
 
   const { repo } = await requireHousehold()
   const result = await repo.categories.createCustom({

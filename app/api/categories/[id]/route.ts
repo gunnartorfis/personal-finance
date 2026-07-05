@@ -7,9 +7,10 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 /**
  * Mutate a single Category of the current Household (ADR-0020).
  *
- * - `PATCH` — hide or unhide it (`{ hidden: boolean }`), a soft reversible prune. The write is
+ * - `PATCH` — hide or unhide a leaf (`{ hidden: boolean }`), a soft reversible prune. The write is
  *   Household-scoped, so another tenant's id resolves to nothing and returns 404 — never a silent
- *   cross-tenant write.
+ *   cross-tenant write. Hiding a group is rejected (409): its leaves would stay visible to
+ *   classification (ADR-0020).
  */
 export async function PATCH(
   request: Request,
@@ -25,9 +26,11 @@ export async function PATCH(
   }
 
   const { repo } = await requireHousehold()
-  const updated = await repo.categories.setHidden(id, body.hidden)
-  if (!updated) {
-    return NextResponse.json({ error: "category not found" }, { status: 404 })
+  const result = await repo.categories.setHidden(id, body.hidden)
+  if (!result.ok) {
+    // Not in this Household → 404; a group (its leaves would stay classifiable) → 409.
+    const status = result.error === "not_found" ? 404 : 409
+    return NextResponse.json({ error: result.error }, { status })
   }
-  return NextResponse.json(updated)
+  return NextResponse.json(result.row)
 }

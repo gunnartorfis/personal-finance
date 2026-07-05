@@ -72,20 +72,29 @@ describe("categories.createCustom (ADR-0020, S6)", () => {
 });
 
 describe("categories.setHidden (ADR-0020, S6)", () => {
-  it("hides and unhides a Household's own category", async () => {
+  it("hides and unhides a Household's own leaf", async () => {
     const { hh, repo } = await seededHousehold();
     const { leafId } = await aGroupAndLeaf(hh.id);
 
     const hidden = await repo.categories.setHidden(leafId, true);
-    expect(hidden?.hidden).toBe(true);
+    expect(hidden.ok && hidden.row.hidden).toBe(true);
     const shown = await repo.categories.setHidden(leafId, false);
-    expect(shown?.hidden).toBe(false);
+    expect(shown.ok && shown.row.hidden).toBe(false);
   });
 
-  it("won't touch another Household's category (returns undefined → 404)", async () => {
+  it("refuses to hide a group (its leaves would stay classifiable)", async () => {
+    const { hh, repo } = await seededHousehold();
+    const { groupId } = await aGroupAndLeaf(hh.id);
+    expect(await repo.categories.setHidden(groupId, true)).toEqual({ ok: false, error: "is_group" });
+  });
+
+  it("won't touch another Household's category (not_found → 404)", async () => {
     const { repo } = await seededHousehold();
     const { hh: other } = await seededHousehold();
     const { leafId: othersLeaf } = await aGroupAndLeaf(other.id);
-    expect(await repo.categories.setHidden(othersLeaf, true)).toBeUndefined();
+    expect(await repo.categories.setHidden(othersLeaf, true)).toEqual({
+      ok: false,
+      error: "not_found",
+    });
   });
 });
