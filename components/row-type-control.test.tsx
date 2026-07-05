@@ -29,6 +29,8 @@ const BASE: TransactionRow = {
   reasoning: null,
   overrideType: null,
   classificationStatus: "classified",
+  categoryId: null,
+  overrideCategoryId: null,
 }
 
 function setup(row: Partial<TransactionRow> = {}) {

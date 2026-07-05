@@ -21,6 +21,8 @@ function row(
     reasoning: null,
     overrideType: null,
     classificationStatus: "pending",
+    categoryId: null,
+    overrideCategoryId: null,
     ...partial,
   }
 }

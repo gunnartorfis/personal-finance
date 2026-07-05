@@ -8,6 +8,7 @@ import { PeriodSelector, type PeriodOption } from "@/components/period-selector"
 import { RapidReviewLauncher } from "@/components/rapid-review-launcher"
 import {
   TransactionsTable,
+  type CategoryOption,
   type TransactionRow,
 } from "@/components/transactions-table"
 import { Button } from "@/components/ui/button"
@@ -79,10 +80,11 @@ export default async function TransactionsPage({
   // and Off-card fixed costs join the card debits on the expense side — so both figures reflect the
   // Household's off-card configuration, not only card activity. `addConfiguredAmounts` folds them in
   // while keeping `income + expense === net`.
-  const [rawRows, baseSummary, configured] = await Promise.all([
+  const [rawRows, baseSummary, configured, categoryRows] = await Promise.all([
     repo.transactions.listWithOverrides(range),
     loadNetSummary(repo, range),
     loadConfiguredAmounts(repo, selected),
+    repo.categories.list(),
   ])
   const summary = addConfiguredAmounts(baseSummary, configured)
 
@@ -104,6 +106,12 @@ export default async function TransactionsPage({
     classifiedType: row.classifiedType as ExpenseType | null,
     overrideType: row.overrideType as ExpenseType | null,
   }))
+
+  // Only leaf Categories bear a `category_id` a Transaction can carry, so only leaves label the
+  // rows; the parent groups are rollups (ADR-0020).
+  const categories: CategoryOption[] = categoryRows
+    .filter((row) => row.parentId !== null)
+    .map((row) => ({ id: row.id, labelKey: row.labelKey, label: row.label }))
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6">
@@ -154,6 +162,7 @@ export default async function TransactionsPage({
         key={selected}
         rows={rows}
         currency={billingCurrency}
+        categories={categories}
         backlogElsewhere={reviewTotal}
       />
     </div>
