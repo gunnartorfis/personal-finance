@@ -293,7 +293,10 @@ export function MerchantRulesManager({
         </div>
       ) : (
         <ul className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
-          {rules.map((rule) => (
+          {rules.map((rule) => {
+            // Resolve once: a rule row shows its type effect, plus the assigned Category if any (ADR-0020).
+            const category = categoryLabel(rule.categoryId)
+            return (
             <li
               key={rule.id}
               className="flex items-center justify-between gap-4 px-4 py-3 text-sm"
@@ -301,11 +304,10 @@ export function MerchantRulesManager({
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="truncate font-medium">{rule.merchant}</span>
                 <span className="truncate text-muted-foreground">
-                  {/* Type effect, plus the assigned Category when the rule sets one (ADR-0020). */}
-                  {categoryLabel(rule.categoryId)
+                  {category
                     ? t("effectWithCategory", {
                         effect: describeRule(rule),
-                        category: categoryLabel(rule.categoryId)!,
+                        category,
                       })
                     : describeRule(rule)}
                 </span>
@@ -326,7 +328,8 @@ export function MerchantRulesManager({
                 {t("delete")}
               </Button>
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
     </section>
