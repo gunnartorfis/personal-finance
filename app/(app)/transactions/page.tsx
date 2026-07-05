@@ -156,10 +156,11 @@ export default async function TransactionsPage({
         </div>
       )}
 
-      {/* Key by cycle so a soft navigation remounts the table and re-seeds its local row
-          state from the new period's server data (useState only runs its initialiser on mount). */}
+      {/* Key by cycle *and* the category param so a soft navigation remounts the table and re-seeds
+          its local state — the row mirror from the new period's server data, and the Category filter
+          from `?category` (useState only runs its initialiser on mount). */}
       <TransactionsTable
-        key={selected}
+        key={`${selected}:${category ?? ""}`}
         rows={rows}
         currency={billingCurrency}
         categories={categories}
