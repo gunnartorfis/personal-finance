@@ -26,8 +26,12 @@ import { compareCycleToAverage, computeSpendingTrendStats, type SpendingTrendSta
 import type { MerchantSpend } from "./top-merchants";
 import { loadTopMerchants } from "./top-merchants";
 
-/** How many trailing months feed the "recent spending" modules (top merchants, account split). */
-const RECENT_MONTHS = 3;
+/**
+ * How many trailing months feed the "recent spending" modules (top merchants, account split, the
+ * Category breakdown). Exported so the dashboard can label the Category chart with the exact window
+ * it's fed — a single source of truth (no hardcoded "3" drifting out of sync).
+ */
+export const RECENT_MONTHS = 3;
 /** Top-N merchants shown. */
 const TOP_MERCHANTS = 6;
 
@@ -54,7 +58,7 @@ export interface DashboardInputs {
   topMerchants: MerchantSpend[];
   categoryTrend: CategoryTrendPoint[];
   movers: { merchants: Mover[]; categories: Mover[] };
-  /** Hero-cycle spend split by semantic Category (ADR-0020) — the Category-axis breakdown. */
+  /** Trailing-window spend split by semantic Category (ADR-0020) — the Category-axis breakdown. */
   categoryBreakdown: CategoryBreakdown;
   /** The Household's Category leaves (id + label parts) to localize the breakdown chart. */
   categories: CategoryLeafLabel[];
@@ -109,7 +113,7 @@ export interface DashboardModules {
   categoryTrend: CategoryTrendPoint[];
   /** True when unclassified spend outweighs classified — drives the "classify to unlock" nudge. */
   categoryMostlyUnclassified: boolean;
-  /** Hero-cycle spend split by semantic Category (ADR-0020), for the breakdown chart. */
+  /** Trailing-window spend split by semantic Category (ADR-0020), for the breakdown chart. */
   categoryBreakdown: CategoryBreakdown;
   /** The Household's Category leaves (id + label parts) that localize the breakdown chart. */
   categories: CategoryLeafLabel[];
@@ -258,9 +262,8 @@ export async function loadDashboardView(
   now: Date,
   { plan, count = 12, selectedKey }: { plan: Plan; count?: number; selectedKey?: CycleKey },
 ): Promise<DashboardView> {
-  // The hero's cycle (the current month by default); scopes its largest-charge + Category reads.
+  // The hero's cycle (the current month by default); scopes its largest-charge read.
   const heroKey = selectedKey ?? currentCycleKey(now);
-  const heroRange = cycleKeyRange(heroKey);
   const recentKeys = recentCycleKeys(now, RECENT_MONTHS);
   const recentRange = {
     from: cycleKeyRange(recentKeys[0]).from,
@@ -299,7 +302,9 @@ export async function loadDashboardView(
     loadFinancialHealth(repo, now, count),
     loadRecurring(repo, now),
     repo.budgets.list(),
-    loadCategoryBreakdown(repo, heroRange),
+    // The Category breakdown covers the trailing window (like top-merchants / accounts), not the
+    // hero cycle — so it stays populated even when the current month is sparse (ADR-0020).
+    loadCategoryBreakdown(repo, recentRange),
     repo.categories.list(),
   ]);
 

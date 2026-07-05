@@ -28,9 +28,10 @@ describe("SpendingByCategory (ADR-0020, S5b)", () => {
         })}
         categories={leaves}
         currency="ISK"
+        periodMonths={3}
       />
     )
-    expect(screen.getByRole("heading", { name: "Spending by category" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: /Spending by category · last 3 months/ })).toBeInTheDocument()
     // Seed rows localize via their labelKey (categories catalog).
     expect(screen.getByText("Groceries")).toBeInTheDocument()
     expect(screen.getByText("Fuel")).toBeInTheDocument()
@@ -42,6 +43,7 @@ describe("SpendingByCategory (ADR-0020, S5b)", () => {
         breakdown={breakdown({ expense: -5000, byCategory: { "cat-custom": -5000 } })}
         categories={leaves}
         currency="ISK"
+        periodMonths={3}
       />
     )
     expect(screen.getByText("Sundlaug")).toBeInTheDocument()
@@ -53,6 +55,7 @@ describe("SpendingByCategory (ADR-0020, S5b)", () => {
         breakdown={breakdown({ expense: -5000, byCategory: { "cat-fuel": -3000 }, uncategorized: -2000 })}
         categories={leaves}
         currency="ISK"
+        periodMonths={3}
       />
     )
     expect(screen.getByText("Uncategorized")).toBeInTheDocument()
@@ -73,6 +76,7 @@ describe("SpendingByCategory (ADR-0020, S5b)", () => {
         })}
         categories={many}
         currency="ISK"
+        periodMonths={3}
       />
     )
     // One category past the palette → "Other (1)".
@@ -83,7 +87,7 @@ describe("SpendingByCategory (ADR-0020, S5b)", () => {
 
   it("renders nothing when there is no spend", () => {
     const { container } = render(
-      <SpendingByCategory breakdown={breakdown({})} categories={leaves} currency="ISK" />
+      <SpendingByCategory breakdown={breakdown({})} categories={leaves} currency="ISK" periodMonths={3} />
     )
     expect(container).toBeEmptyDOMElement()
   })

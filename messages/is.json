@@ -729,7 +729,7 @@
     "total": "{amount} samtals"
   },
   "spendingByCategory": {
-    "heading": "Útgjöld eftir flokki",
+    "heading": "Útgjöld eftir flokki · síðustu {months} mánuðir",
     "total": "{amount} samtals",
     "other": "Annað ({count})",
     "uncategorized": "Óflokkað"

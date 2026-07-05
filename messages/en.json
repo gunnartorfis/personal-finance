@@ -729,7 +729,7 @@
     "total": "{amount} total"
   },
   "spendingByCategory": {
-    "heading": "Spending by category",
+    "heading": "Spending by category · last {months} months",
     "total": "{amount} total",
     "other": "Other ({count})",
     "uncategorized": "Uncategorized"
