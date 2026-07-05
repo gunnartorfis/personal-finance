@@ -58,6 +58,29 @@ describe("SpendingByCategory (ADR-0020, S5b)", () => {
     expect(screen.getByText("Uncategorized")).toBeInTheDocument()
   })
 
+  it("collapses categories beyond the palette into an 'Other' row", () => {
+    // Six named categories exceed the 5-colour palette, so the 6th folds into "Other ({count})".
+    const many: CategoryChartLeaf[] = Array.from({ length: 6 }, (_, i) => ({
+      id: `c${i}`,
+      labelKey: null,
+      label: `Cat ${i}`,
+    }))
+    render(
+      <SpendingByCategory
+        breakdown={breakdown({
+          expense: -6000,
+          byCategory: { c0: -1500, c1: -1200, c2: -1000, c3: -900, c4: -800, c5: -600 },
+        })}
+        categories={many}
+        currency="ISK"
+      />
+    )
+    // One category past the palette → "Other (1)".
+    expect(screen.getByText("Other (1)")).toBeInTheDocument()
+    // The smallest (c5) is the one folded away, so it never appears on its own.
+    expect(screen.queryByText("Cat 5")).not.toBeInTheDocument()
+  })
+
   it("renders nothing when there is no spend", () => {
     const { container } = render(
       <SpendingByCategory breakdown={breakdown({})} categories={leaves} currency="ISK" />

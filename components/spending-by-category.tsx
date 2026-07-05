@@ -76,6 +76,8 @@ export function SpendingByCategory({
       return {
         key: row.categoryId,
         label: parts ? labelFor(parts) : row.categoryId,
+        // Category rows come first and `topN` is capped to PALETTE.length, so `index` is already in
+        // range; the modulo is a defensive guard should either of those invariants ever change.
         color: PALETTE[index % PALETTE.length],
         magnitude: row.magnitude,
       }
