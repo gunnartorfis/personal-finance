@@ -700,6 +700,12 @@
     "heading": "Útgjöld eftir tegund",
     "total": "{amount} samtals"
   },
+  "spendingByCategory": {
+    "heading": "Útgjöld eftir flokki",
+    "total": "{amount} samtals",
+    "other": "Annað ({count})",
+    "uncategorized": "Óflokkað"
+  },
   "netSummary": {
     "cycle": "Greiðslutímabil",
     "netProfit": "Hagnaður",

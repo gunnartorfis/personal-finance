@@ -700,6 +700,12 @@
     "heading": "Spending by type",
     "total": "{amount} total"
   },
+  "spendingByCategory": {
+    "heading": "Spending by category",
+    "total": "{amount} total",
+    "other": "Other ({count})",
+    "uncategorized": "Uncategorized"
+  },
   "netSummary": {
     "cycle": "Statement cycle",
     "netProfit": "Net profit",
