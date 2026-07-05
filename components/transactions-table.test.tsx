@@ -279,6 +279,49 @@ describe("TransactionsTable", () => {
     expect(within(screen.getByRole("row", { name: /SALARY/ })).getByText("—")).toBeInTheDocument()
   })
 
+  const CATS: CategoryOption[] = [
+    { id: "cat-food", labelKey: "groceries", label: null },
+    { id: "cat-fuel", labelKey: "fuel", label: null },
+  ]
+  const catRows: TransactionRow[] = [
+    { ...ROWS[0], id: "g", merchant: "BONUS", categoryId: "cat-food", overrideCategoryId: null },
+    { ...ROWS[0], id: "f", merchant: "N1", categoryId: "cat-fuel", overrideCategoryId: null },
+    { ...ROWS[0], id: "u", merchant: "MYSTERY", categoryId: null, overrideCategoryId: null },
+  ]
+
+  it("seeds the category filter from initialCategoryId, showing a clearable chip (ADR-0020)", async () => {
+    render(
+      <TransactionsTable rows={catRows} currency="ISK" categories={CATS} initialCategoryId="cat-food" />
+    )
+    // Only the groceries row is shown; the others are filtered out.
+    expect(screen.getByText("BONUS")).toBeInTheDocument()
+    expect(screen.queryByText("N1")).not.toBeInTheDocument()
+    expect(screen.queryByText("MYSTERY")).not.toBeInTheDocument()
+    expect(screen.getByText(/Category: Groceries/)).toBeInTheDocument()
+
+    // Clearing the chip restores the full list.
+    await userEvent.click(screen.getByRole("button", { name: /clear category filter/i }))
+    expect(await screen.findByText("N1")).toBeInTheDocument()
+    expect(screen.queryByText(/Category: Groceries/)).not.toBeInTheDocument()
+  })
+
+  it("filters to Uncategorized rows for the `none` sentinel", () => {
+    render(
+      <TransactionsTable rows={catRows} currency="ISK" categories={CATS} initialCategoryId="none" />
+    )
+    expect(screen.getByText("MYSTERY")).toBeInTheDocument()
+    expect(screen.queryByText("BONUS")).not.toBeInTheDocument()
+  })
+
+  it("ignores an unknown initialCategoryId (no filter, no chip)", () => {
+    render(
+      <TransactionsTable rows={catRows} currency="ISK" categories={CATS} initialCategoryId="cat-gone" />
+    )
+    expect(screen.getByText("BONUS")).toBeInTheDocument()
+    expect(screen.getByText("N1")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /clear category filter/i })).not.toBeInTheDocument()
+  })
+
   // Merchants of the data rows, top-to-bottom (the first row is the header).
   const merchantOrder = () =>
     screen
