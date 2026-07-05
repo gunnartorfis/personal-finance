@@ -16,6 +16,7 @@ export type NavLabelKey =
   | "settings"
   | "upload"
   | "rules"
+  | "categories"
   | "income"
   | "budgets"
   | "household"
@@ -48,6 +49,7 @@ const SECONDARY_LABELS: ReadonlyArray<{ href: string; labelKey: NavLabelKey }> =
   [
     { href: "/upload", labelKey: "upload" },
     { href: "/settings/rules", labelKey: "rules" },
+    { href: "/settings/categories", labelKey: "categories" },
     { href: "/settings/income", labelKey: "income" },
     { href: "/settings/household", labelKey: "household" },
     { href: "/settings/billing", labelKey: "billing" },

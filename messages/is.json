@@ -520,6 +520,7 @@
     "settings": "Stillingar",
     "upload": "Hlaða upp",
     "rules": "Reglur",
+    "categories": "Flokkar",
     "income": "Tekjur og útgjöld",
     "budgets": "Fjárhagsáætlun",
     "household": "Heimili",
@@ -527,6 +528,30 @@
     "account": "Aðgangur",
     "security": "Öryggi",
     "activity": "Virkni"
+  },
+  "categoriesManager": {
+    "title": "Flokkar",
+    "subtitle": "Stilltu flokkakerfið: faldu þá sem þú notar ekki og bættu við þínum eigin.",
+    "regionLabel": "Umsjón flokka",
+    "groupLabel": "Yfirflokkur",
+    "groupPlaceholder": "Veldu yfirflokk",
+    "nameLabel": "Heiti",
+    "namePlaceholder": "t.d. Sundlaug",
+    "defaultTypeLabel": "Sjálfgefin tegund",
+    "defaultTypeNone": "Engin sjálfgefin",
+    "types": {
+      "fixed": "Fastur",
+      "necessary": "Nauðsynlegt",
+      "niceToHave": "Munaður"
+    },
+    "add": "Bæta við",
+    "addError": "Ekki tókst að bæta við flokki.",
+    "hideError": "Ekki tókst að uppfæra flokkinn.",
+    "loading": "Hleð…",
+    "hide": "Fela",
+    "show": "Sýna",
+    "hideAria": "Fela {name}",
+    "showAria": "Sýna {name}"
   },
   "activityLog": {
     "pageTitle": "Virknisaga",
