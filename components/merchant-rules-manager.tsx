@@ -2,10 +2,11 @@
 
 import { CircleAlert, Loader2, Plus, Trash2 } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { type FormEvent, useEffect, useState } from "react"
+import { type FormEvent, useEffect, useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useCategoryLabel } from "@/lib/categories/label"
 import { cn } from "@/lib/utils"
 import { TYPES, type ExpenseType, type RealType } from "@/shared/types"
 
@@ -17,7 +18,21 @@ interface MerchantRule {
   threshold: number | null
   atOrAboveType: ExpenseType | null
   belowType: ExpenseType | null
+  /** The Category (leaf) the rule also assigns (ADR-0020); null when it sets only an Expense type. */
+  categoryId: string | null
 }
+
+/** A Household Category leaf offered in the rule form's picker (ADR-0020). */
+export interface CategoryOption {
+  id: string
+  /** i18n key (namespace `categories`) for a seed row; null on a custom row. */
+  labelKey: string | null
+  /** Literal label for a custom row; null on a seed row. */
+  label: string | null
+}
+
+/** Stable empty default so an omitted `categories` prop doesn't allocate a new array each render. */
+const NO_CATEGORIES: CategoryOption[] = []
 
 /**
  * A failed mutation, kept as a translation key or a raw server message (the API owns duplicate /
@@ -38,15 +53,36 @@ async function fetchRules(): Promise<MerchantRule[]> {
  * for flat rules (merchant → type). Split rules created via the API are shown read-only. Each
  * mutation refetches so the list reflects server state.
  */
-// react-doctor-disable-next-line react-doctor/prefer-useReducer -- independent concerns (list-load, form inputs, add/delete mutations), not one cohesive state machine
-export function MerchantRulesManager({ className }: { className?: string }) {
+export function MerchantRulesManager({
+  categories = NO_CATEGORIES,
+  className,
+}: {
+  /** The Household's Category leaves, for the optional Category picker + list labels (ADR-0020). */
+  categories?: CategoryOption[]
+  className?: string
+  // react-doctor-disable-next-line react-doctor/prefer-useReducer -- independent concerns (list-load, form inputs incl. optional Category, add/delete mutations), not one cohesive state machine
+}) {
   const t = useTranslations("rules")
   const [rules, setRules] = useState<MerchantRule[]>([])
   const [loading, setLoading] = useState(true)
   const [merchant, setMerchant] = useState("")
   // A flat rule only offers the actionable types — never `""` (the not-bucketed / split type).
   const [flatType, setFlatType] = useState<RealType>("Fixed")
+  // Optional Category the rule also assigns; "" means "leave Category to the classifier" (ADR-0020).
+  const [categoryId, setCategoryId] = useState("")
   const [error, setError] = useState<RuleError | null>(null)
+
+  const categoryLabelOf = useCategoryLabel()
+  // Category leaves keyed by id, so a rule's Category resolves to a localized label in one lookup.
+  const categoryParts = useMemo(
+    () => new Map(categories.map((c) => [c.id, c])),
+    [categories]
+  )
+  const categoryLabel = (id: string | null): string | null => {
+    if (id === null) return null
+    const parts = categoryParts.get(id)
+    return parts ? categoryLabelOf(parts) : null
+  }
 
   // Localized label for a canonical expense type. Switch over known values (no catch-all) so a new
   // enum member is a type error here rather than a silent English fallback.
@@ -112,7 +148,8 @@ export function MerchantRulesManager({ className }: { className?: string }) {
       const res = await fetch("/api/merchant-rules", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ merchant, flatType }),
+        // Only send categoryId when one is picked, so a type-only rule posts the same shape as before.
+        body: JSON.stringify({ merchant, flatType, ...(categoryId ? { categoryId } : {}) }),
       })
       if (!res.ok) {
         const data = (await res.json().catch(() => null)) as {
@@ -122,6 +159,7 @@ export function MerchantRulesManager({ className }: { className?: string }) {
         return
       }
       setMerchant("")
+      setCategoryId("")
       await refresh()
     } finally {
       setAdding(false)
@@ -192,6 +230,39 @@ export function MerchantRulesManager({ className }: { className?: string }) {
             </svg>
           </div>
         </div>
+        {categories.length > 0 && (
+          <div className="flex flex-col gap-1.5 sm:w-44">
+            <label htmlFor="rule-category" className="text-sm font-medium">
+              {t("categoryFieldLabel")}
+            </label>
+            <div className="grid grid-cols-[1fr_--spacing(7)] items-center rounded-md border border-input bg-input/20 transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30 dark:bg-input/30">
+              <select
+                id="rule-category"
+                name="categoryId"
+                value={categoryId}
+                onChange={(event) => setCategoryId(event.target.value)}
+                className="col-span-full row-start-1 h-7 appearance-none bg-transparent py-0.5 pr-7 pl-2 text-sm outline-none"
+              >
+                <option value="">{t("categoryNone")}</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {categoryLabel(category.id)}
+                  </option>
+                ))}
+              </select>
+              <svg
+                viewBox="0 0 8 5"
+                width="8"
+                height="5"
+                fill="none"
+                aria-hidden="true"
+                className="pointer-events-none col-start-2 row-start-1 place-self-center text-muted-foreground"
+              >
+                <path d="M.5.5 4 4 7.5.5" stroke="currentColor" />
+              </svg>
+            </div>
+          </div>
+        )}
         <Button type="submit" disabled={busy}>
           {adding ? <Loader2 className="animate-spin" /> : <Plus />}
           {t("add")}
@@ -222,7 +293,10 @@ export function MerchantRulesManager({ className }: { className?: string }) {
         </div>
       ) : (
         <ul className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
-          {rules.map((rule) => (
+          {rules.map((rule) => {
+            // Resolve once: a rule row shows its type effect, plus the assigned Category if any (ADR-0020).
+            const category = categoryLabel(rule.categoryId)
+            return (
             <li
               key={rule.id}
               className="flex items-center justify-between gap-4 px-4 py-3 text-sm"
@@ -230,7 +304,12 @@ export function MerchantRulesManager({ className }: { className?: string }) {
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="truncate font-medium">{rule.merchant}</span>
                 <span className="truncate text-muted-foreground">
-                  {describeRule(rule)}
+                  {category
+                    ? t("effectWithCategory", {
+                        effect: describeRule(rule),
+                        category,
+                      })
+                    : describeRule(rule)}
                 </span>
               </div>
               <Button
@@ -249,7 +328,8 @@ export function MerchantRulesManager({ className }: { className?: string }) {
                 {t("delete")}
               </Button>
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
     </section>

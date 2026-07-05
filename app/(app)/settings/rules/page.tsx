@@ -8,7 +8,13 @@ export const dynamic = "force-dynamic"
 
 /** Merchant-rule management (Phase H): deterministic merchant→type rules applied before the AI. */
 export default async function RulesSettingsPage() {
-  await requireHousehold() // gate on auth; the manager fetches the list client-side
+  // Gate on auth; the manager fetches the rule list client-side, but the Category picker's leaves
+  // come from the server (ADR-0020) — only leaves (parent_id set) can be a rule's Category.
+  const { repo } = await requireHousehold()
+  const categoryRows = await repo.categories.list()
+  const categories = categoryRows
+    .filter((row) => row.parentId !== null)
+    .map((row) => ({ id: row.id, labelKey: row.labelKey, label: row.label }))
   const t = await getTranslations("rules")
   return (
     <div className="flex flex-col gap-8">
@@ -18,7 +24,7 @@ export default async function RulesSettingsPage() {
           {t("subtitle")}
         </p>
       </header>
-      <MerchantRulesManager />
+      <MerchantRulesManager categories={categories} />
     </div>
   )
 }
