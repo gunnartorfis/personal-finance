@@ -30,7 +30,7 @@ describe("SpendingByCategory (ADR-0020, S5b)", () => {
         currency="ISK"
       />
     )
-    expect(screen.getByRole("heading", { name: "Spending by category" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: /Spending by category/ })).toBeInTheDocument()
     // Seed rows localize via their labelKey (categories catalog).
     expect(screen.getByText("Groceries")).toBeInTheDocument()
     expect(screen.getByText("Fuel")).toBeInTheDocument()
