@@ -79,7 +79,9 @@ export function renderMonthlyDigestEmail(input: RenderMonthlyDigestInput): Rende
   const categories: DigestRow[] = model.topCategories.map((row) => {
     const label =
       row.kind === "category"
-        ? categoryLabel(row)
+        ? // An orphaned id (leaf removed after the cycle closed) has null label parts → empty string;
+          // fall back to the Uncategorized copy so the email never renders a blank label cell.
+          categoryLabel(row) || t("digest.categoriesUncategorized")
         : row.kind === "other"
           ? t("digest.categoriesOther", { count: row.count })
           : t("digest.categoriesUncategorized")

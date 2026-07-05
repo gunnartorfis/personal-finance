@@ -95,6 +95,21 @@ describe("renderMonthlyDigestEmail", () => {
     expect(html).toContain("Uncategorized")
   })
 
+  it("falls back to the Uncategorized copy for an orphaned category (null label parts)", () => {
+    const { html } = renderMonthlyDigestEmail({
+      model: model({
+        // A single category row whose leaf was removed → null label parts. This model has no real
+        // uncategorized row, so "Uncategorized" appearing proves the empty-label fallback fired.
+        topCategories: [{ kind: "category", labelKey: null, label: null, amount: 5_000, share: 1 }],
+      }),
+      locale: "en",
+      ...urls,
+    })
+    expect(html).toContain("Uncategorized")
+    // The label cell isn't blank (no empty <td>…></td> pair where the label belongs).
+    expect(html).not.toMatch(/<td[^>]*><\/td>/)
+  })
+
   it("localizes the top-categories copy in Icelandic", () => {
     const { html } = renderMonthlyDigestEmail({ model: model(), locale: "is", ...urls })
     expect(html).toContain("Efstu flokkar")
