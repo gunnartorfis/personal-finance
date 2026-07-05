@@ -536,6 +536,7 @@
       "transactionIncomeUnmarked": "afmerkti færslu sem tekjur",
       "transactionRetyped": "breytti tegund færslu",
       "transactionRetypeCleared": "hreinsaði tegundarval færslu",
+      "transactionRecategorized": "breytti flokki færslu",
       "transactionShareSet": "setti sameiginlega upphæð á færslu",
       "transactionShareCleared": "hreinsaði sameiginlega upphæð færslu",
       "accountCreated": "bætti við reikningi",

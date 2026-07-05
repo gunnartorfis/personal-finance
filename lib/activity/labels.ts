@@ -14,6 +14,7 @@ const ACTION_LABEL_KEY: Record<string, string> = {
   [ActivityAction.TransactionIncomeUnmarked]: "transactionIncomeUnmarked",
   [ActivityAction.TransactionRetyped]: "transactionRetyped",
   [ActivityAction.TransactionRetypeCleared]: "transactionRetypeCleared",
+  [ActivityAction.TransactionRecategorized]: "transactionRecategorized",
   [ActivityAction.TransactionShareSet]: "transactionShareSet",
   [ActivityAction.TransactionShareCleared]: "transactionShareCleared",
   [ActivityAction.AccountCreated]: "accountCreated",
