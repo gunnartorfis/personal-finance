@@ -831,6 +831,7 @@
     "colDate": "Date",
     "colMerchant": "Merchant",
     "colAmount": "Amount",
+    "colCategory": "Category",
     "colType": "Type",
     "yourShare": "your share {amount}"
   },

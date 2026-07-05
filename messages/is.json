@@ -831,6 +831,7 @@
     "colDate": "Dagsetning",
     "colMerchant": "Söluaðili",
     "colAmount": "Upphæð",
+    "colCategory": "Flokkur",
     "colType": "Tegund",
     "yourShare": "þinn hluti {amount}"
   },

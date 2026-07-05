@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import {
   TransactionsTable,
+  type CategoryOption,
   type TransactionRow,
 } from "@/components/transactions-table"
 import { renderWithIntl as render } from "@/lib/test/render"
@@ -39,6 +40,8 @@ const ROWS: TransactionRow[] = [
     reasoning: "Recurring subscription",
     overrideType: null,
     classificationStatus: "classified",
+    categoryId: null,
+    overrideCategoryId: null,
   },
   {
     id: "t3",
@@ -54,6 +57,8 @@ const ROWS: TransactionRow[] = [
     reasoning: null,
     overrideType: "Nice to have", // override wins
     classificationStatus: "classified",
+    categoryId: null,
+    overrideCategoryId: null,
   },
   {
     id: "t2",
@@ -69,6 +74,8 @@ const ROWS: TransactionRow[] = [
     reasoning: null,
     overrideType: null,
     classificationStatus: "classified",
+    categoryId: null,
+    overrideCategoryId: null,
   },
 ]
 
@@ -153,6 +160,8 @@ describe("TransactionsTable", () => {
       reasoning: null,
       overrideType: null,
       classificationStatus: "classified",
+      categoryId: null,
+      overrideCategoryId: null,
     }
     const user = userEvent.setup()
     render(<TransactionsTable rows={[excludedCredit]} currency="ISK" />)
@@ -208,6 +217,8 @@ describe("TransactionsTable", () => {
         reasoning: null,
         overrideType: null,
         classificationStatus: "pending",
+        categoryId: null,
+        overrideCategoryId: null,
       },
       {
         id: "s1",
@@ -223,6 +234,8 @@ describe("TransactionsTable", () => {
         reasoning: null,
         overrideType: null,
         classificationStatus: "classified",
+        categoryId: null,
+        overrideCategoryId: null,
       },
     ]
     render(<TransactionsTable rows={rows} currency="ISK" />)
@@ -244,6 +257,26 @@ describe("TransactionsTable", () => {
   it("renders an empty state when there are no transactions", () => {
     render(<TransactionsTable rows={[]} currency="ISK" />)
     expect(screen.getByText(/no transactions/i)).toBeInTheDocument()
+  })
+
+  it("shows each row's effective Category — override winning, em dash for Uncategorized (ADR-0020)", () => {
+    const categories: CategoryOption[] = [
+      { id: "cat-food", labelKey: "groceries", label: null }, // seed row → localized
+      { id: "cat-pool", labelKey: null, label: "Sundlaug" }, // custom row → literal label
+    ]
+    const rows: TransactionRow[] = [
+      { ...ROWS[0], categoryId: "cat-food", overrideCategoryId: null }, // NETFLIX → Groceries
+      { ...ROWS[1], categoryId: "cat-food", overrideCategoryId: "cat-pool" }, // GYM → override wins
+      { ...ROWS[2], categoryId: null, overrideCategoryId: null }, // SALARY → Uncategorized
+    ]
+    render(<TransactionsTable rows={rows} currency="ISK" categories={categories} />)
+
+    expect(screen.getByRole("columnheader", { name: "Category" })).toBeInTheDocument()
+    expect(within(screen.getByRole("row", { name: /NETFLIX/ })).getByText("Groceries")).toBeInTheDocument()
+    // Override category (custom label) wins over the classified one.
+    expect(within(screen.getByRole("row", { name: /GYM/ })).getByText("Sundlaug")).toBeInTheDocument()
+    // Uncategorized → em dash.
+    expect(within(screen.getByRole("row", { name: /SALARY/ })).getByText("—")).toBeInTheDocument()
   })
 
   // Merchants of the data rows, top-to-bottom (the first row is the header).

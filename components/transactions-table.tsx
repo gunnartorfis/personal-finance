@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { useId, useMemo, useState } from "react"
 
 import { RowTypeControl } from "@/components/row-type-control"
+import { useCategoryLabel } from "@/lib/categories/label"
 import { currencyFormatter } from "@/lib/format/currency"
 import { formatDate } from "@/lib/format/date"
 import { defaultLocale, toLocale } from "@/lib/i18n/config"
@@ -70,6 +71,22 @@ export interface TransactionRow {
   reasoning: string | null
   overrideType: ExpenseType | null
   classificationStatus: "pending" | "classified" | "failed"
+  /** Classified/rule-assigned Category leaf id (ADR-0020); null when Uncategorized. */
+  categoryId: string | null
+  /** Manually overridden Category leaf id (ADR-0020); wins over {@link categoryId} when set. */
+  overrideCategoryId: string | null
+}
+
+/** Stable empty default so an omitted `categories` prop doesn't allocate a new array each render. */
+const NO_CATEGORIES: CategoryOption[] = []
+
+/** A Household Category leaf's identity + label parts, for resolving a row's effective Category. */
+export interface CategoryOption {
+  id: string
+  /** i18n key (namespace `categories`) for a seed row; null on a custom row. */
+  labelKey: string | null
+  /** Literal label for a custom row; null on a seed row. */
+  label: string | null
 }
 
 /** The empty-period state: no rows this cycle, explaining why and pointing to the next action. */
@@ -286,6 +303,9 @@ function TransactionsTableHead({
             {sortIndicator("amount")}
           </button>
         </th>
+        <th scope="col" className="py-2 pr-4 font-medium whitespace-nowrap">
+          {t("colCategory")}
+        </th>
         <th scope="col" className="py-2 font-medium whitespace-nowrap">
           {t("colType")}
         </th>
@@ -297,6 +317,7 @@ function TransactionsTableHead({
 /** A single transaction row: date, merchant, amount (+ own share) and the inline Type control. */
 function TransactionRowView({
   row,
+  categoryLabel,
   fmtDate,
   fmtAmount,
   onOverrideChanged,
@@ -306,6 +327,8 @@ function TransactionRowView({
   onRuleCreated,
 }: {
   row: TransactionRow
+  /** The row's effective Category label (override ?? classified), or null when Uncategorized. */
+  categoryLabel: string | null
   fmtDate: (date: string) => string
   fmtAmount: (amount: number) => string
   onOverrideChanged: (next: {
@@ -352,6 +375,15 @@ function TransactionRowView({
             })}
           </div>
         )}
+      </td>
+      <td
+        className={cn(
+          "py-3 pr-4 text-muted-foreground",
+          row.excluded && "line-through"
+        )}
+      >
+        {/* Effective Category (override wins over classified); an em dash reads as Uncategorized. */}
+        {categoryLabel ?? "—"}
       </td>
       <td className="py-3">
         <RowTypeControl
@@ -402,11 +434,14 @@ function NoMatch({ onClear }: { onClear: () => void }) {
 export function TransactionsTable({
   rows: initial,
   currency,
+  categories = NO_CATEGORIES,
   className,
   backlogElsewhere = 0,
 }: {
   rows: TransactionRow[]
   currency: string
+  /** The Household's Category leaves, to label each row's effective Category (ADR-0020). */
+  categories?: CategoryOption[]
   className?: string
   /** Whole-household expenses still needing review — used only to explain an empty period. */
   backlogElsewhere?: number
@@ -414,6 +449,19 @@ export function TransactionsTable({
 }) {
   const t = useTranslations("transactions")
   const locale = toLocale(useLocale()) ?? defaultLocale
+  const categoryLabelOf = useCategoryLabel()
+  // Category leaves keyed by id, so each row's effective Category (override ?? classified) resolves
+  // to a localized label in one lookup; rebuilt only when the Household's categories change.
+  const categoryParts = useMemo(
+    () => new Map(categories.map((c) => [c.id, c])),
+    [categories]
+  )
+  const resolveCategory = (row: TransactionRow): string | null => {
+    const id = row.overrideCategoryId ?? row.categoryId
+    if (id === null) return null
+    const parts = categoryParts.get(id)
+    return parts ? categoryLabelOf(parts) : null
+  }
   // react-doctor-disable-next-line react-doctor/no-derived-useState -- `rows` is an intentional local mutable mirror seeded once from the server prop; the inline controls optimistically mutate it for instant feedback (router.refresh recomputes the server-derived summaries), so it must NOT be re-derived from `initial` on every render
   const [rows, setRows] = useState(initial)
   const [query, setQuery] = useState("")
@@ -567,6 +615,7 @@ export function TransactionsTable({
                   <TransactionRowView
                     key={row.id}
                     row={row}
+                    categoryLabel={resolveCategory(row)}
                     fmtDate={fmtDate}
                     fmtAmount={fmtAmount}
                     onOverrideChanged={(next) => handleChanged(row.id, next)}
