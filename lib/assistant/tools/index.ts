@@ -3,6 +3,7 @@ import { cycleSummaryTool } from "./cycle-summary";
 import { financialHealthTool } from "./financial-health";
 import { savingsStatusTool } from "./savings-status";
 import { searchTransactionsTool } from "./search-transactions";
+import { spendByCategoryTool } from "./spend-by-category";
 import { spendByTypeTool } from "./spend-by-type";
 import { spendingTrendTool } from "./spending-trend";
 import { topMerchantsTool } from "./top-merchants";
@@ -17,6 +18,7 @@ export type { AssistantTool, AssistantToolContext } from "./types";
 export const assistantTools: ReadonlyArray<AssistantTool> = [
   cycleSummaryTool,
   spendByTypeTool,
+  spendByCategoryTool,
   topMerchantsTool,
   compareCyclesTool,
   searchTransactionsTool,
@@ -31,6 +33,7 @@ export {
   financialHealthTool,
   savingsStatusTool,
   searchTransactionsTool,
+  spendByCategoryTool,
   spendByTypeTool,
   spendingTrendTool,
   topMerchantsTool,
