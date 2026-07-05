@@ -16,7 +16,7 @@ function isRealType(value: unknown): value is RealType {
 
 /**
  * Validate a budgets PUT body — `{ budgets: [{ expenseType, monthlyAmount }] }` — mirroring the
- * `category_budgets` DB constraints so a bad request is a clean 400: each `expenseType` is a real
+ * `expense_type_budgets` DB constraints so a bad request is a clean 400: each `expenseType` is a real
  * bucketed type (never ""), each `monthlyAmount` a positive integer, and no type repeats. An empty
  * list is valid (clears all budgets).
  */
