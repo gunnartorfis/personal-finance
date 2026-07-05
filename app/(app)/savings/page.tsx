@@ -16,8 +16,10 @@ export const dynamic = "force-dynamic"
  * anchor the math live under Settings → Income & recurring costs.
  */
 export default async function SavingsPage() {
-  const { repo, billingCurrency } = await requireHousehold()
-  const locale = await resolveRequestLocale()
+  const [{ repo, billingCurrency }, locale] = await Promise.all([
+    requireHousehold(),
+    resolveRequestLocale(),
+  ])
   const [snapshot, t] = await Promise.all([
     loadSavingsSnapshot(repo, new Date()),
     getTranslations("savings.page"),

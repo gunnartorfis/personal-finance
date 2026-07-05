@@ -2,6 +2,7 @@
 
 import { useLocale, useTranslations } from "next-intl"
 import { useId } from "react"
+// react-doctor-disable-next-line react-doctor/prefer-dynamic-import -- recharts composes by detecting child component types (AreaChart reads its Area/XAxis children), so wrapping these primitives in next/dynamic breaks rendering; recharts is already eagerly bundled via the shared components/ui/chart wrapper, so a dynamic import here yields no code-split. Client-only, code-split at route level.
 import { Area, AreaChart, XAxis } from "recharts"
 
 import {

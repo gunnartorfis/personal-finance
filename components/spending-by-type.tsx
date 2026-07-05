@@ -1,8 +1,10 @@
 "use client"
 
 import { useLocale, useTranslations } from "next-intl"
+// react-doctor-disable-next-line react-doctor/prefer-dynamic-import -- recharts composes by detecting child component types (BarChart reads its Bar/XAxis children), so wrapping these primitives in next/dynamic breaks rendering; recharts is already eagerly bundled via the shared components/ui/chart wrapper, so a dynamic import here yields no code-split. Client-only, code-split at route level.
 import { Bar, BarChart, XAxis, YAxis } from "recharts"
 
+import { CATEGORIES } from "@/components/spending-categories"
 import {
   ChartContainer,
   ChartTooltip,
@@ -14,54 +16,6 @@ import { currencyFormatter } from "@/lib/format/currency"
 import { defaultLocale, toLocale } from "@/lib/i18n/config"
 import type { NetSummary } from "@/lib/dashboard/net-summary"
 import { cn } from "@/lib/utils"
-
-/**
- * Spending categories in display order. `swatch` is the Tailwind class for the HTML legend dots;
- * `color` is the raw (theme-aware) fill fed to Recharts — both drawn from the same source so the
- * chart marks and their legend never drift. The three real expense types get distinct hues; the
- * unbucketed (`""` → "Other") and not-yet-classified totals share a neutral so the eye reads them as
- * "no category". `slug` is the CSS-/dataKey-safe id used for Recharts stacks and `--color-*` vars.
- */
-export const CATEGORIES = [
-  {
-    key: "Fixed",
-    slug: "fixed",
-    label: "Fixed",
-    swatch: "bg-emerald-500",
-    color: {
-      light: "var(--color-emerald-500)",
-      dark: "var(--color-emerald-500)",
-    },
-  },
-  {
-    key: "Necessary",
-    slug: "necessary",
-    label: "Necessary",
-    swatch: "bg-amber-500",
-    color: { light: "var(--color-amber-500)", dark: "var(--color-amber-500)" },
-  },
-  {
-    key: "Nice to have",
-    slug: "nice-to-have",
-    label: "Nice to have",
-    swatch: "bg-rose-500",
-    color: { light: "var(--color-rose-500)", dark: "var(--color-rose-500)" },
-  },
-  {
-    key: "Other",
-    slug: "other",
-    label: "Other",
-    swatch: "bg-zinc-400 dark:bg-zinc-500",
-    color: { light: "var(--color-zinc-400)", dark: "var(--color-zinc-500)" },
-  },
-  {
-    key: "Unclassified",
-    slug: "unclassified",
-    label: "Unclassified",
-    swatch: "bg-zinc-300 dark:bg-zinc-700",
-    color: { light: "var(--color-zinc-300)", dark: "var(--color-zinc-700)" },
-  },
-] as const
 
 /**
  * Spending-by-type breakdown shared by the transactions period overview ({@link CycleSummary}) and
@@ -89,7 +43,9 @@ export function SpendingByType({
 
   const totalExpense = Math.abs(summary.expense)
 
-  const breakdown = CATEGORIES.map((category) => {
+  const breakdown = CATEGORIES.reduce<
+    (((typeof CATEGORIES)[number]) & { magnitude: number })[]
+  >((acc, category) => {
     const magnitude = Math.abs(
       category.key === "Other"
         ? summary.byExpenseType[""]
@@ -97,8 +53,9 @@ export function SpendingByType({
           ? summary.unclassified
           : summary.byExpenseType[category.key]
     )
-    return { ...category, magnitude }
-  }).filter((category) => category.magnitude > 0)
+    if (magnitude > 0) acc.push({ ...category, magnitude })
+    return acc
+  }, [])
 
   if (totalExpense <= 0) return null
 
@@ -185,7 +142,7 @@ export function SpendingByType({
         </BarChart>
       </ChartContainer>
 
-      <ul role="list" className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-2">
         {breakdown.map((category) => (
           <li
             key={category.key}

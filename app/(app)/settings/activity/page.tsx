@@ -13,8 +13,10 @@ export const dynamic = "force-dynamic"
  * financial picture. Read-only; entries are written by the routes that perform each mutation.
  */
 export default async function ActivitySettingsPage() {
-  const { repo } = await requireHousehold()
-  const t = await getTranslations("activityLog")
+  const [{ repo }, t] = await Promise.all([
+    requireHousehold(),
+    getTranslations("activityLog"),
+  ])
   const entries = await loadActivityLog(repo)
   return (
     <div className="flex flex-col gap-8">

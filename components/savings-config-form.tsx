@@ -157,10 +157,7 @@ function SourceList({
           {t("none")}
         </p>
       ) : (
-        <ul
-          role="list"
-          className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-xl border border-border bg-card"
-        >
+        <ul className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-xl border border-border bg-card">
           {sources.map((source, si) => {
             const primary = source.versions[0]
             // A grouped source always carries ≥1 version; guard the deref so a malformed payload
@@ -387,10 +384,7 @@ function OneOffList({
           {t("noneOneOff")}
         </p>
       ) : (
-        <ul
-          role="list"
-          className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-xl border border-border bg-card"
-        >
+        <ul className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-xl border border-border bg-card">
           {rows.map((row, i) => (
             <li
               key={row.key}
@@ -516,6 +510,7 @@ function OneOffList({
   )
 }
 
+// react-doctor-disable-next-line react-doctor/prefer-useReducer -- independent concerns (load flag, three editable collections, save mutation), not one cohesive state machine
 export function SavingsConfigForm({ className }: { className?: string }) {
   const t = useTranslations("incomeSettings")
   const [loading, setLoading] = useState(true)
@@ -528,12 +523,15 @@ export function SavingsConfigForm({ className }: { className?: string }) {
   >(null)
   const [saved, setSaved] = useState(false)
 
+  // react-doctor-disable-next-line react-doctor/no-fetch-in-effect -- one-shot client load already race-guarded by the `ignore` flag; server-side fetch is out of scope for this form
   useEffect(() => {
     let ignore = false
     async function loadInitial() {
       try {
         const res = await fetch("/api/savings/config")
         if (!res.ok) return
+        if (ignore) return
+        // react-doctor-disable-next-line react-doctor/async-defer-await -- awaited JSON parse is required; the `ignore` guard below is an unmount check and config is used after it
         const config = (await res.json()) as {
           incomeSources: Array<{
             name: string

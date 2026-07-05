@@ -404,6 +404,7 @@ function ApplyToAllItem({
     const token = (req.current += 1)
     setStatus("creating")
     try {
+      // react-doctor-disable-next-line react-doctor/async-defer-await -- the POST creates the merchant rule (required side effect); the guard below is a post-completion staleness check, not a skip path
       const res = await fetch("/api/merchant-rules", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -507,6 +508,7 @@ function SplitEditor({
   }
 
   return (
+    // react-doctor-disable-next-line react-doctor/no-prevent-default -- client-only save via setOwnShare; no server action, preventDefault is required to stop the native submit
     <form
       className="flex flex-wrap items-center gap-2 text-sm"
       onSubmit={(event) => {
@@ -520,6 +522,7 @@ function SplitEditor({
       <input
         id={`share-amount-${transactionId}`}
         name={`share-amount-${transactionId}`}
+        aria-label={t("shareLabel")}
         type="number"
         inputMode="numeric"
         min={1}
@@ -527,7 +530,6 @@ function SplitEditor({
         value={shareDraft}
         onChange={(event) => setShareDraft(event.target.value)}
         placeholder={t("sharePlaceholder", { amount: formatAmount(amount) })}
-        autoFocus
         disabled={saving}
         className="h-7 w-40 min-w-0 rounded-md border border-input bg-input/20 px-2 text-sm tabular-nums outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50 max-sm:text-base/relaxed md:text-sm dark:bg-input/30"
       />
@@ -538,6 +540,7 @@ function SplitEditor({
       <input
         id={`share-ways-${transactionId}`}
         name={`share-ways-${transactionId}`}
+        aria-label={t("waysLabel")}
         type="number"
         inputMode="numeric"
         min={2}
@@ -607,6 +610,7 @@ function ExcludeEditor({
   }
 
   return (
+    // react-doctor-disable-next-line react-doctor/no-prevent-default -- client-only submit via excludeTransaction; no server action, preventDefault is required to stop the native submit
     <form
       className="flex flex-wrap items-center gap-2 text-sm"
       onSubmit={(event) => {
@@ -620,12 +624,12 @@ function ExcludeEditor({
       <input
         id={`exclude-note-${transactionId}`}
         name={`exclude-note-${transactionId}`}
+        aria-label={t("reasonLabel")}
         type="text"
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         maxLength={MAX_NOTE_LENGTH}
         placeholder={t("reasonPlaceholder")}
-        autoFocus
         disabled={saving}
         className="h-7 min-w-0 flex-1 rounded-md border border-input bg-input/20 px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50 max-sm:text-base/relaxed md:text-sm dark:bg-input/30"
       />

@@ -71,7 +71,7 @@ export interface HealthOptions {
 }
 
 /** Defaults mirroring the dashboard trend gate: ≥3 completed cycles; 3-cycle averages; 6-cycle streak. */
-export const DEFAULT_HEALTH: Required<HealthOptions> = {
+const DEFAULT_HEALTH: Required<HealthOptions> = {
   minCycles: 3,
   avgWindow: 3,
   streakWindow: 6,

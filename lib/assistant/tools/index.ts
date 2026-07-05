@@ -24,14 +24,3 @@ export const assistantTools: ReadonlyArray<AssistantTool> = [
   savingsStatusTool,
   financialHealthTool,
 ];
-
-export {
-  compareCyclesTool,
-  cycleSummaryTool,
-  financialHealthTool,
-  savingsStatusTool,
-  searchTransactionsTool,
-  spendByTypeTool,
-  spendingTrendTool,
-  topMerchantsTool,
-};

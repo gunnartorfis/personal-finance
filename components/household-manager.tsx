@@ -95,10 +95,7 @@ function MembersList({ members, currentUserId }: { members: Member[]; currentUse
   return (
     <section aria-label={t("members")} className="flex flex-col gap-3">
       <h2 className="text-sm font-semibold">{t("members")}</h2>
-      <ul
-        role="list"
-        className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card"
-      >
+      <ul className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
         {members.map((member) => {
           const isYou = member.authUserId === currentUserId
           const label = member.name ?? member.email ?? t("memberFallback")
@@ -275,10 +272,7 @@ function PendingInvites({ invites, onChanged }: { invites: Invite[]; onChanged: 
   return (
     <section aria-label={t("pending")} className="flex flex-col gap-3">
       <h2 className="text-sm font-semibold">{t("pending")}</h2>
-      <ul
-        role="list"
-        className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card"
-      >
+      <ul className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
         {invites.map((invite) => (
           <PendingInviteRow key={invite.id} invite={invite} onChanged={onChanged} />
         ))}

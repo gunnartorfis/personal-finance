@@ -35,6 +35,7 @@ export function UploadProgress({
   const [retrying, setRetrying] = useState(false)
   const [failed, setFailed] = useState(false)
 
+  // react-doctor-disable-next-line react-doctor/no-fetch-in-effect -- live polling loop already guards stale responses via the active flag + clears the timer on cleanup; a poll-until-done cannot move server-side
   useEffect(() => {
     let active = true
     let timer: ReturnType<typeof setTimeout> | undefined

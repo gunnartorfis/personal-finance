@@ -7,7 +7,12 @@ import { useTranslations } from "next-intl"
 import Link from "next/link"
 import { useEffect, useState, type FormEvent } from "react"
 
-import { Button, buttonVariants } from "@/components/ui/button"
+import {
+  applyAssistantResponse,
+  type Gate,
+} from "@/components/assistant/apply-assistant-response"
+import { buttonVariants } from "@/components/ui/button-variants"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   toUiMessages,
@@ -25,37 +30,10 @@ interface ConversationSummary {
 
 /** Concatenate a UI message's text parts (tool-call parts are not rendered in v1). */
 function messageText(message: UIMessage): string {
-  return message.parts
-    .filter(isTextUIPart)
-    .map((part) => part.text)
-    .join("")
-}
-
-/** Which gate the server closed on us, surfaced from the response status. */
-export type Gate = "premium" | "cap" | null
-
-/** What an assistant API response tells the chat to do next (pure — the component applies it to state). */
-export interface ResponseOutcome {
-  gate: Gate
-  /** A newly-assigned conversation id from `X-Conversation-Id`, to adopt for follow-ups. */
-  conversationId?: string
-  /** Whether to drop the current thread id (404 — lost/expired) so the next send starts fresh. */
-  clearThread?: boolean
-}
-
-/**
- * Read an assistant API response into an outcome: capture a new `X-Conversation-Id`, map 403/429 to
- * their gates, and — crucially — on 404 signal to CLEAR the thread id so a lost/expired conversation
- * isn't re-sent on every follow-up (which would loop on errors); the next message then starts fresh.
- */
-export function applyAssistantResponse(response: Response): ResponseOutcome {
-  const id = response.headers.get("X-Conversation-Id")
-  const outcome: ResponseOutcome = { gate: null }
-  if (id) outcome.conversationId = id
-  if (response.status === 403) outcome.gate = "premium"
-  else if (response.status === 429) outcome.gate = "cap"
-  else if (response.status === 404) outcome.clearThread = true
-  return outcome
+  return message.parts.reduce(
+    (text, part) => (isTextUIPart(part) ? text + part.text : text),
+    ""
+  )
 }
 
 /**
@@ -65,6 +43,7 @@ export function applyAssistantResponse(response: Response): ResponseOutcome {
  * (403) and daily-cap (429) are surfaced reactively from the response status. Conversation history /
  * thread switching is slice 4b.
  */
+// react-doctor-disable-next-line react-doctor/prefer-useReducer -- independent concerns (gate, input text, ready flag, thread list, history toggle, active thread id), not one cohesive state machine
 export function AssistantChat() {
   const t = useTranslations("assistant")
   const [gate, setGate] = useState<Gate>(null)
@@ -108,6 +87,7 @@ export function AssistantChat() {
   const busy = status === "submitted" || status === "streaming"
 
   // Load the Household's past threads for the history list (harmless for Free: it just returns none).
+  // react-doctor-disable-next-line react-doctor/no-fetch-in-effect -- one-shot client load already race-guarded by the `cancelled` flag; server-side move out of scope for this client chat
   useEffect(() => {
     let cancelled = false
     fetch("/api/assistant/conversations")
@@ -148,6 +128,7 @@ export function AssistantChat() {
   }
 
   // Gate proactively: show the upgrade CTA for a Free household without waiting for a rejected send.
+  // react-doctor-disable-next-line react-doctor/no-fetch-in-effect -- one-shot client probe already aborts via AbortController on cleanup, guards stale responses via `cancelled`, and keeps the ready state; server-side move out of scope
   useEffect(() => {
     let cancelled = false
     const controller = new AbortController()
@@ -225,7 +206,7 @@ export function AssistantChat() {
       </div>
 
       {showHistory ? (
-        <ul className="flex min-h-0 flex-1 flex-col overflow-y-auto py-1" role="list">
+        <ul className="flex min-h-0 flex-1 flex-col overflow-y-auto py-1">
           {conversations.map((conversation) => (
             <li key={conversation.id}>
               <button

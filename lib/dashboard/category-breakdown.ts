@@ -58,6 +58,7 @@ export function computeCategoryBreakdown(
  * summary. The effective Category is the manual **Override** if set, else the row's classified/rule
  * `category_id` — mirroring `overrideType ?? classifiedType` on the Expense-type axis (ADR-0020).
  */
+// react-doctor-disable-next-line deslop/unused-export -- public loader for #105 S4, wired in follow-up (mirrors sibling dashboard loaders)
 export async function loadCategoryBreakdown(
   repo: HouseholdRepo,
   range: { from: string; to: string },

@@ -1,7 +1,7 @@
 "use client"
 
 import { useLocale, useTranslations } from "next-intl"
-import { useEffect } from "react"
+import { useEffect, useEffectEvent } from "react"
 
 import type { TransactionRow } from "@/components/transactions-table"
 import { Button } from "@/components/ui/button"
@@ -59,45 +59,48 @@ export function ReviewMode({
     useReviewQueue(rows, onOverride)
 
   // Global key handling — the overlay owns the keyboard while open. Ignore keystrokes aimed at a
-  // text field, and stop the page underneath from also acting on them.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null
-      if (
-        target &&
-        (target.tagName === "INPUT" || target.tagName === "TEXTAREA")
-      )
-        return
-      // On the completion screen no card is shown, so assign keys would silently re-persist
-      // the last transaction — ignore them (navigation, undo and close stay live).
-      if (done && ["1", "2", "3", "0"].includes(event.key)) {
-        event.preventDefault()
-        return
-      }
-      const handlers: Record<string, () => void> = {
-        "1": () => assign("Fixed"),
-        "2": () => assign("Necessary"),
-        "3": () => assign("Nice to have"),
-        "0": () => assign(""),
-        j: next,
-        J: next,
-        ArrowRight: next,
-        k: prev,
-        K: prev,
-        ArrowLeft: prev,
-        u: undo,
-        U: undo,
-        Escape: onClose,
-      }
-      const handler = handlers[event.key]
-      if (handler) {
-        event.preventDefault()
-        handler()
-      }
+  // text field, and stop the page underneath from also acting on them. The handler reads live
+  // callbacks/state via an Effect Event so the listener subscribes once and never re-binds.
+  const onKey = useEffectEvent((event: KeyboardEvent) => {
+    const target = event.target as HTMLElement | null
+    if (
+      target &&
+      (target.tagName === "INPUT" || target.tagName === "TEXTAREA")
+    )
+      return
+    // On the completion screen no card is shown, so assign keys would silently re-persist
+    // the last transaction — ignore them (navigation, undo and close stay live).
+    if (done && ["1", "2", "3", "0"].includes(event.key)) {
+      event.preventDefault()
+      return
     }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [assign, next, prev, undo, onClose, done])
+    const handlers: Record<string, () => void> = {
+      "1": () => assign("Fixed"),
+      "2": () => assign("Necessary"),
+      "3": () => assign("Nice to have"),
+      "0": () => assign(""),
+      j: next,
+      J: next,
+      ArrowRight: next,
+      k: prev,
+      K: prev,
+      ArrowLeft: prev,
+      u: undo,
+      U: undo,
+      Escape: onClose,
+    }
+    const handler = handlers[event.key]
+    if (handler) {
+      event.preventDefault()
+      handler()
+    }
+  })
+
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => onKey(event)
+    window.addEventListener("keydown", listener)
+    return () => window.removeEventListener("keydown", listener)
+  }, [])
 
   // Lock body scroll while the overlay is up.
   useEffect(() => {
@@ -120,6 +123,7 @@ export function ReviewMode({
   const progress = total === 0 ? 1 : reviewedCount / total
 
   return (
+    // react-doctor-disable-next-line react-doctor/prefer-html-dialog, react-doctor/prefer-tag-over-role -- a native <dialog>/showModal() would duplicate the overlay's own Escape handling, manual body-scroll lock, and backdrop styling, risking focus/keyboard regressions; keeping the custom dialog
     <div
       role="dialog"
       aria-modal="true"

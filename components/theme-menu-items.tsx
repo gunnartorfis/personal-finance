@@ -29,8 +29,18 @@ type ThemeMenuOptionProps = React.ComponentPropsWithoutRef<"button"> & {
  * its own `setTheme` on click (calling the injected `onClick` keeps the menu's
  * close-on-select behaviour).
  */
-const ThemeMenuOption = React.forwardRef<HTMLButtonElement, ThemeMenuOptionProps>(
-  ({ icon: Icon, label, active, onSelectTheme, className, onClick, ...props }, ref) => (
+// react-doctor-disable-next-line react-doctor/only-export-components -- module's public API is the useThemeMenuItems hook; ThemeMenuOption is its private render helper, not a separable non-component value to relocate
+function ThemeMenuOption({
+  icon: Icon,
+  label,
+  active,
+  onSelectTheme,
+  className,
+  onClick,
+  ref,
+  ...props
+}: ThemeMenuOptionProps & { ref?: React.Ref<HTMLButtonElement> }) {
+  return (
     <button
       ref={ref}
       type="button"
@@ -45,9 +55,8 @@ const ThemeMenuOption = React.forwardRef<HTMLButtonElement, ThemeMenuOptionProps
       <span className="flex-1 text-left">{label}</span>
       <Check className={cn("size-4", !active && "invisible")} />
     </button>
-  ),
-)
-ThemeMenuOption.displayName = "ThemeMenuOption"
+  )
+}
 
 /**
  * System / Light / Dark options for the account dropdown. Returns an array of nodes

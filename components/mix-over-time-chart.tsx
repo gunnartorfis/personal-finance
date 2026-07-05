@@ -2,9 +2,10 @@
 
 import { useLocale, useTranslations } from "next-intl"
 import type { ReactElement } from "react"
+// react-doctor-disable-next-line react-doctor/prefer-dynamic-import -- recharts composes by detecting child component types (BarChart reads its Bar/XAxis children), so wrapping these primitives in next/dynamic breaks rendering; recharts is already eagerly bundled via the shared components/ui/chart wrapper, so a dynamic import here yields no code-split. Client-only, code-split at route level.
 import { Bar, BarChart, CartesianGrid, Rectangle, XAxis } from "recharts"
 
-import { CATEGORIES } from "@/components/spending-by-type"
+import { CATEGORIES } from "@/components/spending-categories"
 import {
   ChartContainer,
   ChartLegend,
@@ -106,11 +107,13 @@ export function MixOverTimeChart({
     const total = magnitudes.reduce((sum, item) => sum + item.magnitude, 0)
     const label = formatCycleMonth(point.month, locale)
     if (total === 0) return t("noSpending", { label })
-    const parts = magnitudes
-      .filter((item) => item.magnitude > 0)
-      .map(
-        (item) => `${item.label} ${Math.round((item.magnitude / total) * 100)}%`
-      )
+    const parts: string[] = []
+    for (const item of magnitudes) {
+      if (item.magnitude > 0)
+        parts.push(
+          `${item.label} ${Math.round((item.magnitude / total) * 100)}%`
+        )
+    }
     return t("mix", { label, parts: parts.join(", ") })
   }
 

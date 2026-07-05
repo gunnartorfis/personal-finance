@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils"
 export function DigestPreferenceToggle({ subscribed }: { subscribed: boolean }) {
   const t = useTranslations("digest")
   const router = useRouter()
+  // react-doctor-disable-next-line react-doctor/no-derived-useState -- intentional optimistic seed: flips locally and reverts on failure, must not track the prop mid-transition
   const [on, setOn] = useState(subscribed)
   const [pending, startTransition] = useTransition()
 

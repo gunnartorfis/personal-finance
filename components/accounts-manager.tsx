@@ -13,10 +13,18 @@ interface Account {
   name: string
 }
 
+// Pure fetch (no setState) so the effect and handlers reuse it without a setState-in-effect.
+async function fetchAccounts(): Promise<Account[]> {
+  const res = await fetch("/api/accounts")
+  if (!res.ok) throw new Error("could not load accounts")
+  return (await res.json()) as Account[]
+}
+
 /**
  * Manage the current Household's accounts (Phase H): list them and add new ones. Accounts are the
  * provenance an upload's transactions attach to, so this is the prerequisite for the upload flow.
  */
+// react-doctor-disable-next-line react-doctor/prefer-useReducer -- independent concerns (list-load, form input, add-mutation), not one cohesive state machine
 export function AccountsManager({ className }: { className?: string }) {
   const t = useTranslations("accounts")
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -25,13 +33,6 @@ export function AccountsManager({ className }: { className?: string }) {
   const [name, setName] = useState("")
   const [busy, setBusy] = useState(false)
   const [errored, setErrored] = useState(false)
-
-  // Pure fetch (no setState) so the effect and handlers reuse it without a setState-in-effect.
-  async function fetchAccounts(): Promise<Account[]> {
-    const res = await fetch("/api/accounts")
-    if (!res.ok) throw new Error("could not load accounts")
-    return (await res.json()) as Account[]
-  }
 
   // Re-list after a mutation. Lets failures propagate so the caller can surface them — its only
   // caller, addAccount, has a catch that shows the error rather than silently dropping the refetch.
@@ -134,10 +135,7 @@ export function AccountsManager({ className }: { className?: string }) {
           {t("empty")}
         </div>
       ) : (
-        <ul
-          role="list"
-          className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card"
-        >
+        <ul className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
           {accounts.map((account) => (
             <li key={account.id} className="px-4 py-3 text-sm font-medium">
               {account.name}

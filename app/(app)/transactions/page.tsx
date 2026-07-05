@@ -41,8 +41,8 @@ export default async function TransactionsPage({
 }: {
   searchParams: Promise<{ cycle?: string }>
 }) {
-  const { repo, plan, billingCurrency } = await requireHousehold()
-  const [t, locale] = await Promise.all([
+  const [{ repo, plan, billingCurrency }, t, locale] = await Promise.all([
+    requireHousehold(),
     getTranslations("transactions"),
     resolveRequestLocale(),
   ])
