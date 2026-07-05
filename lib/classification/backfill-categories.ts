@@ -3,10 +3,11 @@ import { normalizeMerchant } from "@/shared/merchant-rules";
 
 import type { Classifier } from "./worker";
 
-/** Outcome of a backfill pass: how many candidates were scanned and how many got a Category. */
+/** Outcome of a backfill pass. `failed` counts distinct merchants whose classify call errored. */
 export interface BackfillResult {
   scanned: number;
   backfilled: number;
+  failed: number;
 }
 
 /**
@@ -33,19 +34,29 @@ export async function backfillCategories(
   // Within-run reuse: normalized merchant → resolved { categoryId, categoryConfidence } (or null id).
   const resolved = new Map<string, { categoryId: string | null; categoryConfidence?: number }>();
   let backfilled = 0;
+  let failed = 0;
 
   for (const txn of candidates) {
     const key = normalizeMerchant(txn.merchant);
     let hit = resolved.get(key);
     if (!hit) {
-      const result = await classify({
-        merchant: txn.merchant,
-        amount: txn.amount,
-        rawCategory: txn.rawCategory,
-        date: txn.date,
-      });
-      const categoryId = result.category ? (leafSlugToId.get(result.category) ?? null) : null;
-      hit = { categoryId, categoryConfidence: categoryId ? result.categoryConfidence : undefined };
+      try {
+        const result = await classify({
+          merchant: txn.merchant,
+          amount: txn.amount,
+          rawCategory: txn.rawCategory,
+          date: txn.date,
+        });
+        const categoryId = result.category ? (leafSlugToId.get(result.category) ?? null) : null;
+        hit = { categoryId, categoryConfidence: categoryId ? result.categoryConfidence : undefined };
+      } catch (error) {
+        // Skip this merchant on a transient classify error (mirrors drainPending) rather than
+        // aborting the whole pass — partial progress is already durable and idempotent. Cache null
+        // so its other rows this run aren't retried. Log only the txn id (merchant/amount are PII).
+        console.error(`[backfill-categories] failed txn=${txn.id}`, error);
+        hit = { categoryId: null };
+        failed += 1;
+      }
       resolved.set(key, hit);
     }
     if (hit.categoryId) {
@@ -57,5 +68,5 @@ export async function backfillCategories(
     }
   }
 
-  return { scanned: candidates.length, backfilled };
+  return { scanned: candidates.length, backfilled, failed };
 }

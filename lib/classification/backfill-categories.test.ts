@@ -100,6 +100,23 @@ describe("backfillCategories (ADR-0020, S7)", () => {
     expect((await repo.transactions.findById(row.id))?.categoryId).toBe(slugToId.get("fuel"));
   });
 
+  it("skips a merchant whose classify throws and keeps going (no full-batch abort)", async () => {
+    const { repo, acct, up } = await seedHousehold(true, "backfill-error");
+    const created = await addClassifiedNoCategory(repo, acct, up, ["Bonus", "N1"]);
+    const flaky: Classifier = async (txn) => {
+      if (txn.merchant === "N1") throw new Error("transient gateway error");
+      return byMerchant(txn);
+    };
+    const result = await backfillCategories(repo, flaky);
+
+    expect(result.scanned).toBe(2);
+    expect(result.backfilled).toBe(1); // Bonus succeeded
+    expect(result.failed).toBe(1); // N1 errored, skipped
+    const slugToId = await repo.categories.leafSlugToId();
+    expect((await repo.transactions.findById(created[0].id))?.categoryId).toBe(slugToId.get("groceries"));
+    expect((await repo.transactions.findById(created[1].id))?.categoryId).toBeNull(); // N1 left for retry
+  });
+
   it("seeds the taxonomy first for a household that has none", async () => {
     const { repo, acct, up } = await seedHousehold(false, "backfill-unseeded");
     expect((await repo.categories.list())).toHaveLength(0); // no categories yet
