@@ -96,6 +96,18 @@ describe("rankCategoryBreakdown (ADR-0020, S5b)", () => {
     ]);
   });
 
+  it("orders topN rows, then the 'other' tail, then 'uncategorized' when all three coexist", () => {
+    const result = rankCategoryBreakdown(
+      breakdown({ expense: -1000, byCategory: { a: -500, b: -300 }, uncategorized: -200 }),
+      { topN: 1 },
+    );
+    expect(result.rows).toEqual([
+      { kind: "category", categoryId: "a", magnitude: 500, share: 0.5 },
+      { kind: "other", count: 1, magnitude: 300, share: 0.3 },
+      { kind: "uncategorized", magnitude: 200, share: 0.2 },
+    ]);
+  });
+
   it("breaks magnitude ties deterministically by category id", () => {
     const result = rankCategoryBreakdown(
       breakdown({ expense: -2000, byCategory: { zebra: -1000, apple: -1000 } }),

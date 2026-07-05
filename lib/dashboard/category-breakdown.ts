@@ -90,8 +90,9 @@ export function rankCategoryBreakdown(
   const sorted = Object.entries(breakdown.byCategory)
     .map(([categoryId, amount]) => ({ categoryId, magnitude: -amount }))
     .filter((entry) => entry.magnitude > 0)
-    // Descending magnitude; ties resolved by id so the output is deterministic across runs.
-    .sort((a, b) => b.magnitude - a.magnitude || a.categoryId.localeCompare(b.categoryId));
+    // Descending magnitude; ties resolved by id so the output is deterministic across runs. Pin the
+    // locale so a non-ASCII id can't sort differently between a dev macOS and Linux CI/prod.
+    .sort((a, b) => b.magnitude - a.magnitude || a.categoryId.localeCompare(b.categoryId, "en"));
 
   const rows: CategoryRankRow[] = sorted
     .slice(0, topN)
