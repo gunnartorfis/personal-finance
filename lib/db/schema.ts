@@ -947,12 +947,14 @@ export const savingsOffcardCosts = pgTable(
 );
 
 /**
- * A per-category monthly spending budget / envelope for a Household (#103). One row per real expense
- * type (Fixed / Necessary / Nice to have — never the "" not-bucketed type); the dashboard compares
- * it against actual category spend. Generalizes the savings "allowed nice-to-have" to every category.
+ * A per-expense-type monthly spending budget / envelope for a Household (#103). One row per real
+ * expense type (Fixed / Necessary / Nice to have — never the "" not-bucketed type); the dashboard
+ * compares it against actual spend. Budgets run on the Expense-type axis, not the orthogonal Category
+ * axis (ADR-0020) — hence the table name. The `category_budgets_*` constraint names are retained
+ * from the original table to keep the rename migration a single ALTER TABLE.
  */
-export const categoryBudgets = pgTable(
-  "category_budgets",
+export const expenseTypeBudgets = pgTable(
+  "expense_type_budgets",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     householdId: uuid("household_id")
