@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronDown, ChevronsUpDown, ChevronUp, Search, X } from "lucide-react"
+import { ChevronDown, ChevronsUpDown, ChevronUp, Search } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -129,17 +129,24 @@ function EmptyPeriod({
   )
 }
 
-/** Search box + type-filter select controlling which rows the table shows. */
+/** Search box + type/category filter selects controlling which rows the table shows. */
 function TableToolbar({
   query,
   onQueryChange,
   typeFilter,
   onTypeFilterChange,
+  categoryOptions,
+  categoryValue,
+  onCategoryChange,
 }: {
   query: string
   onQueryChange: (value: string) => void
   typeFilter: TypeFilter
   onTypeFilterChange: (value: TypeFilter) => void
+  /** Category filter options (`all` / leaf ids / `none`); the select is hidden when only `all`. */
+  categoryOptions: { value: string; label: string }[]
+  categoryValue: string
+  onCategoryChange: (value: string) => void
 }) {
   const t = useTranslations("transactions")
 
@@ -158,6 +165,7 @@ function TableToolbar({
   // Unique per instance so IDs / label associations don't collide if two tables ever mount together.
   const searchId = useId()
   const typeFilterId = useId()
+  const categoryFilterId = useId()
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -180,35 +188,69 @@ function TableToolbar({
         />
       </div>
 
-      <div className="relative inline-grid h-8 grid-cols-[1fr_1.75rem] items-center rounded-md border border-border">
-        <label className="sr-only" htmlFor={typeFilterId}>
-          {t("filterLabel")}
-        </label>
-        <select
-          id={typeFilterId}
-          name="txn-type-filter"
-          value={typeFilter}
-          onChange={(event) =>
-            onTypeFilterChange(event.target.value as TypeFilter)
-          }
-          className="col-span-full row-start-1 appearance-none bg-transparent py-1 pr-7 pl-2.5 text-sm font-medium outline-none"
-        >
-          {TYPE_FILTER_VALUES.map((value) => (
-            <option key={value} value={value}>
-              {filterLabels[value]}
-            </option>
-          ))}
-        </select>
-        <svg
-          viewBox="0 0 8 5"
-          width="8"
-          height="5"
-          fill="none"
-          aria-hidden="true"
-          className="pointer-events-none col-start-2 row-start-1 place-self-center text-muted-foreground"
-        >
-          <path d="M.5.5 4 4 7.5.5" stroke="currentColor" />
-        </svg>
+      <div className="flex items-center gap-2">
+        {/* Category filter — hidden when there's nothing to filter (only the "All" option). */}
+        {categoryOptions.length > 1 && (
+          <div className="relative inline-grid h-8 grid-cols-[1fr_1.75rem] items-center rounded-md border border-border">
+            <label className="sr-only" htmlFor={categoryFilterId}>
+              {t("categoryFilterLabel")}
+            </label>
+            <select
+              id={categoryFilterId}
+              name="txn-category-filter"
+              value={categoryValue}
+              onChange={(event) => onCategoryChange(event.target.value)}
+              className="col-span-full row-start-1 appearance-none bg-transparent py-1 pr-7 pl-2.5 text-sm font-medium outline-none"
+            >
+              {categoryOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <svg
+              viewBox="0 0 8 5"
+              width="8"
+              height="5"
+              fill="none"
+              aria-hidden="true"
+              className="pointer-events-none col-start-2 row-start-1 place-self-center text-muted-foreground"
+            >
+              <path d="M.5.5 4 4 7.5.5" stroke="currentColor" />
+            </svg>
+          </div>
+        )}
+
+        <div className="relative inline-grid h-8 grid-cols-[1fr_1.75rem] items-center rounded-md border border-border">
+          <label className="sr-only" htmlFor={typeFilterId}>
+            {t("filterLabel")}
+          </label>
+          <select
+            id={typeFilterId}
+            name="txn-type-filter"
+            value={typeFilter}
+            onChange={(event) =>
+              onTypeFilterChange(event.target.value as TypeFilter)
+            }
+            className="col-span-full row-start-1 appearance-none bg-transparent py-1 pr-7 pl-2.5 text-sm font-medium outline-none"
+          >
+            {TYPE_FILTER_VALUES.map((value) => (
+              <option key={value} value={value}>
+                {filterLabels[value]}
+              </option>
+            ))}
+          </select>
+          <svg
+            viewBox="0 0 8 5"
+            width="8"
+            height="5"
+            fill="none"
+            aria-hidden="true"
+            className="pointer-events-none col-start-2 row-start-1 place-self-center text-muted-foreground"
+          >
+            <path d="M.5.5 4 4 7.5.5" stroke="currentColor" />
+          </svg>
+        </div>
       </div>
     </div>
   )
@@ -534,17 +576,31 @@ export function TransactionsTable({
     setCategoryFilter(null)
   }
 
-  // Label for the active Category-filter chip: the leaf's localized/literal label, or the
-  // Uncategorized copy for the `none` sentinel (falls back to the raw id if the leaf is unknown).
-  const categoryFilterLabel =
-    categoryFilter === null
-      ? null
-      : categoryFilter === "none"
-        ? t("uncategorized")
-        : (() => {
-            const parts = categoryParts.get(categoryFilter)
-            return parts ? categoryLabelOf(parts) : categoryFilter
-          })()
+  // Options for the Category filter select: "All", then each Category present in this cycle's rows
+  // (plus the active filter even when it has no rows here — e.g. a dashboard deep-link), then
+  // "Uncategorized" when any row lacks a Category. Sorted by label; the select hides when there's
+  // nothing to filter (only "All").
+  const categoryOptions = useMemo(() => {
+    const ids = new Set<string>()
+    let hasUncategorized = false
+    for (const row of rows) {
+      const id = effectiveCategoryId(row)
+      if (id === null) hasUncategorized = true
+      else ids.add(id)
+    }
+    if (categoryFilter && categoryFilter !== "none") ids.add(categoryFilter)
+    const named = [...ids]
+      .map((id) => {
+        const parts = categoryParts.get(id)
+        return { value: id, label: parts ? categoryLabelOf(parts) : id }
+      })
+      .sort((a, b) => a.label.localeCompare(b.label))
+    const opts = [{ value: "all", label: t("filter.allCategories") }, ...named]
+    if (hasUncategorized || categoryFilter === "none") {
+      opts.push({ value: "none", label: t("uncategorized") })
+    }
+    return opts
+  }, [rows, categoryFilter, categoryParts, categoryLabelOf, t])
 
   const money = currencyFormatter(currency, locale)
   const fmtAmount = (amount: number) => money.format(amount)
@@ -628,23 +684,10 @@ export function TransactionsTable({
         onQueryChange={setQuery}
         typeFilter={typeFilter}
         onTypeFilterChange={setTypeFilter}
+        categoryOptions={categoryOptions}
+        categoryValue={categoryFilter ?? "all"}
+        onCategoryChange={(value) => setCategoryFilter(value === "all" ? null : value)}
       />
-
-      {categoryFilter !== null && categoryFilterLabel !== null && (
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 py-1 pr-1 pl-2.5 text-xs">
-            {t("categoryChip", { name: categoryFilterLabel })}
-            <button
-              type="button"
-              onClick={() => setCategoryFilter(null)}
-              aria-label={t("categoryChipClear")}
-              className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <X className="size-3" aria-hidden="true" />
-            </button>
-          </span>
-        </div>
-      )}
 
       {filtering && (
         <p className="text-xs text-muted-foreground" aria-live="polite">

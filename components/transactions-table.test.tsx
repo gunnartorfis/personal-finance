@@ -289,7 +289,7 @@ describe("TransactionsTable", () => {
     { ...ROWS[0], id: "u", merchant: "MYSTERY", categoryId: null, overrideCategoryId: null },
   ]
 
-  it("seeds the category filter from initialCategoryId, showing a clearable chip (ADR-0020)", async () => {
+  it("seeds the category filter from initialCategoryId, reflected in the select (ADR-0020)", async () => {
     render(
       <TransactionsTable rows={catRows} currency="ISK" categories={CATS} initialCategoryId="cat-food" />
     )
@@ -297,29 +297,59 @@ describe("TransactionsTable", () => {
     expect(screen.getByText("BONUS")).toBeInTheDocument()
     expect(screen.queryByText("N1")).not.toBeInTheDocument()
     expect(screen.queryByText("MYSTERY")).not.toBeInTheDocument()
-    expect(screen.getByText(/Category: Groceries/)).toBeInTheDocument()
+    // The category select reflects the active filter.
+    const select = screen.getByRole("combobox", { name: /filter by category/i })
+    expect(select).toHaveValue("cat-food")
 
-    // Clearing the chip restores the full list.
-    await userEvent.click(screen.getByRole("button", { name: /clear category filter/i }))
+    // Choosing "All categories" restores the full list.
+    await userEvent.selectOptions(select, "all")
     expect(await screen.findByText("N1")).toBeInTheDocument()
-    expect(screen.queryByText(/Category: Groceries/)).not.toBeInTheDocument()
+    expect(screen.getByText("MYSTERY")).toBeInTheDocument()
   })
 
-  it("filters to Uncategorized rows for the `none` sentinel", () => {
+  it("seeds Uncategorized from initialCategoryId='none' (dashboard deep-link)", () => {
     render(
       <TransactionsTable rows={catRows} currency="ISK" categories={CATS} initialCategoryId="none" />
     )
     expect(screen.getByText("MYSTERY")).toBeInTheDocument()
     expect(screen.queryByText("BONUS")).not.toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: /filter by category/i })).toHaveValue("none")
   })
 
-  it("ignores an unknown initialCategoryId (no filter, no chip)", () => {
+  it("lets the user filter by a category from the dropdown", async () => {
+    render(<TransactionsTable rows={catRows} currency="ISK" categories={CATS} />)
+    // All rows shown initially.
+    expect(screen.getByText("BONUS")).toBeInTheDocument()
+    expect(screen.getByText("N1")).toBeInTheDocument()
+
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: /filter by category/i }), "cat-fuel")
+    expect(screen.getByText("N1")).toBeInTheDocument()
+    expect(screen.queryByText("BONUS")).not.toBeInTheDocument()
+    expect(screen.queryByText("MYSTERY")).not.toBeInTheDocument()
+  })
+
+  it("filters to Uncategorized rows via the `none` option", async () => {
+    render(<TransactionsTable rows={catRows} currency="ISK" categories={CATS} />)
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: /filter by category/i }), "none")
+    expect(screen.getByText("MYSTERY")).toBeInTheDocument()
+    expect(screen.queryByText("BONUS")).not.toBeInTheDocument()
+  })
+
+  it("only offers categories present in the shown rows (plus All / Uncategorized)", () => {
+    render(<TransactionsTable rows={catRows} currency="ISK" categories={CATS} />)
+    const options = within(screen.getByRole("combobox", { name: /filter by category/i }))
+      .getAllByRole("option")
+      .map((o) => o.textContent)
+    expect(options).toEqual(["All categories", "Fuel", "Groceries", "Uncategorized"])
+  })
+
+  it("ignores an unknown initialCategoryId (no filter applied)", () => {
     render(
       <TransactionsTable rows={catRows} currency="ISK" categories={CATS} initialCategoryId="cat-gone" />
     )
     expect(screen.getByText("BONUS")).toBeInTheDocument()
     expect(screen.getByText("N1")).toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: /clear category filter/i })).not.toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: /filter by category/i })).toHaveValue("all")
   })
 
   // Merchants of the data rows, top-to-bottom (the first row is the header).

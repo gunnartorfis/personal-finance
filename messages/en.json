@@ -847,7 +847,8 @@
       "splitNone": "Split / none",
       "unclassified": "Unclassified",
       "credits": "Credits",
-      "excluded": "Excluded"
+      "excluded": "Excluded",
+      "allCategories": "All categories"
     },
     "showingCount": "{visible} of {total} transactions",
     "empty": "No transactions in this period",
@@ -863,8 +864,7 @@
     "colType": "Type",
     "yourShare": "your share {amount}",
     "uncategorized": "Uncategorized",
-    "categoryChip": "Category: {name}",
-    "categoryChipClear": "Clear category filter"
+    "categoryFilterLabel": "Filter by category"
   },
   "charts": {
     "spendingTrend": {
