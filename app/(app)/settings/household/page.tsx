@@ -16,8 +16,10 @@ export const dynamic = "force-dynamic"
  * `listMembersWithIdentity`); everything mutating runs through `/api/household/*`.
  */
 export default async function HouseholdSettingsPage() {
-  const { householdId, plan, repo, user } = await requireHousehold()
-  const t = await getTranslations("household")
+  const [{ householdId, plan, repo, user }, t] = await Promise.all([
+    requireHousehold(),
+    getTranslations("household"),
+  ])
   const [members, invites] = await Promise.all([
     listMembersWithIdentity(getDb(), householdId),
     repo.invites.listActive(),

@@ -41,7 +41,7 @@ export function ActivityLogView({ entries }: ActivityLogViewProps) {
   }
 
   return (
-    <ul role="list" className="flex flex-col">
+    <ul className="flex flex-col">
       {entries.map((entry) => {
         const subject = activitySubject(entry.payload)
         const when = new Date(entry.createdAt)

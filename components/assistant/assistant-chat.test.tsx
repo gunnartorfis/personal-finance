@@ -19,7 +19,8 @@ interface FakeChat {
 let chat: FakeChat
 vi.mock("@ai-sdk/react", () => ({ useChat: () => chat }))
 
-import { AssistantChat, applyAssistantResponse } from "./assistant-chat"
+import { applyAssistantResponse } from "./apply-assistant-response"
+import { AssistantChat } from "./assistant-chat"
 
 interface StubOptions {
   plan?: "Premium" | "Free"

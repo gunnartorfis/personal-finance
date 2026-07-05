@@ -30,7 +30,7 @@ export interface BudgetOptions {
   warnAt: number;
 }
 
-export const DEFAULT_BUDGET_OPTIONS: BudgetOptions = { warnAt: 0.8 };
+const DEFAULT_BUDGET_OPTIONS: BudgetOptions = { warnAt: 0.8 };
 
 /**
  * Compute per-category budget "envelopes" from the set budgets and actual spend (#103). Pure and

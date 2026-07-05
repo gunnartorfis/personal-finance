@@ -25,11 +25,20 @@ interface MerchantRule {
  */
 type RuleError = { key: "add" | "delete" } | { message: string }
 
+// Pure fetch (no setState) so the effect and the event handlers can both reuse it without
+// tripping the "setState synchronously in an effect" rule.
+async function fetchRules(): Promise<MerchantRule[]> {
+  const res = await fetch("/api/merchant-rules")
+  if (!res.ok) throw new Error("could not load merchant rules")
+  return (await res.json()) as MerchantRule[]
+}
+
 /**
  * Manage the current Household's merchant rules (Phase F): list them with delete, and an add form
  * for flat rules (merchant → type). Split rules created via the API are shown read-only. Each
  * mutation refetches so the list reflects server state.
  */
+// react-doctor-disable-next-line react-doctor/prefer-useReducer -- independent concerns (list-load, form inputs, add/delete mutations), not one cohesive state machine
 export function MerchantRulesManager({ className }: { className?: string }) {
   const t = useTranslations("rules")
   const [rules, setRules] = useState<MerchantRule[]>([])
@@ -68,14 +77,6 @@ export function MerchantRulesManager({ className }: { className?: string }) {
   const [adding, setAdding] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const busy = adding || deletingId !== null
-
-  // Pure fetch (no setState) so the effect and the event handlers can both reuse it without
-  // tripping the "setState synchronously in an effect" rule.
-  async function fetchRules(): Promise<MerchantRule[]> {
-    const res = await fetch("/api/merchant-rules")
-    if (!res.ok) throw new Error("could not load merchant rules")
-    return (await res.json()) as MerchantRule[]
-  }
 
   async function refresh() {
     try {
@@ -220,10 +221,7 @@ export function MerchantRulesManager({ className }: { className?: string }) {
           {t("empty")}
         </div>
       ) : (
-        <ul
-          role="list"
-          className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card"
-        >
+        <ul className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
           {rules.map((rule) => (
             <li
               key={rule.id}

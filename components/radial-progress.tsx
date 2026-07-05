@@ -1,5 +1,6 @@
 "use client"
 
+// react-doctor-disable-next-line react-doctor/prefer-dynamic-import -- recharts composes by detecting child component types (RadialBarChart reads its RadialBar/PolarAngleAxis children), so wrapping these primitives in next/dynamic breaks rendering; recharts is already eagerly bundled via the shared components/ui/chart wrapper, so a dynamic import here yields no code-split. Client-only, code-split at route level.
 import { PolarAngleAxis, RadialBar, RadialBarChart } from "recharts"
 
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart"

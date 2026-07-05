@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { AuthView } from "@neondatabase/auth-ui";
+import { getTranslations } from "next-intl/server";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("common");
+  return { title: t("appName") };
+}
 
 /**
  * Neon Auth catch-all UI page (ADR-0001): renders sign-in / sign-up / etc. from the path segment,

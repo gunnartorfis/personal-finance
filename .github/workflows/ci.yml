@@ -77,17 +77,17 @@ jobs:
           fi
 
   react-doctor:
-    # PR-only: --scope changed reports just the issues this PR introduces.
-    if: github.event_name == 'pull_request'
+    # Absolute quality gate: the full scan must score 100/100. Design-tagged rules
+    # are excluded from both the score and the CI-failure surface, so `--blocking
+    # warning` fails the build on any scored finding — i.e. exactly when the score
+    # would drop below 100. Rule scope/exclusions live in doctor.config.json.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm dlx react-doctor@latest --yes --scope changed --base "origin/${{ github.base_ref }}" --no-telemetry
+      - run: pnpm dlx react-doctor@latest --yes --scope full --blocking warning --no-telemetry

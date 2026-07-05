@@ -63,6 +63,7 @@ function uploadError(status: number, body: UploadResponse | null): UploadError {
  * post it as multipart to `/api/uploads`. On success the created upload's id drives the live
  * <UploadProgress> indicator; 4xx failures surface inline.
  */
+// react-doctor-disable-next-line react-doctor/prefer-useReducer -- independent concerns (account load, form fields, upload mutation, preview/summary), not one cohesive state machine
 export function UploadForm({ className }: { className?: string }) {
   const t = useTranslations("upload")
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -80,6 +81,7 @@ export function UploadForm({ className }: { className?: string }) {
   const [preview, setPreview] = useState<UploadPreviewData | null>(null)
   const [summary, setSummary] = useState<{ added: number; skipped: number } | null>(null)
 
+  // react-doctor-disable-next-line react-doctor/no-fetch-in-effect -- one-shot client load already race-guarded by the `ignore` flag; server-side fetch is out of scope for this form
   useEffect(() => {
     let ignore = false
     async function loadAccounts() {
@@ -301,15 +303,12 @@ export function UploadForm({ className }: { className?: string }) {
       )}
 
       {summary && (
-        <div
-          role="status"
-          className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400"
-        >
+        <output className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
           <CircleCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
           <p className="tabular-nums">
             {t("preview.summary", { added: summary.added, skipped: summary.skipped })}
           </p>
-        </div>
+        </output>
       )}
 
       {uploadId && (

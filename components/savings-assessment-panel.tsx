@@ -30,7 +30,7 @@ export function SavingsAssessmentPanel({
   const t = useTranslations("savings.assessment")
   const money = currencyFormatter(currency, locale)
   // Newest cycle first for the breakdown; the loader returns oldest first for the cumulative math.
-  const newestFirst = [...cycles].sort((a, b) =>
+  const newestFirst = cycles.toSorted((a, b) =>
     a.cycleKey < b.cycleKey ? 1 : -1
   )
 
@@ -47,8 +47,7 @@ export function SavingsAssessmentPanel({
           </p>
         </div>
 
-        <div
-          role="status"
+        <output
           className={cn(
             "flex items-start gap-2 rounded-lg px-3 py-2 text-sm",
             assessment.onTrack
@@ -86,7 +85,7 @@ export function SavingsAssessmentPanel({
                   perCycle: money.format(assessment.requiredSaving),
                 })}
           </p>
-        </div>
+        </output>
 
         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
           <div className="flex flex-col gap-0.5">

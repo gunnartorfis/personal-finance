@@ -3,6 +3,7 @@
 import { useLocale, useTranslations } from "next-intl"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+// react-doctor-disable-next-line react-doctor/prefer-dynamic-import -- recharts composes by detecting child component types (ComposedChart reads its Bar/Line/XAxis children), so wrapping these primitives in next/dynamic breaks rendering; recharts is already eagerly bundled via the shared components/ui/chart wrapper, so a dynamic import here yields no code-split. Client-only, code-split at route level.
 import { Bar, ComposedChart, Line, XAxis } from "recharts"
 
 import {

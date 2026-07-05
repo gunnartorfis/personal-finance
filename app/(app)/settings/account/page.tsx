@@ -21,8 +21,10 @@ export const dynamic = "force-dynamic"
  * the household's transaction data is appended below the Neon Auth view.
  */
 export default async function AccountSettingsPage() {
-  const { memberId } = await requireHousehold()
-  const t = await getTranslations("dataExport")
+  const [{ memberId }, t] = await Promise.all([
+    requireHousehold(),
+    getTranslations("dataExport"),
+  ])
   const digestSubscribed = await isDigestSubscribed(getDb(), memberId)
   return (
     <div className="flex flex-col gap-6">
@@ -31,6 +33,7 @@ export default async function AccountSettingsPage() {
       <section className="flex flex-col items-start gap-2 rounded-xl border border-border bg-card p-6">
         <h2 className="text-base font-medium">{t("title")}</h2>
         <p className="text-sm text-pretty text-muted-foreground">{t("description")}</p>
+        {/* react-doctor-disable-next-line react-doctor/nextjs-no-a-element -- file download from an API route, not a page nav; next/link would prefetch and trigger the export */}
         <a
           href="/api/export"
           download

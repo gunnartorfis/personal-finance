@@ -22,6 +22,7 @@ interface SavingsGoal {
  * saved, and the Statement cycle progress starts counting from. One goal per Household — saving
  * again updates it in place.
  */
+// react-doctor-disable-next-line react-doctor/prefer-useReducer -- independent controlled form fields (target/targetDate/startingSaved/startCycle) plus status flags, not a cohesive state machine
 export function SavingsGoalForm({ className }: { className?: string }) {
   const t = useTranslations("savings.goal")
   const [loading, setLoading] = useState(true)
@@ -33,6 +34,7 @@ export function SavingsGoalForm({ className }: { className?: string }) {
   const [errored, setErrored] = useState(false)
   const [saved, setSaved] = useState(false)
 
+  // react-doctor-disable-next-line react-doctor/no-fetch-in-effect -- one-shot initial load already guards stale responses via the ignore flag and keeps the loading state; server-side move out of scope
   useEffect(() => {
     let ignore = false
     async function loadInitial() {

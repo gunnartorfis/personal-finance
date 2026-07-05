@@ -51,6 +51,7 @@ export interface IncomeConfig {
   included: Record<RealType, boolean>; // which card expense types count toward net
 }
 
+// react-doctor-disable-next-line deslop/unused-export -- used by legacy/ (excluded from tsconfig, not scanned)
 export const DEFAULT_INCOME: IncomeConfig = {
   sources: [{ name: "Salary", amt: 0 }],
   monthExtra: {},
