@@ -847,7 +847,8 @@
       "splitNone": "Skipt / ekkert",
       "unclassified": "Óflokkað",
       "credits": "Innborganir",
-      "excluded": "Undanskilið"
+      "excluded": "Undanskilið",
+      "allCategories": "Allir flokkar"
     },
     "showingCount": "{visible} af {total} færslum",
     "empty": "Engar færslur á þessu tímabili",
@@ -863,8 +864,7 @@
     "colType": "Tegund",
     "yourShare": "þinn hluti {amount}",
     "uncategorized": "Óflokkað",
-    "categoryChip": "Flokkur: {name}",
-    "categoryChipClear": "Hreinsa flokkasíu"
+    "categoryFilterLabel": "Sía eftir flokki"
   },
   "charts": {
     "spendingTrend": {
