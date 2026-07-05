@@ -2,7 +2,7 @@ import type {
   accountBalances,
   accounts,
   bankConnections,
-  categoryBudgets,
+  expenseTypeBudgets,
   merchantRules,
   overrides,
   savingsGoals,
@@ -32,7 +32,7 @@ export interface HouseholdExportInput {
     offcardCosts: Array<typeof savingsOffcardCosts.$inferSelect>;
     oneOffAdjustments: Array<typeof savingsOneOffAdjustments.$inferSelect>;
   };
-  budgets: Array<typeof categoryBudgets.$inferSelect>;
+  budgets: Array<typeof expenseTypeBudgets.$inferSelect>;
 }
 
 /** The assembled, secret-scrubbed export payload (bank tokens removed). */
