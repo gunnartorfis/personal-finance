@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import { useCallback } from "react";
 
 /** The label-bearing fields of a Category row (ADR-0020): exactly one of labelKey / label is set. */
 export interface CategoryLabelParts {
@@ -18,7 +19,10 @@ export function resolveCategoryLabel(
   row: CategoryLabelParts,
   translate: (key: string) => string,
 ): string {
-  if (row.labelKey) return translate(row.labelKey);
+  // Explicit null check (not truthiness): labelKey and label are mutually exclusive per the DB
+  // CHECK, so a non-null labelKey — even the malformed empty string — is a seed row, never the
+  // literal-label path.
+  if (row.labelKey !== null) return translate(row.labelKey);
   return row.label ?? "";
 }
 
@@ -30,5 +34,6 @@ export function resolveCategoryLabel(
 // react-doctor-disable-next-line deslop/unused-export -- consumed by the S5 category chart + tx-list column (#105); helper landed first so both build on one resolver.
 export function useCategoryLabel(): (row: CategoryLabelParts) => string {
   const t = useTranslations("categories");
-  return (row) => resolveCategoryLabel(row, (key) => t(key));
+  // Stable reference across renders (t is stable per locale) — safe to pass into dependency arrays.
+  return useCallback((row: CategoryLabelParts) => resolveCategoryLabel(row, (key) => t(key)), [t]);
 }

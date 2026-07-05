@@ -20,4 +20,10 @@ describe("resolveCategoryLabel (ADR-0020)", () => {
   it("falls back to empty string when neither is set", () => {
     expect(resolveCategoryLabel({ labelKey: null, label: null }, translate)).toBe("");
   });
+
+  it("routes a non-null (even empty) labelKey through translate, not the literal-label path", () => {
+    // labelKey/label are mutually exclusive; a present labelKey means seed row, so we never fall
+    // through to `label` on a non-null labelKey.
+    expect(resolveCategoryLabel({ labelKey: "", label: "should-not-win" }, translate)).toBe("t:");
+  });
 });
