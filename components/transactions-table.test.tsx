@@ -307,6 +307,15 @@ describe("TransactionsTable", () => {
     expect(screen.getByText("MYSTERY")).toBeInTheDocument()
   })
 
+  it("seeds Uncategorized from initialCategoryId='none' (dashboard deep-link)", () => {
+    render(
+      <TransactionsTable rows={catRows} currency="ISK" categories={CATS} initialCategoryId="none" />
+    )
+    expect(screen.getByText("MYSTERY")).toBeInTheDocument()
+    expect(screen.queryByText("BONUS")).not.toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: /filter by category/i })).toHaveValue("none")
+  })
+
   it("lets the user filter by a category from the dropdown", async () => {
     render(<TransactionsTable rows={catRows} currency="ISK" categories={CATS} />)
     // All rows shown initially.
