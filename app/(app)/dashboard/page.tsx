@@ -44,9 +44,11 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ cycle?: string }>
 }) {
-  const { repo, plan, billingCurrency } = await requireHousehold()
-  const locale = await resolveRequestLocale()
-  const t = await getTranslations("dashboard")
+  const [{ repo, plan, billingCurrency }, locale, t] = await Promise.all([
+    requireHousehold(),
+    resolveRequestLocale(),
+    getTranslations("dashboard"),
+  ])
   const now = new Date()
   const current = currentCycleKey(now)
 
@@ -68,9 +70,10 @@ export default async function DashboardPage({
   // Offer months with any activity, plus always the current and selected month, so the picker never
   // hides where the user is yet stays free of empty pre-history months. Keys sort lexicographically
   // the same as chronologically; newest-first for the selector.
-  const monthsWithData = new Set(
-    view.modules.series.filter((p) => p.spending > 0 || p.income > 0).map((p) => p.month),
-  )
+  const monthsWithData = new Set<string>()
+  for (const p of view.modules.series) {
+    if (p.spending > 0 || p.income > 0) monthsWithData.add(p.month)
+  }
   const monthOptions: PeriodOption[] = windowKeys
     .filter((key) => key === current || key === selected || monthsWithData.has(key))
     .reverse()

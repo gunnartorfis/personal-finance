@@ -2,7 +2,7 @@
 export const MONTHLY_PRICE_ISK = 1990;
 
 /** Annual discount applied to 12× the monthly price. */
-export const ANNUAL_DISCOUNT = 0.3;
+const ANNUAL_DISCOUNT = 0.3;
 
 export type BillingPeriod = "monthly" | "annual";
 

@@ -1,3 +1,5 @@
+// Consumed by legacy/scripts (seed.ts, classify.ts). `legacy/` is excluded from the
+// react-doctor scan, so the unused-file rule is suppressed for this path in doctor.config.json.
 import fs from "node:fs";
 import Papa from "papaparse";
 import { statementCycle } from "./billing.ts";

@@ -35,7 +35,7 @@ export function RecurringSubscriptions({
           {t("recurring.committed", { amount: money.format(recurring.committedMonthlyTotal) })}
         </span>
       </div>
-      <ul role="list" className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-3">
         {recurring.subscriptions.map((sub) => (
           <li key={sub.merchant} className="flex items-baseline justify-between gap-4">
             <div className="flex min-w-0 flex-col">

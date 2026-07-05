@@ -72,6 +72,324 @@ export interface TransactionRow {
   classificationStatus: "pending" | "classified" | "failed"
 }
 
+/** The empty-period state: no rows this cycle, explaining why and pointing to the next action. */
+function EmptyPeriod({
+  backlogElsewhere,
+  className,
+}: {
+  backlogElsewhere: number
+  className?: string
+}) {
+  const t = useTranslations("transactions")
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center gap-1 rounded-lg border border-dashed border-border px-6 py-12 text-center",
+        className
+      )}
+    >
+      <p className="text-sm font-medium">{t("empty")}</p>
+      <p className="text-sm text-pretty text-muted-foreground">
+        {backlogElsewhere > 0
+          ? t("emptyBacklog", { count: backlogElsewhere })
+          : t.rich("emptyCta", {
+              link: (chunks) => (
+                <Link
+                  href="/upload"
+                  className="font-medium text-foreground underline underline-offset-4"
+                >
+                  {chunks}
+                </Link>
+              ),
+            })}
+      </p>
+    </div>
+  )
+}
+
+/** Search box + type-filter select controlling which rows the table shows. */
+function TableToolbar({
+  query,
+  onQueryChange,
+  typeFilter,
+  onTypeFilterChange,
+}: {
+  query: string
+  onQueryChange: (value: string) => void
+  typeFilter: TypeFilter
+  onTypeFilterChange: (value: TypeFilter) => void
+}) {
+  const t = useTranslations("transactions")
+
+  // Filter labels resolved with literal keys, indexed by the filter value.
+  const filterLabels: Record<TypeFilter, string> = {
+    all: t("filter.all"),
+    Fixed: t("filter.fixed"),
+    Necessary: t("filter.necessary"),
+    "Nice to have": t("filter.niceToHave"),
+    "": t("filter.splitNone"),
+    unclassified: t("filter.unclassified"),
+    credit: t("filter.credits"),
+    excluded: t("filter.excluded"),
+  }
+
+  // Unique per instance so IDs / label associations don't collide if two tables ever mount together.
+  const searchId = useId()
+  const typeFilterId = useId()
+
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative sm:max-w-xs sm:flex-1">
+        <Search
+          className="pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden
+        />
+        <label className="sr-only" htmlFor={searchId}>
+          {t("searchLabel")}
+        </label>
+        <input
+          id={searchId}
+          name="txn-search"
+          type="search"
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder={t("searchPlaceholder")}
+          className="h-8 w-full min-w-0 rounded-md border border-input bg-input/20 pr-2 pl-7 text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:text-base/relaxed md:text-sm dark:bg-input/30"
+        />
+      </div>
+
+      <div className="relative inline-grid h-8 grid-cols-[1fr_1.75rem] items-center rounded-md border border-border">
+        <label className="sr-only" htmlFor={typeFilterId}>
+          {t("filterLabel")}
+        </label>
+        <select
+          id={typeFilterId}
+          name="txn-type-filter"
+          value={typeFilter}
+          onChange={(event) =>
+            onTypeFilterChange(event.target.value as TypeFilter)
+          }
+          className="col-span-full row-start-1 appearance-none bg-transparent py-1 pr-7 pl-2.5 text-sm font-medium outline-none"
+        >
+          {TYPE_FILTER_VALUES.map((value) => (
+            <option key={value} value={value}>
+              {filterLabels[value]}
+            </option>
+          ))}
+        </select>
+        <svg
+          viewBox="0 0 8 5"
+          width="8"
+          height="5"
+          fill="none"
+          aria-hidden="true"
+          className="pointer-events-none col-start-2 row-start-1 place-self-center text-muted-foreground"
+        >
+          <path d="M.5.5 4 4 7.5.5" stroke="currentColor" />
+        </svg>
+      </div>
+    </div>
+  )
+}
+
+/** The sortable column header row (date / merchant / amount + a static Type column). */
+function TransactionsTableHead({
+  sortKey,
+  sortDir,
+  onToggleSort,
+}: {
+  sortKey: SortKey
+  sortDir: SortDir
+  onToggleSort: (key: SortKey) => void
+}) {
+  const t = useTranslations("transactions")
+
+  const sortIndicator = (key: SortKey) => {
+    if (sortKey !== key)
+      return <ChevronsUpDown className="size-3.5 opacity-40" aria-hidden />
+    return sortDir === "asc" ? (
+      <ChevronUp className="size-3.5" aria-hidden />
+    ) : (
+      <ChevronDown className="size-3.5" aria-hidden />
+    )
+  }
+
+  return (
+    <thead>
+      <tr className="border-b border-border text-left text-muted-foreground">
+        <th
+          scope="col"
+          aria-sort={
+            sortKey === "date"
+              ? sortDir === "asc"
+                ? "ascending"
+                : "descending"
+              : "none"
+          }
+          className="py-2 pr-4 font-medium whitespace-nowrap"
+        >
+          <button
+            type="button"
+            onClick={() => onToggleSort("date")}
+            className={cn(
+              "inline-flex items-center gap-1 font-medium transition-colors hover:text-foreground",
+              sortKey === "date" && "text-foreground"
+            )}
+          >
+            {t("colDate")}
+            {sortIndicator("date")}
+          </button>
+        </th>
+        <th
+          scope="col"
+          aria-sort={
+            sortKey === "merchant"
+              ? sortDir === "asc"
+                ? "ascending"
+                : "descending"
+              : "none"
+          }
+          className="py-2 pr-4 font-medium whitespace-nowrap"
+        >
+          <button
+            type="button"
+            onClick={() => onToggleSort("merchant")}
+            className={cn(
+              "inline-flex items-center gap-1 font-medium transition-colors hover:text-foreground",
+              sortKey === "merchant" && "text-foreground"
+            )}
+          >
+            {t("colMerchant")}
+            {sortIndicator("merchant")}
+          </button>
+        </th>
+        <th
+          scope="col"
+          aria-sort={
+            sortKey === "amount"
+              ? sortDir === "asc"
+                ? "ascending"
+                : "descending"
+              : "none"
+          }
+          className="py-2 pr-4 text-right font-medium whitespace-nowrap"
+        >
+          <button
+            type="button"
+            onClick={() => onToggleSort("amount")}
+            className={cn(
+              "inline-flex items-center gap-1 font-medium transition-colors hover:text-foreground",
+              sortKey === "amount" && "text-foreground"
+            )}
+          >
+            {t("colAmount")}
+            {sortIndicator("amount")}
+          </button>
+        </th>
+        <th scope="col" className="py-2 font-medium whitespace-nowrap">
+          {t("colType")}
+        </th>
+      </tr>
+    </thead>
+  )
+}
+
+/** A single transaction row: date, merchant, amount (+ own share) and the inline Type control. */
+function TransactionRowView({
+  row,
+  fmtDate,
+  fmtAmount,
+  onOverrideChanged,
+  onIncomeChanged,
+  onExcludeChanged,
+  onShareChanged,
+  onRuleCreated,
+}: {
+  row: TransactionRow
+  fmtDate: (date: string) => string
+  fmtAmount: (amount: number) => string
+  onOverrideChanged: (next: {
+    expenseType: ExpenseType | null
+    hasOverride: boolean
+  }) => void
+  onIncomeChanged: (marked: boolean) => void
+  onExcludeChanged: (next: { excluded: boolean; note: string | null }) => void
+  onShareChanged: (share: number | null) => void
+  onRuleCreated: () => void
+}) {
+  const t = useTranslations("transactions")
+  const isCredit = row.amount > 0
+  return (
+    <tr className="border-b border-border last:border-0">
+      <td className="py-3 pr-4 text-muted-foreground tabular-nums">
+        {fmtDate(row.date)}
+      </td>
+      <td
+        className={cn(
+          "py-3 pr-4 font-medium",
+          // Excluded rows read as struck-through: they count for nothing (ADR-0011).
+          row.excluded && "text-muted-foreground line-through"
+        )}
+      >
+        {row.merchant}
+      </td>
+      <td
+        className={cn(
+          "py-3 pr-4 text-right tabular-nums",
+          isCredit &&
+            !row.excluded &&
+            "text-emerald-600 dark:text-emerald-500",
+          row.excluded && "text-muted-foreground line-through"
+        )}
+      >
+        {fmtAmount(row.amount)}
+        {/* A Shared expense shows the full charge above and the counted Own share
+            beneath, so the face value is never hidden (ADR-0014). */}
+        {row.ownShareAmount !== null && !row.excluded && (
+          <div className="text-xs font-normal text-muted-foreground">
+            {t("yourShare", {
+              amount: fmtAmount(row.ownShareAmount),
+            })}
+          </div>
+        )}
+      </td>
+      <td className="py-3">
+        <RowTypeControl
+          row={row}
+          formatAmount={fmtAmount}
+          onOverrideChanged={onOverrideChanged}
+          onIncomeChanged={onIncomeChanged}
+          onExcludeChanged={onExcludeChanged}
+          onShareChanged={onShareChanged}
+          // A new merchant rule re-types every matching row server-side (ADR-0012);
+          // refresh so this period's other rows and the net summary reflect it.
+          onRuleCreated={onRuleCreated}
+        />
+      </td>
+    </tr>
+  )
+}
+
+/** The no-match state shown when filters/search exclude every row this cycle. */
+function NoMatch({ onClear }: { onClear: () => void }) {
+  const t = useTranslations("transactions")
+  return (
+    <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed border-border px-6 py-12 text-center">
+      <p className="text-sm font-medium">{t("noMatch")}</p>
+      <p className="text-sm text-pretty text-muted-foreground">
+        {t("noMatchBody")}
+      </p>
+      <button
+        type="button"
+        onClick={onClear}
+        className="mt-1 text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
+      >
+        {t("clearFilters")}
+      </button>
+    </div>
+  )
+}
+
 /**
  * A statement period's transactions (Phase H) with a single inline "Type" control per row
  * (<RowTypeControl>): a color-keyed pill that opens a menu holding every per-row action (set type,
@@ -92,31 +410,17 @@ export function TransactionsTable({
   className?: string
   /** Whole-household expenses still needing review — used only to explain an empty period. */
   backlogElsewhere?: number
+  // react-doctor-disable-next-line react-doctor/prefer-useReducer -- the state atoms (server-data mirror, search query, type filter, sort key/dir) are largely independent UI controls, not one cohesive state machine; a reducer would harm readability
 }) {
   const t = useTranslations("transactions")
   const locale = toLocale(useLocale()) ?? defaultLocale
+  // react-doctor-disable-next-line react-doctor/no-derived-useState -- `rows` is an intentional local mutable mirror seeded once from the server prop; the inline controls optimistically mutate it for instant feedback (router.refresh recomputes the server-derived summaries), so it must NOT be re-derived from `initial` on every render
   const [rows, setRows] = useState(initial)
   const [query, setQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all")
   const [sortKey, setSortKey] = useState<SortKey>("date")
   const [sortDir, setSortDir] = useState<SortDir>("desc")
   const router = useRouter()
-
-  // Filter labels resolved with literal keys, indexed by the filter value.
-  const filterLabels: Record<TypeFilter, string> = {
-    all: t("filter.all"),
-    Fixed: t("filter.fixed"),
-    Necessary: t("filter.necessary"),
-    "Nice to have": t("filter.niceToHave"),
-    "": t("filter.splitNone"),
-    unclassified: t("filter.unclassified"),
-    credit: t("filter.credits"),
-    excluded: t("filter.excluded"),
-  }
-
-  // Unique per instance so IDs / label associations don't collide if two tables ever mount together.
-  const searchId = useId()
-  const typeFilterId = useId()
 
   // Derive the shown rows from the (stateful) period rows so inline override/income edits — which
   // mutate `rows` — re-filter and re-sort in place. Cheap: one cycle's rows are bounded.
@@ -128,7 +432,7 @@ export function TransactionsTable({
       return true
     })
     const dir = sortDir === "asc" ? 1 : -1
-    return [...filtered].sort((a, b) => {
+    return filtered.toSorted((a, b) => {
       const cmp =
         sortKey === "merchant"
           ? a.merchant.localeCompare(b.merchant)
@@ -228,94 +532,18 @@ export function TransactionsTable({
 
   if (rows.length === 0) {
     return (
-      <div
-        className={cn(
-          "flex flex-col items-center gap-1 rounded-lg border border-dashed border-border px-6 py-12 text-center",
-          className
-        )}
-      >
-        <p className="text-sm font-medium">{t("empty")}</p>
-        <p className="text-sm text-pretty text-muted-foreground">
-          {backlogElsewhere > 0
-            ? t("emptyBacklog", { count: backlogElsewhere })
-            : t.rich("emptyCta", {
-                link: (chunks) => (
-                  <Link
-                    href="/upload"
-                    className="font-medium text-foreground underline underline-offset-4"
-                  >
-                    {chunks}
-                  </Link>
-                ),
-              })}
-        </p>
-      </div>
-    )
-  }
-
-  const sortIndicator = (key: SortKey) => {
-    if (sortKey !== key)
-      return <ChevronsUpDown className="size-3.5 opacity-40" aria-hidden />
-    return sortDir === "asc" ? (
-      <ChevronUp className="size-3.5" aria-hidden />
-    ) : (
-      <ChevronDown className="size-3.5" aria-hidden />
+      <EmptyPeriod backlogElsewhere={backlogElsewhere} className={className} />
     )
   }
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative sm:max-w-xs sm:flex-1">
-          <Search
-            className="pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
-          <label className="sr-only" htmlFor={searchId}>
-            {t("searchLabel")}
-          </label>
-          <input
-            id={searchId}
-            name="txn-search"
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("searchPlaceholder")}
-            className="h-8 w-full min-w-0 rounded-md border border-input bg-input/20 pr-2 pl-7 text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 max-sm:text-base/relaxed md:text-sm dark:bg-input/30"
-          />
-        </div>
-
-        <div className="relative inline-grid h-8 grid-cols-[1fr_1.75rem] items-center rounded-md border border-border">
-          <label className="sr-only" htmlFor={typeFilterId}>
-            {t("filterLabel")}
-          </label>
-          <select
-            id={typeFilterId}
-            name="txn-type-filter"
-            value={typeFilter}
-            onChange={(event) =>
-              setTypeFilter(event.target.value as TypeFilter)
-            }
-            className="col-span-full row-start-1 appearance-none bg-transparent py-1 pr-7 pl-2.5 text-sm font-medium outline-none"
-          >
-            {TYPE_FILTER_VALUES.map((value) => (
-              <option key={value} value={value}>
-                {filterLabels[value]}
-              </option>
-            ))}
-          </select>
-          <svg
-            viewBox="0 0 8 5"
-            width="8"
-            height="5"
-            fill="none"
-            aria-hidden="true"
-            className="pointer-events-none col-start-2 row-start-1 place-self-center text-muted-foreground"
-          >
-            <path d="M.5.5 4 4 7.5.5" stroke="currentColor" />
-          </svg>
-        </div>
-      </div>
+      <TableToolbar
+        query={query}
+        onQueryChange={setQuery}
+        typeFilter={typeFilter}
+        onTypeFilterChange={setTypeFilter}
+      />
 
       {filtering && (
         <p className="text-xs text-muted-foreground" aria-live="polite">
@@ -324,166 +552,34 @@ export function TransactionsTable({
       )}
 
       {visible.length === 0 ? (
-        <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed border-border px-6 py-12 text-center">
-          <p className="text-sm font-medium">{t("noMatch")}</p>
-          <p className="text-sm text-pretty text-muted-foreground">
-            {t("noMatchBody")}
-          </p>
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="mt-1 text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
-          >
-            {t("clearFilters")}
-          </button>
-        </div>
+        <NoMatch onClear={clearFilters} />
       ) : (
         <div className="-mx-6 -my-2 overflow-x-auto whitespace-nowrap">
           <div className="inline-block min-w-full px-6 py-2 align-middle">
             <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-muted-foreground">
-                  <th
-                    scope="col"
-                    aria-sort={
-                      sortKey === "date"
-                        ? sortDir === "asc"
-                          ? "ascending"
-                          : "descending"
-                        : "none"
-                    }
-                    className="py-2 pr-4 font-medium whitespace-nowrap"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("date")}
-                      className={cn(
-                        "inline-flex items-center gap-1 font-medium transition-colors hover:text-foreground",
-                        sortKey === "date" && "text-foreground"
-                      )}
-                    >
-                      {t("colDate")}
-                      {sortIndicator("date")}
-                    </button>
-                  </th>
-                  <th
-                    scope="col"
-                    aria-sort={
-                      sortKey === "merchant"
-                        ? sortDir === "asc"
-                          ? "ascending"
-                          : "descending"
-                        : "none"
-                    }
-                    className="py-2 pr-4 font-medium whitespace-nowrap"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("merchant")}
-                      className={cn(
-                        "inline-flex items-center gap-1 font-medium transition-colors hover:text-foreground",
-                        sortKey === "merchant" && "text-foreground"
-                      )}
-                    >
-                      {t("colMerchant")}
-                      {sortIndicator("merchant")}
-                    </button>
-                  </th>
-                  <th
-                    scope="col"
-                    aria-sort={
-                      sortKey === "amount"
-                        ? sortDir === "asc"
-                          ? "ascending"
-                          : "descending"
-                        : "none"
-                    }
-                    className="py-2 pr-4 text-right font-medium whitespace-nowrap"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("amount")}
-                      className={cn(
-                        "inline-flex items-center gap-1 font-medium transition-colors hover:text-foreground",
-                        sortKey === "amount" && "text-foreground"
-                      )}
-                    >
-                      {t("colAmount")}
-                      {sortIndicator("amount")}
-                    </button>
-                  </th>
-                  <th
-                    scope="col"
-                    className="py-2 font-medium whitespace-nowrap"
-                  >
-                    {t("colType")}
-                  </th>
-                </tr>
-              </thead>
+              <TransactionsTableHead
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onToggleSort={toggleSort}
+              />
               <tbody>
-                {visible.map((row) => {
-                  const isCredit = row.amount > 0
-                  return (
-                    <tr
-                      key={row.id}
-                      className="border-b border-border last:border-0"
-                    >
-                      <td className="py-3 pr-4 text-muted-foreground tabular-nums">
-                        {fmtDate(row.date)}
-                      </td>
-                      <td
-                        className={cn(
-                          "py-3 pr-4 font-medium",
-                          // Excluded rows read as struck-through: they count for nothing (ADR-0011).
-                          row.excluded && "text-muted-foreground line-through"
-                        )}
-                      >
-                        {row.merchant}
-                      </td>
-                      <td
-                        className={cn(
-                          "py-3 pr-4 text-right tabular-nums",
-                          isCredit &&
-                            !row.excluded &&
-                            "text-emerald-600 dark:text-emerald-500",
-                          row.excluded && "text-muted-foreground line-through"
-                        )}
-                      >
-                        {fmtAmount(row.amount)}
-                        {/* A Shared expense shows the full charge above and the counted Own share
-                            beneath, so the face value is never hidden (ADR-0014). */}
-                        {row.ownShareAmount !== null && !row.excluded && (
-                          <div className="text-xs font-normal text-muted-foreground">
-                            {t("yourShare", {
-                              amount: fmtAmount(row.ownShareAmount),
-                            })}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3">
-                        <RowTypeControl
-                          row={row}
-                          formatAmount={fmtAmount}
-                          onOverrideChanged={(next) =>
-                            handleChanged(row.id, next)
-                          }
-                          onIncomeChanged={(marked) =>
-                            handleIncomeChanged(row.id, marked)
-                          }
-                          onExcludeChanged={(next) =>
-                            handleExcludeChanged(row.id, next)
-                          }
-                          onShareChanged={(share) =>
-                            handleShareChanged(row.id, share)
-                          }
-                          // A new merchant rule re-types every matching row server-side (ADR-0012);
-                          // refresh so this period's other rows and the net summary reflect it.
-                          onRuleCreated={() => router.refresh()}
-                        />
-                      </td>
-                    </tr>
-                  )
-                })}
+                {visible.map((row) => (
+                  <TransactionRowView
+                    key={row.id}
+                    row={row}
+                    fmtDate={fmtDate}
+                    fmtAmount={fmtAmount}
+                    onOverrideChanged={(next) => handleChanged(row.id, next)}
+                    onIncomeChanged={(marked) =>
+                      handleIncomeChanged(row.id, marked)
+                    }
+                    onExcludeChanged={(next) =>
+                      handleExcludeChanged(row.id, next)
+                    }
+                    onShareChanged={(share) => handleShareChanged(row.id, share)}
+                    onRuleCreated={() => router.refresh()}
+                  />
+                ))}
               </tbody>
             </table>
           </div>

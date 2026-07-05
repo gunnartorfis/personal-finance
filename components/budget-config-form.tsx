@@ -34,6 +34,7 @@ export function BudgetConfigForm() {
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [loading, setLoading] = useState(true)
 
+  // react-doctor-disable-next-line react-doctor/no-fetch-in-effect -- load already guards stale responses via the active flag + cleanup and keeps the loading state; server-side move out of scope
   useEffect(() => {
     let active = true
     void fetch("/api/budgets")

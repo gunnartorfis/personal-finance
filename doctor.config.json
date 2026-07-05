@@ -1,0 +1,19 @@
+{
+  "$schema": "https://react.doctor/schema/config.json",
+  "projects": ["."],
+  "ignore": {
+    "files": [
+      "legacy/**",
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "__tests__/**",
+      "drizzle/**"
+    ],
+    "overrides": [
+      {
+        "files": ["shared/parse.ts"],
+        "rules": ["deslop/unused-file"]
+      }
+    ]
+  }
+}

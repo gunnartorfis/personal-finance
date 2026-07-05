@@ -31,6 +31,7 @@ function BreadcrumbItem({ className, ...props }: React.ComponentProps<"li">) {
 
 function BreadcrumbLink({ className, ...props }: React.ComponentProps<"a">) {
   return (
+    // react-doctor-disable-next-line react-doctor/anchor-has-content -- shadcn primitive; content supplied via {...props} children by consumers
     <a
       data-slot="breadcrumb-link"
       className={cn("transition-colors hover:text-foreground", className)}
@@ -43,6 +44,7 @@ function BreadcrumbPage({ className, ...props }: React.ComponentProps<"span">) {
   return (
     <span
       data-slot="breadcrumb-page"
+      // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- shadcn primitive; deliberately a non-navigable current-page span, not an <a>
       role="link"
       aria-disabled="true"
       aria-current="page"

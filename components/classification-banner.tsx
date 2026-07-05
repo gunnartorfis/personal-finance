@@ -3,7 +3,7 @@
 import { Sparkles, TriangleAlert } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { usePathname } from "next/navigation"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useEffectEvent, useState } from "react"
 
 import { ClassifyTrigger } from "@/components/classify-trigger"
 
@@ -71,17 +71,21 @@ export function ClassificationBanner() {
   const showPending = pending > 0 && !status?.paused
   const visible = !selfHandled && (showPending || failed > 0)
 
+  // Poll one tick: kept as an Effect Event so the interval below doesn't list `fetchStatus` as a dep
+  // and re-subscribe (tearing down + recreating the timer) whenever that callback's identity changes.
+  const poll = useEffectEvent(() => {
+    void fetchStatus().then((next) => {
+      if (next) setStatus(next)
+    })
+  })
+
   // Keep the counts fresh while the banner is up so it reflects a running drain (this tab or another)
   // and disappears once the queue is empty. Idle pages never poll.
   useEffect(() => {
     if (!visible) return
-    const id = setInterval(() => {
-      void fetchStatus().then((next) => {
-        if (next) setStatus(next)
-      })
-    }, POLL_MS)
+    const id = setInterval(poll, POLL_MS)
     return () => clearInterval(id)
-  }, [visible, fetchStatus])
+  }, [visible])
 
   if (!visible) return null
 

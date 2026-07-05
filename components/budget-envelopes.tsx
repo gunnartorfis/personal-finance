@@ -46,7 +46,7 @@ export function BudgetEnvelopes({
       className={cn("flex flex-col gap-4 rounded-xl border border-border bg-card p-6", className)}
     >
       <h2 className="text-base font-medium">{t("title")}</h2>
-      <ul role="list" className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-3">
         {status.envelopes.map((envelope) => {
           const pct = Math.min(100, Math.round(envelope.ratio * 100))
           return (

@@ -17,6 +17,7 @@ const COUNTRY = "IS"
  * Rendered only for Premium households (wrapped in {@link BankSyncGate} by the accounts page), so it
  * assumes access — the route enforces the gate regardless.
  */
+// react-doctor-disable-next-line react-doctor/prefer-useReducer -- load state (institutions/loading/loadError/selected) and connect state (busy/errored) are independent concerns, not one cohesive machine
 export function ConnectBank({ className }: { className?: string }) {
   const t = useTranslations("bankSync.connect")
   const [institutions, setInstitutions] = useState<Institution[]>([])
@@ -26,6 +27,7 @@ export function ConnectBank({ className }: { className?: string }) {
   const [busy, setBusy] = useState(false)
   const [errored, setErrored] = useState(false)
 
+  // react-doctor-disable-next-line react-doctor/no-fetch-in-effect -- client-only load already guards stale responses via the ignore flag and keeps loading/error states; server-side move out of scope
   useEffect(() => {
     let ignore = false
     async function load() {

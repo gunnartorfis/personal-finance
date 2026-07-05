@@ -11,8 +11,10 @@ export const dynamic = "force-dynamic"
  * renewal date with a cancel action.
  */
 export default async function BillingSettingsPage() {
-  const { plan, planRenewsAt, subscriptionPeriod } = await requireHousehold()
-  const t = await getTranslations("billing")
+  const [{ plan, planRenewsAt, subscriptionPeriod }, t] = await Promise.all([
+    requireHousehold(),
+    getTranslations("billing"),
+  ])
 
   return (
     <div className="flex flex-col gap-8">

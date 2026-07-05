@@ -38,7 +38,7 @@ export interface RecurringOptions {
   amountTolerance: number;
 }
 
-export const DEFAULT_RECURRING_OPTIONS: RecurringOptions = {
+const DEFAULT_RECURRING_OPTIONS: RecurringOptions = {
   windowMonths: 6,
   minOccurrences: 3,
   amountTolerance: 0.15,

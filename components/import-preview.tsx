@@ -53,6 +53,7 @@ export function ImportPreview({
   onCancel: () => void
 }) {
   const t = useTranslations("upload.preview")
+  // react-doctor-disable-next-line react-doctor/no-derived-useState -- editable draft seeded once from the prop; the user's in-progress edits must not be reset on re-render
   const [draft, setDraft] = useState<Partial<ColumnMapping>>(preview.detectedMapping)
 
   if (preview.wholeFileDuplicate) {
@@ -123,7 +124,11 @@ export function ImportPreview({
                   >
                     <option value="">{t("chooseColumn")}</option>
                     {preview.header.map((label, index) => (
-                      <option key={index} value={index}>
+                      <option
+                        // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- CSV header is static per preview and the index IS the column identity (also the option value); labels may be blank or duplicate so are unusable as keys
+                        key={index}
+                        value={index}
+                      >
                         {label || `#${index + 1}`}
                       </option>
                     ))}

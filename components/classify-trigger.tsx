@@ -76,6 +76,7 @@ async function postWithRetry(
       throw new DOMException("aborted", "AbortError")
     let res: Response
     try {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- sequential retry loop: each attempt waits on the prior one's failure + exponential backoff, not independent iterations to parallelize
       res = await fetch(url, { method: "POST", signal })
     } catch (error) {
       if (attempt >= BATCH_ATTEMPTS || signal.aborted || interrupted())
@@ -204,6 +205,7 @@ export function ClassifyTrigger({
     const run: ClassifyTotals = { classified: 0, failed: 0, capped: 0 }
     try {
       for (let batch = 0; batch < MAX_BATCHES; batch++) {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- sequential drain: the server classifies one batch per POST and each pass depends on the prior draining rows (loop stops when a pass makes no progress); parallelizing would race the queue and defeat the Free-cap gating
         const res = await postWithRetry(
           "/api/classify",
           controller.signal,
@@ -267,6 +269,7 @@ export function ClassifyTrigger({
   // the persisted flag plus remaining pending work. `pendingCount` is read from a ref, not a
   // dependency, so a polling parent's prop churn can't re-run this and abort the live drain.
   const driveStartedRef = useRef(false)
+  // react-doctor-disable-next-line react-doctor/exhaustive-deps -- cleanup must abort the LIVE controller, which classify() assigns to abortRef.current asynchronously after this effect body runs; snapshotting the ref here would capture null/stale and leave the running drain un-aborted on unmount
   useEffect(() => {
     const shouldResume =
       resumable &&
@@ -340,6 +343,7 @@ export function ClassifyTrigger({
             <span className="font-medium tabular-nums">{percent}%</span>
           </div>
           <div
+            // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- styled track div with an inner fill div (width-driven, emerald-on-complete, transition); native <progress> can't host the fill child or replicate this styling
             role="progressbar"
             aria-label={t("progressLabel")}
             aria-valuenow={percent}

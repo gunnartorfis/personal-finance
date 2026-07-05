@@ -26,6 +26,7 @@ export function InitialSyncOnConnect() {
   const [inserted, setInserted] = useState(0)
   const started = useRef(false)
 
+  // react-doctor-disable-next-line react-doctor/no-fetch-in-effect -- one-shot client-triggered sync already aborts via AbortController on cleanup and ignores aborted errors; keeps status/error states
   useEffect(() => {
     if (!justConnected || started.current) return
     started.current = true
@@ -48,6 +49,7 @@ export function InitialSyncOnConnect() {
         setInserted(data.inserted)
         setStatus("done")
         // Drop the one-shot param and re-render the server component with the synced state.
+        // react-doctor-disable-next-line react-doctor/nextjs-no-client-side-redirect -- strips the one-shot query param after a client-side sync completes; conditional on client state, must stay client
         router.replace("/accounts", { scroll: false })
         router.refresh()
       } catch {

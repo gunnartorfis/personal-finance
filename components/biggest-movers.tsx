@@ -21,7 +21,7 @@ function MoverList({
   return (
     <div className="flex flex-col gap-2">
       <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
-      <ul role="list" className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-2">
         {movers.map((mover) => (
           <li key={mover.name} className="flex items-center justify-between gap-4">
             <span className="min-w-0 truncate text-sm font-medium">{mover.name}</span>

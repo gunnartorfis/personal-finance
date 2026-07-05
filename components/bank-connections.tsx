@@ -52,10 +52,7 @@ export function BankConnections({
       className={cn("flex flex-col gap-3", className)}
     >
       <h2 className="text-sm font-medium">{t("title")}</h2>
-      <ul
-        role="list"
-        className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card"
-      >
+      <ul className="flex flex-col divide-y divide-border rounded-xl border border-border bg-card">
         {connections.map((connection) => (
           <li key={connection.id} className="flex flex-col gap-3 px-4 py-3">
             <div className="flex items-start gap-3">
@@ -86,7 +83,7 @@ export function BankConnections({
               )}
             </div>
             {connection.accounts.length > 0 && (
-              <ul role="list" className="flex flex-col gap-1 pl-7">
+              <ul className="flex flex-col gap-1 pl-7">
                 {connection.accounts.map((account) => (
                   <li
                     key={account.id}

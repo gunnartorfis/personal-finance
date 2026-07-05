@@ -39,7 +39,7 @@ export function SpendShareList({
   return (
     <section className={cn("flex flex-col gap-4 rounded-xl border border-border bg-card p-6", className)}>
       <Heading className="text-base font-medium">{heading}</Heading>
-      <ul role="list" className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-3">
         {items.map((item) => {
           const pct = Math.round(item.share * 100)
           return (

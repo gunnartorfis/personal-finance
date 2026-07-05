@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { getTranslations } from "next-intl/server"
 import { redirect } from "next/navigation"
 
@@ -12,6 +13,11 @@ import { findMembership } from "@/lib/household/provision"
 
 // Auth-scoped; the visitor may or may not already belong to a Household.
 export const dynamic = "force-dynamic"
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("join")
+  return { title: t("srTitle") }
+}
 
 /**
  * The invite-acceptance screen (ADR-0010). Reached by a signed-in user with a pending Invite — both
@@ -46,15 +52,16 @@ export default async function JoinPage() {
     return activity.hasActivity ? "delete" : "discard-empty"
   }
 
-  const cards = await Promise.all(
-    invites.map(async (invite) => ({
-      invite,
-      details: await getInviteCardDetails(db, invite.householdId, invite.invitedByMemberId),
-      consequence: consequenceFor(invite.householdId),
-    })),
-  )
-
-  const t = await getTranslations("join")
+  const [cards, t] = await Promise.all([
+    Promise.all(
+      invites.map(async (invite) => ({
+        invite,
+        details: await getInviteCardDetails(db, invite.householdId, invite.invitedByMemberId),
+        consequence: consequenceFor(invite.householdId),
+      })),
+    ),
+    getTranslations("join"),
+  ])
 
   return (
     <JoinShell>
@@ -70,7 +77,7 @@ export default async function JoinPage() {
         // page still has a top-level heading for assistive tech and document outline.
         <h1 className="sr-only">{t("srTitle")}</h1>
       )}
-      <ul role="list" className="flex flex-col gap-4">
+      <ul className="flex flex-col gap-4">
         {cards.map(({ invite, details, consequence }) => (
           <li key={invite.id}>
             <InviteCard

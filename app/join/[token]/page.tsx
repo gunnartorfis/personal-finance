@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { getTranslations } from "next-intl/server"
 import Link from "next/link"
 import { redirect } from "next/navigation"
@@ -14,6 +15,11 @@ import { findMembership } from "@/lib/household/provision"
 // Auth-scoped; the visitor may not (yet) belong to any Household.
 export const dynamic = "force-dynamic"
 
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("join")
+  return { title: t("srTitle") }
+}
+
 /**
  * The invite link target (ADR-0010). Signed-out visitors are sent to sign in / sign up — after
  * which the tenant guard's intercept routes them to `/join` to accept. Signed-in visitors see the
@@ -25,8 +31,7 @@ export default async function JoinTokenPage({
 }: {
   params: Promise<{ token: string }>
 }) {
-  const { token } = await params
-  const user = await getCurrentUser()
+  const [{ token }, user] = await Promise.all([params, getCurrentUser()])
   if (!user) redirect("/auth/sign-in")
 
   const t = await getTranslations("join")

@@ -15,7 +15,7 @@ export type SuggestColumnMapping = (
 ) => Promise<ColumnMapping | null>;
 
 /** Sonnet 5 via the Vercel AI Gateway — same gateway as classification (ADR-0005). */
-export const AI_MAPPING_MODEL = "anthropic/claude-sonnet-5";
+const AI_MAPPING_MODEL = "anthropic/claude-sonnet-5";
 
 const ROLES: readonly ColumnRole[] = ["date", "amount", "merchant", "category"];
 

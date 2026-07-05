@@ -89,7 +89,79 @@ function Wordmark({ className }: { className?: string }) {
   )
 }
 
-export function LandingPage() {
+/** Sticky top navigation with the wordmark and the sign-in / get-started actions. */
+function LandingHeader() {
+  const t = useTranslations("landing")
+  return (
+    <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+        <Link
+          href="/"
+          aria-label={t("nav.homeAria")}
+          className="rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          <Wordmark className="text-base" />
+        </Link>
+        <nav className="flex items-center gap-2">
+          <Link
+            href={SIGN_IN_HREF}
+            className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            {t("nav.signIn")}
+          </Link>
+          <PrimaryCta href={SIGN_UP_HREF} className="h-9 px-4">
+            {t("nav.getStarted")}
+          </PrimaryCta>
+        </nav>
+      </div>
+    </header>
+  )
+}
+
+/** Hero — left-aligned split: pitch on the left, a live-looking dashboard card on the right. */
+function Hero() {
+  const t = useTranslations("landing")
+  return (
+    <section className="relative overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-24 right-0 -z-10 size-[36rem] rounded-full bg-primary/10 blur-3xl dark:bg-primary/5"
+      />
+      <div className="mx-auto grid max-w-6xl gap-12 px-6 pt-16 pb-20 lg:grid-cols-2 lg:items-center lg:gap-8 lg:pt-24 lg:pb-28">
+        <div className="flex flex-col items-start gap-6">
+          <p className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-sm font-medium text-muted-foreground">
+            <span
+              className="size-1.5 rounded-full bg-primary"
+              aria-hidden="true"
+            />
+            {t("hero.badge")}
+          </p>
+          <h1 className="max-w-[20ch] text-4xl font-semibold tracking-tight text-balance sm:text-5xl lg:text-6xl">
+            {t("hero.title")}
+          </h1>
+          <p className="max-w-[48ch] text-lg text-pretty text-muted-foreground">
+            {t("hero.body")}
+          </p>
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+            <PrimaryCta href={SIGN_UP_HREF} className="w-full sm:w-auto">
+              {t("hero.startFree")}
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </PrimaryCta>
+            <SecondaryCta href={SIGN_IN_HREF} className="w-full sm:w-auto">
+              {t("hero.signIn")}
+            </SecondaryCta>
+          </div>
+          <p className="text-sm text-muted-foreground">{t("hero.noCard")}</p>
+        </div>
+
+        <ProductPreview />
+      </div>
+    </section>
+  )
+}
+
+/** How it works — left-aligned three-step walkthrough. */
+function HowItWorks() {
   const t = useTranslations("landing")
 
   // Copy resolved with literal keys, then paired with its icon; keeps the render map declarative
@@ -120,6 +192,45 @@ export function LandingPage() {
       body: t("steps.track.body"),
     },
   ]
+
+  return (
+    <section className="border-t border-border py-20 sm:py-28">
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="flex flex-col gap-3">
+          <p className="text-sm font-medium text-primary">
+            {t("steps.eyebrow")}
+          </p>
+          <h2 className="max-w-[24ch] text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+            {t("steps.title")}
+          </h2>
+        </div>
+        <ol className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-3">
+          {steps.map((step, index) => (
+            <li key={step.id} className="flex flex-col items-start gap-3">
+              <span className="flex items-center gap-3">
+                <span className="flex size-8 items-center justify-center rounded-full border border-border text-sm font-semibold text-muted-foreground tabular-nums">
+                  {index + 1}
+                </span>
+                <step.icon
+                  className="size-5 shrink-0 text-primary"
+                  aria-hidden="true"
+                />
+              </span>
+              <h3 className="text-lg font-medium">{step.title}</h3>
+              <p className="text-base text-pretty text-muted-foreground">
+                {step.body}
+              </p>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  )
+}
+
+/** Features — left-aligned description list of what the product does. */
+function Features() {
+  const t = useTranslations("landing")
 
   // Features are grouped into three themes so the full product surface reads as a story rather than a
   // flat wall of items. Each item carries a stable `id` (list keys don't depend on translated text)
@@ -226,6 +337,49 @@ export function LandingPage() {
     },
   ]
 
+  return (
+    <section className="border-t border-border py-20 sm:py-28">
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="flex flex-col gap-3">
+          <p className="text-sm font-medium text-primary">
+            {t("features.eyebrow")}
+          </p>
+          <h2 className="max-w-[26ch] text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+            {t("features.title")}
+          </h2>
+        </div>
+        <div className="mt-12 flex flex-col gap-14">
+          {featureGroups.map((group) => (
+            <div key={group.id} className="flex flex-col gap-6">
+              <h3 className="text-xl font-medium">{group.title}</h3>
+              <dl className="grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+                {group.items.map((feature) => (
+                  <div key={feature.id} className="flex flex-col gap-2">
+                    <dt className="flex items-center gap-2 text-lg font-medium">
+                      <feature.icon
+                        className="size-5 shrink-0 text-primary"
+                        aria-hidden="true"
+                      />
+                      {feature.title}
+                    </dt>
+                    <dd className="text-base text-pretty text-muted-foreground">
+                      {feature.body}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/** Pricing — centered on a recessed background to separate it from the left-aligned sections. */
+function Pricing() {
+  const t = useTranslations("landing")
+
   const freeFeatures = [
     { id: "f1", label: t("pricing.free.f1") },
     { id: "f2", label: t("pricing.free.f2") },
@@ -240,297 +394,193 @@ export function LandingPage() {
   ]
 
   return (
-    <div className="isolate flex min-h-dvh flex-col bg-background text-foreground">
-      <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <Link
-            href="/"
-            aria-label={t("nav.homeAria")}
-            className="rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          >
-            <Wordmark className="text-base" />
-          </Link>
-          <nav className="flex items-center gap-2">
-            <Link
-              href={SIGN_IN_HREF}
-              className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            >
-              {t("nav.signIn")}
-            </Link>
-            <PrimaryCta href={SIGN_UP_HREF} className="h-9 px-4">
-              {t("nav.getStarted")}
-            </PrimaryCta>
-          </nav>
+    <section className="border-t border-border bg-muted/40 py-20 sm:py-28">
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <p className="text-sm font-medium text-primary">
+            {t("pricing.eyebrow")}
+          </p>
+          <h2 className="mx-auto max-w-[22ch] text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+            {t("pricing.title")}
+          </h2>
+          <p className="mx-auto max-w-[46ch] text-lg text-pretty text-muted-foreground">
+            {t("pricing.subtitle")}
+          </p>
         </div>
-      </header>
-
-      <main className="flex-1">
-        {/* Hero — left-aligned split: pitch on the left, a live-looking dashboard card on the right. */}
-        <section className="relative overflow-hidden">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -top-24 right-0 -z-10 size-[36rem] rounded-full bg-primary/10 blur-3xl dark:bg-primary/5"
-          />
-          <div className="mx-auto grid max-w-6xl gap-12 px-6 pt-16 pb-20 lg:grid-cols-2 lg:items-center lg:gap-8 lg:pt-24 lg:pb-28">
-            <div className="flex flex-col items-start gap-6">
-              <p className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-sm font-medium text-muted-foreground">
-                <span
-                  className="size-1.5 rounded-full bg-primary"
-                  aria-hidden="true"
-                />
-                {t("hero.badge")}
-              </p>
-              <h1 className="max-w-[20ch] text-4xl font-semibold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-                {t("hero.title")}
-              </h1>
-              <p className="max-w-[48ch] text-lg text-pretty text-muted-foreground">
-                {t("hero.body")}
-              </p>
-              <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-                <PrimaryCta href={SIGN_UP_HREF} className="w-full sm:w-auto">
-                  {t("hero.startFree")}
-                  <ArrowRight className="size-4" aria-hidden="true" />
-                </PrimaryCta>
-                <SecondaryCta href={SIGN_IN_HREF} className="w-full sm:w-auto">
-                  {t("hero.signIn")}
-                </SecondaryCta>
+        <div className="mx-auto mt-12 grid max-w-3xl grid-cols-1 gap-8 sm:grid-cols-2">
+          {/* Free plan */}
+          <div className="flex flex-col justify-between gap-8 rounded-2xl border border-border bg-card p-6">
+            <div className="flex flex-col gap-5">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-lg font-medium">
+                  {t("pricing.free.name")}
+                </h3>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {t("hero.noCard")}
+              <div className="flex items-baseline gap-1">
+                <div className="text-4xl font-semibold tracking-tight tabular-nums">
+                  {t("pricing.free.price")}
+                </div>
+              </div>
+              <p className="text-base text-pretty text-muted-foreground">
+                {t("pricing.free.description")}
               </p>
-            </div>
-
-            <ProductPreview />
-          </div>
-        </section>
-
-        {/* How it works — left-aligned three-step walkthrough. */}
-        <section className="border-t border-border py-20 sm:py-28">
-          <div className="mx-auto max-w-6xl px-6">
-            <div className="flex flex-col gap-3">
-              <p className="text-sm font-medium text-primary">
-                {t("steps.eyebrow")}
-              </p>
-              <h2 className="max-w-[24ch] text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-                {t("steps.title")}
-              </h2>
-            </div>
-            <ol
-              role="list"
-              className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-3"
-            >
-              {steps.map((step, index) => (
-                <li key={step.id} className="flex flex-col items-start gap-3">
-                  <span className="flex items-center gap-3">
-                    <span className="flex size-8 items-center justify-center rounded-full border border-border text-sm font-semibold text-muted-foreground tabular-nums">
-                      {index + 1}
-                    </span>
-                    <step.icon
-                      className="size-5 shrink-0 text-primary"
+              <ul className="flex flex-col gap-3">
+                {freeFeatures.map((feature) => (
+                  <li
+                    key={feature.id}
+                    className="flex items-start gap-2 text-base text-muted-foreground"
+                  >
+                    <Check
+                      className="size-4 h-lh shrink-0 text-primary"
                       aria-hidden="true"
                     />
-                  </span>
-                  <h3 className="text-lg font-medium">{step.title}</h3>
-                  <p className="text-base text-pretty text-muted-foreground">
-                    {step.body}
-                  </p>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
-
-        {/* Features — left-aligned description list of what the product does. */}
-        <section className="border-t border-border py-20 sm:py-28">
-          <div className="mx-auto max-w-6xl px-6">
+                    {feature.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
             <div className="flex flex-col gap-3">
-              <p className="text-sm font-medium text-primary">
-                {t("features.eyebrow")}
-              </p>
-              <h2 className="max-w-[26ch] text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-                {t("features.title")}
-              </h2>
-            </div>
-            <div className="mt-12 flex flex-col gap-14">
-              {featureGroups.map((group) => (
-                <div key={group.id} className="flex flex-col gap-6">
-                  <h3 className="text-xl font-medium">{group.title}</h3>
-                  <dl className="grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
-                    {group.items.map((feature) => (
-                      <div key={feature.id} className="flex flex-col gap-2">
-                        <dt className="flex items-center gap-2 text-lg font-medium">
-                          <feature.icon
-                            className="size-5 shrink-0 text-primary"
-                            aria-hidden="true"
-                          />
-                          {feature.title}
-                        </dt>
-                        <dd className="text-base text-pretty text-muted-foreground">
-                          {feature.body}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              ))}
+              <SecondaryCta href={SIGN_UP_HREF} className="w-full">
+                {t("pricing.free.cta")}
+              </SecondaryCta>
             </div>
           </div>
-        </section>
 
-        {/* Pricing — centered on a recessed background to separate it from the left-aligned sections. */}
-        <section className="border-t border-border bg-muted/40 py-20 sm:py-28">
-          <div className="mx-auto max-w-6xl px-6">
-            <div className="flex flex-col items-center gap-3 text-center">
-              <p className="text-sm font-medium text-primary">
-                {t("pricing.eyebrow")}
-              </p>
-              <h2 className="mx-auto max-w-[22ch] text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-                {t("pricing.title")}
-              </h2>
-              <p className="mx-auto max-w-[46ch] text-lg text-pretty text-muted-foreground">
-                {t("pricing.subtitle")}
-              </p>
-            </div>
-            <div className="mx-auto mt-12 grid max-w-3xl grid-cols-1 gap-8 sm:grid-cols-2">
-              {/* Free plan */}
-              <div className="flex flex-col justify-between gap-8 rounded-2xl border border-border bg-card p-6">
-                <div className="flex flex-col gap-5">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-lg font-medium">
-                      {t("pricing.free.name")}
-                    </h3>
-                  </div>
-                  <div className="flex items-baseline gap-1">
-                    <div className="text-4xl font-semibold tracking-tight tabular-nums">
-                      {t("pricing.free.price")}
-                    </div>
-                  </div>
-                  <p className="text-base text-pretty text-muted-foreground">
-                    {t("pricing.free.description")}
-                  </p>
-                  <ul role="list" className="flex flex-col gap-3">
-                    {freeFeatures.map((feature) => (
-                      <li
-                        key={feature.id}
-                        className="flex items-start gap-2 text-base text-muted-foreground"
-                      >
-                        <Check
-                          className="size-4 h-lh shrink-0 text-primary"
-                          aria-hidden="true"
-                        />
-                        {feature.label}
-                      </li>
-                    ))}
-                  </ul>
+          {/* Premium plan */}
+          <div className="flex flex-col justify-between gap-8 rounded-2xl border border-border bg-card p-6">
+            <div className="flex flex-col gap-5">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-lg font-medium">
+                  {t("pricing.premium.name")}
+                </h3>
+                <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                  {t("pricing.recommended")}
+                </span>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <div className="text-4xl font-semibold tracking-tight tabular-nums">
+                  {t("pricing.premium.price")}
                 </div>
-                <div className="flex flex-col gap-3">
-                  <SecondaryCta href={SIGN_UP_HREF} className="w-full">
-                    {t("pricing.free.cta")}
-                  </SecondaryCta>
+                <div className="text-base font-normal text-muted-foreground">
+                  {t("pricing.premium.cadence")}
                 </div>
               </div>
-
-              {/* Premium plan */}
-              <div className="flex flex-col justify-between gap-8 rounded-2xl border border-border bg-card p-6">
-                <div className="flex flex-col gap-5">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-lg font-medium">
-                      {t("pricing.premium.name")}
-                    </h3>
-                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                      {t("pricing.recommended")}
-                    </span>
-                  </div>
-                  <div className="flex items-baseline gap-1">
-                    <div className="text-4xl font-semibold tracking-tight tabular-nums">
-                      {t("pricing.premium.price")}
-                    </div>
-                    <div className="text-base font-normal text-muted-foreground">
-                      {t("pricing.premium.cadence")}
-                    </div>
-                  </div>
-                  <p className="text-base text-pretty text-muted-foreground">
-                    {t("pricing.premium.description")}
-                  </p>
-                  <ul role="list" className="flex flex-col gap-3">
-                    {premiumFeatures.map((feature) => (
-                      <li
-                        key={feature.id}
-                        className="flex items-start gap-2 text-base text-muted-foreground"
-                      >
-                        <Check
-                          className="size-4 h-lh shrink-0 text-primary"
-                          aria-hidden="true"
-                        />
-                        {feature.label}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="flex flex-col gap-3">
-                  <PrimaryCta href={SIGN_UP_HREF} className="w-full">
-                    {t("pricing.premium.cta")}
-                  </PrimaryCta>
-                  <p className="text-center text-sm text-muted-foreground">
-                    {t("pricing.premium.note")}
-                  </p>
-                </div>
-              </div>
+              <p className="text-base text-pretty text-muted-foreground">
+                {t("pricing.premium.description")}
+              </p>
+              <ul className="flex flex-col gap-3">
+                {premiumFeatures.map((feature) => (
+                  <li
+                    key={feature.id}
+                    className="flex items-start gap-2 text-base text-muted-foreground"
+                  >
+                    <Check
+                      className="size-4 h-lh shrink-0 text-primary"
+                      aria-hidden="true"
+                    />
+                    {feature.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex flex-col gap-3">
+              <PrimaryCta href={SIGN_UP_HREF} className="w-full">
+                {t("pricing.premium.cta")}
+              </PrimaryCta>
+              <p className="text-center text-sm text-muted-foreground">
+                {t("pricing.premium.note")}
+              </p>
             </div>
           </div>
-        </section>
+        </div>
+      </div>
+    </section>
+  )
+}
 
-        {/* Final CTA — centered, echoing the hero's single conversion action. */}
-        <section className="border-t border-border py-20 sm:py-28">
-          <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-6 text-center">
-            <h2 className="mx-auto max-w-[22ch] text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-              {t("finalCta.title")}
-            </h2>
-            <p className="mx-auto max-w-[42ch] text-lg text-pretty text-muted-foreground">
-              {t("finalCta.body")}
-            </p>
-            <PrimaryCta href={SIGN_UP_HREF}>
-              {t("finalCta.cta")}
-              <ArrowRight className="size-4" aria-hidden="true" />
-            </PrimaryCta>
-          </div>
-        </section>
+/** Final CTA — centered, echoing the hero's single conversion action. */
+function FinalCta() {
+  const t = useTranslations("landing")
+  return (
+    <section className="border-t border-border py-20 sm:py-28">
+      <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-6 text-center">
+        <h2 className="mx-auto max-w-[22ch] text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+          {t("finalCta.title")}
+        </h2>
+        <p className="mx-auto max-w-[42ch] text-lg text-pretty text-muted-foreground">
+          {t("finalCta.body")}
+        </p>
+        <PrimaryCta href={SIGN_UP_HREF}>
+          {t("finalCta.cta")}
+          <ArrowRight className="size-4" aria-hidden="true" />
+        </PrimaryCta>
+      </div>
+    </section>
+  )
+}
+
+/** Site footer — wordmark, tagline, and the same sign-in / get-started / source links. */
+function LandingFooter() {
+  const t = useTranslations("landing")
+  return (
+    <footer className="border-t border-border">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <Wordmark className="text-base" />
+          <p className="text-sm text-muted-foreground">{t("footer.tagline")}</p>
+        </div>
+        <nav className="flex items-center gap-5">
+          <Link
+            href={SIGN_IN_HREF}
+            className="text-sm font-normal text-muted-foreground hover:text-foreground"
+          >
+            {t("footer.signIn")}
+          </Link>
+          <Link
+            href={SIGN_UP_HREF}
+            className="text-sm font-normal text-muted-foreground hover:text-foreground"
+          >
+            {t("footer.getStarted")}
+          </Link>
+          <a
+            href="https://github.com/gunnartorfis/personal-finance"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-normal text-muted-foreground hover:text-foreground"
+          >
+            {t("footer.github")}
+          </a>
+        </nav>
+      </div>
+    </footer>
+  )
+}
+
+export function LandingPage() {
+  return (
+    <div className="isolate flex min-h-dvh flex-col bg-background text-foreground">
+      <LandingHeader />
+
+      <main className="flex-1">
+        <Hero />
+        <HowItWorks />
+        <Features />
+        <Pricing />
+        <FinalCta />
       </main>
 
-      <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-col gap-1">
-            <Wordmark className="text-base" />
-            <p className="text-sm text-muted-foreground">
-              {t("footer.tagline")}
-            </p>
-          </div>
-          <nav className="flex items-center gap-5">
-            <Link
-              href={SIGN_IN_HREF}
-              className="text-sm font-normal text-muted-foreground hover:text-foreground"
-            >
-              {t("footer.signIn")}
-            </Link>
-            <Link
-              href={SIGN_UP_HREF}
-              className="text-sm font-normal text-muted-foreground hover:text-foreground"
-            >
-              {t("footer.getStarted")}
-            </Link>
-            <a
-              href="https://github.com/gunnartorfis/personal-finance"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm font-normal text-muted-foreground hover:text-foreground"
-            >
-              {t("footer.github")}
-            </a>
-          </nav>
-        </div>
-      </footer>
+      <LandingFooter />
     </div>
   )
+}
+
+// Illustrative sample figures for {@link ProductPreview} — not real data, so they stay literal and
+// are only paired with localized labels. Hoisted to module scope (they use no props/state) so they
+// read as sample data, not copy, and aren't rebuilt on every render.
+const PREVIEW_SAMPLE = {
+  net: "+284.500 kr",
+  income: "920.000 kr",
+  expenses: "635.500 kr",
 }
 
 /**
@@ -542,13 +592,6 @@ export function LandingPage() {
 function ProductPreview() {
   const t = useTranslations("landing.preview")
 
-  // Illustrative sample figures — not real data, so they stay literal and are only paired with
-  // localized labels. Held as constants (not inline JSX text) so they read as sample data, not copy.
-  const sample = {
-    net: "+284.500 kr",
-    income: "920.000 kr",
-    expenses: "635.500 kr",
-  }
   const legend = [
     {
       id: "fixed",
@@ -580,7 +623,7 @@ function ProductPreview() {
       <div className="mt-5 flex flex-col gap-1">
         <span className="text-sm text-muted-foreground">{t("netProfit")}</span>
         <span className="text-3xl font-semibold text-emerald-600 tabular-nums dark:text-emerald-500">
-          {sample.net}
+          {PREVIEW_SAMPLE.net}
         </span>
       </div>
 
@@ -588,13 +631,13 @@ function ProductPreview() {
         <div className="flex flex-col gap-1 pr-4">
           <dt className="text-sm text-muted-foreground">{t("income")}</dt>
           <dd className="text-lg font-semibold tabular-nums">
-            {sample.income}
+            {PREVIEW_SAMPLE.income}
           </dd>
         </div>
         <div className="flex flex-col gap-1 pl-4">
           <dt className="text-sm text-muted-foreground">{t("expenses")}</dt>
           <dd className="text-lg font-semibold tabular-nums">
-            {sample.expenses}
+            {PREVIEW_SAMPLE.expenses}
           </dd>
         </div>
       </dl>
@@ -611,7 +654,7 @@ function ProductPreview() {
           <div className="h-full w-[34%] bg-amber-500" />
           <div className="h-full w-[18%] bg-rose-500" />
         </div>
-        <ul role="list" className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2">
           {legend.map((category) => (
             <li
               key={category.id}

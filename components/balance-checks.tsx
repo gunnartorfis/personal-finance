@@ -35,7 +35,7 @@ export function BalanceChecks({
         <h2 className="text-base font-medium">{t("title")}</h2>
         <p className="text-sm text-pretty text-muted-foreground">{t("subtitle")}</p>
       </header>
-      <ul role="list" className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-2">
         {drifted.map(({ accountId, name, check }) => (
           <li key={accountId} className="flex flex-col gap-0.5">
             <span className="text-sm font-medium">{name}</span>

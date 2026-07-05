@@ -87,6 +87,7 @@ export function PremiumCheckout({
     for (let attempt = 0; attempt < maxPolls; attempt++) {
       if (cancelledRef.current) return
       try {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- sequential activation poll: each attempt re-checks the plan after a delay and returns early once Premium lands; parallelizing would fire all polls at once and defeat the backoff
         const res = await fetch("/api/billing/status")
         if (res.ok) {
           const { plan } = (await res.json()) as { plan: string }
