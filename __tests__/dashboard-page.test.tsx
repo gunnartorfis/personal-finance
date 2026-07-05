@@ -100,6 +100,8 @@ const VIEW: DashboardView = {
       },
     ],
     categoryMostlyUnclassified: false,
+    categoryBreakdown: { expense: -100000, byCategory: { groceries: -100000 }, uncategorized: 0 },
+    categories: [{ id: "groceries", labelKey: "groceries", label: null }],
     topMerchants: [{ merchant: "BONUS", spending: 100000, share: 1 }],
     movers: {
       merchants: [{ name: "BONUS", lastMonth: 400, baselineAverage: 100, delta: 300, deltaPct: 300 }],

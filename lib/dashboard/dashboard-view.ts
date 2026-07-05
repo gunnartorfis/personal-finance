@@ -7,6 +7,8 @@ import type { AccountSpend } from "./account-breakdown";
 import { loadAccountBreakdown } from "./account-breakdown";
 import type { BudgetStatus } from "./budget-status";
 import { computeBudgetStatus } from "./budget-status";
+import type { CategoryBreakdown } from "./category-breakdown";
+import { loadCategoryBreakdown } from "./category-breakdown";
 import type { CategoryTrendPoint } from "./category-trend";
 import { categoryPointToNetSummary, loadCategoryTrend } from "./category-trend";
 import type { CycleKey } from "./cycle";
@@ -29,6 +31,19 @@ const RECENT_MONTHS = 3;
 /** Top-N merchants shown. */
 const TOP_MERCHANTS = 6;
 
+/**
+ * A Category leaf's identity + label parts (ADR-0020) — the minimum the breakdown chart needs to
+ * localize a `category_id`. Structurally the chart's `CategoryChartLeaf`, kept in the lib layer so
+ * the view-model doesn't depend on the component.
+ */
+export interface CategoryLeafLabel {
+  id: string;
+  /** i18n key (namespace `categories`) for a seed row; null on a custom row. */
+  labelKey: string | null;
+  /** Literal label for a custom row; null on a seed row. */
+  label: string | null;
+}
+
 /** Everything the pure {@link assembleDashboardView} needs (all already loaded). */
 export interface DashboardInputs {
   now: Date;
@@ -39,6 +54,10 @@ export interface DashboardInputs {
   topMerchants: MerchantSpend[];
   categoryTrend: CategoryTrendPoint[];
   movers: { merchants: Mover[]; categories: Mover[] };
+  /** Hero-cycle spend split by semantic Category (ADR-0020) — the Category-axis breakdown. */
+  categoryBreakdown: CategoryBreakdown;
+  /** The Household's Category leaves (id + label parts) to localize the breakdown chart. */
+  categories: CategoryLeafLabel[];
   /** Detected recurring/subscription charges + total committed monthly spend (#100). */
   recurring: RecurringSummary;
   /** Per-category monthly budgets (#103), keyed by expense type; empty when none are set. */
@@ -90,6 +109,10 @@ export interface DashboardModules {
   categoryTrend: CategoryTrendPoint[];
   /** True when unclassified spend outweighs classified — drives the "classify to unlock" nudge. */
   categoryMostlyUnclassified: boolean;
+  /** Hero-cycle spend split by semantic Category (ADR-0020), for the breakdown chart. */
+  categoryBreakdown: CategoryBreakdown;
+  /** The Household's Category leaves (id + label parts) that localize the breakdown chart. */
+  categories: CategoryLeafLabel[];
   topMerchants: MerchantSpend[];
   movers: { merchants: Mover[]; categories: Mover[] };
   /** Detected recurring/subscription charges + total committed monthly spend (#100). */
@@ -200,6 +223,8 @@ export function assembleDashboardView(input: DashboardInputs): DashboardView {
       series: input.series,
       categoryTrend: input.categoryTrend,
       categoryMostlyUnclassified: isCategoryMostlyUnclassified(input.categoryTrend),
+      categoryBreakdown: input.categoryBreakdown,
+      categories: input.categories,
       topMerchants: input.topMerchants,
       movers: input.movers,
       recurring: input.recurring,
@@ -233,8 +258,9 @@ export async function loadDashboardView(
   now: Date,
   { plan, count = 12, selectedKey }: { plan: Plan; count?: number; selectedKey?: CycleKey },
 ): Promise<DashboardView> {
-  // The hero's cycle (the current month by default); scopes its largest-charge read.
+  // The hero's cycle (the current month by default); scopes its largest-charge + Category reads.
   const heroKey = selectedKey ?? currentCycleKey(now);
+  const heroRange = cycleKeyRange(heroKey);
   const recentKeys = recentCycleKeys(now, RECENT_MONTHS);
   const recentRange = {
     from: cycleKeyRange(recentKeys[0]).from,
@@ -256,6 +282,8 @@ export async function loadDashboardView(
     financialHealth,
     recurring,
     budgetRows,
+    categoryBreakdown,
+    categoryRows,
   ] = await Promise.all([
     loadMonthlySpendSeries(repo, now, count),
     loadTopMerchants(repo, recentRange, TOP_MERCHANTS),
@@ -271,7 +299,15 @@ export async function loadDashboardView(
     loadFinancialHealth(repo, now, count),
     loadRecurring(repo, now),
     repo.budgets.list(),
+    loadCategoryBreakdown(repo, heroRange),
+    repo.categories.list(),
   ]);
+
+  // Only leaf Categories bear a `category_id` a Transaction can carry, so only leaves label the
+  // breakdown chart; the parent groups are dashboard rollups (ADR-0020).
+  const categories: CategoryLeafLabel[] = categoryRows
+    .filter((row) => row.parentId !== null)
+    .map((row) => ({ id: row.id, labelKey: row.labelKey, label: row.label }));
 
   // The expense_type CHECK constraint guarantees each row's type is a RealType.
   const budgets = Object.fromEntries(
@@ -292,6 +328,8 @@ export async function loadDashboardView(
     topMerchants,
     categoryTrend,
     movers,
+    categoryBreakdown,
+    categories,
     recurring,
     budgets,
     largestCharge,
