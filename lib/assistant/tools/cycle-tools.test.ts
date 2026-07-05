@@ -198,6 +198,13 @@ describe("assistant cycle tools", () => {
 });
 
 describe("spendByCategory (ADR-0020)", () => {
+  // Self-contained DB init so this block runs standalone (e.g. `vitest -t "splits spend by category"`)
+  // without depending on a sibling describe's beforeAll.
+  beforeAll(async () => {
+    db = drizzle(new PGlite());
+    await migrate(db, { migrationsFolder: "./drizzle" });
+  });
+
   async function seedCategoryContext(authUserId: string): Promise<AssistantToolContext> {
     const [hh] = await db.insert(households).values({}).returning();
     await seedCategoriesForHousehold(asRepoDb(db), hh.id);
