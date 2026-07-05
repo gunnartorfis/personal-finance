@@ -48,12 +48,15 @@ export function SpendingByCategory({
   breakdown,
   categories,
   currency,
+  periodMonths,
   headingLevel = 2,
   className,
 }: {
   breakdown: CategoryBreakdown
   categories: CategoryChartLeaf[]
   currency: string
+  /** Trailing-window length (months) the breakdown covers — named in the heading (single source of truth). */
+  periodMonths: number
   headingLevel?: 2 | 3
   className?: string
 }) {
@@ -108,7 +111,7 @@ export function SpendingByCategory({
   return (
     <div className={cn("flex flex-col gap-3", className)}>
       <div className="flex items-baseline justify-between gap-4">
-        <Heading className="text-sm font-medium">{t("heading")}</Heading>
+        <Heading className="text-sm font-medium">{t("heading", { months: periodMonths })}</Heading>
         <p className="text-sm text-muted-foreground tabular-nums">
           {t("total", { amount: fmt(ranked.total) })}
         </p>

@@ -18,7 +18,7 @@ import { type PeriodOption } from "@/components/period-selector"
 import { projectCashFlow } from "@/lib/dashboard/cash-flow"
 import { loadBalanceChecks } from "@/lib/dashboard/balance-check"
 import { currentCycleKey, isValidCycleKey, recentCycleKeys } from "@/lib/dashboard/cycle"
-import { loadDashboardView } from "@/lib/dashboard/dashboard-view"
+import { loadDashboardView, RECENT_MONTHS } from "@/lib/dashboard/dashboard-view"
 import { loadNetWorthPanel, projectNetWorth } from "@/lib/dashboard/net-worth"
 import { loadSavingsProgress } from "@/lib/savings/assessment"
 import { formatCycleMonth } from "@/lib/format/date"
@@ -161,6 +161,7 @@ export default async function DashboardPage({
         breakdown={view.modules.categoryBreakdown}
         categories={view.modules.categories}
         currency={billingCurrency}
+        periodMonths={RECENT_MONTHS}
         className="rounded-xl border border-border bg-card p-6"
       />
       {/* The two compact list modules sit side by side on wider screens to break up the stack;

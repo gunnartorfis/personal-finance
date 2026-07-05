@@ -26,8 +26,12 @@ import { compareCycleToAverage, computeSpendingTrendStats, type SpendingTrendSta
 import type { MerchantSpend } from "./top-merchants";
 import { loadTopMerchants } from "./top-merchants";
 
-/** How many trailing months feed the "recent spending" modules (top merchants, account split). */
-const RECENT_MONTHS = 3;
+/**
+ * How many trailing months feed the "recent spending" modules (top merchants, account split, the
+ * Category breakdown). Exported so the dashboard can label the Category chart with the exact window
+ * it's fed — a single source of truth (no hardcoded "3" drifting out of sync).
+ */
+export const RECENT_MONTHS = 3;
 /** Top-N merchants shown. */
 const TOP_MERCHANTS = 6;
 

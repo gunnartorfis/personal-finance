@@ -21,7 +21,8 @@ const {
   loadBalanceChecks: vi.fn(),
 }))
 vi.mock("@/lib/household/current", () => ({ requireHousehold }))
-vi.mock("@/lib/dashboard/dashboard-view", () => ({ loadDashboardView }))
+// RECENT_MONTHS is a plain re-exported constant the page reads for the category chart's period label.
+vi.mock("@/lib/dashboard/dashboard-view", () => ({ loadDashboardView, RECENT_MONTHS: 3 }))
 vi.mock("@/lib/dashboard/balance-check", () => ({ loadBalanceChecks }))
 vi.mock("@/lib/savings/assessment", () => ({ loadSavingsProgress }))
 vi.mock("@/lib/dashboard/net-worth", async (importOriginal) => ({
