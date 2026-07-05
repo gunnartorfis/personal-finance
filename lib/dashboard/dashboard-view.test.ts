@@ -57,6 +57,8 @@ function baseInputs(overrides: Partial<DashboardInputs> = {}): DashboardInputs {
     topMerchants: [{ merchant: "BONUS", spending: 100000, share: 1 }],
     categoryTrend: [cat("2026-03", { Fixed: 60000 }, 40000)],
     movers: { merchants: [], categories: [] },
+    categoryBreakdown: { expense: 0, byCategory: {}, uncategorized: 0 },
+    categories: [],
     recurring: { subscriptions: [], committedMonthlyTotal: 0 },
     budgets: {},
     largestCharge: { merchant: "BIGSHOP", amount: 50000 },
@@ -164,6 +166,14 @@ describe("assembleDashboardView", () => {
     expect(assembleDashboardView(baseInputs()).modules.budgetStatus.envelopes).toEqual([]);
   });
 
+  it("passes the Category breakdown and its leaves through to the modules (ADR-0020, S5b)", () => {
+    const categoryBreakdown = { expense: -1000, byCategory: { c1: -1000 }, uncategorized: 0 };
+    const categories = [{ id: "c1", labelKey: "groceries", label: null }];
+    const view = assembleDashboardView(baseInputs({ categoryBreakdown, categories }));
+    expect(view.modules.categoryBreakdown).toEqual(categoryBreakdown);
+    expect(view.modules.categories).toEqual(categories);
+  });
+
   it("gates modules: enough history, category nudge, and accounts shown only when >1 account", () => {
     const view = assembleDashboardView(baseInputs());
     expect(view.modules.hasEnoughHistory).toBe(true); // 3 completed months with data
@@ -255,6 +265,10 @@ describe("loadDashboardView", () => {
     expect(view.hero.largestCharge).toEqual({ merchant: "BIGSHOP", amount: 100000 });
     expect(view.modules.accounts).toBeNull(); // single account
     expect(view.modules.series).toHaveLength(12);
+    // The Category breakdown loads for the hero cycle; this household never seeded/assigned a
+    // Category, so the 100k debit is Uncategorized and there are no category leaves to label with.
+    expect(view.modules.categoryBreakdown.uncategorized).toBe(-100000);
+    expect(view.modules.categories).toEqual([]);
     // The BIGSHOP debit is an unreviewed expense, so it shows up in the review backlog.
     expect(view.actionBand.reviewBacklog).toBe(1);
     // All three seeded rows (the debit and both credits) are still awaiting classification.

@@ -8,6 +8,7 @@ import { BudgetEnvelopes } from "@/components/budget-envelopes"
 import { NetWorthProjectionChart } from "@/components/net-worth-projection-chart"
 import { RecurringSubscriptions } from "@/components/recurring-subscriptions"
 import { SavingsProgressCard } from "@/components/savings-progress-card"
+import { SpendingByCategory } from "@/components/spending-by-category"
 import { SpendingTrendChart } from "@/components/spending-trend-chart"
 import { getTranslations } from "next-intl/server"
 
@@ -155,6 +156,12 @@ export default async function DashboardPage({
         currentMonth={current}
         mostlyUnclassified={view.modules.categoryMostlyUnclassified}
         currency={billingCurrency}
+      />
+      <SpendingByCategory
+        breakdown={view.modules.categoryBreakdown}
+        categories={view.modules.categories}
+        currency={billingCurrency}
+        className="rounded-xl border border-border bg-card p-6"
       />
       {/* The two compact list modules sit side by side on wider screens to break up the stack;
           same gap as the outer column so their edges line up with the full-width modules. The
