@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronDown, ChevronsUpDown, ChevronUp, Search } from "lucide-react"
+import { ChevronDown, ChevronsUpDown, ChevronUp, Search, X } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -34,6 +34,11 @@ const TYPE_FILTER_VALUES: TypeFilter[] = [
   "credit",
   "excluded",
 ]
+
+/** A row's effective Category id — the manual override wins over the classified/rule one (ADR-0020). */
+function effectiveCategoryId(row: TransactionRow): string | null {
+  return row.overrideCategoryId ?? row.categoryId
+}
 
 /** The bucket a row falls in, mirroring the display logic (excluded wins; credit → income; unreviewed debit → its status). */
 function bucketOf(row: TransactionRow): TypeBucket {
@@ -435,6 +440,7 @@ export function TransactionsTable({
   rows: initial,
   currency,
   categories = NO_CATEGORIES,
+  initialCategoryId,
   className,
   backlogElsewhere = 0,
 }: {
@@ -442,6 +448,11 @@ export function TransactionsTable({
   currency: string
   /** The Household's Category leaves, to label each row's effective Category (ADR-0020). */
   categories?: CategoryOption[]
+  /**
+   * Pre-seed the Category filter (from `?category` — a leaf id, or `none` for Uncategorized). Lets a
+   * click on the dashboard breakdown land here already filtered. Ignored when it matches no leaf.
+   */
+  initialCategoryId?: string
   className?: string
   /** Whole-household expenses still needing review — used only to explain an empty period. */
   backlogElsewhere?: number
@@ -457,15 +468,23 @@ export function TransactionsTable({
     [categories]
   )
   const resolveCategory = (row: TransactionRow): string | null => {
-    const id = row.overrideCategoryId ?? row.categoryId
+    const id = effectiveCategoryId(row)
     if (id === null) return null
     const parts = categoryParts.get(id)
     return parts ? categoryLabelOf(parts) : null
   }
+  // Seed the Category filter from the URL only when meaningful here: the `none` (Uncategorized)
+  // sentinel, or a leaf the Household actually has. A stale/unknown id falls back to no filter.
+  const seededCategoryFilter =
+    initialCategoryId && (initialCategoryId === "none" || categoryParts.has(initialCategoryId))
+      ? initialCategoryId
+      : null
   // react-doctor-disable-next-line react-doctor/no-derived-useState -- `rows` is an intentional local mutable mirror seeded once from the server prop; the inline controls optimistically mutate it for instant feedback (router.refresh recomputes the server-derived summaries), so it must NOT be re-derived from `initial` on every render
   const [rows, setRows] = useState(initial)
   const [query, setQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all")
+  // react-doctor-disable-next-line react-doctor/no-derived-useState -- one-time seed from the URL param (like `rows`); the chip's clear button owns it thereafter, so it must not re-derive from the prop
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(seededCategoryFilter)
   const [sortKey, setSortKey] = useState<SortKey>("date")
   const [sortDir, setSortDir] = useState<SortDir>("desc")
   const router = useRouter()
@@ -476,6 +495,11 @@ export function TransactionsTable({
     const needle = query.trim().toLowerCase()
     const filtered = rows.filter((row) => {
       if (typeFilter !== "all" && bucketOf(row) !== typeFilter) return false
+      if (categoryFilter !== null) {
+        const catId = effectiveCategoryId(row)
+        // `none` keeps only Uncategorized rows; otherwise keep rows whose effective Category matches.
+        if (categoryFilter === "none" ? catId !== null : catId !== categoryFilter) return false
+      }
       if (needle && !row.merchant.toLowerCase().includes(needle)) return false
       return true
     })
@@ -490,9 +514,9 @@ export function TransactionsTable({
               a.date.localeCompare(b.date) || a.id.localeCompare(b.id)
       return cmp * dir
     })
-  }, [rows, query, typeFilter, sortKey, sortDir])
+  }, [rows, query, typeFilter, categoryFilter, sortKey, sortDir])
 
-  const filtering = query.trim() !== "" || typeFilter !== "all"
+  const filtering = query.trim() !== "" || typeFilter !== "all" || categoryFilter !== null
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
@@ -507,7 +531,20 @@ export function TransactionsTable({
   function clearFilters() {
     setQuery("")
     setTypeFilter("all")
+    setCategoryFilter(null)
   }
+
+  // Label for the active Category-filter chip: the leaf's localized/literal label, or the
+  // Uncategorized copy for the `none` sentinel (falls back to the raw id if the leaf is unknown).
+  const categoryFilterLabel =
+    categoryFilter === null
+      ? null
+      : categoryFilter === "none"
+        ? t("uncategorized")
+        : (() => {
+            const parts = categoryParts.get(categoryFilter)
+            return parts ? categoryLabelOf(parts) : categoryFilter
+          })()
 
   const money = currencyFormatter(currency, locale)
   const fmtAmount = (amount: number) => money.format(amount)
@@ -592,6 +629,22 @@ export function TransactionsTable({
         typeFilter={typeFilter}
         onTypeFilterChange={setTypeFilter}
       />
+
+      {categoryFilter !== null && categoryFilterLabel !== null && (
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 py-1 pr-1 pl-2.5 text-xs">
+            {t("categoryChip", { name: categoryFilterLabel })}
+            <button
+              type="button"
+              onClick={() => setCategoryFilter(null)}
+              aria-label={t("categoryChipClear")}
+              className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <X className="size-3" aria-hidden="true" />
+            </button>
+          </span>
+        </div>
+      )}
 
       {filtering && (
         <p className="text-xs text-muted-foreground" aria-live="polite">

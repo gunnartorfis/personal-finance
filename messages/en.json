@@ -861,7 +861,10 @@
     "colAmount": "Amount",
     "colCategory": "Category",
     "colType": "Type",
-    "yourShare": "your share {amount}"
+    "yourShare": "your share {amount}",
+    "uncategorized": "Uncategorized",
+    "categoryChip": "Category: {name}",
+    "categoryChipClear": "Clear category filter"
   },
   "charts": {
     "spendingTrend": {

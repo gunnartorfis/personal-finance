@@ -1,6 +1,7 @@
 "use client"
 
 import { useLocale, useTranslations } from "next-intl"
+import Link from "next/link"
 // react-doctor-disable-next-line react-doctor/prefer-dynamic-import -- recharts composes by detecting child component types (BarChart reads its Bar/XAxis children), so wrapping these primitives in next/dynamic breaks rendering; recharts is already eagerly bundled via the shared components/ui/chart wrapper, so a dynamic import here yields no code-split. Client-only, code-split at route level.
 import { Bar, BarChart, XAxis, YAxis } from "recharts"
 
@@ -86,7 +87,9 @@ export function SpendingByCategory({
 
   const labelParts = new Map(categories.map((c) => [c.id, c]))
 
-  // Each ranked row → a chart segment with a stable key, resolved label, and colour.
+  // Each ranked row → a chart segment with a stable key, resolved label, colour, and (where it maps
+  // to a single filterable bucket) a link to the filtered transactions list. The collapsed "Other"
+  // tail has no single id, so it isn't linked; "Uncategorized" filters via the `none` sentinel.
   const segments = ranked.rows.map((row, index) => {
     if (row.kind === "category") {
       const parts = labelParts.get(row.categoryId)
@@ -97,12 +100,19 @@ export function SpendingByCategory({
         // range; the modulo is a defensive guard should either of those invariants ever change.
         color: PALETTE[index % PALETTE.length],
         magnitude: row.magnitude,
+        href: `/transactions?category=${encodeURIComponent(row.categoryId)}`,
       }
     }
     if (row.kind === "other") {
-      return { key: "other", label: t("other", { count: row.count }), color: NEUTRAL, magnitude: row.magnitude }
+      return { key: "other", label: t("other", { count: row.count }), color: NEUTRAL, magnitude: row.magnitude, href: null }
     }
-    return { key: "uncategorized", label: t("uncategorized"), color: NEUTRAL, magnitude: row.magnitude }
+    return {
+      key: "uncategorized",
+      label: t("uncategorized"),
+      color: NEUTRAL,
+      magnitude: row.magnitude,
+      href: "/transactions?category=none",
+    }
   })
 
   const Heading = headingLevel === 3 ? "h3" : "h2"
@@ -181,19 +191,36 @@ export function SpendingByCategory({
       </ChartContainer>
 
       <ul className="flex flex-col gap-2">
-        {segments.map((s) => (
-          <li key={s.key} className="flex items-center justify-between gap-3 text-sm">
-            <span className="flex items-center gap-2">
-              <span
-                className="size-2 shrink-0 rounded-full"
-                style={{ backgroundColor: s.color }}
-                aria-hidden="true"
-              />
-              <span className="text-muted-foreground">{s.label}</span>
-            </span>
-            <span className="tabular-nums">{fmt(s.magnitude)}</span>
-          </li>
-        ))}
+        {segments.map((s) => {
+          const inner = (
+            <>
+              <span className="flex items-center gap-2">
+                <span
+                  className="size-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: s.color }}
+                  aria-hidden="true"
+                />
+                <span className="text-muted-foreground group-hover:text-foreground">{s.label}</span>
+              </span>
+              <span className="tabular-nums">{fmt(s.magnitude)}</span>
+            </>
+          )
+          return (
+            <li key={s.key}>
+              {s.href ? (
+                // Jump to the transactions list filtered to this category (Uncategorized → `none`).
+                <Link
+                  href={s.href}
+                  className="group -mx-1 flex items-center justify-between gap-3 rounded px-1 py-0.5 text-sm transition-colors hover:bg-muted/50"
+                >
+                  {inner}
+                </Link>
+              ) : (
+                <div className="flex items-center justify-between gap-3 px-1 py-0.5 text-sm">{inner}</div>
+              )}
+            </li>
+          )
+        })}
       </ul>
     </div>
   )

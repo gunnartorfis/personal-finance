@@ -40,7 +40,7 @@ export const dynamic = "force-dynamic"
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cycle?: string }>
+  searchParams: Promise<{ cycle?: string; category?: string }>
 }) {
   const [{ repo, plan, billingCurrency }, t, locale] = await Promise.all([
     requireHousehold(),
@@ -48,7 +48,7 @@ export default async function TransactionsPage({
     resolveRequestLocale(),
   ])
   const current = currentCycleKey(new Date())
-  const { cycle } = await searchParams
+  const { cycle, category } = await searchParams
 
   // Fetch the cycle list and the review backlog-by-month up front: together they decide the default
   // landing period and drive the Rapid review badge, and both are needed before we know which
@@ -156,13 +156,15 @@ export default async function TransactionsPage({
         </div>
       )}
 
-      {/* Key by cycle so a soft navigation remounts the table and re-seeds its local row
-          state from the new period's server data (useState only runs its initialiser on mount). */}
+      {/* Key by cycle *and* the category param so a soft navigation remounts the table and re-seeds
+          its local state — the row mirror from the new period's server data, and the Category filter
+          from `?category` (useState only runs its initialiser on mount). */}
       <TransactionsTable
-        key={selected}
+        key={`${selected}:${category ?? ""}`}
         rows={rows}
         currency={billingCurrency}
         categories={categories}
+        initialCategoryId={category}
         backlogElsewhere={reviewTotal}
       />
     </div>
