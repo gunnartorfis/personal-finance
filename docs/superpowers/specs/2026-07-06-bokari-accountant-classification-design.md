@@ -36,6 +36,25 @@ Working name only; rename before launch.
   review than month 1. The auto-accept-rate improvement is both the product
   value and the sales metric.
 
+## Product identity: separate brand, shared codebase
+
+- **Separate brand**: own name, domain, and landing page. The accountant
+  buyer must never land on couples' budgeting marketing; tone and pricing
+  are B2B. Keeps the B2C story clean too.
+- **Shared codebase**: reuse is the whole economic case (CSV import engine,
+  classification worker + cache, i18n, auth, billing rails, activity log).
+  Extracting to a second repo/shared package costs weeks before the first
+  pilot statement is processed.
+- **Mechanics**: second domain on the same Vercel project; host-based
+  routing in middleware (`bokari.is` → firm surface, finance domain →
+  household app). Each domain sees only its own marketing + auth entry.
+- **Split trigger**: extract to its own repo/product only if the pilot
+  converts and Bókari becomes the revenue engine. Firm-tenant isolation
+  (separate tables, zero Household entanglement) makes that a lift-out,
+  not surgery.
+- **Accepted cost meanwhile**: shared deploys — a household-app regression
+  can block a Bókari deploy and vice versa. Fine at pilot scale.
+
 ## Tenancy & data model
 
 - New `Firm` tenant, parallel to Household (ADR-0002 spirit, zero
