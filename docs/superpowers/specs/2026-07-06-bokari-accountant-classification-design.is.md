@@ -1,4 +1,4 @@
-# Bókari — flokkunartól fyrir bókhaldsstofur (hönnunarskjal)
+# Bókari — flokkunar- og afstemmingartól fyrir bókhaldsstofur (hönnunarskjal)
 
 Dagsetning: 6. júlí 2026
 Staða: samþykkt hönnun, útfærsla ekki hafin
@@ -9,11 +9,17 @@ Staða: samþykkt hönnun, útfærsla ekki hafin
 ## Samantekt
 
 B2B-hluti innan fjármálaappsins, ætlaður íslenskum bókhalds- og
-endurskoðunarstofum: bankayfirlit viðskiptavina eru lesin inn (CSV/Excel),
-gervigreind forflokkar hverja færslu á **bókhaldslykla stofunnar sjálfrar**
-ásamt tillögu að VSK-meðferð, bókari yfirfer og leiðréttir í hraðvirkri
-yfirferðartöflu (lyklaborðsdrifin), og niðurstaðan er flutt út sem CSV/Excel
-til innlestrar í dk, Payday eða Reglu.
+endurskoðunarstofum, með tveimur einingum sem deila einni vél:
+
+1. **Flokkun**: bankayfirlit viðskiptavina eru lesin inn (CSV/Excel),
+   gervigreind forflokkar hverja færslu á **bókhaldslykla stofunnar
+   sjálfrar** ásamt tillögu að VSK-meðferð, bókari yfirfer og leiðréttir í
+   hraðvirkri yfirferðartöflu (lyklaborðsdrifin), og niðurstaðan er flutt
+   út sem CSV/Excel til innlestrar í dk, Payday eða Reglu.
+2. **Afstemming**: bankayfirlit + hreyfingalisti úr bókhaldskerfinu
+   (dk/Payday/Regla) eru lesin inn, og gervigreindarstudd pörun skilar:
+   pöruðum færslum, í-banka-ekki-í-bókhaldi og í-bókhaldi-ekki-í-banka.
+   Staðfestur sársaukapunktur hjá tilraunastofunni.
 
 Bókari er **forvinnslutól, ekki bókhaldskerfi**: engin tvíhliða færsla,
 engir stöðureikningar. Vinnuheiti — endanlegt nafn ákveðið fyrir útgáfu.
@@ -25,7 +31,9 @@ engir stöðureikningar. Vinnuheiti — endanlegt nafn ákveðið fyrir útgáfu
   bankaöpp og Meniga-arfleifðin hafa fest „frítt" í sessi), svo
   B2C-áskrift er veikasta tekjuleiðin. Stofur borga hins vegar fyrir
   raunverulegan sársauka: flokkun færslna er tímafrek handavinna sem étur
-  framlegð hjá stofum sem rukka ~15–25 þús. kr./klst.
+  framlegð hjá stofum sem rukka ~15–25 þús. kr./klst., og afstemming er
+  staðfestur stór sársaukapunktur hjá tilraunastofunni — sterkasta
+  eftirspurnarmerkið sem við höfum.
 - Endurnýtir tvo verðmætustu hluta kóðagrunnsins nánast óbreytta:
   sjálfvirka CSV-innlesturinn (ADR-0018) og gervigreindarflokkun með
   skyndiminni (ADR-0005, ADR-0012).
@@ -34,9 +42,9 @@ engir stöðureikningar. Vinnuheiti — endanlegt nafn ákveðið fyrir útgáfu
 
 - **Tilraunaverkefni (pilot)**: ein stofa gegnum persónuleg tengsl,
   ókeypis í 2 mánuði. Árangur = stofan keyrir ≥ 3 raunverulega
-  viðskiptavini í gegn, hlutfall sjálfsamþykktra færslna hækkar
-  merkjanlega milli mánaðar 1 og 2, og stofan vill frekar borga en missa
-  tólið.
+  viðskiptavini í gegnum flokkun OG notar afstemmingu á raunverulega
+  mánuði, hlutfall sjálfsamþykktra færslna hækkar merkjanlega milli
+  mánaðar 1 og 2, og stofan vill frekar borga en missa tólið.
 - **Verðlagning eftir tilraun**: mánaðargjald á hvern viðskiptavin
   stofunnar, stærðargráðan ~1.500 kr./viðskiptavin/mán.; ekkert gjald á
   notanda. Tilraunin stillir verðið af.
@@ -106,12 +114,29 @@ engir stöðureikningar. Vinnuheiti — endanlegt nafn ákveðið fyrir útgáfu
    skýring/seljandi, upphæð, lykilnúmer, heiti lykils, VSK-kóði,
    mótreikningur, athugasemd. Útflutningur leyfður hvenær sem er;
    óafgreiddar merkingar birtast sem viðvaranir, ekki hindranir.
+4. **Afstemmingareining** — önnur skráartegund á hvern Reikning:
+   hreyfingalisti úr bókhaldskerfinu (dk/Payday/Regla), lesinn inn með
+   sömu pörunarvél (munaðar paranir eftir útflutningssniði hvers kerfis).
+   Pörunarkeyrsla parar bankafærslur við bókhaldsfærslur: fyrst
+   reglubundið (nákvæm upphæð + dagsetningargluggi + tilvísun), síðan með
+   gervigreind á afganginn (skiptar greiðslur, hliðraðar dagsetningar,
+   búntaðar kortauppgjörsfærslur — þar sem raunverulegi sársaukinn býr).
+   Útkoman: **pörunaryfirferðartafla** (sama töflumynstur) með þremur
+   flokkum — parað, í-banka-ekki-í-bókhaldi, í-bókhaldi-ekki-í-banka —
+   þar sem bókarinn staðfestir eða rýfur paranir, auk útflutningshæfrar
+   frávikaskýrslu. Staðfestar pörunarreglur vistast í skyndiminni
+   stofunnar líkt og flokkunarleiðréttingar.
 
 ## Flæði
 
-Stofa stofnuð → viðskiptavini bætt við → lyklaskrá hlaðið upp → yfirliti
-hlaðið upp → bakgrunnsflokkun (skyndiminni stofunnar fyrst, gervigreind
-til vara með lyklaskrána í fyrirmælunum) → yfirferðartafla → útflutningur.
+Flokkun: stofa stofnuð → viðskiptavini bætt við → lyklaskrá hlaðið upp →
+yfirliti hlaðið upp → bakgrunnsflokkun (skyndiminni stofunnar fyrst,
+gervigreind til vara með lyklaskrána í fyrirmælunum) → yfirferðartafla →
+útflutningur.
+
+Afstemming: yfirliti hlaðið upp (sama og áður) + hreyfingalista hlaðið
+upp → pörunarkeyrsla (reglubundin, síðan gervigreind á afganginn) →
+pörunaryfirferðartafla → frávikaskýrsla.
 
 ## Flokkun
 
@@ -127,7 +152,11 @@ til vara með lyklaskrána í fyrirmælunum) → yfirferðartafla → útflutnin
 ## Utan umfangs í fyrstu útgáfu (skýrt afmarkað)
 
 - Engin bein API-tenging við dk/Payday/Reglu (útgáfa 2; tilraunin segir
-  okkur hvaða kerfi).
+  okkur hvaða kerfi) — afstemming í fyrstu útgáfu er CSV-á-móti-CSV, ekki
+  lifandi bókhald.
+- Engin afstemming á stöðum (upphafs-/lokastöðuprófun) — aðeins pörun
+  einstakra færslna; stöður krefjast hlaupandi stöðu bókhaldsmegin
+  (útgáfa 2).
 - Enginn PDF-lestur — aðeins CSV/Excel-yfirlit.
 - Engin fylgiskjöl/kvittanir, engin bankatenging, engin tvíhliða færsla.
 - Enginn gjaldeyrir — aðeins skuldfærðar ISK-upphæðir.
@@ -144,19 +173,26 @@ til vara með lyklaskrána í fyrirmælunum) → yfirferðartafla → útflutnin
 
 ## Prófanir
 
-- Samanburðarskrár (golden files) fyrir útflutning.
+- Samanburðarskrár (golden files) fyrir útflutning og frávikaskýrsluna.
 - Einingaprófanir: flokkunarpörun (skyndiminnishittur,
   gervigreindar-varaleið), innsláttarleit í lyklaskrá, meðhöndlun
-  VSK-tillagna.
+  VSK-tillagna; reglubundna pörunarvélin (upphæð/dagsetningargluggi/
+  tilvísun, skiptar greiðslur, búntuð uppgjör) með prófgögnum af
+  yfirlits- og hreyfingalistapörum.
 - `renderWithIntl` fyrir töfluviðmótið; TypeScript þarf að þýðast
   villulaust (almenn regla).
 - Tilraunin er raunprófunin; mælt er hlutfall sjálfsamþykktra færslna og
-  leiðréttingar á hverjar 100 færslur, mánuður 1 á móti mánuði 2.
+  leiðréttingar á hverjar 100 færslur (flokkun), hlutfall sjálfparaðra
+  færslna og handvirkar pörunaraðgerðir á hverjar 100 færslur
+  (afstemming), mánuður 1 á móti mánuði 2.
 
 ## Óútkljáðar spurningar
 
 - Endanlegt nafn + lén (Bókari er vinnuheiti).
 - Bókhaldskerfi tilraunastofunnar (dk/Payday/Regla?) — ræður
-  samþættingarmarkmiði útgáfu 2 og nákvæmum dálkakröfum útflutnings.
+  samþættingarmarkmiði útgáfu 2, nákvæmum dálkakröfum útflutnings og
+  sniði hreyfingalistans sem pörunarvélin þarf að lesa.
+- Hvort skiptir stofuna meira máli, flokkun eða afstemming? — ræður
+  smíðaröð innan fyrstu útgáfu.
 - VSK-jaðartilvik sem skipta stofuna máli (öfug skattskylda, seljendur
   með blönduð þrep) — safnað í tilrauninni, ekki forsmíðað.

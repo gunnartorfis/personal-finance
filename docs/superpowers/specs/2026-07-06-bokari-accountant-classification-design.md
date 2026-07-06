@@ -1,4 +1,4 @@
-# Bókari — accountant bulk-classification tool (design)
+# Bókari — accountant classification + afstemming tool (design)
 
 Date: 2026-07-06
 Status: approved design, pre-implementation
@@ -6,10 +6,17 @@ Status: approved design, pre-implementation
 ## Summary
 
 A B2B surface inside the finance app for Icelandic bookkeeping/accounting
-firms: client bank/card statements in (CSV/Excel), AI pre-classifies each
-line to the firm's own chart of accounts (bókhaldslyklar) plus a suggested
-VSK treatment, a bookkeeper reviews and corrects in a keyboard-first grid,
-and the result exports as CSV/Excel for import into dk/Payday/Regla.
+firms, with two modules sharing one engine:
+
+1. **Classification**: client bank/card statements in (CSV/Excel), AI
+   pre-classifies each line to the firm's own chart of accounts
+   (bókhaldslyklar) plus a suggested VSK treatment, a bookkeeper reviews
+   and corrects in a keyboard-first grid, and the result exports as
+   CSV/Excel for import into dk/Payday/Regla.
+2. **Afstemming (reconciliation)**: bank statement + ledger movement-list
+   export (hreyfingalisti from dk/Payday/Regla) in, AI-assisted matching
+   out — matched pairs, in-bank-not-ledger, in-ledger-not-bank. Confirmed
+   pain point at the pilot firm.
 
 Bókari is a **pre-processor, not a ledger**: no double-entry, no balances.
 Working name only; rename before launch.
@@ -20,15 +27,17 @@ Working name only; rename before launch.
 - Icelandic consumers don't pay for PFM (bank apps + Meniga heritage set the
   "free" expectation), so B2C Premium is the weakest revenue path. Firms pay
   for pain today: statement coding is junior-hour margin leak at firms
-  billing ~15–25k ISK/hr.
+  billing ~15–25k ISK/hr, and afstemming is a confirmed major pain point at
+  the pilot firm — the strongest demand signal we have.
 - Reuses the codebase's two hardest-won assets nearly verbatim: magical CSV
   import (ADR-0018) and cached AI classification (ADR-0005, ADR-0012).
 
 ## Commercial plan
 
 - **Pilot**: one warm-intro firm, free for 2 months.
-  Success = firm processes ≥ 3 real clients, month-2 auto-accept rate
-  materially above month-1, and they'd pay rather than lose it.
+  Success = firm processes ≥ 3 real clients through classification AND runs
+  afstemming on real months, month-2 auto-accept rate materially above
+  month-1, and they'd pay rather than lose it.
 - **Pricing after pilot**: per-client-per-month, order of magnitude
   ~1.500 ISK/client/mo; no seat fees. Pilot calibrates the level.
 - **Moat / learning loop**: every correction writes the firm-scoped
@@ -93,12 +102,27 @@ Working name only; rename before launch.
 3. **Export builder** — CSV/Excel with columns: date, description/merchant,
    amount, chart key number, key name, VSK code, counter-account key, note.
    Export allowed anytime; unresolved flags are warnings, not blockers.
+4. **Afstemming module** — second file type per Account: a ledger
+   movement-list export (hreyfingalisti from dk/Payday/Regla), ingested
+   through the same mapping engine (remembered mappings per system's export
+   shape). A matching pass pairs bank lines with ledger lines:
+   deterministic first (exact amount + date window + reference), then
+   AI-assisted for the residue (split payments, date offsets, batched card
+   settlements — the near-misses where the real pain lives). Output: a
+   **match-review grid** (same grid pattern) with three buckets — matched,
+   in-bank-not-ledger, in-ledger-not-bank — where the bookkeeper confirms
+   or breaks matches, plus an exportable discrepancy report. Confirmed
+   match heuristics are cached per firm like classification corrections.
 
 ## Flow
 
-Onboard firm → add client → upload chart → upload statement → background
-classification (firm cache first, AI fallback with the chart in the prompt)
-→ review grid → export.
+Classification: onboard firm → add client → upload chart → upload statement
+→ background classification (firm cache first, AI fallback with the chart
+in the prompt) → review grid → export.
+
+Afstemming: upload statement (same one) + upload ledger movement-list →
+matching pass (deterministic, then AI on the residue) → match-review grid
+→ discrepancy report.
 
 ## Classification
 
@@ -111,7 +135,10 @@ classification (firm cache first, AI fallback with the chart in the prompt)
 
 ## v1 cutlines (explicit)
 
-- No direct dk/Payday/Regla API push (v2; pilot tells us which system).
+- No direct dk/Payday/Regla API push (v2; pilot tells us which system) —
+  afstemming in v1 is CSV-vs-CSV, not live-ledger.
+- No balance-level reconciliation (opening/closing balance checks) — line
+  matching only; balances need the ledger side's running state (v2).
 - No PDF parsing — CSV/Excel statements only.
 - No receipts/attachments, no bank sync, no double-entry.
 - No FX — charged ISK amounts only.
@@ -128,17 +155,23 @@ classification (firm cache first, AI fallback with the chart in the prompt)
 
 ## Testing
 
-- Golden-file tests for export output.
+- Golden-file tests for export output and the discrepancy report.
 - Unit tests: classification mapping (cache hit, AI fallback), chart
-  typeahead, VSK suggestion handling.
+  typeahead, VSK suggestion handling; deterministic matcher (amount/date
+  window/reference, split payments, batched settlements) with fixture
+  pairs of statement + ledger export.
 - `renderWithIntl` for grid UI; TypeScript must compile clean (global rule).
 - Pilot is the acceptance test; instrument % lines auto-accepted and
-  corrections per 100 lines, month 1 vs month 2.
+  corrections per 100 lines (classification), % auto-matched and manual
+  match actions per 100 lines (afstemming), month 1 vs month 2.
 
 ## Unresolved questions
 
 - Real name + domain (Bókari is placeholder).
 - Pilot firm's ledger system (dk/Payday/Regla?) — sets v2 integration
-  target and exact export column expectations.
+  target, exact export column expectations, and the hreyfingalisti shape
+  the matcher must ingest.
+- Which matters more to the pilot firm, classification or afstemming? —
+  sets build order within v1.
 - VSK edge cases the pilot firm cares about (reverse charge, mixed-rate
   merchants) — collect during pilot, don't pre-build.
