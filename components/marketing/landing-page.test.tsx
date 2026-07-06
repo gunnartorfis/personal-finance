@@ -64,8 +64,9 @@ describe("LandingPage", () => {
 
   it("surfaces the semantic Category axis (ADR-0020) in the pitch and the preview", () => {
     render(<LandingPage />)
-    // The pitch mentions sorting by category, not just type (hero + feature copy).
-    expect(screen.getAllByText(/by category/i).length).toBeGreaterThan(0)
+    // The hero copy specifically pitches sorting by category (unique phrase → guards the hero, not
+    // just the feature tile / preview heading which also contain "by category").
+    expect(screen.getByText(/by category \(Groceries/i)).toBeInTheDocument()
     // The product-preview card shows a Spending-by-category breakdown beside Spending by type.
     expect(screen.getByText("Spending by category")).toBeInTheDocument()
     expect(screen.getByText("Groceries")).toBeInTheDocument()
