@@ -380,7 +380,7 @@
     "hero": {
       "badge": "Personal finance for households",
       "title": "See where the money actually goes.",
-      "body": "Upload your card statements and let AI sort every transaction into Fixed, Necessary, and Nice to have — then watch your household's real net profit, statement cycle after statement cycle.",
+      "body": "Upload your card statements and let AI sort every transaction — by type (Fixed, Necessary, Nice to have) and by category (Groceries, Transport, and more) — then watch your household's real net profit, statement cycle after statement cycle.",
       "startFree": "Start for free",
       "signIn": "Sign in",
       "noCard": "Free for your first 50 classified transactions. No card required."
@@ -394,7 +394,7 @@
       },
       "sort": {
         "title": "Let AI sort it",
-        "body": "Claude reads every transaction and buckets it — Fixed, Necessary, or Nice to have — with a confidence score."
+        "body": "Claude reads every transaction and buckets it — Fixed, Necessary, or Nice to have — and tags a category like Groceries or Transport, with a confidence score."
       },
       "track": {
         "title": "Track your net",
@@ -411,11 +411,11 @@
       },
       "ai": {
         "title": "AI classification",
-        "body": "Every transaction typed automatically, with the reasoning and confidence behind each call."
+        "body": "Every transaction typed and categorized automatically, with the reasoning and confidence behind each call."
       },
       "insights": {
         "title": "Spending insights",
-        "body": "Twelve-month trends, top merchants, biggest movers, and your Fixed / Necessary / Nice-to-have mix."
+        "body": "Twelve-month trends, top merchants, biggest movers, your Fixed / Necessary / Nice-to-have mix, and your top spending categories."
       },
       "recurring": {
         "title": "Recurring & subscriptions",
@@ -456,6 +456,10 @@
       "export": {
         "title": "Your data, always yours",
         "body": "Export everything to JSON whenever you like, and use the app in Icelandic or English, light or dark."
+      },
+      "categories": {
+        "title": "Automatic categories",
+        "body": "Every transaction is also sorted into a category — Groceries, Transport, Eating out, and more — so you see spending by category, not just by type. Filter by it, hide what you don't use, or add your own."
       }
     },
     "pricing": {
@@ -509,6 +513,14 @@
         "fixed": "Fixed",
         "necessary": "Necessary",
         "niceToHave": "Nice to have"
+      },
+      "spendingByCategory": "Spending by category",
+      "categoryLegend": {
+        "groceries": "Groceries",
+        "transport": "Transport",
+        "eatingOut": "Eating out",
+        "subscriptions": "Subscriptions",
+        "other": "Other"
       }
     }
   },

@@ -380,7 +380,7 @@
     "hero": {
       "badge": "Persónuleg fjármál fyrir heimili",
       "title": "Sjáðu hvert peningarnir fara í raun.",
-      "body": "Hladdu upp kortayfirlitunum þínum og láttu gervigreind flokka hverja færslu í Fast, Nauðsynlegt og Gott að hafa — fylgstu svo með raunverulegum hagnaði heimilisins, greiðslutímabil eftir greiðslutímabil.",
+      "body": "Hladdu upp kortayfirlitunum þínum og láttu gervigreind flokka hverja færslu — eftir tegund (Fast, Nauðsynlegt, Gott að hafa) og eftir flokki (Matarinnkaup, Samgöngur og fleira) — fylgstu svo með raunverulegum hagnaði heimilisins, greiðslutímabil eftir greiðslutímabil.",
       "startFree": "Byrjaðu ókeypis",
       "signIn": "Skrá inn",
       "noCard": "Ókeypis fyrir fyrstu 50 flokkuðu færslurnar þínar. Ekkert kort þarf."
@@ -394,7 +394,7 @@
       },
       "sort": {
         "title": "Láttu gervigreind flokka",
-        "body": "Claude les hverja færslu og flokkar hana — Fast, Nauðsynlegt eða Gott að hafa — með vissustigi."
+        "body": "Claude les hverja færslu og flokkar hana — Fast, Nauðsynlegt eða Gott að hafa — og merkir flokk eins og Matarinnkaup eða Samgöngur, með vissustigi."
       },
       "track": {
         "title": "Fylgstu með hagnaðinum",
@@ -411,11 +411,11 @@
       },
       "ai": {
         "title": "Gervigreindarflokkun",
-        "body": "Hver færsla flokkuð sjálfkrafa, með rökstuðningi og vissu að baki hverri ákvörðun."
+        "body": "Hver færsla flokkuð eftir tegund og flokki sjálfkrafa, með rökstuðningi og vissu að baki hverri ákvörðun."
       },
       "insights": {
         "title": "Innsýn í útgjöld",
-        "body": "Þróun yfir tólf mánuði, efstu söluaðilar, mesta breytingin og skiptingin í Fast / Nauðsynlegt / Gott að hafa."
+        "body": "Þróun yfir tólf mánuði, efstu söluaðilar, mesta breytingin, skiptingin í Fast / Nauðsynlegt / Gott að hafa og efstu útgjaldaflokkarnir."
       },
       "recurring": {
         "title": "Áskriftir og endurteknar færslur",
@@ -456,6 +456,10 @@
       "export": {
         "title": "Gögnin þín, alltaf þín",
         "body": "Flyttu allt út í JSON hvenær sem þú vilt og notaðu appið á íslensku eða ensku, ljóst eða dökkt."
+      },
+      "categories": {
+        "title": "Sjálfvirkir flokkar",
+        "body": "Hver færsla er líka sett í flokk — Matarinnkaup, Samgöngur, Veitingastaðir og fleira — svo þú sérð útgjöld eftir flokki, ekki bara tegund. Síaðu eftir honum, faldu það sem þú notar ekki, eða bættu við þínum eigin."
       }
     },
     "pricing": {
@@ -509,6 +513,14 @@
         "fixed": "Fast",
         "necessary": "Nauðsynlegt",
         "niceToHave": "Gott að hafa"
+      },
+      "spendingByCategory": "Útgjöld eftir flokki",
+      "categoryLegend": {
+        "groceries": "Matarinnkaup",
+        "transport": "Samgöngur",
+        "eatingOut": "Veitingastaðir",
+        "subscriptions": "Áskriftir",
+        "other": "Annað"
       }
     }
   },
