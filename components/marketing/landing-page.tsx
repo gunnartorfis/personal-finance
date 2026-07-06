@@ -9,6 +9,7 @@ import {
   Repeat,
   ScanLine,
   Sparkles,
+  Tags,
   Target,
   TrendingUp,
   Upload,
@@ -254,6 +255,12 @@ function Features() {
           icon: Sparkles,
           title: t("features.ai.title"),
           body: t("features.ai.body"),
+        },
+        {
+          id: "categories",
+          icon: Tags,
+          title: t("features.categories.title"),
+          body: t("features.categories.body"),
         },
         {
           id: "insights",
@@ -613,6 +620,16 @@ function ProductPreview() {
     },
   ]
 
+  // The orthogonal Category axis (ADR-0020) shown beside the by-type split — same total, different
+  // lens (what was bought, not how essential). Illustrative sample figures, like the type legend.
+  const categoryLegend = [
+    { id: "groceries", label: t("categoryLegend.groceries"), amount: "210.000 kr", swatch: "bg-sky-500" },
+    { id: "transport", label: t("categoryLegend.transport"), amount: "150.000 kr", swatch: "bg-violet-500" },
+    { id: "eatingOut", label: t("categoryLegend.eatingOut"), amount: "120.000 kr", swatch: "bg-teal-500" },
+    { id: "subscriptions", label: t("categoryLegend.subscriptions"), amount: "90.000 kr", swatch: "bg-fuchsia-500" },
+    { id: "other", label: t("categoryLegend.other"), amount: "65.500 kr", swatch: "bg-muted-foreground/40" },
+  ]
+
   return (
     <div className="rounded-2xl border border-border bg-card p-6 shadow-xl ring-1 ring-black/5 dark:shadow-none dark:ring-white/10">
       <div className="flex items-baseline justify-between gap-4">
@@ -666,6 +683,39 @@ function ProductPreview() {
                     "size-2 shrink-0 rounded-full",
                     category.swatch
                   )}
+                  aria-hidden="true"
+                />
+                <span className="text-muted-foreground">{category.label}</span>
+              </span>
+              <span className="tabular-nums">{category.amount}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="mt-6 flex flex-col gap-3 border-t border-border pt-6">
+        <div className="flex items-baseline justify-between gap-4">
+          <h3 className="text-sm font-medium">{t("spendingByCategory")}</h3>
+          <span className="text-sm text-muted-foreground tabular-nums">
+            {t("total", { amount: "635.500 kr" })}
+          </span>
+        </div>
+        <div className="flex h-2 overflow-hidden rounded-full bg-muted">
+          <div className="h-full w-[33%] bg-sky-500" />
+          <div className="h-full w-[24%] bg-violet-500" />
+          <div className="h-full w-[19%] bg-teal-500" />
+          <div className="h-full w-[14%] bg-fuchsia-500" />
+          <div className="h-full w-[10%] bg-muted-foreground/40" />
+        </div>
+        <ul className="flex flex-col gap-2">
+          {categoryLegend.map((category) => (
+            <li
+              key={category.id}
+              className="flex items-center justify-between gap-3 text-sm"
+            >
+              <span className="flex items-center gap-2">
+                <span
+                  className={cn("size-2 shrink-0 rounded-full", category.swatch)}
                   aria-hidden="true"
                 />
                 <span className="text-muted-foreground">{category.label}</span>

@@ -55,9 +55,19 @@ describe("LandingPage", () => {
     ).toBeInTheDocument()
     // A representative feature from each theme, including recently shipped ones.
     expect(screen.getByText("AI classification")).toBeInTheDocument()
+    expect(screen.getByText("Automatic categories")).toBeInTheDocument()
     expect(screen.getByText("Recurring & subscriptions")).toBeInTheDocument()
     expect(screen.getByText("Category budgets")).toBeInTheDocument()
     expect(screen.getByText("Balance checks")).toBeInTheDocument()
     expect(screen.getByText("Your data, always yours")).toBeInTheDocument()
+  })
+
+  it("surfaces the semantic Category axis (ADR-0020) in the pitch and the preview", () => {
+    render(<LandingPage />)
+    // The pitch mentions sorting by category, not just type (hero + feature copy).
+    expect(screen.getAllByText(/by category/i).length).toBeGreaterThan(0)
+    // The product-preview card shows a Spending-by-category breakdown beside Spending by type.
+    expect(screen.getByText("Spending by category")).toBeInTheDocument()
+    expect(screen.getByText("Groceries")).toBeInTheDocument()
   })
 })
