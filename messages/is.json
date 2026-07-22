@@ -911,6 +911,14 @@
       "srPoint": "{label}: {amount}",
       "cashFlowSaved": "Á góðri leið með að spara {amount} næstu {months, plural, one {# mánuð} other {# mánuði}}.",
       "cashFlowSpent": "Miðað við þróunina eyðir þú {amount} umfram tekjur næstu {months, plural, one {# mánuð} other {# mánuði}}."
+    },
+    "netWorthTrend": {
+      "title": "Hrein eign yfir tíma",
+      "subtitleUp": "Upp um {amount} frá {from} til {to}.",
+      "subtitleDown": "Niður um {amount} frá {from} til {to}.",
+      "subtitleFlat": "Óbreytt frá {from} til {to}.",
+      "netWorth": "Hrein eign",
+      "srPoint": "{label}: {amount}"
     }
   },
   "bankSync": {

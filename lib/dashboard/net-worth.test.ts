@@ -9,6 +9,7 @@ import { households } from "@/lib/db/schema";
 import {
   computeAllocationShares,
   computeNetWorth,
+  computeNetWorthSeries,
   computeRunwayMonths,
   loadNetWorth,
   projectNetWorth,
@@ -188,5 +189,25 @@ describe("computeAllocationShares", () => {
 
   it("is empty for no accounts", () => {
     expect(computeAllocationShares([])).toEqual([]);
+  });
+});
+
+describe("computeNetWorthSeries", () => {
+  it("is empty for no snapshots", () => {
+    expect(computeNetWorthSeries([])).toEqual([]);
+  });
+
+  it("tracks net worth at each instant, carrying each account's latest balance forward", () => {
+    expect(
+      computeNetWorthSeries([
+        snap("a", 100, "2026-01-01T00:00:00Z"),
+        snap("b", 400, "2026-02-01T00:00:00Z"),
+        snap("a", 250, "2026-03-01T00:00:00Z"),
+      ])
+    ).toEqual([
+      { asOf: new Date("2026-01-01T00:00:00Z"), total: 100 }, // only a is valued yet
+      { asOf: new Date("2026-02-01T00:00:00Z"), total: 500 }, // a(100) + b(400)
+      { asOf: new Date("2026-03-01T00:00:00Z"), total: 650 }, // a(250, updated) + b(400)
+    ]);
   });
 });
