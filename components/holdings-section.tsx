@@ -4,8 +4,10 @@ import { useLocale, useTranslations } from "next-intl"
 
 import { BalanceEntryForm } from "@/components/balance-entry-form"
 import type { AccountBalance, NetWorth } from "@/lib/dashboard/net-worth"
+import { computeAllocationShares } from "@/lib/dashboard/net-worth"
 import { currencyFormatter } from "@/lib/format/currency"
 import { formatDate } from "@/lib/format/date"
+import { percentFormatter } from "@/lib/format/percent"
 import { defaultLocale, toLocale } from "@/lib/i18n/config"
 import { cn } from "@/lib/utils"
 
@@ -30,6 +32,7 @@ export function HoldingsSection({
   const t = useTranslations("dashboard.holdings")
   const locale = toLocale(useLocale()) ?? defaultLocale
   const money = currencyFormatter(currency, locale)
+  const percent = percentFormatter(locale)
 
   // No Accounts at all → nothing to value, so the section stays hidden entirely.
   if (accounts.length === 0) return null
@@ -37,6 +40,12 @@ export function HoldingsSection({
   // Only Accounts with a recorded Balance are part of Holdings; unfunded ones are omitted from the
   // breakdown (they contribute nothing to the total either — computeNetWorth ignores them).
   const funded = accounts.filter((account) => account.balance !== null)
+  // Each funded Account's share of the Holdings total, for the allocation % (plan 007 slice 4).
+  const shareById = new Map(
+    computeAllocationShares(funded.map((a) => ({ accountId: a.id, balance: a.balance ?? 0 }))).map(
+      (a) => [a.accountId, a.share] as const
+    )
+  )
 
   return (
     <section
@@ -68,8 +77,15 @@ export function HoldingsSection({
             {funded.map((account) => (
               <li key={account.id} className="flex items-center justify-between gap-4 py-2">
                 <span className="truncate text-sm">{account.name}</span>
-                <span className="tabular-nums text-sm font-medium">
-                  {money.format(account.balance ?? 0)}
+                <span className="flex items-baseline gap-2">
+                  {shareById.get(account.id) != null && (
+                    <span className="text-sm tabular-nums text-muted-foreground">
+                      {percent.format(shareById.get(account.id)!)}
+                    </span>
+                  )}
+                  <span className="tabular-nums text-sm font-medium">
+                    {money.format(account.balance ?? 0)}
+                  </span>
                 </span>
               </li>
             ))}

@@ -7,6 +7,7 @@ import { householdRepo } from "@/lib/db/household-repo";
 import { households } from "@/lib/db/schema";
 
 import {
+  computeAllocationShares,
   computeNetWorth,
   computeRunwayMonths,
   loadNetWorth,
@@ -150,5 +151,36 @@ describe("loadNetWorth", () => {
     await b.accounts.balances.insert({ accountId: accB.id, balance: 999_999 });
 
     expect(await loadNetWorth(a)).toBeNull();
+  });
+});
+
+describe("computeAllocationShares", () => {
+  it("splits a positive total into per-account shares that sum to 1", () => {
+    const shares = computeAllocationShares([
+      { accountId: "ibkr", balance: 600_000 },
+      { accountId: "cash", balance: 400_000 },
+    ]);
+    expect(shares).toEqual([
+      { accountId: "ibkr", share: 0.6 },
+      { accountId: "cash", share: 0.4 },
+    ]);
+  });
+
+  it("returns null shares when the total is zero", () => {
+    const shares = computeAllocationShares([
+      { accountId: "a", balance: 100 },
+      { accountId: "b", balance: -100 },
+    ]);
+    expect(shares.every((s) => s.share === null)).toBe(true);
+  });
+
+  it("returns a null share when the total is negative (debt outweighs assets)", () => {
+    expect(computeAllocationShares([{ accountId: "card", balance: -500 }])).toEqual([
+      { accountId: "card", share: null },
+    ]);
+  });
+
+  it("is empty for no accounts", () => {
+    expect(computeAllocationShares([])).toEqual([]);
   });
 });

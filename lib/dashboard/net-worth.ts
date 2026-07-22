@@ -100,6 +100,30 @@ export async function loadNetWorthPanel(
   return { netWorth, accounts };
 }
 
+/** One Account's share of total Holdings, for the allocation display (plan 007 slice 4). */
+export interface AccountAllocation {
+  accountId: string;
+  /** Fraction 0..1 of the Holdings total, or `null` when the total is non-positive (a share of a
+   *  zero/negative whole is undefined and not shown). */
+  share: number | null;
+}
+
+/**
+ * Each Account's share of total Holdings (the sum of the given balances). Pure so it unit-tests
+ * directly; the caller passes the latest balance per Account it already has. Shares over a positive
+ * total sum to 1; when the total is zero or negative (debt outweighs assets) every share is `null` —
+ * a percentage of a non-positive whole is not meaningful.
+ */
+export function computeAllocationShares(
+  balances: ReadonlyArray<{ accountId: string; balance: number }>,
+): AccountAllocation[] {
+  const total = balances.reduce((sum, b) => sum + b.balance, 0);
+  return balances.map((b) => ({
+    accountId: b.accountId,
+    share: total > 0 ? b.balance / total : null,
+  }));
+}
+
 /**
  * Runway in whole months (ADR-0016): how long net worth covers the Household's monthly burn if income
  * stopped — `netWorth / monthlyBurn`, rounded down so it never overstates. `null` when there is no
