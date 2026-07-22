@@ -65,15 +65,16 @@ export default async function DashboardPage({
   const selected =
     cycle && isValidCycleKey(cycle) && windowKeys.includes(cycle) ? cycle : current
 
-  const [view, savingsProgress, netWorthPanel, netWorthSeries, savingsGap, balanceChecks] =
-    await Promise.all([
-      loadDashboardView(repo, now, { plan, count: HERO_MONTHS, selectedKey: selected }),
-      loadSavingsProgress(repo, now),
-      loadNetWorthPanel(repo),
-      loadNetWorthSeries(repo),
-      loadSavingsGap(repo, now),
-      loadBalanceChecks(repo),
-    ])
+  const [view, savingsProgress, netWorthPanel, netWorthSeries, balanceChecks] = await Promise.all([
+    loadDashboardView(repo, now, { plan, count: HERO_MONTHS, selectedKey: selected }),
+    loadSavingsProgress(repo, now),
+    loadNetWorthPanel(repo),
+    loadNetWorthSeries(repo),
+    loadBalanceChecks(repo),
+  ])
+  // The savings gap reuses the net-worth series already loaded above (no duplicate fetch); its own
+  // savings-snapshot read runs after the batch.
+  const savingsGap = await loadSavingsGap(repo, now, netWorthSeries)
 
   // Offer months with any activity, plus always the current and selected month, so the picker never
   // hides where the user is yet stays free of empty pre-history months. Keys sort lexicographically

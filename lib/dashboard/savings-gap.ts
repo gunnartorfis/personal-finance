@@ -2,7 +2,7 @@ import type { HouseholdRepo } from "@/lib/db/household-repo"
 import { loadSavingsSnapshot } from "@/lib/savings/assessment"
 
 import { cycleKeyRange } from "./cycle"
-import { loadNetWorthSeries, type NetWorthPoint } from "./net-worth"
+import type { NetWorthPoint } from "./net-worth"
 
 /**
  * The Savings gap (ADR-0023, plan 007 slice 6): per Statement cycle, the Household's **inferred
@@ -27,25 +27,23 @@ export interface SavingsGapCycle {
   gap: number | null
 }
 
-/**
- * Net worth as of `date` from the observed series (a step function): the latest point at or before
- * `date`, or `null` when none exists — before the first snapshot there is no baseline, so a change
- * across that boundary is not knowable. `series` is oldest-first.
- */
-function netWorthAsOf(series: ReadonlyArray<NetWorthPoint>, date: Date): number | null {
-  let value: number | null = null
-  for (const point of series) {
-    if (point.asOf.getTime() <= date.getTime()) value = point.total
-    else break
+/** The latest snapshot at or before `date` (the step-function value), or `null` when none exists. */
+function pointAsOf(series: ReadonlyArray<NetWorthPoint>, date: Date): NetWorthPoint | null {
+  let point: NetWorthPoint | null = null
+  for (const candidate of series) {
+    if (candidate.asOf.getTime() <= date.getTime()) point = candidate
+    else break // oldest-first
   }
-  return value
+  return point
 }
 
 /**
  * Compare inferred saving against the observed net-worth change for each given cycle. A cycle is only
- * comparable when a balance baseline exists at or before its start (otherwise the "change" would count
- * the whole end balance and mislead) — such a cycle reports `observedDelta` / `gap` as `null`, which
- * the UI surfaces as a caveat rather than a number. Pure so it unit-tests directly.
+ * comparable when BOTH a balance baseline exists at or before its start AND a *newer* snapshot lands
+ * by its end — i.e. the value was actually re-observed during the cycle. Without a fresh reading the
+ * carried-forward balance is unchanged, which is "unobserved", not a real zero change; such a cycle
+ * reports `observedDelta` / `gap` as `null`, surfaced as a caveat rather than a misleading number.
+ * Pure so it unit-tests directly.
  */
 export function computeSavingsGap(
   cycles: ReadonlyArray<{ cycleKey: string; inferred: number }>,
@@ -53,9 +51,10 @@ export function computeSavingsGap(
 ): SavingsGapCycle[] {
   return cycles.map(({ cycleKey, inferred }) => {
     const { from, to } = cycleKeyRange(cycleKey)
-    const startNw = netWorthAsOf(series, new Date(`${from}T00:00:00Z`))
-    const endNw = netWorthAsOf(series, new Date(`${to}T00:00:00Z`))
-    const observedDelta = startNw === null || endNw === null ? null : endNw - startNw
+    const start = pointAsOf(series, new Date(`${from}T00:00:00Z`))
+    const end = pointAsOf(series, new Date(`${to}T00:00:00Z`))
+    const covered = start !== null && end !== null && end.asOf.getTime() > start.asOf.getTime()
+    const observedDelta = covered ? end!.total - start!.total : null
     return {
       cycleKey,
       inferred,
@@ -72,13 +71,16 @@ export function computeSavingsGap(
  */
 export async function loadSavingsGap(
   repo: HouseholdRepo,
-  now: Date
+  now: Date,
+  series: ReadonlyArray<NetWorthPoint>
 ): Promise<SavingsGapCycle[] | null> {
-  const [snapshot, series] = await Promise.all([
-    loadSavingsSnapshot(repo, now),
-    loadNetWorthSeries(repo),
-  ])
-  if (!snapshot || series.length === 0) return null
+  if (series.length === 0) return null
+  // Reuse the savings snapshot's per-cycle inferred saving UNCHANGED (ADR-0023 compare-never-merge):
+  // deliberately read the existing selector rather than export/duplicate `deriveCycles`, so
+  // `lib/savings/*` stays untouched. The caller passes the already-loaded net-worth series so it
+  // isn't fetched twice per render.
+  const snapshot = await loadSavingsSnapshot(repo, now)
+  if (!snapshot) return null
 
   const completed = snapshot.cycles
     .filter((cycle) => !cycle.inProgress)

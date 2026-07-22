@@ -14,6 +14,14 @@ describe("computeSavingsGap", () => {
     ])
   })
 
+  it("marks a cycle uncovered when a baseline exists but no fresh snapshot lands during it", () => {
+    const series = [nw("2026-01-15T00:00:00Z", 1_000_000)] // only a January snapshot
+    // February has a baseline (Jan 15 carried forward) but no new reading → unobserved, not a real 0.
+    expect(computeSavingsGap([{ cycleKey: "2026-02", inferred: 150_000 }], series)).toEqual([
+      { cycleKey: "2026-02", inferred: 150_000, observedDelta: null, gap: null },
+    ])
+  })
+
   it("marks a cycle uncovered (null delta and gap) when no snapshot precedes its start", () => {
     const series = [nw("2026-01-15T00:00:00Z", 1_000_000)]
     // Cycle 2026-01 starts 2026-01-01, before the first snapshot → no baseline to measure from.
