@@ -23,8 +23,8 @@ A pending, email-addressed offer to join an existing Household as a Member. Crea
 _Avoid_: Membership request (the invitee doesn't request; the Household offers), Seat
 
 **Account**:
-A card or bank account within a Household that Transactions belong to (e.g. "my Visa", "their Mastercard") — the provenance label, required on every Transaction.
-_Avoid_: Card (when a non-card account is possible)
+A named money location within a Household — a card, a bank account, or an external asset holding (investments, physical cash). Two roles, not mutually exclusive: the **provenance** a Transaction belongs to, and/or the subject of a **Balance** for **Net worth**. An Account may carry Transactions, a Balance, or both; a **balance-only Account** (e.g. "InteractiveBrokers", "Cash") holds no Transactions and exists purely to contribute to Net worth.
+_Avoid_: Card (a non-card account is possible); treating "every Transaction belongs to an Account" as "every Account has Transactions" (balance-only Accounts have none)
 
 **Upload**:
 One CSV import into a Household: the file, its column mapping, the importing Member, and the Account the rows belong to.
@@ -171,6 +171,30 @@ _Avoid_: Review, Report
 **On track**:
 Cumulative Inferred saving to date ≥ cumulative Required saving to date, where "to date" means through the last **completed** cycle (the current in-progress cycle counts toward neither side).
 
+### Financial health (net worth)
+
+**Financial health**:
+The dashboard section (ADR-0016) answering three questions the Savings goal and cycle view don't: are we profitable, how much can we realistically save, will we survive. Two independently-degrading halves — a **flow** half from completed-cycle income & spend (savings rate, typical monthly saving, profit streak) and a **stock** half from **Balances** (**Net worth**, **Runway**). Each half hides until it has the data it needs.
+
+**Balance** *(snapshot)*:
+One observation of an **Account**'s value at a point in time, in whole billing-currency units. Append-only — never updated in place, so the full history is kept and a future bank-balance sync merely appends more. May be negative (an overdraft or card debt is real), though v1 records only assets. Entered manually today; an automatic bank-balance sync is the reserved future source.
+_Avoid_: Savings (that is inferred from flow, not entered — see **Inferred saving**), Reconciled balance
+
+**Net worth**:
+The sum of the **latest Balance per Account** across the Household (ADR-0016); `null` until at least one Balance exists, and the newest snapshot per Account wins. Assets minus liabilities in principle, but v1 records only assets (debts stay on the flow side as **Off-card fixed costs**), so in practice Net worth equals **Holdings**. Deliberately separate from **Savings goal** progress, which stays **inferred** — a Balance is Net worth, never savings-goal progress.
+_Avoid_: Savings balance (savings is inferred), Wealth
+
+**Holdings**:
+The assets-only, user-facing reading of **Net worth** — what the Household owns (investments, cash, bank), surfaced on the dashboard. Because v1 records only asset **Balances**, Holdings and Net worth are the same figure; the term names the "what we own" surface rather than a distinct calculation.
+_Avoid_: Assets under management, Portfolio (implies investments only), Net worth (when the user-facing "what we own" framing is meant)
+
+**Runway**:
+How many whole months **Net worth** covers the Household's **Monthly burn** if income stopped — `Net worth ÷ Monthly burn`, floored so it never overstates (ADR-0016). `null` when there is no Net worth, when burn is non-positive, or when cycle history is too thin to compute burn.
+
+**Monthly burn**:
+The trailing-average monthly outflow — recurring **Off-card fixed costs** plus card debits — i.e. the drain the Household would sustain if income stopped; the denominator of **Runway**. Distinct from **Spending** (burn is a trailing average and always folds in off-card costs).
+_Avoid_: Spending (a single cycle's card-side figure), Expenses
+
 ## Relationships
 
 - A **Member** has one **Locale** (their own, not the Household's); two Members of one Household may differ.
@@ -189,6 +213,7 @@ Cumulative Inferred saving to date ≥ cumulative Required saving to date, where
 - **Inferred saving** for a **Statement cycle** = **Monthly income** − **Off-card fixed costs** − net card debits (the cycle's **Transactions** with a negative amount; positive lines ignored).
 - **Required saving** derives from the **Savings goal** (remaining ÷ cycles left) and rises when the Household is behind.
 - A **Check-in** compares cumulative **Inferred saving** vs **Required saving** and yields the next cycle's **Allowed nice-to-have**.
+- A **Household** has zero or more **Balances** per **Account**; **Net worth** sums the latest per Account, **Holdings** is its assets-only reading (v1: the same figure), and **Runway** = Net worth ÷ **Monthly burn**. Net worth is kept strictly separate from **Savings goal** progress (inferred, ADR-0007/0016) — an entered Balance never feeds the inferred-savings math.
 
 ## Flagged ambiguities
 
@@ -199,3 +224,5 @@ Cumulative Inferred saving to date ≥ cumulative Required saving to date, where
 - "language" vs **Locale**: the product setting is a **Locale** (`is`/`en`) — it governs both translated text and number/date formatting together, not just words. Reserve "language" for informal use. AI **Classification** `reasoning` is Household-shared data generated once, so it is NOT localized (v1): it stays English and is shown as-is in both UIs (dynamic data, exempt from catalogs/lint). An Icelandic-UI Member seeing English reasoning is an accepted v1 limitation. The **Assistant** is the deliberate exception: its answers are conversational chrome and DO follow the asking Member's **Locale** (Icelandic member → Icelandic prose), making it the one place AI-generated text is localized.
 - "activity" is overloaded: the **Activity log** (the member-facing record of Member actions) vs the internal "has this Household been used?" usage signal in `lib/household/activity.ts` (drives the invite-switch warning, ADR-0010). Say "Activity log" for the former and "usage signal" for the latter; never bare "activity".
 - "reconcile"/"afstemma" is NOT a domain term here: the user-facing gesture of cancelling out a reimbursed purchase is modelled as a per-Transaction **Excluded** flag, not a link between two rows. "reconciliation" already names an internal math invariant in `lib/dashboard/net-summary.ts` (`sum(byExpenseType) + unclassified === expense`); do not reuse it for the Excluded feature. Pairing/matching a debit to its funding credit stays deferred (transfer detection, issue #97).
+- Three money-*stock* ideas must not blur: **Net worth** and **Holdings** are entered **Balance** snapshots (assets − liabilities; v1 assets-only, so the two are equal), whereas **Inferred saving** is computed from *flow* and never entered. A Balance is **Net worth**, not **Savings goal** progress — the two are deliberately separate (ADR-0016). Never let an entered Balance leak into the inferred-savings math, and never call inferred saving a "balance".
+- This glossary predated **ADR-0016**; the Financial-health / Net-worth cluster above was backfilled after the code shipped. If code and glossary ever disagree on balances/net worth, assume the glossary was the straggler and check ADR-0016.
