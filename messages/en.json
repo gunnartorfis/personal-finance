@@ -72,6 +72,7 @@
       "runway": "Runway",
       "runwayValue": "{months, plural, one {# month} other {# months}}",
       "runwayCaption": "if income stopped",
+      "asOf": "as of {date}",
       "addBalancesPrompt": "Add your account balances to see net worth and runway.",
       "addBalances": "Add balances",
       "updateBalances": "Update balances",

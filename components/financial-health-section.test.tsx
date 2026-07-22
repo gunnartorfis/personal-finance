@@ -7,6 +7,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 import { FinancialHealthSection } from "@/components/financial-health-section"
 import type { FinancialHealth } from "@/lib/dashboard/financial-health"
 import type { AccountBalance, NetWorth } from "@/lib/dashboard/net-worth"
+import { formatDate } from "@/lib/format/date"
 import { renderWithIntl as render } from "@/lib/test/render"
 
 const HEALTH: FinancialHealth = {
@@ -91,6 +92,13 @@ describe("FinancialHealthSection — net worth & runway", () => {
     expect(screen.getByText("Runway")).toBeInTheDocument()
     expect(screen.getByText("5 months")).toBeInTheDocument()
     expect(screen.getByText(/if income stopped/i)).toBeInTheDocument()
+  })
+
+  it("shows the 'as of' date (UTC-anchored) beneath the net-worth figure", () => {
+    renderSection()
+    // UTC keeps the caption stable across time zones (SSR == client; no west-of-UTC day slip).
+    const asOf = formatDate(NET_WORTH.asOf, "en", { dateStyle: "medium", timeZone: "UTC" })
+    expect(screen.getByText(`as of ${asOf}`)).toBeInTheDocument()
   })
 
   it("hides runway when burn is unknown but still shows net worth", () => {

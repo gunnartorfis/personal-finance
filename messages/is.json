@@ -72,6 +72,7 @@
       "runway": "Ending",
       "runwayValue": "{months, plural, one {# mánuður} other {# mánuðir}}",
       "runwayCaption": "ef tekjur stöðvast",
+      "asOf": "miðað við {date}",
       "addBalancesPrompt": "Skráðu stöðu reikninganna til að sjá hreina eign og endingu.",
       "addBalances": "Skrá stöðu",
       "updateBalances": "Uppfæra stöðu",
