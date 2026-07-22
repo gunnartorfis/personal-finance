@@ -5,6 +5,7 @@ import type { FinancialHealth } from "@/lib/dashboard/financial-health"
 import type { AccountBalance, NetWorth } from "@/lib/dashboard/net-worth"
 import { computeRunwayMonths } from "@/lib/dashboard/net-worth"
 import { currencyFormatter } from "@/lib/format/currency"
+import { formatDate } from "@/lib/format/date"
 import { percentFormatter } from "@/lib/format/percent"
 import { defaultLocale, toLocale } from "@/lib/i18n/config"
 import { cn } from "@/lib/utils"
@@ -94,6 +95,9 @@ export function FinancialHealthSection({
               <div className={cell}>
                 <dt className="truncate text-sm text-muted-foreground">{t("netWorth")}</dt>
                 <dd className="text-2xl font-semibold tabular-nums">{money.format(netWorth.total)}</dd>
+                <p className="text-sm text-muted-foreground">
+                  {t("asOf", { date: formatDate(netWorth.asOf, locale) })}
+                </p>
               </div>
               {runwayMonths !== null && (
                 <div className={cell}>
