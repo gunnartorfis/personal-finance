@@ -100,27 +100,27 @@ export async function loadNetWorthPanel(
   return { netWorth, accounts };
 }
 
-/** One Account's share of total Holdings, for the allocation display (plan 007 slice 4). */
+/** One Account's share of total assets, for the allocation display (plan 007 slice 4). */
 export interface AccountAllocation {
   accountId: string;
-  /** Fraction 0..1 of the Holdings total, or `null` when the total is non-positive (a share of a
-   *  zero/negative whole is undefined and not shown). */
+  /** Fraction 0..1 of total assets, or `null` for a non-asset (zero/negative) balance or when there
+   *  are no positive balances — a share is only meaningful for an asset within a positive asset base. */
   share: number | null;
 }
 
 /**
- * Each Account's share of total Holdings (the sum of the given balances). Pure so it unit-tests
- * directly; the caller passes the latest balance per Account it already has. Shares over a positive
- * total sum to 1; when the total is zero or negative (debt outweighs assets) every share is `null` —
- * a percentage of a non-positive whole is not meaningful.
+ * Each Account's share of total assets, for the allocation display. Pure so it unit-tests directly.
+ * Normalizes over the sum of POSITIVE balances only: asset shares sum to 1, and a debt (negative)
+ * balance yields a `null` share rather than a negative or >100% one (which a positive net total with
+ * mixed assets and debt would otherwise produce). `null` too when there are no positive balances.
  */
 export function computeAllocationShares(
   balances: ReadonlyArray<{ accountId: string; balance: number }>,
 ): AccountAllocation[] {
-  const total = balances.reduce((sum, b) => sum + b.balance, 0);
+  const assetTotal = balances.reduce((sum, b) => sum + (b.balance > 0 ? b.balance : 0), 0);
   return balances.map((b) => ({
     accountId: b.accountId,
-    share: total > 0 ? b.balance / total : null,
+    share: b.balance > 0 && assetTotal > 0 ? b.balance / assetTotal : null,
   }));
 }
 

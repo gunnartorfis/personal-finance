@@ -155,26 +155,32 @@ describe("loadNetWorth", () => {
 });
 
 describe("computeAllocationShares", () => {
-  it("splits a positive total into per-account shares that sum to 1", () => {
-    const shares = computeAllocationShares([
-      { accountId: "ibkr", balance: 600_000 },
-      { accountId: "cash", balance: 400_000 },
-    ]);
-    expect(shares).toEqual([
+  it("splits pure-asset balances into shares that sum to 1", () => {
+    expect(
+      computeAllocationShares([
+        { accountId: "ibkr", balance: 600_000 },
+        { accountId: "cash", balance: 400_000 },
+      ])
+    ).toEqual([
       { accountId: "ibkr", share: 0.6 },
       { accountId: "cash", share: 0.4 },
     ]);
   });
 
-  it("returns null shares when the total is zero", () => {
-    const shares = computeAllocationShares([
-      { accountId: "a", balance: 100 },
-      { accountId: "b", balance: -100 },
+  it("normalizes over assets only, so a debt account never yields a negative or >100% share", () => {
+    // Net total is positive (1000 - 200 = 800); a naive balance/total would give 125% and -25%.
+    expect(
+      computeAllocationShares([
+        { accountId: "cash", balance: 1000 },
+        { accountId: "card", balance: -200 },
+      ])
+    ).toEqual([
+      { accountId: "cash", share: 1 }, // 1000 / 1000 (assets only)
+      { accountId: "card", share: null }, // debt is not part of the asset allocation
     ]);
-    expect(shares.every((s) => s.share === null)).toBe(true);
   });
 
-  it("returns a null share when the total is negative (debt outweighs assets)", () => {
+  it("gives no share when there are no positive balances", () => {
     expect(computeAllocationShares([{ accountId: "card", balance: -500 }])).toEqual([
       { accountId: "card", share: null },
     ]);
