@@ -28,7 +28,7 @@ export default async function AppLayout({
 }) {
   const user = await getCurrentUser()
   if (user) {
-    const invites = await findActiveInvitesByEmail(getDb(), user.email)
+    const invites = await findActiveInvitesByEmail(getDb(), user.email, new Date())
     if (invites.length > 0) redirect("/join")
   }
 
