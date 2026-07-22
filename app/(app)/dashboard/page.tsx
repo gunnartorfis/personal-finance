@@ -22,7 +22,12 @@ import { projectCashFlow } from "@/lib/dashboard/cash-flow"
 import { loadBalanceChecks } from "@/lib/dashboard/balance-check"
 import { currentCycleKey, isValidCycleKey, recentCycleKeys } from "@/lib/dashboard/cycle"
 import { loadDashboardView, RECENT_MONTHS } from "@/lib/dashboard/dashboard-view"
-import { loadNetWorthPanel, loadNetWorthSeries, projectNetWorth } from "@/lib/dashboard/net-worth"
+import {
+  balanceAgeDays,
+  loadNetWorthPanel,
+  loadNetWorthSeries,
+  projectNetWorth,
+} from "@/lib/dashboard/net-worth"
 import { buildSavingsGap } from "@/lib/dashboard/savings-gap"
 import { loadSavingsSnapshot } from "@/lib/savings/assessment"
 import { formatCycleMonth } from "@/lib/format/date"
@@ -76,6 +81,10 @@ export default async function DashboardPage({
   // deriveCycles); the gap is a pure comparison against the net-worth series already loaded above.
   const savingsProgress = savingsSnapshot?.progress ?? null
   const savingsGap = buildSavingsGap(savingsSnapshot, netWorthSeries)
+  // Age of the newest balance snapshot, for the Holdings staleness nudge (plan 007 slice 7).
+  const balancesAgeDays = netWorthPanel.netWorth
+    ? balanceAgeDays(netWorthPanel.netWorth.asOf, now)
+    : null
 
   // Offer months with any activity, plus always the current and selected month, so the picker never
   // hides where the user is yet stays free of empty pre-history months. Keys sort lexicographically
@@ -145,6 +154,7 @@ export default async function DashboardPage({
         netWorth={netWorthPanel.netWorth}
         accounts={netWorthPanel.accounts}
         currency={billingCurrency}
+        balancesAgeDays={balancesAgeDays}
       />
 
       <BalanceChecks checks={balanceChecks} currency={billingCurrency} locale={locale} />

@@ -11,6 +11,10 @@ import { percentFormatter } from "@/lib/format/percent"
 import { defaultLocale, toLocale } from "@/lib/i18n/config"
 import { cn } from "@/lib/utils"
 
+/** Nudge to refresh balances once the newest snapshot is at least this many whole weeks old — kept
+ *  in weeks so the trigger and the displayed unit stay consistent (plan 007 slice 7). */
+const STALE_AFTER_WEEKS = 4
+
 /**
  * The dashboard's Holdings section (ADR-0016, plan 007 slice 3): "what the Household owns" — the
  * total (Net worth, relabeled) plus a per-Account breakdown, and the inline balance-entry form. The
@@ -22,11 +26,14 @@ export function HoldingsSection({
   netWorth,
   accounts,
   currency,
+  balancesAgeDays,
   className,
 }: {
   netWorth: NetWorth | null
   accounts: AccountBalance[]
   currency: string
+  /** Whole days since the newest balance snapshot; `null` when none. Drives the staleness nudge. */
+  balancesAgeDays?: number | null
   className?: string
 }) {
   const t = useTranslations("dashboard.holdings")
@@ -46,6 +53,8 @@ export function HoldingsSection({
       (a) => [a.accountId, a.share] as const
     )
   )
+  // Whole weeks since the newest balance, for the staleness nudge (weeks, to match the copy's unit).
+  const weeksOld = balancesAgeDays == null ? null : Math.floor(balancesAgeDays / 7)
 
   return (
     <section
@@ -93,6 +102,12 @@ export function HoldingsSection({
         </div>
       ) : (
         <p className="text-sm text-pretty text-muted-foreground">{t("empty")}</p>
+      )}
+
+      {netWorth && weeksOld != null && weeksOld >= STALE_AFTER_WEEKS && (
+        <p className="text-sm text-pretty text-muted-foreground">
+          {t("staleNudge", { weeks: weeksOld })}
+        </p>
       )}
 
       <BalanceEntryForm accounts={accounts} />

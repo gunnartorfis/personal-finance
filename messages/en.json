@@ -85,7 +85,8 @@
       "subtitle": "What your household owns.",
       "total": "Total",
       "asOf": "as of {date}",
-      "empty": "Add your account balances to see your holdings."
+      "empty": "Add your account balances to see your holdings.",
+      "staleNudge": "Your balances are {weeks, plural, one {# week} other {# weeks}} old — update them to keep net worth accurate."
     },
     "savingsGap": {
       "title": "Savings gap",
