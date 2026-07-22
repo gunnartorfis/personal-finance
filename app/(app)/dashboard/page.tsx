@@ -3,6 +3,7 @@ import { ActionBand } from "@/components/action-band"
 import { BiggestMovers } from "@/components/biggest-movers"
 import { CategoryMixModule } from "@/components/category-mix-module"
 import { FinancialHealthSection } from "@/components/financial-health-section"
+import { HoldingsSection } from "@/components/holdings-section"
 import { BalanceChecks } from "@/components/balance-checks"
 import { BudgetEnvelopes } from "@/components/budget-envelopes"
 import { NetWorthProjectionChart } from "@/components/net-worth-projection-chart"
@@ -128,6 +129,11 @@ export default async function DashboardPage({
 
       <FinancialHealthSection
         health={view.financialHealth}
+        netWorth={netWorthPanel.netWorth}
+        currency={billingCurrency}
+      />
+
+      <HoldingsSection
         netWorth={netWorthPanel.netWorth}
         accounts={netWorthPanel.accounts}
         currency={billingCurrency}
