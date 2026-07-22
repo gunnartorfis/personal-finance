@@ -65,7 +65,8 @@ function nextDay(date: string): string {
  * Balance-check every Account that has at least two balance snapshots (#98): between its two most
  * recent snapshots, the signed sum of its transactions should equal the balance change. A drift
  * means a missing (positive) or duplicate (negative) row. Accounts with fewer than two snapshots are
- * skipped (no window to check). The transaction window is `(previous asOf, latest asOf]`, mapped onto
+ * skipped (no window to check), as are balance-only Accounts with no transactions at all (external
+ * assets like investments/cash — nothing to reconcile against, ADR-0016). The transaction window is `(previous asOf, latest asOf]`, mapped onto
  * the date-only transaction dates. The reads live here; the comparison is the pure
  * {@link computeBalanceCheck}.
  */
@@ -73,11 +74,15 @@ export async function loadBalanceChecks(
   repo: HouseholdRepo,
   tolerance = 0,
 ): Promise<AccountBalanceCheck[]> {
-  const [snapshots, accounts] = await Promise.all([
+  const [snapshots, accounts, accountIdsWithTransactions] = await Promise.all([
     repo.accounts.balances.list(),
     repo.accounts.list(),
+    repo.transactions.accountIdsWithTransactions(),
   ]);
   const nameById = new Map(accounts.map((a) => [a.id, a.name]));
+  // Balance-only Accounts (external assets entered as balances with no rows) have nothing to
+  // reconcile against, so they are excluded from the check (#98).
+  const hasTransactions = new Set(accountIdsWithTransactions);
 
   // Snapshots arrive grouped by account, oldest first.
   const byAccount = new Map<string, Array<{ asOf: Date; balance: number }>>();
@@ -90,7 +95,7 @@ export async function loadBalanceChecks(
   // Each account's window differs (its own two latest snapshots), so a single aggregate query can't
   // serve them all; instead run the per-account reads concurrently (N is bounded by account count).
   const windows = [...byAccount]
-    .filter(([, list]) => list.length >= 2)
+    .filter(([accountId, list]) => list.length >= 2 && hasTransactions.has(accountId))
     .map(([accountId, list]) => ({
       accountId,
       previous: list[list.length - 2],
