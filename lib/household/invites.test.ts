@@ -279,9 +279,9 @@ describe("findActiveInvitesByEmail", () => {
   it("returns only pending, unexpired invites for the (normalized) email", async () => {
     const { householdId, memberId } = await seedHousehold();
     await createInvite({ db: asDb(db), householdId, plan: "Premium", invitedByMemberId: memberId, email: "Match@X.co", now: NOW });
-    const found = await findActiveInvitesByEmail(asDb(db), "match@x.co");
+    const found = await findActiveInvitesByEmail(asDb(db), "match@x.co", NOW);
     expect(found).toHaveLength(1);
-    expect(await findActiveInvitesByEmail(asDb(db), "nobody@x.co")).toHaveLength(0);
+    expect(await findActiveInvitesByEmail(asDb(db), "nobody@x.co", NOW)).toHaveLength(0);
   });
 });
 
