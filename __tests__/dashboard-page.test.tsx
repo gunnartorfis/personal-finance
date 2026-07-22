@@ -10,26 +10,24 @@ import en from "@/messages/en.json"
 const {
   requireHousehold,
   loadDashboardView,
-  loadSavingsProgress,
+  loadSavingsSnapshot,
   loadNetWorthPanel,
   loadNetWorthSeries,
-  loadSavingsGap,
   loadBalanceChecks,
 } = vi.hoisted(() => ({
   requireHousehold: vi.fn(),
   loadDashboardView: vi.fn(),
-  loadSavingsProgress: vi.fn(),
+  loadSavingsSnapshot: vi.fn(),
   loadNetWorthPanel: vi.fn(),
   loadNetWorthSeries: vi.fn(),
-  loadSavingsGap: vi.fn(),
   loadBalanceChecks: vi.fn(),
 }))
 vi.mock("@/lib/household/current", () => ({ requireHousehold }))
 // RECENT_MONTHS is a plain re-exported constant the page reads for the category chart's period label.
 vi.mock("@/lib/dashboard/dashboard-view", () => ({ loadDashboardView, RECENT_MONTHS: 3 }))
 vi.mock("@/lib/dashboard/balance-check", () => ({ loadBalanceChecks }))
-vi.mock("@/lib/savings/assessment", () => ({ loadSavingsProgress }))
-vi.mock("@/lib/dashboard/savings-gap", () => ({ loadSavingsGap }))
+vi.mock("@/lib/savings/assessment", () => ({ loadSavingsSnapshot }))
+// buildSavingsGap is pure (takes the snapshot + series), so it runs for real here.
 vi.mock("@/lib/dashboard/net-worth", async (importOriginal) => ({
   // Keep computeRunwayMonths et al. real (the section imports them); only stub the loader.
   ...(await importOriginal<typeof import("@/lib/dashboard/net-worth")>()),
@@ -142,10 +140,9 @@ describe("DashboardPage", () => {
   beforeEach(() => {
     requireHousehold.mockReset()
     loadDashboardView.mockReset()
-    loadSavingsProgress.mockReset()
+    loadSavingsSnapshot.mockReset()
     loadNetWorthPanel.mockReset()
     loadNetWorthSeries.mockReset()
-    loadSavingsGap.mockReset()
     loadBalanceChecks.mockReset()
     requireHousehold.mockResolvedValue({
       repo: {},
@@ -153,14 +150,12 @@ describe("DashboardPage", () => {
       billingCurrency: "ISK",
     })
     loadDashboardView.mockResolvedValue(VIEW)
-    // No savings goal by default, so the progress card stays hidden.
-    loadSavingsProgress.mockResolvedValue(null)
+    // No savings goal by default, so the progress card and savings gap stay hidden.
+    loadSavingsSnapshot.mockResolvedValue(null)
     // No accounts by default, so the net-worth block stays hidden.
     loadNetWorthPanel.mockResolvedValue({ netWorth: null, accounts: [] })
     // No balance history by default, so the net-worth trend chart stays hidden.
     loadNetWorthSeries.mockResolvedValue([])
-    // No savings gap by default (no goal), so the gap panel stays hidden.
-    loadSavingsGap.mockResolvedValue(null)
     // No balance drifts by default, so the balance-check card stays hidden.
     loadBalanceChecks.mockResolvedValue([])
   })
@@ -194,12 +189,10 @@ describe("DashboardPage", () => {
   })
 
   it("shows the savings progress card when a goal exists", async () => {
-    loadSavingsProgress.mockResolvedValue({
-      title: null,
-      target: 1_200_000,
-      saved: 500_000,
-      percent: 42,
-      currency: "ISK",
+    // The dashboard now reads the full snapshot (one load feeds both the progress card and the gap).
+    loadSavingsSnapshot.mockResolvedValue({
+      progress: { title: null, target: 1_200_000, saved: 500_000, percent: 42, currency: "ISK" },
+      cycles: [], // no completed cycles → savings gap stays hidden
     })
 
     await renderPage()

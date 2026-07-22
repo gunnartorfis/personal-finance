@@ -1,5 +1,4 @@
-import type { HouseholdRepo } from "@/lib/db/household-repo"
-import { loadSavingsSnapshot } from "@/lib/savings/assessment"
+import type { SavingsSnapshot } from "@/lib/savings/assessment"
 
 import { cycleKeyRange } from "./cycle"
 import type { NetWorthPoint } from "./net-worth"
@@ -69,18 +68,19 @@ export function computeSavingsGap(
  * inferred-saving figures only exist with one), no balance history, or no completed cycle we can
  * actually compare. Reuses the savings snapshot's completed cycles unchanged (ADR-0023).
  */
-export async function loadSavingsGap(
-  repo: HouseholdRepo,
-  now: Date,
+/**
+ * Build the per-cycle Savings gap from an already-loaded Savings snapshot and net-worth series —
+ * PURE (no queries): the dashboard loads the snapshot once (it also feeds the progress card) and the
+ * series once, so neither is fetched twice and `deriveCycles` runs only once per render. `null` when
+ * there is no Savings goal (no snapshot, hence no per-cycle inferred saving), no balance history, or
+ * no comparable completed cycle. Reuses the snapshot's inferred figures UNCHANGED (ADR-0023
+ * compare-never-merge; `lib/savings/*` untouched).
+ */
+export function buildSavingsGap(
+  snapshot: SavingsSnapshot | null,
   series: ReadonlyArray<NetWorthPoint>
-): Promise<SavingsGapCycle[] | null> {
-  if (series.length === 0) return null
-  // Reuse the savings snapshot's per-cycle inferred saving UNCHANGED (ADR-0023 compare-never-merge):
-  // deliberately read the existing selector rather than export/duplicate `deriveCycles`, so
-  // `lib/savings/*` stays untouched. The caller passes the already-loaded net-worth series so it
-  // isn't fetched twice per render.
-  const snapshot = await loadSavingsSnapshot(repo, now)
-  if (!snapshot) return null
+): SavingsGapCycle[] | null {
+  if (!snapshot || series.length === 0) return null
 
   const completed = snapshot.cycles
     .filter((cycle) => !cycle.inProgress)

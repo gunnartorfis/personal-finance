@@ -23,8 +23,8 @@ import { loadBalanceChecks } from "@/lib/dashboard/balance-check"
 import { currentCycleKey, isValidCycleKey, recentCycleKeys } from "@/lib/dashboard/cycle"
 import { loadDashboardView, RECENT_MONTHS } from "@/lib/dashboard/dashboard-view"
 import { loadNetWorthPanel, loadNetWorthSeries, projectNetWorth } from "@/lib/dashboard/net-worth"
-import { loadSavingsGap } from "@/lib/dashboard/savings-gap"
-import { loadSavingsProgress } from "@/lib/savings/assessment"
+import { buildSavingsGap } from "@/lib/dashboard/savings-gap"
+import { loadSavingsSnapshot } from "@/lib/savings/assessment"
 import { formatCycleMonth } from "@/lib/format/date"
 import { requireHousehold } from "@/lib/household/current"
 import { resolveRequestLocale } from "@/lib/i18n/locale"
@@ -65,16 +65,17 @@ export default async function DashboardPage({
   const selected =
     cycle && isValidCycleKey(cycle) && windowKeys.includes(cycle) ? cycle : current
 
-  const [view, savingsProgress, netWorthPanel, netWorthSeries, balanceChecks] = await Promise.all([
+  const [view, savingsSnapshot, netWorthPanel, netWorthSeries, balanceChecks] = await Promise.all([
     loadDashboardView(repo, now, { plan, count: HERO_MONTHS, selectedKey: selected }),
-    loadSavingsProgress(repo, now),
+    loadSavingsSnapshot(repo, now),
     loadNetWorthPanel(repo),
     loadNetWorthSeries(repo),
     loadBalanceChecks(repo),
   ])
-  // The savings gap reuses the net-worth series already loaded above (no duplicate fetch); its own
-  // savings-snapshot read runs after the batch.
-  const savingsGap = await loadSavingsGap(repo, now, netWorthSeries)
+  // One savings-snapshot load feeds both the progress card and the savings gap (no duplicate
+  // deriveCycles); the gap is a pure comparison against the net-worth series already loaded above.
+  const savingsProgress = savingsSnapshot?.progress ?? null
+  const savingsGap = buildSavingsGap(savingsSnapshot, netWorthSeries)
 
   // Offer months with any activity, plus always the current and selected month, so the picker never
   // hides where the user is yet stays free of empty pre-history months. Keys sort lexicographically

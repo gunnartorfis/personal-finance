@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest"
 
+import type { SavingsSnapshot } from "@/lib/savings/assessment"
+
 import type { NetWorthPoint } from "./net-worth"
-import { computeSavingsGap } from "./savings-gap"
+import { buildSavingsGap, computeSavingsGap } from "./savings-gap"
 
 const nw = (asOf: string, total: number): NetWorthPoint => ({ asOf: new Date(asOf), total })
+// buildSavingsGap only reads `cycles`; a minimal snapshot keeps the pure test focused.
+const snapshot = (
+  cycles: Array<{ cycleKey: string; inferredSaving: number; inProgress: boolean }>
+): SavingsSnapshot => ({ cycles }) as unknown as SavingsSnapshot
 
 describe("computeSavingsGap", () => {
   it("reports inferred saving minus the observed net-worth change for a cycle with a baseline", () => {
@@ -54,5 +60,37 @@ describe("computeSavingsGap", () => {
 
   it("is empty for no cycles", () => {
     expect(computeSavingsGap([], [nw("2026-01-01T00:00:00Z", 1)])).toEqual([])
+  })
+})
+
+describe("buildSavingsGap", () => {
+  const series = [nw("2025-12-31T00:00:00Z", 500_000), nw("2026-01-31T00:00:00Z", 560_000)]
+
+  it("is null without a snapshot (no Savings goal)", () => {
+    expect(buildSavingsGap(null, series)).toBeNull()
+  })
+
+  it("is null without balance history", () => {
+    expect(
+      buildSavingsGap(snapshot([{ cycleKey: "2026-01", inferredSaving: 70_000, inProgress: false }]), [])
+    ).toBeNull()
+  })
+
+  it("excludes the in-progress cycle and returns the comparable completed ones", () => {
+    expect(
+      buildSavingsGap(
+        snapshot([
+          { cycleKey: "2026-01", inferredSaving: 70_000, inProgress: false },
+          { cycleKey: "2026-02", inferredSaving: 50_000, inProgress: true }, // current — excluded
+        ]),
+        series
+      )
+    ).toEqual([{ cycleKey: "2026-01", inferred: 70_000, observedDelta: 60_000, gap: 10_000 }])
+  })
+
+  it("is null when no completed cycle is comparable to the balance history", () => {
+    expect(
+      buildSavingsGap(snapshot([{ cycleKey: "2026-03", inferredSaving: 50_000, inProgress: false }]), series)
+    ).toBeNull()
   })
 })
