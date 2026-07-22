@@ -13,6 +13,7 @@ const {
   loadSavingsProgress,
   loadNetWorthPanel,
   loadNetWorthSeries,
+  loadSavingsGap,
   loadBalanceChecks,
 } = vi.hoisted(() => ({
   requireHousehold: vi.fn(),
@@ -20,6 +21,7 @@ const {
   loadSavingsProgress: vi.fn(),
   loadNetWorthPanel: vi.fn(),
   loadNetWorthSeries: vi.fn(),
+  loadSavingsGap: vi.fn(),
   loadBalanceChecks: vi.fn(),
 }))
 vi.mock("@/lib/household/current", () => ({ requireHousehold }))
@@ -27,6 +29,7 @@ vi.mock("@/lib/household/current", () => ({ requireHousehold }))
 vi.mock("@/lib/dashboard/dashboard-view", () => ({ loadDashboardView, RECENT_MONTHS: 3 }))
 vi.mock("@/lib/dashboard/balance-check", () => ({ loadBalanceChecks }))
 vi.mock("@/lib/savings/assessment", () => ({ loadSavingsProgress }))
+vi.mock("@/lib/dashboard/savings-gap", () => ({ loadSavingsGap }))
 vi.mock("@/lib/dashboard/net-worth", async (importOriginal) => ({
   // Keep computeRunwayMonths et al. real (the section imports them); only stub the loader.
   ...(await importOriginal<typeof import("@/lib/dashboard/net-worth")>()),
@@ -142,6 +145,7 @@ describe("DashboardPage", () => {
     loadSavingsProgress.mockReset()
     loadNetWorthPanel.mockReset()
     loadNetWorthSeries.mockReset()
+    loadSavingsGap.mockReset()
     loadBalanceChecks.mockReset()
     requireHousehold.mockResolvedValue({
       repo: {},
@@ -155,6 +159,8 @@ describe("DashboardPage", () => {
     loadNetWorthPanel.mockResolvedValue({ netWorth: null, accounts: [] })
     // No balance history by default, so the net-worth trend chart stays hidden.
     loadNetWorthSeries.mockResolvedValue([])
+    // No savings gap by default (no goal), so the gap panel stays hidden.
+    loadSavingsGap.mockResolvedValue(null)
     // No balance drifts by default, so the balance-check card stays hidden.
     loadBalanceChecks.mockResolvedValue([])
   })
