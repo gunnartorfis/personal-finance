@@ -79,6 +79,13 @@
       "saveBalances": "Vista",
       "cancelBalances": "Hætta við",
       "balanceError": "Ekki tókst að vista stöðuna. Reyndu aftur."
+    },
+    "holdings": {
+      "title": "Eignir",
+      "subtitle": "Það sem heimilið á.",
+      "total": "Samtals",
+      "asOf": "miðað við {date}",
+      "empty": "Skráðu stöðu reikninganna til að sjá eignir þínar."
     }
   },
   "actionBand": {

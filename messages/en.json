@@ -79,6 +79,13 @@
       "saveBalances": "Save",
       "cancelBalances": "Cancel",
       "balanceError": "Couldn't save your balances. Please try again."
+    },
+    "holdings": {
+      "title": "Holdings",
+      "subtitle": "What your household owns.",
+      "total": "Total",
+      "asOf": "as of {date}",
+      "empty": "Add your account balances to see your holdings."
     }
   },
   "actionBand": {
