@@ -916,6 +916,7 @@
       "title": "Net worth over time",
       "subtitleUp": "Up {amount} from {from} to {to}.",
       "subtitleDown": "Down {amount} from {from} to {to}.",
+      "subtitleFlat": "Unchanged from {from} to {to}.",
       "netWorth": "Net worth",
       "srPoint": "{label}: {amount}"
     }

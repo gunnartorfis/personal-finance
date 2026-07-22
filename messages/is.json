@@ -916,6 +916,7 @@
       "title": "Hrein eign yfir tíma",
       "subtitleUp": "Upp um {amount} frá {from} til {to}.",
       "subtitleDown": "Niður um {amount} frá {from} til {to}.",
+      "subtitleFlat": "Óbreytt frá {from} til {to}.",
       "netWorth": "Hrein eign",
       "srPoint": "{label}: {amount}"
     }

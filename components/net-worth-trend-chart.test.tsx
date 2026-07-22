@@ -35,6 +35,20 @@ describe("NetWorthTrendChart", () => {
     expect(screen.getByText(/Down .*200,000/)).toBeInTheDocument()
   })
 
+  it("says unchanged when net worth is flat (no misleading 'Up 0')", () => {
+    render(
+      <NetWorthTrendChart
+        points={[
+          { asOf: new Date("2026-01-01T00:00:00Z"), total: 1_000_000 },
+          { asOf: new Date("2026-02-01T00:00:00Z"), total: 1_000_000 },
+        ]}
+        currency="ISK"
+      />
+    )
+    expect(screen.getByText(/Unchanged/)).toBeInTheDocument()
+    expect(screen.queryByText(/Up .*0/)).not.toBeInTheDocument()
+  })
+
   it("exposes each observed point to screen readers", () => {
     render(<NetWorthTrendChart points={POINTS} currency="ISK" />)
     expect(screen.getByText(new RegExp(`${utc(POINTS[0].asOf)}.*1,000,000`))).toBeInTheDocument()

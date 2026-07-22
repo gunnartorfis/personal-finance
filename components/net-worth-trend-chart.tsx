@@ -64,7 +64,7 @@ export function NetWorthTrendChart({
       <header className="flex flex-col gap-1">
         <h2 className="text-base font-medium">{t("title")}</h2>
         <p className="text-sm text-pretty text-muted-foreground">
-          {t(change >= 0 ? "subtitleUp" : "subtitleDown", {
+          {t(change === 0 ? "subtitleFlat" : change > 0 ? "subtitleUp" : "subtitleDown", {
             amount: fmt(Math.abs(change)),
             from: label(first.asOf),
             to: label(last.asOf),
