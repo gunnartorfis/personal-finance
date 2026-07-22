@@ -100,6 +100,30 @@ export async function loadNetWorthPanel(
   return { netWorth, accounts };
 }
 
+/** One Account's share of total assets, for the allocation display (plan 007 slice 4). */
+export interface AccountAllocation {
+  accountId: string;
+  /** Fraction 0..1 of total assets, or `null` for a non-asset (zero/negative) balance or when there
+   *  are no positive balances — a share is only meaningful for an asset within a positive asset base. */
+  share: number | null;
+}
+
+/**
+ * Each Account's share of total assets, for the allocation display. Pure so it unit-tests directly.
+ * Normalizes over the sum of POSITIVE balances only: asset shares sum to 1, and a debt (negative)
+ * balance yields a `null` share rather than a negative or >100% one (which a positive net total with
+ * mixed assets and debt would otherwise produce). `null` too when there are no positive balances.
+ */
+export function computeAllocationShares(
+  balances: ReadonlyArray<{ accountId: string; balance: number }>,
+): AccountAllocation[] {
+  const assetTotal = balances.reduce((sum, b) => sum + (b.balance > 0 ? b.balance : 0), 0);
+  return balances.map((b) => ({
+    accountId: b.accountId,
+    share: b.balance > 0 && assetTotal > 0 ? b.balance / assetTotal : null,
+  }));
+}
+
 /**
  * Runway in whole months (ADR-0016): how long net worth covers the Household's monthly burn if income
  * stopped — `netWorth / monthlyBurn`, rounded down so it never overstates. `null` when there is no

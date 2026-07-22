@@ -7,6 +7,7 @@ import { householdRepo } from "@/lib/db/household-repo";
 import { households } from "@/lib/db/schema";
 
 import {
+  computeAllocationShares,
   computeNetWorth,
   computeRunwayMonths,
   loadNetWorth,
@@ -150,5 +151,42 @@ describe("loadNetWorth", () => {
     await b.accounts.balances.insert({ accountId: accB.id, balance: 999_999 });
 
     expect(await loadNetWorth(a)).toBeNull();
+  });
+});
+
+describe("computeAllocationShares", () => {
+  it("splits pure-asset balances into shares that sum to 1", () => {
+    expect(
+      computeAllocationShares([
+        { accountId: "ibkr", balance: 600_000 },
+        { accountId: "cash", balance: 400_000 },
+      ])
+    ).toEqual([
+      { accountId: "ibkr", share: 0.6 },
+      { accountId: "cash", share: 0.4 },
+    ]);
+  });
+
+  it("normalizes over assets only, so a debt account never yields a negative or >100% share", () => {
+    // Net total is positive (1000 - 200 = 800); a naive balance/total would give 125% and -25%.
+    expect(
+      computeAllocationShares([
+        { accountId: "cash", balance: 1000 },
+        { accountId: "card", balance: -200 },
+      ])
+    ).toEqual([
+      { accountId: "cash", share: 1 }, // 1000 / 1000 (assets only)
+      { accountId: "card", share: null }, // debt is not part of the asset allocation
+    ]);
+  });
+
+  it("gives no share when there are no positive balances", () => {
+    expect(computeAllocationShares([{ accountId: "card", balance: -500 }])).toEqual([
+      { accountId: "card", share: null },
+    ]);
+  });
+
+  it("is empty for no accounts", () => {
+    expect(computeAllocationShares([])).toEqual([]);
   });
 });

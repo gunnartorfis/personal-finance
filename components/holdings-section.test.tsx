@@ -39,6 +39,8 @@ describe("HoldingsSection", () => {
     expect(screen.getByText(/600,000/)).toBeInTheDocument()
     expect(screen.getByText("Cash")).toBeInTheDocument()
     expect(screen.getByText(/400,000/)).toBeInTheDocument()
+    expect(screen.getByText("60%")).toBeInTheDocument() // 600k / 1M
+    expect(screen.getByText("40%")).toBeInTheDocument() // 400k / 1M
   })
 
   it("shows the UTC-anchored 'as of' date for the total", () => {
