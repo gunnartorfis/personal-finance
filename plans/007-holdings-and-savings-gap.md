@@ -32,7 +32,7 @@ having both balances (stock) and spend/income (flow). Anchored by
 
 | Branch | Decision |
 |---|---|
-| Holdings vs net worth | **Holdings == Net worth**; assets only. No debts as balances (debts stay **Off-card fixed costs**, ADR-0015). |
+| Holdings vs net worth | **Holdings IS Net worth** — the same total (sum of latest Balance per Account) under a "what we own" label, **not** a separate assets-only filter; a negative Balance would lower both identically. v1 *usage* enters only assets (debts stay **Off-card fixed costs**, ADR-0015). |
 | Asset model | **Reuse Accounts** as balance-only holdings (create by name, enter balance). **No asset-`type` attribute** (deferred until allocation/emergency-fund needs it). |
 | Breakdown | **Total + per-account** rows. Account names carry the grouping; no formal asset-class taxonomy. |
 | Currency | **ISK only**; the Member hand-converts. No FX (ADR-0004 intact). |
@@ -51,7 +51,7 @@ reconciliation* and the per-Account *balance check*, CONTEXT.md).
 
 | # | Slice | Touches | Status |
 |---|-------|---------|--------|
-| 0 | **Docs**: this plan + ADR-0023 + `CONTEXT.md` net-worth/holdings vocabulary. | `docs/adr/0023*`, `plans/007*`, `CONTEXT.md` | TODO |
+| 0 | **Docs**: this plan + ADR-0023 + `CONTEXT.md` net-worth/holdings vocabulary. | `docs/adr/0023*`, `plans/007*`, `CONTEXT.md` | PR-OPEN #332 |
 | 1 | **Balance-check fix**: `loadBalanceChecks` skips Accounts with **no transactions at all** (balance-only asset Accounts), killing the constant-drift false positive (#98) for IBKR/cash. Pure logic + tests; no UI. | `lib/dashboard/balance-check.ts`, `lib/db/household-repo.ts` (read), tests | TODO |
 | 2 | **Surface "as of"**: thread `NetWorth.asOf` (already computed, dropped at render) into the net-worth tile, formatted via `lib/format/date`. en+is strings. | `components/financial-health-section.tsx`, `messages/{en,is}.json`, tests | TODO |
 | 3 | **Per-account holdings breakdown**: new **Holdings** section — total + one row per Account with a Balance (data already in `loadNetWorthPanel`). Built via `/design`. en+is. | `components/holdings-*`, `app/(app)/dashboard/page.tsx`, `messages/*`, tests | TODO |
