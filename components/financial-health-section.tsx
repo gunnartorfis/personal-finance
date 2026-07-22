@@ -96,7 +96,11 @@ export function FinancialHealthSection({
                 <dt className="truncate text-sm text-muted-foreground">{t("netWorth")}</dt>
                 <dd className="text-2xl font-semibold tabular-nums">{money.format(netWorth.total)}</dd>
                 <p className="text-sm text-muted-foreground">
-                  {t("asOf", { date: formatDate(netWorth.asOf, locale) })}
+                  {/* UTC-anchored so SSR and client render the same day and a midnight-UTC snapshot
+                      never slips to the previous date west of UTC (cf. formatCycleMonth). */}
+                  {t("asOf", {
+                    date: formatDate(netWorth.asOf, locale, { dateStyle: "medium", timeZone: "UTC" }),
+                  })}
                 </p>
               </div>
               {runwayMonths !== null && (

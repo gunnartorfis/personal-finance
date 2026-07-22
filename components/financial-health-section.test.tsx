@@ -94,9 +94,11 @@ describe("FinancialHealthSection — net worth & runway", () => {
     expect(screen.getByText(/if income stopped/i)).toBeInTheDocument()
   })
 
-  it("shows the 'as of' date beneath the net-worth figure", () => {
+  it("shows the 'as of' date (UTC-anchored) beneath the net-worth figure", () => {
     renderSection()
-    expect(screen.getByText(`as of ${formatDate(NET_WORTH.asOf, "en")}`)).toBeInTheDocument()
+    // UTC keeps the caption stable across time zones (SSR == client; no west-of-UTC day slip).
+    const asOf = formatDate(NET_WORTH.asOf, "en", { dateStyle: "medium", timeZone: "UTC" })
+    expect(screen.getByText(`as of ${asOf}`)).toBeInTheDocument()
   })
 
   it("hides runway when burn is unknown but still shows net worth", () => {
