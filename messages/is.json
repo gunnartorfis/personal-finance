@@ -86,6 +86,14 @@
       "total": "Samtals",
       "asOf": "miðað við {date}",
       "empty": "Skráðu stöðu reikninganna til að sjá eignir þínar."
+    },
+    "savingsGap": {
+      "title": "Sparnaðarbil",
+      "subtitle": "Fyrir {month}: áætlaður sparnaður borinn saman við raunverulega breytingu á hreinni eign.",
+      "inferred": "Áætlaður sparnaður",
+      "observed": "Breyting á hreinni eign",
+      "gap": "Bil",
+      "explainer": "Bilið er sparnaður sem skilaði sér ekki í hreina eign — óskráð útgjöld, reiðuféfærslur eða markaðsbreytingar."
     }
   },
   "actionBand": {

@@ -4,6 +4,7 @@ import { BiggestMovers } from "@/components/biggest-movers"
 import { CategoryMixModule } from "@/components/category-mix-module"
 import { FinancialHealthSection } from "@/components/financial-health-section"
 import { HoldingsSection } from "@/components/holdings-section"
+import { SavingsGapPanel } from "@/components/savings-gap-panel"
 import { BalanceChecks } from "@/components/balance-checks"
 import { BudgetEnvelopes } from "@/components/budget-envelopes"
 import { NetWorthProjectionChart } from "@/components/net-worth-projection-chart"
@@ -22,7 +23,8 @@ import { loadBalanceChecks } from "@/lib/dashboard/balance-check"
 import { currentCycleKey, isValidCycleKey, recentCycleKeys } from "@/lib/dashboard/cycle"
 import { loadDashboardView, RECENT_MONTHS } from "@/lib/dashboard/dashboard-view"
 import { loadNetWorthPanel, loadNetWorthSeries, projectNetWorth } from "@/lib/dashboard/net-worth"
-import { loadSavingsProgress } from "@/lib/savings/assessment"
+import { buildSavingsGap } from "@/lib/dashboard/savings-gap"
+import { loadSavingsSnapshot } from "@/lib/savings/assessment"
 import { formatCycleMonth } from "@/lib/format/date"
 import { requireHousehold } from "@/lib/household/current"
 import { resolveRequestLocale } from "@/lib/i18n/locale"
@@ -63,13 +65,17 @@ export default async function DashboardPage({
   const selected =
     cycle && isValidCycleKey(cycle) && windowKeys.includes(cycle) ? cycle : current
 
-  const [view, savingsProgress, netWorthPanel, netWorthSeries, balanceChecks] = await Promise.all([
+  const [view, savingsSnapshot, netWorthPanel, netWorthSeries, balanceChecks] = await Promise.all([
     loadDashboardView(repo, now, { plan, count: HERO_MONTHS, selectedKey: selected }),
-    loadSavingsProgress(repo, now),
+    loadSavingsSnapshot(repo, now),
     loadNetWorthPanel(repo),
     loadNetWorthSeries(repo),
     loadBalanceChecks(repo),
   ])
+  // One savings-snapshot load feeds both the progress card and the savings gap (no duplicate
+  // deriveCycles); the gap is a pure comparison against the net-worth series already loaded above.
+  const savingsProgress = savingsSnapshot?.progress ?? null
+  const savingsGap = buildSavingsGap(savingsSnapshot, netWorthSeries)
 
   // Offer months with any activity, plus always the current and selected month, so the picker never
   // hides where the user is yet stays free of empty pre-history months. Keys sort lexicographically
@@ -155,6 +161,8 @@ export default async function DashboardPage({
       {netWorthSeries.length >= 2 && (
         <NetWorthTrendChart points={netWorthSeries} currency={billingCurrency} />
       )}
+
+      {savingsGap && <SavingsGapPanel gaps={savingsGap} currency={billingCurrency} />}
 
       <SpendingTrendChart
         series={view.modules.series}

@@ -86,6 +86,14 @@
       "total": "Total",
       "asOf": "as of {date}",
       "empty": "Add your account balances to see your holdings."
+    },
+    "savingsGap": {
+      "title": "Savings gap",
+      "subtitle": "For {month}: what you saved on paper vs. how your net worth actually changed.",
+      "inferred": "Inferred saving",
+      "observed": "Net worth change",
+      "gap": "Gap",
+      "explainer": "The gap is saving that didn't land as net worth — untracked spending, cash moves, or market changes."
     }
   },
   "actionBand": {
