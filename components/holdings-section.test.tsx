@@ -76,13 +76,13 @@ describe("HoldingsSection", () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it("nudges to update when balances are at least 30 days old", () => {
-    renderSection({ balancesAgeDays: 35 }) // ~5 weeks
-    expect(screen.getByText(/5 weeks old/)).toBeInTheDocument()
+  it("nudges to update once balances are at least four weeks old", () => {
+    renderSection({ balancesAgeDays: 28 }) // exactly 4 weeks — the threshold and copy agree
+    expect(screen.getByText(/4 weeks old/)).toBeInTheDocument()
   })
 
-  it("shows no staleness nudge when balances are fresh", () => {
-    renderSection({ balancesAgeDays: 3 })
+  it("shows no staleness nudge below the four-week threshold", () => {
+    renderSection({ balancesAgeDays: 20 }) // ~2 weeks
     expect(screen.queryByText(/weeks old/)).not.toBeInTheDocument()
   })
 
