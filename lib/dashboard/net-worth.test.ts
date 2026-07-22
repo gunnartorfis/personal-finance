@@ -7,6 +7,7 @@ import { householdRepo } from "@/lib/db/household-repo";
 import { households } from "@/lib/db/schema";
 
 import {
+  balanceAgeDays,
   computeAllocationShares,
   computeNetWorth,
   computeNetWorthSeries,
@@ -209,5 +210,19 @@ describe("computeNetWorthSeries", () => {
       { asOf: new Date("2026-02-01T00:00:00Z"), total: 500 }, // a(100) + b(400)
       { asOf: new Date("2026-03-01T00:00:00Z"), total: 650 }, // a(250, updated) + b(400)
     ]);
+  });
+});
+
+describe("balanceAgeDays", () => {
+  it("counts whole days from asOf to now", () => {
+    expect(
+      balanceAgeDays(new Date("2026-03-01T00:00:00Z"), new Date("2026-03-31T00:00:00Z"))
+    ).toBe(30);
+  });
+
+  it("clamps a future asOf to 0", () => {
+    expect(
+      balanceAgeDays(new Date("2026-03-31T00:00:00Z"), new Date("2026-03-01T00:00:00Z"))
+    ).toBe(0);
   });
 });

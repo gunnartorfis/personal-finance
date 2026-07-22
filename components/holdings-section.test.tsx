@@ -24,6 +24,7 @@ function renderSection(
       netWorth={"netWorth" in props ? (props.netWorth ?? null) : NET_WORTH}
       accounts={props.accounts ?? ACCOUNTS}
       currency={props.currency ?? "ISK"}
+      balancesAgeDays={props.balancesAgeDays}
     />,
     opts
   )
@@ -73,6 +74,16 @@ describe("HoldingsSection", () => {
   it("renders nothing when the household has no accounts", () => {
     const { container } = renderSection({ netWorth: null, accounts: [] })
     expect(container).toBeEmptyDOMElement()
+  })
+
+  it("nudges to update when balances are at least 30 days old", () => {
+    renderSection({ balancesAgeDays: 35 }) // ~5 weeks
+    expect(screen.getByText(/5 weeks old/)).toBeInTheDocument()
+  })
+
+  it("shows no staleness nudge when balances are fresh", () => {
+    renderSection({ balancesAgeDays: 3 })
+    expect(screen.queryByText(/weeks old/)).not.toBeInTheDocument()
   })
 
   it("localizes the section for the is catalog", () => {

@@ -166,6 +166,15 @@ export async function loadNetWorthSeries(repo: HouseholdRepo): Promise<NetWorthP
 }
 
 /**
+ * Whole days between a balance snapshot's `asOf` and `now` — the age of the newest balance, for the
+ * staleness nudge (plan 007 slice 7). Floored; a future `asOf` clamps to 0.
+ */
+export function balanceAgeDays(asOf: Date, now: Date): number {
+  const ms = now.getTime() - asOf.getTime();
+  return Math.max(0, Math.floor(ms / (24 * 60 * 60 * 1000)));
+}
+
+/**
  * Runway in whole months (ADR-0016): how long net worth covers the Household's monthly burn if income
  * stopped — `netWorth / monthlyBurn`, rounded down so it never overstates. `null` when there is no
  * net worth, no burn figure (thin history), or burn is non-positive (nothing being spent, so runway
