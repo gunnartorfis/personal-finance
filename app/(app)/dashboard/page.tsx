@@ -7,6 +7,7 @@ import { HoldingsSection } from "@/components/holdings-section"
 import { BalanceChecks } from "@/components/balance-checks"
 import { BudgetEnvelopes } from "@/components/budget-envelopes"
 import { NetWorthProjectionChart } from "@/components/net-worth-projection-chart"
+import { NetWorthTrendChart } from "@/components/net-worth-trend-chart"
 import { RecurringSubscriptions } from "@/components/recurring-subscriptions"
 import { SavingsProgressCard } from "@/components/savings-progress-card"
 import { SpendingByCategory } from "@/components/spending-by-category"
@@ -20,7 +21,7 @@ import { projectCashFlow } from "@/lib/dashboard/cash-flow"
 import { loadBalanceChecks } from "@/lib/dashboard/balance-check"
 import { currentCycleKey, isValidCycleKey, recentCycleKeys } from "@/lib/dashboard/cycle"
 import { loadDashboardView, RECENT_MONTHS } from "@/lib/dashboard/dashboard-view"
-import { loadNetWorthPanel, projectNetWorth } from "@/lib/dashboard/net-worth"
+import { loadNetWorthPanel, loadNetWorthSeries, projectNetWorth } from "@/lib/dashboard/net-worth"
 import { loadSavingsProgress } from "@/lib/savings/assessment"
 import { formatCycleMonth } from "@/lib/format/date"
 import { requireHousehold } from "@/lib/household/current"
@@ -62,10 +63,11 @@ export default async function DashboardPage({
   const selected =
     cycle && isValidCycleKey(cycle) && windowKeys.includes(cycle) ? cycle : current
 
-  const [view, savingsProgress, netWorthPanel, balanceChecks] = await Promise.all([
+  const [view, savingsProgress, netWorthPanel, netWorthSeries, balanceChecks] = await Promise.all([
     loadDashboardView(repo, now, { plan, count: HERO_MONTHS, selectedKey: selected }),
     loadSavingsProgress(repo, now),
     loadNetWorthPanel(repo),
+    loadNetWorthSeries(repo),
     loadBalanceChecks(repo),
   ])
 
@@ -148,6 +150,10 @@ export default async function DashboardPage({
           horizonNet={cashFlowHorizonNet}
           horizonMonths={PROJECTION_MONTHS}
         />
+      )}
+
+      {netWorthSeries.length >= 2 && (
+        <NetWorthTrendChart points={netWorthSeries} currency={billingCurrency} />
       )}
 
       <SpendingTrendChart

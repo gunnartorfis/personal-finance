@@ -124,6 +124,47 @@ export function computeAllocationShares(
   }));
 }
 
+/** One point on the observed net-worth trend (plan 007 slice 5): net worth as of a past instant. */
+export interface NetWorthPoint {
+  asOf: Date;
+  /** Net worth then — the sum of each Account's latest Balance recorded at or before `asOf`. */
+  total: number;
+}
+
+/**
+ * The observed net-worth trend: net worth at each distinct Balance-snapshot instant, oldest first.
+ * At each point an Account contributes its latest Balance recorded at or before that instant (and
+ * nothing before its first snapshot). Empty for no snapshots; a single snapshot yields one point (the
+ * caller hides the chart until there are at least two). Pure so it unit-tests directly. This is the
+ * *observed* line — distinct from the straight-line {@link projectNetWorth} forecast.
+ */
+export function computeNetWorthSeries(snapshots: ReadonlyArray<BalanceSnapshot>): NetWorthPoint[] {
+  if (snapshots.length === 0) return [];
+  const sorted = [...snapshots].sort((a, b) => a.asOf.getTime() - b.asOf.getTime());
+  const distinctTimes = [...new Set(sorted.map((s) => s.asOf.getTime()))]; // ascending (sorted input)
+  const latestByAccount = new Map<string, number>();
+  const points: NetWorthPoint[] = [];
+  let i = 0;
+  for (const time of distinctTimes) {
+    while (i < sorted.length && sorted[i].asOf.getTime() <= time) {
+      latestByAccount.set(sorted[i].accountId, sorted[i].balance);
+      i++;
+    }
+    let total = 0;
+    for (const balance of latestByAccount.values()) total += balance;
+    points.push({ asOf: new Date(time), total });
+  }
+  return points;
+}
+
+/** Load the Household's observed net-worth trend (plan 007 slice 5) from all its Balance snapshots. */
+export async function loadNetWorthSeries(repo: HouseholdRepo): Promise<NetWorthPoint[]> {
+  const rows = await repo.accounts.balances.list();
+  return computeNetWorthSeries(
+    rows.map((row) => ({ accountId: row.accountId, balance: row.balance, asOf: row.asOf }))
+  );
+}
+
 /**
  * Runway in whole months (ADR-0016): how long net worth covers the Household's monthly burn if income
  * stopped — `netWorth / monthlyBurn`, rounded down so it never overstates. `null` when there is no

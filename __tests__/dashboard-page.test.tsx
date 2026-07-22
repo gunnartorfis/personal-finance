@@ -12,12 +12,14 @@ const {
   loadDashboardView,
   loadSavingsProgress,
   loadNetWorthPanel,
+  loadNetWorthSeries,
   loadBalanceChecks,
 } = vi.hoisted(() => ({
   requireHousehold: vi.fn(),
   loadDashboardView: vi.fn(),
   loadSavingsProgress: vi.fn(),
   loadNetWorthPanel: vi.fn(),
+  loadNetWorthSeries: vi.fn(),
   loadBalanceChecks: vi.fn(),
 }))
 vi.mock("@/lib/household/current", () => ({ requireHousehold }))
@@ -29,6 +31,7 @@ vi.mock("@/lib/dashboard/net-worth", async (importOriginal) => ({
   // Keep computeRunwayMonths et al. real (the section imports them); only stub the loader.
   ...(await importOriginal<typeof import("@/lib/dashboard/net-worth")>()),
   loadNetWorthPanel,
+  loadNetWorthSeries,
 }))
 // resolveRequestLocale reads cookies() (request scope, unavailable in jsdom); pin
 // it to en so the currency assertions below stay en-US.
@@ -138,6 +141,7 @@ describe("DashboardPage", () => {
     loadDashboardView.mockReset()
     loadSavingsProgress.mockReset()
     loadNetWorthPanel.mockReset()
+    loadNetWorthSeries.mockReset()
     loadBalanceChecks.mockReset()
     requireHousehold.mockResolvedValue({
       repo: {},
@@ -149,6 +153,8 @@ describe("DashboardPage", () => {
     loadSavingsProgress.mockResolvedValue(null)
     // No accounts by default, so the net-worth block stays hidden.
     loadNetWorthPanel.mockResolvedValue({ netWorth: null, accounts: [] })
+    // No balance history by default, so the net-worth trend chart stays hidden.
+    loadNetWorthSeries.mockResolvedValue([])
     // No balance drifts by default, so the balance-check card stays hidden.
     loadBalanceChecks.mockResolvedValue([])
   })
