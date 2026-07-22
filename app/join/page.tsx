@@ -33,7 +33,7 @@ export default async function JoinPage() {
   if (!user) redirect("/auth/sign-in")
 
   const db = getDb()
-  const invites = await findActiveInvitesByEmail(db, user.email)
+  const invites = await findActiveInvitesByEmail(db, user.email, new Date())
   if (invites.length === 0) redirect("/dashboard")
 
   if (!user.emailVerified) {

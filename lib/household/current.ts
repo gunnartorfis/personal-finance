@@ -30,7 +30,7 @@ export async function requireHousehold() {
 
   const membership = await findMembership(db, user.id);
   if (!membership) {
-    const invites = await findActiveInvitesByEmail(db, user.email);
+    const invites = await findActiveInvitesByEmail(db, user.email, new Date());
     if (invites.length > 0) {
       redirect("/join");
     }

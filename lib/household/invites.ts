@@ -136,11 +136,11 @@ export async function createInvite(
           eq(householdInvites.householdId, householdId),
           eq(householdInvites.email, email),
           eq(householdInvites.status, "pending"),
-          gt(householdInvites.expiresAt, sql`now()`),
+          gt(householdInvites.expiresAt, now),
         ),
       );
 
-    const seatsUsed = (await countMembers(tx, householdId)) + (await countActiveInvites(tx, householdId));
+    const seatsUsed = (await countMembers(tx, householdId)) + (await countActiveInvites(tx, householdId, now));
     // Superseding reuses the existing seat, so only a genuinely new seat is capped.
     if (!existing && seatsUsed >= MEMBER_CAP) throw new InviteError("cap_reached");
 
@@ -165,9 +165,12 @@ export async function createInvite(
 /**
  * Active (pending, unexpired) Invites addressed to `email`, across ALL Households — the provisioning
  * intercept and the `/join` screen use this to route a signing-in invitee instead of auto-creating
- * them a stray Household (ADR-0010).
+ * them a stray Household (ADR-0010). `now` is the caller's clock (production passes real time; tests
+ * pass a fixed instant) — the expiry filter compares against it, not the DB `now()`, so the frozen
+ * test clock governs the query and the suite stays hermetic (it does not silently expire as wall-clock
+ * time advances past a fixed `expiresAt`).
  */
-export async function findActiveInvitesByEmail(db: Db, email: string) {
+export async function findActiveInvitesByEmail(db: Db, email: string, now: Date) {
   return db
     .select()
     .from(householdInvites)
@@ -175,7 +178,7 @@ export async function findActiveInvitesByEmail(db: Db, email: string) {
       and(
         eq(householdInvites.email, normalizeEmail(email)),
         eq(householdInvites.status, "pending"),
-        gt(householdInvites.expiresAt, sql`now()`),
+        gt(householdInvites.expiresAt, now),
       ),
     );
 }
@@ -423,7 +426,7 @@ async function countMembers(db: Db, householdId: string): Promise<number> {
   return row?.value ?? 0;
 }
 
-async function countActiveInvites(db: Db, householdId: string): Promise<number> {
+async function countActiveInvites(db: Db, householdId: string, now: Date): Promise<number> {
   const [row] = await db
     .select({ value: sql<number>`count(*)::int` })
     .from(householdInvites)
@@ -431,7 +434,7 @@ async function countActiveInvites(db: Db, householdId: string): Promise<number> 
       and(
         eq(householdInvites.householdId, householdId),
         eq(householdInvites.status, "pending"),
-        gt(householdInvites.expiresAt, sql`now()`),
+        gt(householdInvites.expiresAt, now),
       ),
     );
   return row?.value ?? 0;
