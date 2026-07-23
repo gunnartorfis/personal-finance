@@ -5,10 +5,21 @@ import { recordActivity } from "@/lib/activity/record";
 import { requireHousehold } from "@/lib/household/current";
 import { appendTransactions } from "@/lib/ingestion/append";
 import type { ParsedRow } from "@/lib/ingestion/parse-csv";
+import { detectAndLinkTransfers } from "@/lib/transactions/link-transfers";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_FIELD = 200;
+/** PostgreSQL `integer` bound — an amount past this is a DB error, not a user typo, so reject it. */
+const INT32_MAX = 2_147_483_647;
+
+/** Shape-valid AND a real calendar date — rejects e.g. `2026-02-30`, which the DB would reject. */
+function isRealIsoDate(value: string): boolean {
+  if (!ISO_DATE_RE.test(value)) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
 
 /**
  * POST /api/uploads/:id/rows — recover a row the CSV parser couldn't read (ADR-0025). The Member
@@ -36,9 +47,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const sourceRow = body?.sourceRow;
   if (
     typeof date !== "string" ||
-    !ISO_DATE_RE.test(date) ||
+    !isRealIsoDate(date) ||
     typeof amount !== "number" ||
     !Number.isInteger(amount) ||
+    Math.abs(amount) > INT32_MAX ||
     typeof merchant !== "string" ||
     merchant.trim().length === 0 ||
     typeof category !== "string"
@@ -62,11 +74,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     rows: [row],
   });
 
-  await recordActivity(ctx, ActivityAction.UploadRowsRecovered, {
-    uploadId: id,
-    appended: result.appended,
-    duplicates: result.duplicates,
-  });
+  // Post-append, best-effort — mirror ingestUpload. Once the row is durably appended, neither the
+  // transfer scan nor the audit write may fail the request: a throw here would report failure for a
+  // committed import and make a retry resolve as a phantom duplicate.
+  if (result.appended > 0) {
+    try {
+      // A recovered row can complete a cross-account transfer pair, just like a normal import.
+      await detectAndLinkTransfers(ctx.repo);
+    } catch {
+      // Re-runnable enrichment; the next import retries the same scan.
+    }
+  }
+  try {
+    await recordActivity(ctx, ActivityAction.UploadRowsRecovered, {
+      uploadId: id,
+      appended: result.appended,
+      duplicates: result.duplicates,
+    });
+  } catch {
+    // The import already succeeded; a logging hiccup must never mask it.
+  }
 
   return NextResponse.json(result, { status: 201 });
 }

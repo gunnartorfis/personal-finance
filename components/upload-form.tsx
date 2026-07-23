@@ -223,6 +223,9 @@ export function UploadForm({ className }: { className?: string }) {
           }
         : prev,
     )
+    // A recovered row is inserted pending; if the upload's initial classification drain already
+    // finished, restart it so the new row gets classified (fire-and-forget, like ClassifyTrigger).
+    if (outcome.appended > 0) void fetch("/api/classify", { method: "POST" })
   }
 
   // Resolve to text at render (not when the error is raised) so the alert follows a locale change.

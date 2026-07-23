@@ -298,6 +298,13 @@ describe("UploadForm", () => {
     // The row leaves the couldn't-read list and the summary counts one more added.
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/1 added/i))
     expect(screen.queryByRole("button", { name: /fix & import/i })).not.toBeInTheDocument()
+
+    // The recovered pending row re-triggers the classification drain (POST /api/classify after fix).
+    await waitFor(() => {
+      const urls = fetchMock.mock.calls.map((c) => String(c[0]))
+      const afterFix = urls.slice(urls.findIndex((u) => u.endsWith("/rows")) + 1)
+      expect(afterFix).toContain("/api/classify")
+    })
   })
 
   it("caps the couldn't-read list and hints at a systematic failure", async () => {

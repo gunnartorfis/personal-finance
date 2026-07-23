@@ -13,6 +13,11 @@ vi.mock("@/lib/activity/record", () => ({
   recordActivity: (...a: unknown[]) => recordActivity(...a),
 }));
 
+const detectAndLinkTransfers = vi.fn();
+vi.mock("@/lib/transactions/link-transfers", () => ({
+  detectAndLinkTransfers: (...a: unknown[]) => detectAndLinkTransfers(...a),
+}));
+
 import { POST } from "./route";
 
 const UPLOAD = "11111111-1111-1111-1111-111111111111";
@@ -43,6 +48,7 @@ beforeEach(() => {
   requireHousehold.mockReset();
   appendTransactions.mockReset();
   recordActivity.mockReset();
+  detectAndLinkTransfers.mockReset();
   findById.mockReset();
   requireHousehold.mockResolvedValue(ctx);
   findById.mockResolvedValue({ id: UPLOAD, accountId: ACCOUNT });
@@ -101,6 +107,30 @@ describe("POST /api/uploads/:id/rows", () => {
     const res = await post(UPLOAD, validBody);
     expect(res.status).toBe(201);
     expect(await res.json()).toMatchObject({ appended: 0, duplicates: 1 });
+  });
+
+  it("400s an impossible calendar date or an amount past the integer range", async () => {
+    expect((await post(UPLOAD, { ...validBody, date: "2026-02-30" })).status).toBe(400);
+    expect((await post(UPLOAD, { ...validBody, amount: 9_999_999_999 })).status).toBe(400);
+    expect(appendTransactions).not.toHaveBeenCalled();
+  });
+
+  it("runs transfer detection after appending a recovered row", async () => {
+    await post(UPLOAD, validBody);
+    expect(detectAndLinkTransfers).toHaveBeenCalledOnce();
+  });
+
+  it("skips transfer detection when the fixed row only deduped", async () => {
+    appendTransactions.mockResolvedValueOnce({ appended: 0, duplicates: 1, alreadyImported: [] });
+    await post(UPLOAD, validBody);
+    expect(detectAndLinkTransfers).not.toHaveBeenCalled();
+  });
+
+  it("still returns 201 when the activity-log write fails, never masking a committed import", async () => {
+    recordActivity.mockRejectedValueOnce(new Error("log down"));
+    const res = await post(UPLOAD, validBody);
+    expect(res.status).toBe(201);
+    expect(await res.json()).toMatchObject({ appended: 1 });
   });
 });
 
