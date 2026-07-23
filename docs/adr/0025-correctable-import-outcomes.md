@@ -1,0 +1,26 @@
+# Surfaced, correctable import outcomes; "Import anyway" overrides dedup
+
+## Context
+
+The post-import summary reads `"{added} added, {skipped} skipped"` (`components/upload-form.tsx`). "skipped" maps to exactly one thing — row-fingerprint **duplicates**, rows already stored for the Account (`duplicates.length` from `partitionNewRows` in `shared/dedup.ts`). That framing hides two problems:
+
+- **A whole class of withheld rows is invisible.** Rows that fail to parse — a cell that isn't a `DD.MM.YYYY` date or an Icelandic integer amount, plus blank/separator/footer lines — are dropped inside `rowsToParsed` (`lib/ingestion/parse-csv.ts`) *before* anything is counted. They land in neither "added" nor "skipped": a 70-row file reporting "55 added, 8 skipped" has silently lost 7 rows with no trace.
+- **"skipped" collides with the Import preview.** The preview calls the very same duplicate rows "already imported" (`upload.preview.duplicateRows`). Same rows, two names.
+
+Members need to see *which* rows did not import and, when a row should not have been withheld, recover it without re-uploading. This builds on ADR-0003 (append-only, idempotent row-fingerprint ingestion), ADR-0018 (stateless preview-then-commit — no staging, nothing persisted pre-commit, dedup recomputed at commit), and ADR-0017 (the Activity log records Member actions).
+
+## Decisions
+
+- **Three named outcome buckets; retire "skipped".** An Upload's rows resolve to **Added**, **Already imported**, and **Couldn't read**, plus a count of ignored non-data lines. The summary names all three; the two withheld buckets open a detail view. Canonicalised in `CONTEXT.md` (a glossary cluster plus a flagged-ambiguity note retiring "skipped").
+- **Transient, post-commit recovery — nothing persisted.** The commit response (`POST /api/uploads`) carries the withheld rows: already-imported rows with provenance, couldn't-read rows with their raw cells + drop reason, and the ignored-line count. The client holds them and shows detail in a Sheet (`components/ui/sheet.tsx`). Nothing is staged or stored — this stays inside ADR-0018; reloading drops the list, acceptable because the recovery moment is immediately after upload. A durable "rejects inbox" is a deferred follow-up with its own decision.
+- **"Couldn't read" → Fix & import via the normal path.** The parser stops silently discarding: each non-emitted row is tagged (`bad-date` / `bad-amount` / `non-data`) and keeps its raw cells. Correctable rows (every `bad-amount`; `bad-date` only when the row looks populated) are inline-editable in the Sheet; on submit the repaired row is appended through the ordinary dedup path, so a fixed row may itself turn out to be a duplicate. Genuine non-data lines are counted as ignored and never offered for repair. A large *systematic* failure — most rows failing the same way, e.g. a foreign date format — is capped (~50 shown) with an honest "this file's format may not be supported yet" hint rather than an endless hand-fix list. Cell parsing stays deterministic (ADR-0018); no AI repair.
+- **"Already imported" → Import anyway, overriding dedup (the crux).** A Member may force a withheld duplicate in as a new Transaction, deliberately bypassing ADR-0003's idempotency guard for that one row. Per-row only — no bulk sweep. Provenance ("already in since {date} · {file}", resolved from the matched stored Transaction's Upload) is shown so the override is an informed choice: the fingerprint can collapse a genuinely distinct same-day / same-price / same-merchant purchase that recurs across two uploads. Chosen over leaving duplicates unrecoverable; a force-import that still re-ran dedup would be a contradiction.
+- **Corrections are logged.** Each recovery action writes one aggregated Activity log entry (ADR-0017), attributed to the Member and referencing the Upload — e.g. "imported 2 unreadable rows and 3 duplicates into statement-june.csv" — so a force-import past dedup remains answerable to "who did this?". Per-row entries are rejected as log noise.
+
+## Consequences
+
+- The commit response grows to include the withheld rows, their reasons, and duplicate provenance (bounded by the couldn't-read cap). `partitionNewRows` already returns the duplicate rows — only `.length` is used today — so the count path is cheap to widen; the parser must *retain* dropped rows instead of `return`ing past them, tagging each with a reason.
+- A new correction write path appends chosen rows to an existing `uploadId`: **Fix & import** (dedup applies) and **Import anyway** (dedup bypassed for that row). Recovered and forced rows are classified by the existing `ClassifyTrigger`, like any other Transaction.
+- ADR-0003's "ingestion is idempotent" gains a caveat: a manual **Import anyway** can intentionally insert a fingerprint-duplicate. *Automatic* ingestion — re-upload and bank **Sync** — stays fully idempotent; only this explicit, logged, per-row gesture overrides it.
+- New message keys land in both `messages/en.json` and `messages/is.json`, kept in parity (`lib/i18n/parity.test.ts`).
+- The pre-commit Import preview is unchanged for v1 (it already reports new vs. already-imported); surfacing "couldn't read" there too is a deferred follow-up.
