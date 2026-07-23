@@ -899,10 +899,10 @@
       "heading": "Talið með",
       "caption": "Í tölunum að ofan, en ekki meðal kortafærslanna að neðan.",
       "settingsLink": "Tekjur og kostnaður",
-      "recurringOffCardCost": "Kostnaður utan korts",
-      "oneOffCost": "Stakar færslur (kostnaður)",
       "recurringIncome": "Tekjulindir",
-      "oneOffIncome": "Stakar færslur (tekjur)"
+      "offCardHeading": "Kostnaður utan korts",
+      "oneOffHeading": "Stakar færslur",
+      "oneOffFallback": "Stök færsla"
     }
   },
   "charts": {

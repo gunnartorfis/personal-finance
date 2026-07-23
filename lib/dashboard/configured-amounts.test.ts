@@ -7,9 +7,10 @@ import { householdRepo } from "@/lib/db/household-repo";
 import { households } from "@/lib/db/schema";
 
 import {
+  cycleAmountsFromItems,
   loadConfiguredAmounts,
-  loadConfiguredAmountsBreakdown,
   loadConfiguredAmountsByCycle,
+  loadConfiguredCycleItems,
 } from "./configured-amounts";
 
 describe("loadConfiguredAmountsByCycle", () => {
@@ -110,34 +111,66 @@ describe("loadConfiguredAmountsByCycle", () => {
     });
   });
 
-  it("loads a cycle's breakdown split by recurring vs one-off, per side", async () => {
+  it("itemizes off-card cost sources and one-offs (with labels) for a cycle, income summed", async () => {
     const repo = await freshHousehold();
     await repo.savings.incomeSources.replace([
       { name: "Salary", amount: 500_000, effectiveFrom: "2026-01" },
+      { name: "Rental", amount: 100_000, effectiveFrom: "2026-01" },
     ]);
     await repo.savings.offcardCosts.replace([
       { name: "Rent", monthlyAmount: 200_000, effectiveFrom: "2026-01" },
+      { name: "Gym", monthlyAmount: 12_000, effectiveFrom: "2026-01" },
     ]);
     await repo.savings.oneOffAdjustments.replace([
+      { cycleKey: "2026-02", kind: "cost", amount: 9_999, label: "Insurance" },
       { cycleKey: "2026-02", kind: "income", amount: 50_000, label: "Bonus" },
-      { cycleKey: "2026-02", kind: "cost", amount: 9_999, label: "One-time bill" },
+      { cycleKey: "2026-03", kind: "cost", amount: 1, label: "Other cycle" },
     ]);
 
-    expect(await loadConfiguredAmountsBreakdown(repo, "2026-02")).toEqual({
-      recurringIncome: 500_000,
-      oneOffIncome: 50_000,
-      recurringOffCardCost: 200_000,
-      oneOffCost: 9_999,
+    expect(await loadConfiguredCycleItems(repo, "2026-02")).toEqual({
+      incomeSourcesTotal: 600_000,
+      offCardCosts: [
+        { name: "Rent", amount: 200_000 },
+        { name: "Gym", amount: 12_000 },
+      ],
+      oneOffCosts: [{ label: "Insurance", amount: 9_999 }],
+      oneOffIncomes: [{ label: "Bonus", amount: 50_000 }],
     });
   });
 
-  it("returns an all-zeros breakdown for a household with no configured amounts", async () => {
+  it("keeps a null one-off label as null (the component supplies a fallback)", async () => {
     const repo = await freshHousehold();
-    expect(await loadConfiguredAmountsBreakdown(repo, "2026-03")).toEqual({
-      recurringIncome: 0,
-      oneOffIncome: 0,
-      recurringOffCardCost: 0,
-      oneOffCost: 0,
+    await repo.savings.oneOffAdjustments.replace([
+      { cycleKey: "2026-02", kind: "cost", amount: 5_000, label: null },
+    ]);
+
+    const items = await loadConfiguredCycleItems(repo, "2026-02");
+    expect(items.oneOffCosts).toEqual([{ label: null, amount: 5_000 }]);
+  });
+
+  it("returns empty itemization for a household with no configured amounts", async () => {
+    const repo = await freshHousehold();
+    expect(await loadConfiguredCycleItems(repo, "2026-03")).toEqual({
+      incomeSourcesTotal: 0,
+      offCardCosts: [],
+      oneOffCosts: [],
+      oneOffIncomes: [],
     });
+  });
+});
+
+describe("cycleAmountsFromItems", () => {
+  it("folds itemized amounts into the per-side totals the overview adds", () => {
+    expect(
+      cycleAmountsFromItems({
+        incomeSourcesTotal: 600_000,
+        offCardCosts: [
+          { name: "Rent", amount: 200_000 },
+          { name: "Gym", amount: 12_000 },
+        ],
+        oneOffCosts: [{ label: "Insurance", amount: 9_999 }],
+        oneOffIncomes: [{ label: "Bonus", amount: 50_000 }],
+      }),
+    ).toEqual({ monthlyIncome: 650_000, offCardFixed: 221_999 });
   });
 });
