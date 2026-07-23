@@ -103,16 +103,19 @@ function rowsToParsed(
       });
       return;
     }
-    // A row with fewer than two populated cells is structural noise (blank line, separator,
-    // statement footer) — counted as ignored, never offered for repair. Otherwise the row looks
-    // real: name the cell we couldn't read so it can be corrected.
+    // A fully-empty record — a blank line, or the trailing newline every well-formed CSV ends
+    // with — is not a real line and must not inflate the ignored count; drop it silently.
     const populated = r.filter((c) => (c ?? "").trim() !== "").length;
-    const reason: WithheldReason =
-      populated < 2 ? "non-data" : !dateOk ? "bad-date" : "bad-amount";
+    if (populated === 0) return;
+    // One populated cell is structural noise (separator, statement footer) — counted as ignored,
+    // never offered for repair. Otherwise the row looks real: name the cell we couldn't read.
+    const reason: WithheldReason = populated < 2 ? "non-data" : !dateOk ? "bad-date" : "bad-amount";
     withheld.push({ sourceRow: idx, reason, cells: r });
   });
-  if (out.length > MAX_ROWS) {
-    throw new RowCapExceededError(out.length);
+  // The cap bounds total retained records (parsed + withheld): withheld rows also hold raw cells in
+  // memory and flow into the response, so they must count toward the pathological-upload guard.
+  if (out.length + withheld.length > MAX_ROWS) {
+    throw new RowCapExceededError(out.length + withheld.length);
   }
   return { rows: out, withheld };
 }
