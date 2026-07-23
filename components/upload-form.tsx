@@ -221,10 +221,11 @@ export function UploadForm({ className }: { className?: string }) {
     if (outcome.appended > 0) setClassifyRun((run) => run + 1)
   }
 
-  // Import anyway: same shape, but the row leaves the already-imported bucket instead.
-  function handleForced(sourceRow: number, outcome: RecoveredOutcome) {
-    setSummary((prev) => (prev ? applyForced(prev, sourceRow, outcome) : prev))
-    if (outcome.appended > 0) setClassifyRun((run) => run + 1)
+  // Import anyway: the row leaves the already-imported bucket for added. A 2xx means it's imported
+  // either way (fresh, or a retry no-op of a lost insert), so re-drive classification regardless.
+  function handleForced(sourceRow: number) {
+    setSummary((prev) => (prev ? applyForced(prev, sourceRow) : prev))
+    setClassifyRun((run) => run + 1)
   }
 
   // Resolve to text at render (not when the error is raised) so the alert follows a locale change.

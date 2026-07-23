@@ -20,15 +20,13 @@ export function applyRecovered(
   }
 }
 
-export function applyForced(
-  summary: ImportSummary,
-  sourceRow: number,
-  outcome: RecoveredOutcome,
-): ImportSummary {
+export function applyForced(summary: ImportSummary, sourceRow: number): ImportSummary {
+  // A force that returns 2xx means the row is imported — inserted now, or already inserted by a lost
+  // earlier request that this retry no-ops — so move it to added regardless of the returned count.
   return {
     ...summary,
-    added: summary.added + outcome.appended,
-    alreadyImported: Math.max(0, summary.alreadyImported - outcome.appended),
+    added: summary.added + 1,
+    alreadyImported: Math.max(0, summary.alreadyImported - 1),
     alreadyImportedRows: summary.alreadyImportedRows.filter((row) => row.sourceRow !== sourceRow),
   }
 }

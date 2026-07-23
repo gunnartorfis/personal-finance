@@ -63,7 +63,7 @@ function AlreadyImportedRowItem({
 }: {
   uploadId: string
   row: AlreadyImportedRow
-  onForced: (sourceRow: number, outcome: RecoveredOutcome) => void
+  onForced: (sourceRow: number) => void
 }) {
   const t = useTranslations("upload")
   const locale = useLocale() as Locale
@@ -86,8 +86,9 @@ function AlreadyImportedRowItem({
         }),
       })
       if (!res.ok) throw new Error("failed")
-      const data = (await res.json()) as { appended?: number; duplicates?: number }
-      onForced(row.sourceRow, { appended: data.appended ?? 0, duplicates: data.duplicates ?? 0 })
+      // A 2xx means the row is imported (fresh, or a retry that no-ops a lost insert) — the count
+      // it returns doesn't matter to the UI; move the row to added regardless.
+      onForced(row.sourceRow)
     } catch {
       setStatus("failed")
     }
@@ -127,7 +128,7 @@ function AlreadyImportedList({
   uploadId: string
   rows: AlreadyImportedRow[]
   total: number
-  onForced: (sourceRow: number, outcome: RecoveredOutcome) => void
+  onForced: (sourceRow: number) => void
 }) {
   const t = useTranslations("upload")
   return (
@@ -294,7 +295,7 @@ export function ImportSummaryCard({
   summary: ImportSummary
   uploadId: string
   onRecovered: (sourceRow: number, outcome: RecoveredOutcome) => void
-  onForced: (sourceRow: number, outcome: RecoveredOutcome) => void
+  onForced: (sourceRow: number) => void
 }) {
   const t = useTranslations("upload")
   const [showDetails, setShowDetails] = useState(false)
