@@ -15,6 +15,7 @@ const { RowCapExceededError } = vi.hoisted(() => ({ RowCapExceededError: class e
 const parseWithMappingAndHeader = vi.fn(() => ({
   rows: [{ sourceRow: 0 }],
   header: ["Dagsetning", "Mótaðili", "Tegund", "Upphæð"],
+  withheld: [],
 }));
 vi.mock("@/lib/ingestion/parse-csv", () => ({
   parseWithMappingAndHeader: () => parseWithMappingAndHeader(),
@@ -26,6 +27,7 @@ type ResolvedLike = {
   mapping: Record<string, number>;
   unmatchedRoles: string[];
   rows: { sourceRow: number }[];
+  withheld: { sourceRow: number; reason: string; cells: string[] }[];
   source: string;
 };
 const resolveUpload = vi.fn<(...a: unknown[]) => Promise<ResolvedLike>>(async () => ({
@@ -33,6 +35,7 @@ const resolveUpload = vi.fn<(...a: unknown[]) => Promise<ResolvedLike>>(async ()
   mapping: { date: 0, merchant: 1, category: 2, amount: 3 },
   unmatchedRoles: [],
   rows: [{ sourceRow: 0 }],
+  withheld: [],
   source: "heuristic",
 }));
 vi.mock("@/lib/ingestion/resolve-mapping", () => ({
@@ -75,6 +78,27 @@ describe("POST /api/uploads", () => {
     expect(res.status).toBe(201);
   });
 
+  it("surfaces couldn't-read rows and the ignored count on a fresh import", async () => {
+    resolveUpload.mockResolvedValueOnce({
+      header: ["Dagsetning", "Mótaðili", "Tegund", "Upphæð"],
+      mapping: { date: 0, merchant: 1, category: 2, amount: 3 },
+      unmatchedRoles: [],
+      rows: [{ sourceRow: 0 }],
+      source: "heuristic",
+      withheld: [
+        { sourceRow: 1, reason: "bad-amount", cells: ["05.03.2026", "BÓNUS", "Verslun", "x"] },
+        { sourceRow: 2, reason: "non-data", cells: ["", "", "", ""] },
+      ],
+    });
+    ingestUpload.mockResolvedValue({ status: "created", upload: { id: "u1" }, appended: 1, duplicates: 0 });
+    const res = await POST(post({ file: csvFile(), accountId: ACCOUNT }));
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.couldntRead).toHaveLength(1);
+    expect(body.couldntRead[0]).toMatchObject({ reason: "bad-amount", merchant: "BÓNUS", amount: "x" });
+    expect(body.ignoredCount).toBe(1);
+  });
+
   it("returns 404 for an unknown account", async () => {
     ingestUpload.mockResolvedValue({ status: "unknown-account" });
     const res = await POST(post({ file: csvFile(), accountId: ACCOUNT }));
@@ -107,6 +131,7 @@ describe("POST /api/uploads", () => {
       mapping: { date: 0, merchant: 1, category: 2, amount: 3 },
       unmatchedRoles: [],
       rows: [{ sourceRow: 0 }],
+      withheld: [],
       source: "remembered",
     });
     ingestUpload.mockResolvedValue({ status: "created", upload: { id: "u1" }, appended: 1, duplicates: 0 });
@@ -120,6 +145,7 @@ describe("POST /api/uploads", () => {
       mapping: {},
       unmatchedRoles: ["amount"],
       rows: [],
+      withheld: [],
       source: "none",
     });
     const res = await POST(post({ file: csvFile(), accountId: ACCOUNT }));
