@@ -59,8 +59,9 @@ find **this run's** PR by its deterministic branch — never by the shared label
 
 ```bash
 TASK="<the exact task text you were invoked with>"   # stable across ticks
-SLUG=$(printf '%s' "$TASK" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g' | cut -c1-40 | sed -E 's/-+$//')
-BRANCH="feat/$SLUG"                                   # identity key for this run
+HASH=$(printf '%s' "$TASK" | shasum -a 256 | cut -c1-8)   # collision-resistant suffix
+SLUG=$(printf '%s' "$TASK" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g' | cut -c1-32 | sed -E 's/-+$//')
+BRANCH="feat/${SLUG}-${HASH}"                         # identity: kebab prefix + hash of full task
 gh label create autopilot --color 1f6feb 2>/dev/null; gh label create autopilot-epic --color 8250df 2>/dev/null
 RUN=$(gh pr list --state all --head "$BRANCH" --base main --json number,state,labels,body,url --jq '.[0] // empty')
 ```
@@ -298,9 +299,10 @@ checklist current) so the next tick — or a human — can pick up.
   branch; small + epic PRs base on `main`.
 - **Branches:** this run's branch is `feat/<slug>` — the epic branch for big work,
   the single branch for small work; chunks are `feat/<slug>-<n>-<short>`. `<slug>`
-  is a deterministic kebab of `<task>`, so every tick recomputes the same branch
-  and finds this run's PR by `--head`. The real conventional type (`fix`/`feat`/…)
-  lives in the commit and PR **title**, not the branch name.
+  is a deterministic kebab of `<task>` **plus an 8-char hash of the full task** (so
+  distinct tasks that share a prefix never collide), so every tick recomputes the
+  same branch and finds this run's PR by `--head`. The real conventional type
+  (`fix`/`feat`/…) lives in the commit and PR **title**, not the branch name.
 - **Commits:** scoped Conventional Commits (`feat(scope): …`, `fix(scope): …`),
   imperative, lowercase, no trailing period. End with
   `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` (matches this repo's

@@ -12,9 +12,13 @@ the label" (that would clobber a concurrent autopilot run in another worktree).
 
 ```bash
 TASK="<the exact task text you were invoked with>"   # stable across ticks
-# Deterministic: same <task> → same slug → same branch, every tick.
+# Deterministic + collision-resistant: a readable kebab prefix PLUS an 8-char hash
+# of the FULL task, so two tasks that share the first chars never derive the same
+# branch. Same <task> → same slug → same branch, every tick.
+HASH=$(printf '%s' "$TASK" | shasum -a 256 | cut -c1-8)
 SLUG=$(printf '%s' "$TASK" | tr '[:upper:]' '[:lower:]' \
-       | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g' | cut -c1-40 | sed -E 's/-+$//')
+       | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g' | cut -c1-32 | sed -E 's/-+$//')
+SLUG="${SLUG}-${HASH}"
 BRANCH="feat/$SLUG"        # this run's epic (big) or single (small) branch — the identity key
 
 git fetch origin --prune
@@ -43,34 +47,36 @@ gh pr list --state all --base "$BRANCH" --json number,state,headRefName,title
 
 Two signals gate every merge, and both are verified against real PRs in this repo.
 
-**Greptile Confidence Score — tied to the CURRENT head commit.** Greptile reviews
-a specific commit. After a Phase-5 push, CI can go green again *before* Greptile
-re-reviews, leaving a stale score on the previous revision — which must **not**
-authorise a merge. So only trust the score when Greptile's latest review
-`commit_id` equals the PR's current head; otherwise report `pending`:
+**Greptile Confidence Score — read atomically with the commit it scored.**
+Greptile reviews a specific commit. After a Phase-5 push, CI can go green again
+*before* Greptile re-scores. The review object and the confidence comment update
+**separately**, so "review `commit_id` == head, then read the score from the
+comment" can still race (review fresh, comment stale → a stale score slips
+through). Avoid it: the confidence comment itself links `/commit/<sha>` for the
+commit it scored, so read the score from that comment **only when it links the
+current head** — one object, no race:
 
 ```bash
 PR=<number>
 HEAD=$(gh pr view "$PR" --json headRefOid --jq '.headRefOid')
-REVIEWED=$(gh api "repos/{owner}/{repo}/pulls/$PR/reviews" --jq \
-  '[.[] | select(.user.login=="greptile-apps[bot]")] | last | .commit_id // ""')
-if [ "$REVIEWED" = "$HEAD" ]; then
-  gh api "repos/{owner}/{repo}/issues/$PR/comments" --jq '
-    [.[] | select(.user.login=="greptile-apps[bot]")] | last
-    | (.body | capture("Confidence Score: (?<s>[0-9])/5").s) // "pending"'
-else
-  echo "pending"   # Greptile has not yet reviewed the current head commit
-fi
+BODY=$(gh api "repos/{owner}/{repo}/issues/$PR/comments" --jq \
+  '[.[] | select(.user.login=="greptile-apps[bot]")] | last | .body')
+case "$BODY" in
+  *"/commit/$HEAD"*) printf '%s' "$BODY" | sed -nE 's#.*Confidence Score: ([0-9])/5.*#\1#p' | head -1 ;;
+  *) echo "pending" ;;      # the comment does not (yet) score the current head commit
+esac
 ```
 
-(If Greptile has moved the score into the PR body, read it from
-`gh pr view "$PR" --json body`; the `commit_id` vs head check above still governs
-whether that score is current.)
+(`gh api --jq` has no `--arg`, hence the shell glob on `$BODY`. If Greptile ever
+drops the `/commit/<sha>` link, fall back to requiring the latest review
+`commit_id` == head AND the comment `updated_at` after your push — but the
+single-comment read above is race-free.)
 
-**CI checks verdict — every required job must be PRESENT and green.** Filtering to
-the six required jobs is not enough: if a required job is *missing* (renamed, not
-yet created) a naive filter can report `green` off a partial suite. Require all
-six named jobs present and successful, else `pending`/`failed` (an optional
+**CI checks verdict — every required job must be PRESENT and pass.** Filtering to
+the six required jobs is not enough on its own: a *missing* job (renamed, not yet
+created) or one that concluded `SKIPPED`/`NEUTRAL` must **not** count as green —
+otherwise a chunk can merge without every validation actually running. Require all
+six named jobs to conclude exactly `SUCCESS`, else `pending`/`failed` (an optional
 Vercel/preview check is ignored):
 
 ```bash
@@ -82,8 +88,8 @@ gh pr view "$PR" --json statusCheckRollup --jq '
       | ($all | map(select(.name==$n))) as $m
       | (if ($m|length)==0 then "MISSING" else $m[-1].s end) ] as $st
   | if   ($st | map(select(test("FAIL|ERROR|CANCELL|TIMED_OUT|ACTION_REQUIRED"))) | length) > 0 then "failed"
-    elif ($st | map(select(test("^(SUCCESS|NEUTRAL|SKIPPED)$")))              | length) == ($req|length) then "green"
-    else "pending" end'   # any MISSING or in-progress required job ⇒ pending, never green
+    elif ($st | map(select(. == "SUCCESS")) | length) == ($req|length) then "green"
+    else "pending" end'   # MISSING / in-progress / SKIPPED / NEUTRAL required job ⇒ pending, never green
 ```
 
 To see *which* check failed (for the report / to decide who fixes it):
