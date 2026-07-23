@@ -357,7 +357,9 @@ export function UploadForm({ className }: { className?: string }) {
               the run so if the user leaves this page mid-drain, the standing controls (dashboard /
               transactions / banner) pick it back up. UploadProgress shows the per-upload bar here. */}
           <ClassifyTrigger key={`${uploadId}-${classifyRun}`} autoRun resumable />
-          <UploadProgress uploadId={uploadId} />
+          {/* Keyed by classifyRun too: a recover/force appends a pending row after the bar has
+              polled to 100%, so remount it to re-poll and reflect the new pending work. */}
+          <UploadProgress key={`${uploadId}-${classifyRun}`} uploadId={uploadId} />
         </div>
       )}
     </section>
