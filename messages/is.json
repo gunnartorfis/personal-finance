@@ -332,8 +332,19 @@
       },
       "sampleHeading": "Forskoðun",
       "confirm": "Staðfesta innflutning",
-      "cancel": "Hætta við",
-      "summary": "{added} bætt við, {skipped} sleppt"
+      "cancel": "Hætta við"
+    },
+    "outcome": {
+      "added": "{count} bætt við",
+      "alreadyImported": "{count} þegar fluttar inn",
+      "couldntRead": "{count} ólæsilegar",
+      "ignored": "{count} línur hunsaðar",
+      "showDetails": "Sýna nánar",
+      "hideDetails": "Fela nánar",
+      "systematicHint": "Flestar línur mistókust á sama hátt — þetta skráarsnið er mögulega ekki stutt enn.",
+      "andMore": "+{count} ólæsilegar til viðbótar",
+      "reasonBadDate": "Ólæsileg dagsetning",
+      "reasonBadAmount": "Ólæsileg upphæð"
     },
     "errors": {
       "duplicate": "Þessi skrá hefur þegar verið flutt inn.",

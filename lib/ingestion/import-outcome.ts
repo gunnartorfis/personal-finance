@@ -10,7 +10,7 @@ import type { WithheldReason, WithheldRow } from "./parse-csv";
  */
 
 /** Default cap on individually-listed couldn't-read rows; the rest are reported only as a count. */
-export const COULDNT_READ_CAP = 50;
+const COULDNT_READ_CAP = 50;
 
 /** At least this many correctable rows, this dominated by one reason ⇒ a systematic failure. */
 const SYSTEMATIC_MIN = 10;
