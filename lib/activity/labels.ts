@@ -32,6 +32,7 @@ const ACTION_LABEL_KEY: Record<string, string> = {
   [ActivityAction.DataExported]: "dataExported",
   [ActivityAction.BankDisconnected]: "bankDisconnected",
   [ActivityAction.DataReset]: "dataReset",
+  [ActivityAction.UploadRowsRecovered]: "uploadRowsRecovered",
 };
 
 /** The `activityLog.actions.*` catalog key for an action string; `"unknown"` if unrecognized. */

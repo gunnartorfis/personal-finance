@@ -350,7 +350,9 @@
       "provenanceNoFile": "flutt inn {date}",
       "provenanceUnknown": "þegar flutt inn",
       "reasonBadDate": "Ólæsileg dagsetning",
-      "reasonBadAmount": "Ólæsileg upphæð"
+      "reasonBadAmount": "Ólæsileg upphæð",
+      "fixImport": "Laga og flytja inn",
+      "fixFailed": "Tókst ekki að flytja inn — athugaðu gildin og reyndu aftur."
     },
     "errors": {
       "duplicate": "Þessi skrá hefur þegar verið flutt inn.",
@@ -628,6 +630,7 @@
       "dataExported": "flutti út heimilisgögn",
       "bankDisconnected": "aftengdi banka",
       "dataReset": "núllstillti heimilisgögn",
+      "uploadRowsRecovered": "endurheimti ólæsilega línu",
       "unknown": "gerði breytingu"
     }
   },

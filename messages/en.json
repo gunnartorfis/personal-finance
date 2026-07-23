@@ -350,7 +350,9 @@
       "provenanceNoFile": "imported {date}",
       "provenanceUnknown": "already imported",
       "reasonBadDate": "Unreadable date",
-      "reasonBadAmount": "Unreadable amount"
+      "reasonBadAmount": "Unreadable amount",
+      "fixImport": "Fix & import",
+      "fixFailed": "Couldn't import — check the values and try again."
     },
     "errors": {
       "duplicate": "This file was already imported.",
@@ -628,6 +630,7 @@
       "dataExported": "exported the household data",
       "bankDisconnected": "disconnected a bank",
       "dataReset": "reset the household data",
+      "uploadRowsRecovered": "recovered an unreadable row",
       "unknown": "made a change"
     }
   },

@@ -15,6 +15,7 @@ import {
   type AlreadyImportedRow,
   type CouldntReadRow,
   type ImportSummary,
+  type RecoveredOutcome,
 } from "@/components/import-summary"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -208,6 +209,22 @@ export function UploadForm({ className }: { className?: string }) {
     }
   }
 
+  /** A couldn't-read row was fixed & imported: drop it from the list and move it into the right
+   *  bucket (added, or already-imported if the fix turned out to be a dedup match). */
+  function handleRecovered(sourceRow: number, outcome: RecoveredOutcome) {
+    setSummary((prev) =>
+      prev
+        ? {
+            ...prev,
+            added: prev.added + outcome.appended,
+            alreadyImported: prev.alreadyImported + outcome.duplicates,
+            couldntRead: prev.couldntRead.filter((row) => row.sourceRow !== sourceRow),
+            couldntReadTotal: Math.max(0, prev.couldntReadTotal - 1),
+          }
+        : prev,
+    )
+  }
+
   // Resolve to text at render (not when the error is raised) so the alert follows a locale change.
   // Keys are spelled out literally rather than interpolated so next-intl can statically check them.
   const errorText = !error
@@ -321,7 +338,14 @@ export function UploadForm({ className }: { className?: string }) {
         </div>
       )}
 
-      {summary && <ImportSummaryCard key={uploadId ?? ""} summary={summary} />}
+      {summary && uploadId && (
+        <ImportSummaryCard
+          key={uploadId}
+          summary={summary}
+          uploadId={uploadId}
+          onRecovered={handleRecovered}
+        />
+      )}
 
       {uploadId && (
         <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6">

@@ -45,6 +45,9 @@ export const ActivityAction = {
 
   // Household data reset (ADR-0017) — logged inside the reset transaction; the log itself survives.
   DataReset: "data.reset",
+
+  // Import recovery (ADR-0025): a Member recovered a row the CSV parser couldn't read.
+  UploadRowsRecovered: "upload.rows_recovered",
 } as const;
 
 export type ActivityAction = (typeof ActivityAction)[keyof typeof ActivityAction];
