@@ -87,12 +87,37 @@ describe("appendTransactions", () => {
   });
 
   it("force-appends a row even when it duplicates a stored one (import anyway)", async () => {
-    const { repo, accountId, uploadId } = await freshUpload();
+    const [hh] = await db.insert(households).values({}).returning();
+    const repo = householdRepo(asDb(db), hh.id);
+    const [account] = await repo.accounts.create({ name: "Visa" });
+    const [upA] = await repo.uploads.create({ accountId: account.id, fileName: "a.csv", fileHash: "fa" });
+    const [upB] = await repo.uploads.create({ accountId: account.id, fileName: "b.csv", fileHash: "fb" });
     const rows = [row(0, -1990, "NETFLIX")];
-    await appendTransactions(repo, { uploadId, accountId, rows });
-    // The same row again, but forced: dedup is bypassed and it is inserted as a second copy.
-    const forced = await appendTransactions(repo, { uploadId, accountId, rows, force: true });
+    await appendTransactions(repo, { uploadId: upA.id, accountId: account.id, rows });
+    // The same fingerprint arrives in a later upload and is imported anyway: dedup is bypassed.
+    const forced = await appendTransactions(repo, {
+      uploadId: upB.id,
+      accountId: account.id,
+      rows,
+      force: true,
+    });
     expect(forced).toEqual({ appended: 1, duplicates: 0, alreadyImported: [] });
+    expect(await repo.transactions.list()).toHaveLength(2);
+  });
+
+  it("keeps a forced import idempotent against a retried request", async () => {
+    const [hh] = await db.insert(households).values({}).returning();
+    const repo = householdRepo(asDb(db), hh.id);
+    const [account] = await repo.accounts.create({ name: "Visa" });
+    const [upA] = await repo.uploads.create({ accountId: account.id, fileName: "a.csv", fileHash: "ga" });
+    const [upB] = await repo.uploads.create({ accountId: account.id, fileName: "b.csv", fileHash: "gb" });
+    const rows = [row(0, -1990, "NETFLIX")];
+    await appendTransactions(repo, { uploadId: upA.id, accountId: account.id, rows });
+    const first = await appendTransactions(repo, { uploadId: upB.id, accountId: account.id, rows, force: true });
+    // A retry of the same force (e.g. after a lost response) must not insert a second copy.
+    const retry = await appendTransactions(repo, { uploadId: upB.id, accountId: account.id, rows, force: true });
+    expect(first.appended).toBe(1);
+    expect(retry.appended).toBe(0);
     expect(await repo.transactions.list()).toHaveLength(2);
   });
 

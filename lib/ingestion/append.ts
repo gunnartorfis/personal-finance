@@ -38,9 +38,20 @@ export async function appendTransactions(
 
   // "Import anyway" (ADR-0025): force bypasses the row-fingerprint dedup, inserting even a row whose
   // fingerprint is already stored — the one deliberate exception to ADR-0003's idempotent ingestion.
-  const { fresh, duplicates } = input.force
-    ? { fresh: incoming, duplicates: [] as typeof incoming }
-    : partitionNewRows(existing, incoming);
+  // It stays idempotent against a *retried* request, though: a forced row targets a specific
+  // (upload, sourceRow) that this upload withheld, so skip one already inserted for that pair — a
+  // lost response + retry then can't create a second copy.
+  let fresh: typeof incoming;
+  let duplicates: typeof incoming;
+  if (input.force) {
+    const alreadyForced = new Set(
+      stored.filter((t) => t.uploadId === input.uploadId).map((t) => t.sourceRow),
+    );
+    fresh = incoming.filter((r) => !alreadyForced.has(r.sourceRow));
+    duplicates = [];
+  } else {
+    ({ fresh, duplicates } = partitionNewRows(existing, incoming));
+  }
 
   await repo.transactions.createMany(
     fresh.map((row) => ({
