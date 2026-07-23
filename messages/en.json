@@ -893,7 +893,17 @@
     "colType": "Type",
     "yourShare": "your share {amount}",
     "uncategorized": "Uncategorized",
-    "categoryFilterLabel": "Filter by category"
+    "categoryFilterLabel": "Filter by category",
+    "cardTransactionsHeading": "Card transactions",
+    "configured": {
+      "heading": "Also counted",
+      "caption": "Included in the totals above, but not among the card transactions below.",
+      "settingsLink": "Income & costs",
+      "recurringOffCardCost": "Off-card costs",
+      "oneOffCost": "One-off adjustments (cost)",
+      "recurringIncome": "Income sources",
+      "oneOffIncome": "One-off adjustments (income)"
+    }
   },
   "charts": {
     "spendingTrend": {

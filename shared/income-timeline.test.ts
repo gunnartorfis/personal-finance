@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { amountInForce, resolveCycleAmounts, type EffectiveAmount } from "./income-timeline.ts";
+import {
+  amountInForce,
+  resolveCycleAmounts,
+  resolveCycleAmountsBreakdown,
+  toCycleAmounts,
+  type EffectiveAmount,
+} from "./income-timeline.ts";
 
 describe("amountInForce", () => {
   it("is 0 for a source with no versions", () => {
@@ -127,5 +133,51 @@ describe("resolveCycleAmounts", () => {
       ["2026-06"],
     );
     expect(resolved.get("2026-06")!.monthlyIncome).toBe(70_000);
+  });
+});
+
+describe("resolveCycleAmountsBreakdown", () => {
+  it("keeps recurring sources and one-off adjustments separate, per side", () => {
+    const resolved = resolveCycleAmountsBreakdown(
+      {
+        incomeSources: [[{ amount: 500_000, effectiveFrom: "2026-01" }]],
+        offcardCostSources: [[{ amount: 200_000, effectiveFrom: "2026-01" }]],
+        incomeOneOffs: [{ cycleKey: "2026-02", amount: 50_000 }], // a bonus
+        costOneOffs: [{ cycleKey: "2026-02", amount: 9_999 }], // an annual bill
+      },
+      ["2026-02"],
+    );
+    expect(resolved.get("2026-02")).toEqual({
+      recurringIncome: 500_000,
+      oneOffIncome: 50_000,
+      recurringOffCardCost: 200_000,
+      oneOffCost: 9_999,
+    });
+  });
+
+  it("resolves all-zeros for a cycle before any source starts", () => {
+    const resolved = resolveCycleAmountsBreakdown(
+      { ...EMPTY, incomeSources: [[{ amount: 500_000, effectiveFrom: "2026-06" }]] },
+      ["2026-01"],
+    );
+    expect(resolved.get("2026-01")).toEqual({
+      recurringIncome: 0,
+      oneOffIncome: 0,
+      recurringOffCardCost: 0,
+      oneOffCost: 0,
+    });
+  });
+});
+
+describe("toCycleAmounts", () => {
+  it("sums each side of a breakdown into the per-side totals", () => {
+    expect(
+      toCycleAmounts({
+        recurringIncome: 500_000,
+        oneOffIncome: 50_000,
+        recurringOffCardCost: 200_000,
+        oneOffCost: 9_999,
+      }),
+    ).toEqual({ monthlyIncome: 550_000, offCardFixed: 209_999 });
   });
 });
