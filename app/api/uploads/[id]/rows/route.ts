@@ -45,6 +45,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { date, amount, merchant } = body ?? {};
   const category = body?.category ?? "";
   const sourceRow = body?.sourceRow;
+  // "Import anyway" (ADR-0025): force a row past dedup even though its fingerprint already exists.
+  const force = body?.force === true;
   if (
     typeof date !== "string" ||
     !isRealIsoDate(date) ||
@@ -72,6 +74,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     uploadId: id,
     accountId: upload.accountId,
     rows: [row],
+    force,
   });
 
   // Post-append, best-effort — mirror ingestUpload. Once the row is durably appended, neither the
@@ -86,11 +89,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
   }
   try {
-    await recordActivity(ctx, ActivityAction.UploadRowsRecovered, {
-      uploadId: id,
-      appended: result.appended,
-      duplicates: result.duplicates,
-    });
+    await recordActivity(
+      ctx,
+      force ? ActivityAction.UploadRowsForced : ActivityAction.UploadRowsRecovered,
+      { uploadId: id, appended: result.appended, duplicates: result.duplicates },
+    );
   } catch {
     // The import already succeeded; a logging hiccup must never mask it.
   }

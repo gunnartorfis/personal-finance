@@ -42,7 +42,7 @@ export interface ImportSummary {
   systematic: boolean
 }
 
-/** Outcome of a single Fix & import: how the recovered row resolved through dedup. */
+/** Outcome of a single Fix & import / Import anyway: how the row resolved through the append. */
 export type RecoveredOutcome = { appended: number; duplicates: number }
 
 type T = ReturnType<typeof useTranslations>
@@ -55,10 +55,82 @@ function provenanceLabel(t: T, locale: Locale, row: AlreadyImportedRow): string 
     : t("outcome.provenanceNoFile", { date })
 }
 
-/** The already-imported subsection: each deduped row with when/where it first came in (read-only). */
-function AlreadyImportedList({ rows, total }: { rows: AlreadyImportedRow[]; total: number }) {
+/** One already-imported row: its provenance plus a per-row Import anyway (force past dedup). */
+function AlreadyImportedRowItem({
+  uploadId,
+  row,
+  onForced,
+}: {
+  uploadId: string
+  row: AlreadyImportedRow
+  onForced: (sourceRow: number) => void
+}) {
   const t = useTranslations("upload")
   const locale = useLocale() as Locale
+  const [status, setStatus] = useState<"idle" | "busy" | "failed">("idle")
+
+  async function importAnyway() {
+    if (status === "busy") return
+    setStatus("busy")
+    try {
+      const res = await fetch(`/api/uploads/${uploadId}/rows`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          date: row.date,
+          amount: row.amount,
+          merchant: row.merchant,
+          category: row.category,
+          sourceRow: row.sourceRow,
+          force: true,
+        }),
+      })
+      if (!res.ok) throw new Error("failed")
+      // A 2xx means the row is imported (fresh, or a retry that no-ops a lost insert) — the count
+      // it returns doesn't matter to the UI; move the row to added regardless.
+      onForced(row.sourceRow)
+    } catch {
+      setStatus("failed")
+    }
+  }
+
+  return (
+    <li className="flex flex-col gap-1 py-1.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="tabular-nums text-muted-foreground">{row.date}</span>
+          <span className="truncate">{row.merchant}</span>
+          <span className="tabular-nums">{row.amount}</span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2">
+          <span className="text-xs text-muted-foreground">{provenanceLabel(t, locale, row)}</span>
+          <Button type="button" size="sm" disabled={status === "busy"} onClick={importAnyway}>
+            {t("outcome.importAnyway")}
+          </Button>
+        </span>
+      </div>
+      {status === "failed" && (
+        <p role="alert" className="text-xs text-destructive">
+          {t("outcome.importAnywayFailed")}
+        </p>
+      )}
+    </li>
+  )
+}
+
+/** The already-imported subsection: each deduped row with provenance and a per-row Import anyway. */
+function AlreadyImportedList({
+  uploadId,
+  rows,
+  total,
+  onForced,
+}: {
+  uploadId: string
+  rows: AlreadyImportedRow[]
+  total: number
+  onForced: (sourceRow: number) => void
+}) {
+  const t = useTranslations("upload")
   return (
     <section className="flex flex-col gap-1.5">
       <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -66,16 +138,12 @@ function AlreadyImportedList({ rows, total }: { rows: AlreadyImportedRow[]; tota
       </h3>
       <ul className="flex flex-col divide-y divide-border">
         {rows.map((row) => (
-          <li key={row.sourceRow} className="flex items-center justify-between gap-3 py-1.5">
-            <span className="flex min-w-0 items-center gap-2">
-              <span className="tabular-nums text-muted-foreground">{row.date}</span>
-              <span className="truncate">{row.merchant}</span>
-              <span className="tabular-nums">{row.amount}</span>
-            </span>
-            <span className="shrink-0 text-xs text-muted-foreground">
-              {provenanceLabel(t, locale, row)}
-            </span>
-          </li>
+          <AlreadyImportedRowItem
+            key={row.sourceRow}
+            uploadId={uploadId}
+            row={row}
+            onForced={onForced}
+          />
         ))}
       </ul>
       {total > rows.length && (
@@ -222,10 +290,12 @@ export function ImportSummaryCard({
   summary,
   uploadId,
   onRecovered,
+  onForced,
 }: {
   summary: ImportSummary
   uploadId: string
   onRecovered: (sourceRow: number, outcome: RecoveredOutcome) => void
+  onForced: (sourceRow: number) => void
 }) {
   const t = useTranslations("upload")
   const [showDetails, setShowDetails] = useState(false)
@@ -269,8 +339,10 @@ export function ImportSummaryCard({
             <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 text-sm">
               {summary.alreadyImportedRows.length > 0 && (
                 <AlreadyImportedList
+                  uploadId={uploadId}
                   rows={summary.alreadyImportedRows}
                   total={summary.alreadyImported}
+                  onForced={onForced}
                 />
               )}
               {summary.couldntReadTotal > 0 && (

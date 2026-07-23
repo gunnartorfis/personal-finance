@@ -352,7 +352,9 @@
       "reasonBadDate": "Unreadable date",
       "reasonBadAmount": "Unreadable amount",
       "fixImport": "Fix & import",
-      "fixFailed": "Couldn't import — check the values and try again."
+      "fixFailed": "Couldn't import — check the values and try again.",
+      "importAnyway": "Import anyway",
+      "importAnywayFailed": "Couldn't import — try again."
     },
     "errors": {
       "duplicate": "This file was already imported.",
@@ -631,6 +633,7 @@
       "bankDisconnected": "disconnected a bank",
       "dataReset": "reset the household data",
       "uploadRowsRecovered": "recovered an unreadable row",
+      "uploadRowsForced": "imported a duplicate row",
       "unknown": "made a change"
     }
   },
