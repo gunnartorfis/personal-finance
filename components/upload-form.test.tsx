@@ -276,6 +276,40 @@ describe("UploadForm", () => {
     expect(screen.getByText(/\+\s*150 more/i)).toBeInTheDocument()
   })
 
+  it("shows already-imported rows with provenance when details are expanded", async () => {
+    stubApi({
+      uploadBody: {
+        status: "created",
+        upload: { id: "u1" },
+        appended: 1,
+        duplicates: 1,
+        alreadyImported: [
+          {
+            sourceRow: 0,
+            date: "2026-03-01",
+            amount: -650,
+            merchant: "KAFFITAR",
+            category: "Kaffi",
+            importedAt: "2026-01-05T00:00:00.000Z",
+            fileName: "dec.csv",
+          },
+        ],
+        couldntRead: [],
+        couldntReadTotal: 0,
+        ignoredCount: 0,
+        systematic: false,
+      },
+    })
+    render(<UploadForm />)
+    await pickAndSubmit(ACCOUNTS[0].id)
+    await screen.findByRole("status")
+
+    await userEvent.click(screen.getByRole("button", { name: /show details/i }))
+    expect(screen.getByText("KAFFITAR")).toBeInTheDocument()
+    // Provenance names the file the row first arrived in.
+    expect(screen.getByText(/dec\.csv/)).toBeInTheDocument()
+  })
+
   it("hides the picker and imports to the default when it's the only account", async () => {
     const fetchMock = stubApi()
     // Only one account: override the accounts response.

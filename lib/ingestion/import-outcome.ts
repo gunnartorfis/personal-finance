@@ -1,3 +1,5 @@
+import { fingerprint, type FingerprintInput } from "@/shared/dedup";
+
 import type { ColumnMapping } from "./column-mapping";
 import type { WithheldReason, WithheldRow } from "./parse-csv";
 
@@ -9,8 +11,8 @@ import type { WithheldReason, WithheldRow } from "./parse-csv";
  * re-exporting rather than hand-fixing hundreds of rows.
  */
 
-/** Default cap on individually-listed couldn't-read rows; the rest are reported only as a count. */
-const COULDNT_READ_CAP = 50;
+/** Default cap on individually-listed detail rows (couldn't-read / already-imported); rest are a count. */
+const DETAIL_CAP = 50;
 
 /** At least this many correctable rows, this dominated by one reason ⇒ a systematic failure. */
 const SYSTEMATIC_MIN = 10;
@@ -49,7 +51,7 @@ function topReasonShare(rows: readonly WithheldRow[]): number {
 export function summarizeWithheld(
   withheld: readonly WithheldRow[],
   mapping: ColumnMapping,
-  cap: number = COULDNT_READ_CAP,
+  cap: number = DETAIL_CAP,
 ): WithheldSummary {
   const correctable = withheld.filter((w) => w.reason !== "non-data");
   const couldntRead: CouldntReadRow[] = correctable.slice(0, cap).map((w) => ({
@@ -66,4 +68,66 @@ export function summarizeWithheld(
     ignoredCount: withheld.length - correctable.length,
     systematic: correctable.length >= SYSTEMATIC_MIN && topReasonShare(correctable) >= SYSTEMATIC_SHARE,
   };
+}
+
+/** A stored transaction reduced to its dedup fingerprint plus the provenance of its Upload. */
+export interface StoredForProvenance extends FingerprintInput {
+  /** ISO timestamp of the Upload the stored row came from; null for a bank-synced row. */
+  importedAt: string | null;
+  /** File name of that Upload; null for a bank-synced row. */
+  fileName: string | null;
+}
+
+/** An already-imported (deduped) row shown to the Member, with when/where it first came in. */
+export interface AlreadyImportedRow {
+  sourceRow: number;
+  date: string;
+  amount: number;
+  merchant: string;
+  category: string;
+  importedAt: string | null;
+  fileName: string | null;
+}
+
+/** Earliest-imported row wins; a null timestamp sorts last so unknown provenance never masks a real one. */
+function earliestProvenance(
+  rows: readonly StoredForProvenance[],
+): StoredForProvenance | undefined {
+  return rows.reduce<StoredForProvenance | undefined>((best, row) => {
+    if (!best) return row;
+    return (row.importedAt ?? "￿") < (best.importedAt ?? "￿") ? row : best;
+  }, undefined);
+}
+
+/**
+ * Pair each duplicate (already-imported) incoming row with the provenance of the earliest stored
+ * Upload that carries its fingerprint (ADR-0025), so the Member sees "already in since {date} ·
+ * {file}" and can decide whether it is truly a re-import. Capped like the couldn't-read list.
+ */
+export function buildAlreadyImported(
+  duplicates: ReadonlyArray<FingerprintInput & { sourceRow: number }>,
+  stored: ReadonlyArray<StoredForProvenance>,
+  cap: number = DETAIL_CAP,
+): { alreadyImported: AlreadyImportedRow[]; alreadyImportedTotal: number } {
+  const byFingerprint = new Map<string, StoredForProvenance[]>();
+  for (const row of stored) {
+    const fp = fingerprint(row);
+    const bucket = byFingerprint.get(fp);
+    if (bucket) bucket.push(row);
+    else byFingerprint.set(fp, [row]);
+  }
+
+  const alreadyImported: AlreadyImportedRow[] = duplicates.slice(0, cap).map((d) => {
+    const match = earliestProvenance(byFingerprint.get(fingerprint(d)) ?? []);
+    return {
+      sourceRow: d.sourceRow,
+      date: d.date,
+      amount: d.amount,
+      merchant: d.merchant,
+      category: d.category,
+      importedAt: match?.importedAt ?? null,
+      fileName: match?.fileName ?? null,
+    };
+  });
+  return { alreadyImported, alreadyImportedTotal: duplicates.length };
 }

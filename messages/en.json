@@ -343,6 +343,12 @@
       "hideDetails": "Hide details",
       "systematicHint": "Most rows failed the same way — this file's format may not be supported yet.",
       "andMore": "+{count} more couldn't be read",
+      "andMoreImported": "+{count} more already imported",
+      "alreadyImportedHeading": "Already imported",
+      "couldntReadHeading": "Couldn't read",
+      "provenance": "imported {date} · {file}",
+      "provenanceNoFile": "imported {date}",
+      "provenanceUnknown": "already imported",
       "reasonBadDate": "Unreadable date",
       "reasonBadAmount": "Unreadable amount"
     },

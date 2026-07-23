@@ -12,6 +12,7 @@ import {
 } from "@/components/import-preview"
 import {
   ImportSummaryCard,
+  type AlreadyImportedRow,
   type CouldntReadRow,
   type ImportSummary,
 } from "@/components/import-summary"
@@ -37,6 +38,7 @@ interface UploadResponse {
   upload?: { id: string }
   appended?: number
   duplicates?: number
+  alreadyImported?: AlreadyImportedRow[]
   couldntRead?: CouldntReadRow[]
   couldntReadTotal?: number
   ignoredCount?: number
@@ -147,6 +149,7 @@ export function UploadForm({ className }: { className?: string }) {
       setSummary({
         added: data.appended ?? 0,
         alreadyImported: data.duplicates ?? 0,
+        alreadyImportedRows: data.alreadyImported ?? [],
         couldntRead: data.couldntRead ?? [],
         couldntReadTotal: data.couldntReadTotal ?? 0,
         ignoredCount: data.ignoredCount ?? 0,

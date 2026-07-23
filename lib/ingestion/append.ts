@@ -1,6 +1,11 @@
 import type { HouseholdRepo } from "@/lib/db/household-repo";
 import { partitionNewRows, type FingerprintInput } from "@/shared/dedup";
 
+import {
+  buildAlreadyImported,
+  type AlreadyImportedRow,
+  type StoredForProvenance,
+} from "./import-outcome";
 import type { ParsedRow } from "./parse-csv";
 
 /**
@@ -14,6 +19,8 @@ import type { ParsedRow } from "./parse-csv";
 export interface AppendResult {
   appended: number;
   duplicates: number;
+  /** The deduped rows with provenance (ADR-0025), capped — for the "already imported" bucket. */
+  alreadyImported: AlreadyImportedRow[];
 }
 
 export async function appendTransactions(
@@ -43,5 +50,21 @@ export async function appendTransactions(
     })),
   );
 
-  return { appended: fresh.length, duplicates: duplicates.length };
+  // Provenance for the duplicates: pair each with the earliest Upload that already holds its
+  // fingerprint (ADR-0025), so the summary can show when/where it first came in.
+  const uploadsById = new Map((await repo.uploads.list()).map((u) => [u.id, u]));
+  const storedForProvenance: StoredForProvenance[] = stored.map((t) => {
+    const up = t.uploadId ? uploadsById.get(t.uploadId) : undefined;
+    return {
+      date: t.date,
+      amount: t.amount,
+      merchant: t.merchant,
+      category: t.rawCategory,
+      importedAt: up ? new Date(up.createdAt).toISOString() : null,
+      fileName: up ? up.fileName : null,
+    };
+  });
+  const { alreadyImported } = buildAlreadyImported(duplicates, storedForProvenance);
+
+  return { appended: fresh.length, duplicates: duplicates.length, alreadyImported };
 }
