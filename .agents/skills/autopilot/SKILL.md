@@ -41,8 +41,11 @@ Examples: `/loop /autopilot work on ADR-0017` · `/loop /autopilot tackle issue 
    checks are green AND Greptile Confidence Score is 5/5.
 3. **Never touch `main` directly.** No commits, no force-push, no merge to `main`.
    The terminal step is hand-off (see [Phase 7](#phase-7--land-hand-off)).
-4. **Stay in your lane.** Only operate on this run's branches. Never modify,
-   rebase, or delete branches/PRs you did not create for this task.
+4. **Stay in your lane.** Identify this run **only** by its branch `feat/<slug>`
+   (derived deterministically from `<task>`) and its `feat/<slug>-<n>-…` chunks —
+   select PRs by that branch, **never** by the shared `autopilot` label alone (a
+   concurrent run in another worktree carries the same label). Never modify,
+   rebase, merge, or delete a branch/PR that isn't this run's.
 5. **TDD is not optional.** Production code only ever appears to satisfy a
    failing test. Follow `/tdd`.
 6. **One plan gate, then autonomous.** Get the breakdown approved once, then run
@@ -50,30 +53,38 @@ Examples: `/loop /autopilot work on ADR-0017` · `/loop /autopilot tackle issue 
 
 ## Every tick: re-derive state, then route
 
-Run the discovery block ([reference.md §State](reference.md#state-discovery)),
-then pick the FIRST matching branch:
+Run the discovery block ([reference.md §State](reference.md#state-discovery)) to
+find **this run's** PR by its deterministic branch — never by the shared label
+(that would grab a concurrent autopilot run's PR from another worktree):
 
 ```bash
+TASK="<the exact task text you were invoked with>"   # stable across ticks
+SLUG=$(printf '%s' "$TASK" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g' | cut -c1-40 | sed -E 's/-+$//')
+BRANCH="feat/$SLUG"                                   # identity key for this run
 gh label create autopilot --color 1f6feb 2>/dev/null; gh label create autopilot-epic --color 8250df 2>/dev/null
-EPIC=$(gh pr list --state open --label autopilot-epic --base main --json number,headRefName,body --jq '.[0] // empty')
-SMALL=$(gh pr list --state open --label autopilot --base main --json number,headRefName,labels --jq '[.[] | select((.labels // []) | any(.name=="autopilot-epic") | not)][0] // empty')
+RUN=$(gh pr list --state all --head "$BRANCH" --base main --json number,state,labels,body,url --jq '.[0] // empty')
 ```
+
+`RUN` is this run's PR: a big-feature **epic** if its labels include
+`autopilot-epic`, else a **small** single PR. Pick the FIRST matching row:
 
 | If … | Phase |
 | --- | --- |
-| No epic PR, no small PR, no work started for `<task>` | **[0 Intake & plan](#phase-0--intake--plan-gate)** |
-| Just approved a *big* plan, branch/epic not created yet | **[0 → create epic](#big-feature-setup)** then Phase 1 |
-| Epic exists, checklist has an unchecked chunk with **no open PR** | **[1 Implement](#phase-1--implement-a-chunk-tdd)** the next chunk |
-| Epic or small PR exists and its PR is **open** | inspect that PR → **[4](#phase-4--await-review) / [5](#phase-5--address-until-55) / [6](#phase-6--merge-chunk--advance)** |
-| Epic exists, **all** chunks merged | **[7 Land](#phase-7--land-hand-off)** |
-| Small PR merged, or epic handed off | **Done** — `ScheduleWakeup({stop:true})` + report |
+| No `RUN`, and no local `$BRANCH` yet | **[0 Intake & plan](#phase-0--intake--plan-gate)** |
+| Just approved a *big* plan, `$BRANCH`/epic not created yet | **[0 → create epic](#big-feature-setup)** then Phase 1 |
+| `RUN` is an epic whose checklist has an unchecked chunk with **no open chunk PR** | **[1 Implement](#phase-1--implement-a-chunk-tdd)** the next chunk |
+| `RUN` (or a chunk PR based on `$BRANCH`) is **open** | inspect that PR → **[4](#phase-4--await-review) / [5](#phase-5--address-until-55) / [6](#phase-6--merge-chunk--advance)** |
+| `RUN` is an epic with **all** chunks merged | **[7 Land](#phase-7--land-hand-off)** |
+| `RUN` merged (small) or epic handed off | **Done** — `ScheduleWakeup({stop:true})` + report |
 
-When a PR is open, classify it and act:
+When `RUN` (or a chunk PR based on `$BRANCH`) is open, classify it and act, using
+the verified one-liners in [reference.md §Poll](reference.md#poll-a-pr):
 
 ```bash
 PR=<number>
-# see reference.md for the exact verified one-liners
-SCORE=$(...);  CHECKS=$(...)   # SCORE ∈ {0..5,"pending"};  CHECKS ∈ {green,pending,failed}
+SCORE=$(...)    # Greptile score FOR THE CURRENT HEAD commit; "pending" until Greptile
+                # has reviewed the latest push (a stale prior-revision score never counts)
+CHECKS=$(...)   # "green" only if all six required jobs are present AND successful
 ```
 
 - `CHECKS=failed` → **Phase 5** (fix the failure, push, re-review).
@@ -141,7 +152,7 @@ Then continue into Phase 1 for chunk 1.
 
 1. **Branch off the right base**, freshly updated:
    - big: `git fetch origin && git checkout feat/<slug> && git pull --ff-only && git checkout -b feat/<slug>-<n>-<short>`
-   - small: `git checkout main && git pull --ff-only && git checkout -b <type>/<slug>`
+   - small: `git checkout main && git pull --ff-only && git checkout -b feat/<slug>`
 2. **Invoke `/tdd`** for this chunk's behaviors. Strict red→green→refactor,
    one behavior at a time, vertical slices; tests assert observable behavior
    through public interfaces; expected values are independent literals (no
@@ -228,7 +239,9 @@ When checks are red or the score is `<5`:
 
 ## Phase 6 — Merge chunk & advance
 
-Only reachable at **green + 5/5**.
+Only reachable at **green + 5/5 for the current head commit**. (The Poll check
+reports `SCORE=pending` when Greptile's 5/5 was for an earlier revision, so a fix
+pushed after a prior 5/5 can never merge until Greptile re-reviews the new head.)
 
 - **Chunk (big):** `gh pr merge <PR> --squash --delete-branch` (merges into the
   feature branch). Then tick the chunk in the epic PR body checklist
@@ -283,8 +296,11 @@ checklist current) so the next tick — or a human — can pick up.
 
 - **Base branch:** `main` (this repo has no `dev`). Chunk PRs base on the feature
   branch; small + epic PRs base on `main`.
-- **Branches:** feature `feat/<slug>`; chunk `feat/<slug>-<n>-<short>`; small
-  `<type>/<slug>` (`type` ∈ feat/fix/refactor/chore/docs).
+- **Branches:** this run's branch is `feat/<slug>` — the epic branch for big work,
+  the single branch for small work; chunks are `feat/<slug>-<n>-<short>`. `<slug>`
+  is a deterministic kebab of `<task>`, so every tick recomputes the same branch
+  and finds this run's PR by `--head`. The real conventional type (`fix`/`feat`/…)
+  lives in the commit and PR **title**, not the branch name.
 - **Commits:** scoped Conventional Commits (`feat(scope): …`, `fix(scope): …`),
   imperative, lowercase, no trailing period. End with
   `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` (matches this repo's

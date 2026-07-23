@@ -6,65 +6,84 @@ Assumes `gh` is authenticated and `pnpm` is the package manager.
 
 ## State discovery
 
-Run at the start of every tick to decide the phase.
+Run at the start of every tick to decide the phase. **Identity is this run's
+branch, derived deterministically from `<task>`** — never "the first PR carrying
+the label" (that would clobber a concurrent autopilot run in another worktree).
 
 ```bash
+TASK="<the exact task text you were invoked with>"   # stable across ticks
+# Deterministic: same <task> → same slug → same branch, every tick.
+SLUG=$(printf '%s' "$TASK" | tr '[:upper:]' '[:lower:]' \
+       | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g' | cut -c1-40 | sed -E 's/-+$//')
+BRANCH="feat/$SLUG"        # this run's epic (big) or single (small) branch — the identity key
+
 git fetch origin --prune
 gh label create autopilot       --color 1f6feb 2>/dev/null || true
 gh label create autopilot-epic  --color 8250df 2>/dev/null || true
 
-# The epic (big-feature) umbrella PR, if any:
-gh pr list --state open --label autopilot-epic --base main \
-  --json number,headRefName,title,body --jq '.[0] // empty'
+# THIS run's PR, selected strictly by branch (epic if labelled autopilot-epic, else the small PR):
+RUN=$(gh pr list --state all --head "$BRANCH" --base main \
+       --json number,state,labels,body,url,headRefName --jq '.[0] // empty')
 
-# A small single PR run (autopilot label, base main, NOT the epic):
-gh pr list --state open --label autopilot --base main \
-  --json number,headRefName,labels \
-  --jq '[.[] | select((.labels // []) | any(.name=="autopilot-epic") | not)][0] // empty'
-
-# Chunk PRs of an epic (base = the feature branch), open and merged:
-FEAT=<feat/slug>
-gh pr list --state all --base "$FEAT" --json number,state,headRefName,title
+# Chunk PRs of a big run (base = this run's branch), open and merged:
+gh pr list --state all --base "$BRANCH" --json number,state,headRefName,title
 ```
 
-- Exactly one epic OR one small PR should be active per run. If both/none match
-  and no branch exists → you are at Phase 0 (Intake).
-- The **feature branch** is `EPIC.headRefName`; the **checklist** is parsed from
-  `EPIC.body` (the `### Chunks` block). Chunk `n` is done when its line is `- [x]`.
+- Select strictly by `--head "$BRANCH"` (and chunk base `"$BRANCH"`). Different
+  tasks → different slugs → different branches, so concurrent runs never collide.
+  The `autopilot` / `autopilot-epic` labels are markers for humans, **not** selectors.
+- **Never act on a PR whose head/base branch isn't this run's `$BRANCH`** (or a
+  `$BRANCH-<n>-…` chunk of it) — it belongs to a different run.
+- `RUN` empty and no local `$BRANCH` → Phase 0 (Intake). `RUN` is a big-feature
+  **epic** if its `labels` include `autopilot-epic`, else a **small** single PR.
+  The checklist is parsed from the epic `body` (`### Chunks`); chunk `n` is done
+  when its line is `- [x]`.
 
 ## Poll a PR
 
-Both one-liners are verified against real PRs in this repo.
+Two signals gate every merge, and both are verified against real PRs in this repo.
 
-**Greptile Confidence Score** (single issue comment, edited in place → take the
-last greptile comment; `score` is `"pending"` until the `<h3>` line appears):
+**Greptile Confidence Score — tied to the CURRENT head commit.** Greptile reviews
+a specific commit. After a Phase-5 push, CI can go green again *before* Greptile
+re-reviews, leaving a stale score on the previous revision — which must **not**
+authorise a merge. So only trust the score when Greptile's latest review
+`commit_id` equals the PR's current head; otherwise report `pending`:
 
 ```bash
 PR=<number>
-gh api "repos/{owner}/{repo}/issues/$PR/comments" --jq '
-  [.[] | select(.user.login=="greptile-apps[bot]")] | last
-  | {updated_at, score: ((.body | capture("Confidence Score: (?<s>[0-9])/5").s) // "pending")}'
+HEAD=$(gh pr view "$PR" --json headRefOid --jq '.headRefOid')
+REVIEWED=$(gh api "repos/{owner}/{repo}/pulls/$PR/reviews" --jq \
+  '[.[] | select(.user.login=="greptile-apps[bot]")] | last | .commit_id // ""')
+if [ "$REVIEWED" = "$HEAD" ]; then
+  gh api "repos/{owner}/{repo}/issues/$PR/comments" --jq '
+    [.[] | select(.user.login=="greptile-apps[bot]")] | last
+    | (.body | capture("Confidence Score: (?<s>[0-9])/5").s) // "pending"'
+else
+  echo "pending"   # Greptile has not yet reviewed the current head commit
+fi
 ```
 
-Fallback (Greptile sometimes moves the block into the PR description once inline
-threads are resolved):
+(If Greptile has moved the score into the PR body, read it from
+`gh pr view "$PR" --json body`; the `commit_id` vs head check above still governs
+whether that score is current.)
 
-```bash
-gh pr view "$PR" --json body --jq '.body' | grep -oE 'Confidence Score: [0-9]/5' | tail -1
-```
-
-**CI checks verdict** — filter to this repo's six required jobs so an optional
-Vercel/preview check never gates a merge; returns `green` / `pending` / `failed`:
+**CI checks verdict — every required job must be PRESENT and green.** Filtering to
+the six required jobs is not enough: if a required job is *missing* (renamed, not
+yet created) a naive filter can report `green` off a partial suite. Require all
+six named jobs present and successful, else `pending`/`failed` (an optional
+Vercel/preview check is ignored):
 
 ```bash
 gh pr view "$PR" --json statusCheckRollup --jq '
-  ([.statusCheckRollup[]
-     | { name: (.name // .context // ""), s: ((.conclusion // .state // .status // "") | ascii_upcase) }
-     | select(.name | test("^(lint|typecheck|test|build|migrations|react-doctor)$"))]) as $c
-  | (if ($c|length)==0 then "pending"
-     elif ($c|map(select(.s|test("FAIL|ERROR|CANCELL|TIMED_OUT|ACTION_REQUIRED")))|length)>0 then "failed"
-     elif ($c|map(select(.s|test("PENDING|PROGRESS|QUEUED|EXPECTED|WAITING|^$")))|length)>0 then "pending"
-     else "green" end)'
+  (["lint","typecheck","test","build","migrations","react-doctor"]) as $req
+  | ([.statusCheckRollup[]
+       | {name:(.name // .context // ""), s:((.conclusion // .state // .status // "")|ascii_upcase)}]) as $all
+  | [ $req[] as $n
+      | ($all | map(select(.name==$n))) as $m
+      | (if ($m|length)==0 then "MISSING" else $m[-1].s end) ] as $st
+  | if   ($st | map(select(test("FAIL|ERROR|CANCELL|TIMED_OUT|ACTION_REQUIRED"))) | length) > 0 then "failed"
+    elif ($st | map(select(test("^(SUCCESS|NEUTRAL|SKIPPED)$")))              | length) == ($req|length) then "green"
+    else "pending" end'   # any MISSING or in-progress required job ⇒ pending, never green
 ```
 
 To see *which* check failed (for the report / to decide who fixes it):
@@ -147,18 +166,15 @@ mechanism doesn't matter; keeping the checklist current does.)
 
 ## Re-review detection (Phase 5)
 
-Greptile edits its comment in place, so detect a *fresh* review by watching
-`updated_at` advance past your push:
-
-```bash
-BEFORE=$(gh api "repos/{owner}/{repo}/issues/$PR/comments" --jq \
-  '[.[] | select(.user.login=="greptile-apps[bot]")] | last | .updated_at')
-# ... /address-pr-feedback pushes and posts "@greptileai review" ...
-# next tick: fresh once updated_at > BEFORE AND score present (see Poll a PR)
-```
+After `/address-pr-feedback` pushes a fix, the review is *current* only once
+Greptile's latest review `commit_id` equals the new head — which is exactly what
+the **Poll a PR** score check enforces (it reads `pending` until then). So there
+is nothing extra to track: re-poll each tick and treat any score whose
+`commit_id` predates your push as `pending`, never as a merge signal.
 
 `/address-pr-feedback` posts the `@greptileai review` trigger itself; only post it
-manually if you pushed a fix outside that skill and Greptile hasn't picked it up.
+manually (`gh pr comment "$PR" --body "@greptileai review"`) if you pushed a fix
+outside that skill and Greptile hasn't picked it up.
 
 ## Merging & hand-off
 
