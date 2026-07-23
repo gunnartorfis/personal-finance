@@ -46,7 +46,11 @@ legacy/node_modules/
 legacy/dist/
 
 # agent tooling — git worktrees + installed skills (reproducible from skills-lock.json)
+# Exception: `autopilot` is a bespoke local skill (no upstream source / not in the
+# lock), so its files are committed directly rather than reproduced from the lock.
 .claude/worktrees/
-.claude/skills/
-.agents/skills/
+.claude/skills/*
+!.claude/skills/autopilot
+.agents/skills/*
+!.agents/skills/autopilot/
 .vercel
