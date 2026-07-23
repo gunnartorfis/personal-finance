@@ -893,7 +893,17 @@
     "colType": "Tegund",
     "yourShare": "þinn hluti {amount}",
     "uncategorized": "Óflokkað",
-    "categoryFilterLabel": "Sía eftir flokki"
+    "categoryFilterLabel": "Sía eftir flokki",
+    "cardTransactionsHeading": "Kortafærslur",
+    "configured": {
+      "heading": "Talið með",
+      "caption": "Í tölunum að ofan, en ekki meðal kortafærslanna að neðan.",
+      "settingsLink": "Tekjur og kostnaður",
+      "recurringOffCardCost": "Kostnaður utan korts",
+      "oneOffCost": "Stakar færslur (kostnaður)",
+      "recurringIncome": "Tekjulindir",
+      "oneOffIncome": "Stakar færslur (tekjur)"
+    }
   },
   "charts": {
     "spendingTrend": {

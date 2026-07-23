@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server"
 import Link from "next/link"
 
 import { ClassifyTrigger } from "@/components/classify-trigger"
+import { ConfiguredAmountsBreakdown } from "@/components/configured-amounts-breakdown"
 import { CycleSummary } from "@/components/cycle-summary"
 import { PeriodSelector, type PeriodOption } from "@/components/period-selector"
 import { RapidReviewLauncher } from "@/components/rapid-review-launcher"
@@ -17,12 +18,13 @@ import {
   cycleKeyRange,
   isValidCycleKey,
 } from "@/lib/dashboard/cycle"
-import { loadConfiguredAmounts } from "@/lib/dashboard/configured-amounts"
+import { loadConfiguredAmountsBreakdown } from "@/lib/dashboard/configured-amounts"
 import { addConfiguredAmounts, loadNetSummary } from "@/lib/dashboard/net-summary"
 import { formatCycleMonth } from "@/lib/format/date"
 import { requireHousehold } from "@/lib/household/current"
 import { resolveRequestLocale } from "@/lib/i18n/locale"
 import { isClassificationPaused } from "@/shared/free-cap"
+import { toCycleAmounts } from "@/shared/income-timeline"
 import type { ExpenseType } from "@/shared/types"
 
 // Auth- and tenant-scoped per-request data.
@@ -83,10 +85,17 @@ export default async function TransactionsPage({
   const [rawRows, baseSummary, configured, categoryRows] = await Promise.all([
     repo.transactions.listWithOverrides(range),
     loadNetSummary(repo, range),
-    loadConfiguredAmounts(repo, selected),
+    loadConfiguredAmountsBreakdown(repo, selected),
     repo.categories.list(),
   ])
-  const summary = addConfiguredAmounts(baseSummary, configured)
+  const summary = addConfiguredAmounts(baseSummary, toCycleAmounts(configured))
+  // Whether any off-card amount is folded into this cycle's totals. Gates the reconciliation aside
+  // and the "card transactions" label, so a Household with no off-card configuration sees neither.
+  const hasConfigured =
+    configured.recurringIncome > 0 ||
+    configured.oneOffIncome > 0 ||
+    configured.recurringOffCardCost > 0 ||
+    configured.oneOffCost > 0
 
   // Always offer the current month and the selected period even before either has data, so the
   // picker never hides where the user is (or the obvious "this month" landing spot). Keys sort
@@ -156,17 +165,36 @@ export default async function TransactionsPage({
         </div>
       )}
 
-      {/* Key by cycle *and* the category param so a soft navigation remounts the table and re-seeds
-          its local state — the row mirror from the new period's server data, and the Category filter
-          from `?category` (useState only runs its initialiser on mount). */}
-      <TransactionsTable
-        key={`${selected}:${category ?? ""}`}
-        rows={rows}
-        currency={billingCurrency}
-        categories={categories}
-        initialCategoryId={category}
-        backlogElsewhere={reviewTotal}
-      />
+      {/* The overview totals fold in this cycle's off-card configuration (ADR-0015) — Monthly income
+          and Off-card fixed costs that are never card rows below. When any is present, surface it in a
+          reconciliation aside and label the list as card-only, so the totals above don't read as the
+          sum of the table. */}
+      <div className="flex flex-col gap-6">
+        {hasConfigured && (
+          <ConfiguredAmountsBreakdown
+            breakdown={configured}
+            currency={billingCurrency}
+          />
+        )}
+        <div className="flex flex-col gap-3">
+          {hasConfigured && (
+            <h2 className="text-sm font-medium">
+              {t("cardTransactionsHeading")}
+            </h2>
+          )}
+          {/* Key by cycle *and* the category param so a soft navigation remounts the table and
+              re-seeds its local state — the row mirror from the new period's server data, and the
+              Category filter from `?category` (useState only runs its initialiser on mount). */}
+          <TransactionsTable
+            key={`${selected}:${category ?? ""}`}
+            rows={rows}
+            currency={billingCurrency}
+            categories={categories}
+            initialCategoryId={category}
+            backlogElsewhere={reviewTotal}
+          />
+        </div>
+      </div>
     </div>
   )
 }

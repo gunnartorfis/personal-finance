@@ -6,7 +6,11 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { householdRepo } from "@/lib/db/household-repo";
 import { households } from "@/lib/db/schema";
 
-import { loadConfiguredAmounts, loadConfiguredAmountsByCycle } from "./configured-amounts";
+import {
+  loadConfiguredAmounts,
+  loadConfiguredAmountsBreakdown,
+  loadConfiguredAmountsByCycle,
+} from "./configured-amounts";
 
 describe("loadConfiguredAmountsByCycle", () => {
   let db: ReturnType<typeof drizzle>;
@@ -103,6 +107,37 @@ describe("loadConfiguredAmountsByCycle", () => {
     expect(await loadConfiguredAmounts(repo, "2026-03")).toEqual({
       monthlyIncome: 0,
       offCardFixed: 0,
+    });
+  });
+
+  it("loads a cycle's breakdown split by recurring vs one-off, per side", async () => {
+    const repo = await freshHousehold();
+    await repo.savings.incomeSources.replace([
+      { name: "Salary", amount: 500_000, effectiveFrom: "2026-01" },
+    ]);
+    await repo.savings.offcardCosts.replace([
+      { name: "Rent", monthlyAmount: 200_000, effectiveFrom: "2026-01" },
+    ]);
+    await repo.savings.oneOffAdjustments.replace([
+      { cycleKey: "2026-02", kind: "income", amount: 50_000, label: "Bonus" },
+      { cycleKey: "2026-02", kind: "cost", amount: 9_999, label: "One-time bill" },
+    ]);
+
+    expect(await loadConfiguredAmountsBreakdown(repo, "2026-02")).toEqual({
+      recurringIncome: 500_000,
+      oneOffIncome: 50_000,
+      recurringOffCardCost: 200_000,
+      oneOffCost: 9_999,
+    });
+  });
+
+  it("returns an all-zeros breakdown for a household with no configured amounts", async () => {
+    const repo = await freshHousehold();
+    expect(await loadConfiguredAmountsBreakdown(repo, "2026-03")).toEqual({
+      recurringIncome: 0,
+      oneOffIncome: 0,
+      recurringOffCardCost: 0,
+      oneOffCost: 0,
     });
   });
 });
