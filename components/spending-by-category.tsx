@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/chart"
 import { rankCategoryBreakdown, type CategoryBreakdown } from "@/lib/dashboard/category-breakdown"
 import { useCategoryLabel } from "@/lib/categories/label"
+import { cornerRadius } from "@/lib/charts/corner-radius"
 import { currencyFormatter } from "@/lib/format/currency"
 import { defaultLocale, toLocale } from "@/lib/i18n/config"
 import { cn } from "@/lib/utils"
@@ -36,20 +37,6 @@ const PALETTE = [
 ]
 /** Neutral tone for the collapsed "Other" tail and the Uncategorized remainder. */
 const NEUTRAL = "var(--muted-foreground)"
-
-/** Half the bar height (h-3 = 12px) → fully rounded pill ends on the first/last stacked segments. */
-const BAR_RADIUS = 6
-
-/**
- * Corner radii `[topLeft, topRight, bottomRight, bottomLeft]` for a horizontal stacked segment at
- * `index` of `count`: round the left end of the first segment and the right end of the last (both
- * ends when there's a single segment), leaving inner segments square so the row reads as one pill.
- */
-function cornerRadius(index: number, count: number): [number, number, number, number] {
-  const first = index === 0
-  const last = index === count - 1
-  return [first ? BAR_RADIUS : 0, last ? BAR_RADIUS : 0, last ? BAR_RADIUS : 0, first ? BAR_RADIUS : 0]
-}
 
 /**
  * Spending-by-**Category** breakdown for the dashboard (ADR-0020) — the parallel to
