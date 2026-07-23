@@ -86,6 +86,16 @@ describe("appendTransactions", () => {
     expect(await repo.transactions.list()).toHaveLength(2);
   });
 
+  it("force-appends a row even when it duplicates a stored one (import anyway)", async () => {
+    const { repo, accountId, uploadId } = await freshUpload();
+    const rows = [row(0, -1990, "NETFLIX")];
+    await appendTransactions(repo, { uploadId, accountId, rows });
+    // The same row again, but forced: dedup is bypassed and it is inserted as a second copy.
+    const forced = await appendTransactions(repo, { uploadId, accountId, rows, force: true });
+    expect(forced).toEqual({ appended: 1, duplicates: 0, alreadyImported: [] });
+    expect(await repo.transactions.list()).toHaveLength(2);
+  });
+
   it("keeps genuine same-day same-price repeats (occurrence ordinal)", async () => {
     const { repo, accountId, uploadId } = await freshUpload();
     const result = await appendTransactions(repo, {

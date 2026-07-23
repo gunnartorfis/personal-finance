@@ -17,6 +17,7 @@ import {
   type ImportSummary,
   type RecoveredOutcome,
 } from "@/components/import-summary"
+import { applyForced, applyRecovered } from "@/components/import-summary-model"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { UploadProgress } from "@/components/upload-progress"
@@ -212,23 +213,17 @@ export function UploadForm({ className }: { className?: string }) {
     }
   }
 
-  /** A couldn't-read row was fixed & imported: drop it from the list and move it into the right
-   *  bucket (added, or already-imported if the fix turned out to be a dedup match). */
+  // Fix & import: fold the outcome into the summary (pure helper), then re-drive the resumable
+  // ClassifyTrigger for the newly-pending row by remounting it (key bump) — resilient to a dropped
+  // request or navigation, unlike a lone unobserved fetch.
   function handleRecovered(sourceRow: number, outcome: RecoveredOutcome) {
-    setSummary((prev) =>
-      prev
-        ? {
-            ...prev,
-            added: prev.added + outcome.appended,
-            alreadyImported: prev.alreadyImported + outcome.duplicates,
-            couldntRead: prev.couldntRead.filter((row) => row.sourceRow !== sourceRow),
-            couldntReadTotal: Math.max(0, prev.couldntReadTotal - 1),
-          }
-        : prev,
-    )
-    // A recovered row is inserted pending; if the upload's initial drain already finished, remount
-    // the resumable ClassifyTrigger (key bump below) so it re-drains — with abort/retry and
-    // refresh-resume — instead of a lone unobserved request a navigation could drop.
+    setSummary((prev) => (prev ? applyRecovered(prev, sourceRow, outcome) : prev))
+    if (outcome.appended > 0) setClassifyRun((run) => run + 1)
+  }
+
+  // Import anyway: same shape, but the row leaves the already-imported bucket instead.
+  function handleForced(sourceRow: number, outcome: RecoveredOutcome) {
+    setSummary((prev) => (prev ? applyForced(prev, sourceRow, outcome) : prev))
     if (outcome.appended > 0) setClassifyRun((run) => run + 1)
   }
 
@@ -351,6 +346,7 @@ export function UploadForm({ className }: { className?: string }) {
           summary={summary}
           uploadId={uploadId}
           onRecovered={handleRecovered}
+          onForced={handleForced}
         />
       )}
 

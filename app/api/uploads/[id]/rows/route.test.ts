@@ -132,6 +132,18 @@ describe("POST /api/uploads/:id/rows", () => {
     expect(res.status).toBe(201);
     expect(await res.json()).toMatchObject({ appended: 1 });
   });
+
+  it("forces a row past dedup and logs a forced import when force is set", async () => {
+    await post(UPLOAD, { ...validBody, force: true });
+    expect(appendTransactions.mock.calls[0]?.[1]).toMatchObject({ force: true });
+    expect(recordActivity.mock.calls[0]?.[1]).toBe("upload.rows_forced");
+  });
+
+  it("logs a recovery (not a forced import) when force is absent", async () => {
+    await post(UPLOAD, validBody);
+    expect(appendTransactions.mock.calls[0]?.[1]).toMatchObject({ force: false });
+    expect(recordActivity.mock.calls[0]?.[1]).toBe("upload.rows_recovered");
+  });
 });
 
 type ParsedLike = {

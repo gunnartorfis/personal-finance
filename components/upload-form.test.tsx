@@ -307,6 +307,53 @@ describe("UploadForm", () => {
     })
   })
 
+  it("imports an already-imported row anyway, moving it into the added bucket", async () => {
+    const fetchMock = stubApi({
+      uploadBody: {
+        status: "created",
+        upload: { id: "u1" },
+        appended: 0,
+        duplicates: 1,
+        alreadyImported: [
+          {
+            sourceRow: 0,
+            date: "2026-03-01",
+            amount: -650,
+            merchant: "KAFFITAR",
+            category: "Kaffi",
+            importedAt: "2026-01-05T00:00:00.000Z",
+            fileName: "dec.csv",
+          },
+        ],
+        couldntRead: [],
+        couldntReadTotal: 0,
+        ignoredCount: 0,
+        systematic: false,
+      },
+      rowsBody: { appended: 1, duplicates: 0, alreadyImported: [] },
+    })
+    render(<UploadForm />)
+    await pickAndSubmit(ACCOUNTS[0].id)
+    await screen.findByRole("status")
+    await userEvent.click(screen.getByRole("button", { name: /show details/i }))
+    await userEvent.click(screen.getByRole("button", { name: /import anyway/i }))
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some((c) => String(c[0]).endsWith("/rows"))).toBe(true),
+    )
+    const rowsCall = fetchMock.mock.calls.find((c) => String(c[0]).endsWith("/rows"))!
+    expect(JSON.parse((rowsCall[1] as RequestInit).body as string)).toMatchObject({
+      force: true,
+      date: "2026-03-01",
+      amount: -650,
+      merchant: "KAFFITAR",
+    })
+
+    // The forced row leaves the already-imported list and the summary counts one more added.
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/1 added/i))
+    expect(screen.queryByRole("button", { name: /import anyway/i })).not.toBeInTheDocument()
+  })
+
   it("caps the couldn't-read list and hints at a systematic failure", async () => {
     stubApi({
       uploadBody: {

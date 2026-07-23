@@ -25,7 +25,7 @@ export interface AppendResult {
 
 export async function appendTransactions(
   repo: HouseholdRepo,
-  input: { uploadId: string; accountId: string; rows: ParsedRow[] },
+  input: { uploadId: string; accountId: string; rows: ParsedRow[]; force?: boolean },
 ): Promise<AppendResult> {
   const stored = await repo.transactions.listByAccount(input.accountId);
   const existing: FingerprintInput[] = stored.map((t) => ({
@@ -36,7 +36,11 @@ export async function appendTransactions(
   }));
   const incoming = input.rows.map((r) => ({ ...r, category: r.rawCategory }));
 
-  const { fresh, duplicates } = partitionNewRows(existing, incoming);
+  // "Import anyway" (ADR-0025): force bypasses the row-fingerprint dedup, inserting even a row whose
+  // fingerprint is already stored — the one deliberate exception to ADR-0003's idempotent ingestion.
+  const { fresh, duplicates } = input.force
+    ? { fresh: incoming, duplicates: [] as typeof incoming }
+    : partitionNewRows(existing, incoming);
 
   await repo.transactions.createMany(
     fresh.map((row) => ({
@@ -50,21 +54,24 @@ export async function appendTransactions(
     })),
   );
 
-  // Provenance for the duplicates: pair each with the earliest Upload that already holds its
-  // fingerprint (ADR-0025), so the summary can show when/where it first came in.
-  const uploadsById = new Map((await repo.uploads.list()).map((u) => [u.id, u]));
-  const storedForProvenance: StoredForProvenance[] = stored.map((t) => {
-    const up = t.uploadId ? uploadsById.get(t.uploadId) : undefined;
-    return {
-      date: t.date,
-      amount: t.amount,
-      merchant: t.merchant,
-      category: t.rawCategory,
-      importedAt: up ? new Date(up.createdAt).toISOString() : null,
-      fileName: up ? up.fileName : null,
-    };
-  });
-  const { alreadyImported } = buildAlreadyImported(duplicates, storedForProvenance);
+  // Provenance is only needed for duplicates we actually withheld — skip the uploads read otherwise
+  // (a clean import and a forced import both dedup nothing).
+  let alreadyImported: AlreadyImportedRow[] = [];
+  if (duplicates.length > 0) {
+    const uploadsById = new Map((await repo.uploads.list()).map((u) => [u.id, u]));
+    const storedForProvenance: StoredForProvenance[] = stored.map((t) => {
+      const up = t.uploadId ? uploadsById.get(t.uploadId) : undefined;
+      return {
+        date: t.date,
+        amount: t.amount,
+        merchant: t.merchant,
+        category: t.rawCategory,
+        importedAt: up ? new Date(up.createdAt).toISOString() : null,
+        fileName: up ? up.fileName : null,
+      };
+    });
+    alreadyImported = buildAlreadyImported(duplicates, storedForProvenance).alreadyImported;
+  }
 
   return { appended: fresh.length, duplicates: duplicates.length, alreadyImported };
 }
