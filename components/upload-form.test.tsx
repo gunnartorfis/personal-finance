@@ -198,6 +198,84 @@ describe("UploadForm", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/no longer exists/i)
   })
 
+  it("shows all three outcome buckets and no longer says 'skipped'", async () => {
+    stubApi({
+      uploadBody: {
+        status: "created",
+        upload: { id: "u1" },
+        appended: 3,
+        duplicates: 2,
+        couldntRead: [
+          { sourceRow: 1, reason: "bad-amount", date: "05.03.2026", amount: "x", merchant: "BÓNUS", category: "Verslun" },
+        ],
+        couldntReadTotal: 1,
+        ignoredCount: 0,
+        systematic: false,
+      },
+    })
+    render(<UploadForm />)
+    await pickAndSubmit(ACCOUNTS[0].id)
+
+    const status = await screen.findByRole("status")
+    expect(status).toHaveTextContent(/3 added/i)
+    expect(status).toHaveTextContent(/2 already imported/i)
+    expect(status).toHaveTextContent(/1 couldn.t read/i)
+    expect(status).not.toHaveTextContent(/skipped/i)
+  })
+
+  it("lists the couldn't-read rows when the details are expanded", async () => {
+    stubApi({
+      uploadBody: {
+        status: "created",
+        upload: { id: "u1" },
+        appended: 1,
+        duplicates: 0,
+        couldntRead: [
+          { sourceRow: 1, reason: "bad-amount", date: "05.03.2026", amount: "ódýrt", merchant: "BÓNUS", category: "Verslun" },
+        ],
+        couldntReadTotal: 1,
+        ignoredCount: 0,
+        systematic: false,
+      },
+    })
+    render(<UploadForm />)
+    await pickAndSubmit(ACCOUNTS[0].id)
+    await screen.findByRole("status")
+
+    await userEvent.click(screen.getByRole("button", { name: /show details/i }))
+    expect(screen.getByText("BÓNUS")).toBeInTheDocument()
+    expect(screen.getByText(/ódýrt/)).toBeInTheDocument()
+  })
+
+  it("caps the couldn't-read list and hints at a systematic failure", async () => {
+    stubApi({
+      uploadBody: {
+        status: "created",
+        upload: { id: "u1" },
+        appended: 0,
+        duplicates: 0,
+        couldntRead: Array.from({ length: 50 }, (_, i) => ({
+          sourceRow: i,
+          reason: "bad-date",
+          date: "2026-03-01",
+          amount: "-1 kr.",
+          merchant: `M${i}`,
+          category: "C",
+        })),
+        couldntReadTotal: 200,
+        ignoredCount: 0,
+        systematic: true,
+      },
+    })
+    render(<UploadForm />)
+    await pickAndSubmit(ACCOUNTS[0].id)
+    await screen.findByRole("status")
+
+    await userEvent.click(screen.getByRole("button", { name: /show details/i }))
+    expect(screen.getByText(/format may not be supported/i)).toBeInTheDocument()
+    expect(screen.getByText(/\+\s*150 more/i)).toBeInTheDocument()
+  })
+
   it("hides the picker and imports to the default when it's the only account", async () => {
     const fetchMock = stubApi()
     // Only one account: override the accounts response.

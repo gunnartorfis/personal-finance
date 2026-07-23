@@ -332,8 +332,19 @@
       },
       "sampleHeading": "Preview",
       "confirm": "Confirm import",
-      "cancel": "Cancel",
-      "summary": "{added} added, {skipped} skipped"
+      "cancel": "Cancel"
+    },
+    "outcome": {
+      "added": "{count} added",
+      "alreadyImported": "{count} already imported",
+      "couldntRead": "{count} couldn't read",
+      "ignored": "{count} lines ignored",
+      "showDetails": "Show details",
+      "hideDetails": "Hide details",
+      "systematicHint": "Most rows failed the same way — this file's format may not be supported yet.",
+      "andMore": "+{count} more couldn't be read",
+      "reasonBadDate": "Unreadable date",
+      "reasonBadAmount": "Unreadable amount"
     },
     "errors": {
       "duplicate": "This file was already imported.",

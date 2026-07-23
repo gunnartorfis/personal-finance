@@ -1,6 +1,6 @@
 "use client"
 
-import { CircleAlert, CircleCheck, Loader2, Upload } from "lucide-react"
+import { CircleAlert, Loader2, Upload } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { type FormEvent, useEffect, useState } from "react"
 
@@ -10,6 +10,11 @@ import {
   type ColumnMapping,
   type UploadPreviewData,
 } from "@/components/import-preview"
+import {
+  ImportSummaryCard,
+  type CouldntReadRow,
+  type ImportSummary,
+} from "@/components/import-summary"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { UploadProgress } from "@/components/upload-progress"
@@ -32,6 +37,10 @@ interface UploadResponse {
   upload?: { id: string }
   appended?: number
   duplicates?: number
+  couldntRead?: CouldntReadRow[]
+  couldntReadTotal?: number
+  ignoredCount?: number
+  systematic?: boolean
   error?: string
 }
 
@@ -79,7 +88,7 @@ export function UploadForm({ className }: { className?: string }) {
   // The pending Import preview (set when an import needs a human decision), and the post-import
   // summary (added / skipped counts) shown after a successful commit.
   const [preview, setPreview] = useState<UploadPreviewData | null>(null)
-  const [summary, setSummary] = useState<{ added: number; skipped: number } | null>(null)
+  const [summary, setSummary] = useState<ImportSummary | null>(null)
 
   // react-doctor-disable-next-line react-doctor/no-fetch-in-effect -- one-shot client load already race-guarded by the `ignore` flag; server-side fetch is out of scope for this form
   useEffect(() => {
@@ -135,7 +144,14 @@ export function UploadForm({ className }: { className?: string }) {
     if (data?.status === "created" && data.upload) {
       setPreview(null)
       setUploadId(data.upload.id)
-      setSummary({ added: data.appended ?? 0, skipped: data.duplicates ?? 0 })
+      setSummary({
+        added: data.appended ?? 0,
+        alreadyImported: data.duplicates ?? 0,
+        couldntRead: data.couldntRead ?? [],
+        couldntReadTotal: data.couldntReadTotal ?? 0,
+        ignoredCount: data.ignoredCount ?? 0,
+        systematic: data.systematic ?? false,
+      })
       // Clear the form so a stray second click can't re-post the same file (a duplicate no-op).
       // Reset the account back to the default rather than blank so the picker-less single-account
       // flow stays submittable.
@@ -302,14 +318,7 @@ export function UploadForm({ className }: { className?: string }) {
         </div>
       )}
 
-      {summary && (
-        <output className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
-          <CircleCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          <p className="tabular-nums">
-            {t("preview.summary", { added: summary.added, skipped: summary.skipped })}
-          </p>
-        </output>
-      )}
+      {summary && <ImportSummaryCard key={uploadId ?? ""} summary={summary} />}
 
       {uploadId && (
         <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6">

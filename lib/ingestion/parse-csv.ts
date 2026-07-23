@@ -25,6 +25,23 @@ export interface ParsedRow {
   rawCategory: string;
 }
 
+/** Why an Upload row could not be turned into a {@link ParsedRow} (ADR-0025). */
+export type WithheldReason = "bad-date" | "bad-amount" | "non-data";
+
+/**
+ * A row the parser did not emit, retained (ADR-0025) rather than silently dropped so the import
+ * can report it. A `bad-date`/`bad-amount` row looks like a real transaction the deterministic
+ * parser couldn't read (offered for repair); a `non-data` row — a blank line, separator, or
+ * statement footer — is only counted as ignored, never offered for repair.
+ */
+export interface WithheldRow {
+  /** Ordinal within the data section (0-based, after the header) — matches {@link ParsedRow.sourceRow}. */
+  sourceRow: number;
+  reason: WithheldReason;
+  /** The row's raw cells as parsed, so the caller can display and (later) repair them. */
+  cells: string[];
+}
+
 /**
  * Cap on emitted data rows. A year of daily card use is <2k rows; 20k is generous headroom, and
  * bounding here keeps one pathological upload from spiking memory/DB in a single insert.
@@ -59,30 +76,48 @@ function parseAmount(s: string): number | null {
 /**
  * Emit ParsedRows from already-parsed CSV cells using a resolved column mapping. Rows up to and
  * including `headerIndex` (the header and any preamble above it) are skipped; `sourceRow` counts
- * from the first data row after the header.
+ * from the first data row after the header. Rows that don't parse are not dropped but returned as
+ * `withheld` with a reason (ADR-0025) so the import can report them.
  */
-function rowsToParsed(rows: string[][], mapping: ColumnMapping, headerIndex = 0): ParsedRow[] {
+function rowsToParsed(
+  rows: string[][],
+  mapping: ColumnMapping,
+  headerIndex = 0,
+): { rows: ParsedRow[]; withheld: WithheldRow[] } {
   const { date: iDate, amount: iAmt, merchant: iMerch, category: iCat } = mapping;
 
   const out: ParsedRow[] = [];
+  const withheld: WithheldRow[] = [];
   rows.slice(headerIndex + 1).forEach((r, idx) => {
     const d = (r[iDate] ?? "").trim();
-    if (d.length < 10 || d[2] !== ".") return; // skip non-date / separator rows
+    const dateOk = d.length >= 10 && d[2] === ".";
     const amount = parseAmount(r[iAmt] ?? "");
-    if (amount === null) return;
-    const date = `${d.slice(6, 10)}-${d.slice(3, 5)}-${d.slice(0, 2)}`;
-    out.push({
-      sourceRow: idx,
-      date,
-      amount,
-      merchant: (r[iMerch] ?? "").trim().slice(0, MAX_FIELD_LENGTH),
-      rawCategory: (r[iCat] ?? "").trim().slice(0, MAX_FIELD_LENGTH),
-    });
+    if (dateOk && amount !== null) {
+      const date = `${d.slice(6, 10)}-${d.slice(3, 5)}-${d.slice(0, 2)}`;
+      out.push({
+        sourceRow: idx,
+        date,
+        amount,
+        merchant: (r[iMerch] ?? "").trim().slice(0, MAX_FIELD_LENGTH),
+        rawCategory: (r[iCat] ?? "").trim().slice(0, MAX_FIELD_LENGTH),
+      });
+      return;
+    }
+    // A fully-empty record — a blank line, or the trailing newline every well-formed CSV ends
+    // with — is not a real line and must not inflate the ignored count; drop it silently.
+    const populated = r.filter((c) => (c ?? "").trim() !== "").length;
+    if (populated === 0) return;
+    // One populated cell is structural noise (separator, statement footer) — counted as ignored,
+    // never offered for repair. Otherwise the row looks real: name the cell we couldn't read.
+    const reason: WithheldReason = populated < 2 ? "non-data" : !dateOk ? "bad-date" : "bad-amount";
+    withheld.push({ sourceRow: idx, reason, cells: r });
   });
-  if (out.length > MAX_ROWS) {
-    throw new RowCapExceededError(out.length);
+  // The cap bounds total retained records (parsed + withheld): withheld rows also hold raw cells in
+  // memory and flow into the response, so they must count toward the pathological-upload guard.
+  if (out.length + withheld.length > MAX_ROWS) {
+    throw new RowCapExceededError(out.length + withheld.length);
   }
-  return out;
+  return { rows: out, withheld };
 }
 
 /**
@@ -96,10 +131,11 @@ function rowsToParsed(rows: string[][], mapping: ColumnMapping, headerIndex = 0)
 export function parseWithMappingAndHeader(
   text: string,
   mapping: ColumnMapping,
-): { rows: ParsedRow[]; header: string[] } {
+): { rows: ParsedRow[]; header: string[]; withheld: WithheldRow[] } {
   const rows = Papa.parse<string[]>(text, { skipEmptyLines: false }).data;
-  if (rows.length === 0) return { rows: [], header: [] };
-  return { rows: rowsToParsed(rows, mapping), header: rows[0] ?? [] };
+  if (rows.length === 0) return { rows: [], header: [], withheld: [] };
+  const { rows: parsed, withheld } = rowsToParsed(rows, mapping);
+  return { rows: parsed, header: rows[0] ?? [], withheld };
 }
 
 /**
@@ -122,6 +158,8 @@ export interface ParseAttempt {
   unmatchedRoles: ColumnRole[];
   /** Parsed data rows — populated only when `unmatchedRoles` is empty, otherwise `[]`. */
   rows: ParsedRow[];
+  /** Rows that couldn't be parsed, retained with a reason (ADR-0025); `[]` when the mapping is incomplete. */
+  withheld: WithheldRow[];
   /** A few raw data rows after the header (for the AI-fallback prompt); empty when there are none. */
   sampleRows: string[][];
 }
@@ -138,7 +176,15 @@ const SAMPLE_ROW_COUNT = 5;
 export function attemptParse(text: string): ParseAttempt {
   const rows = Papa.parse<string[]>(text, { skipEmptyLines: false }).data;
   if (rows.length === 0) {
-    return { headerIndex: 0, header: [], detectedMapping: {}, unmatchedRoles: [], rows: [], sampleRows: [] };
+    return {
+      headerIndex: 0,
+      header: [],
+      detectedMapping: {},
+      unmatchedRoles: [],
+      rows: [],
+      withheld: [],
+      sampleRows: [],
+    };
   }
   // Locate the header row first (bank exports often carry preamble lines — account no., statement
   // period, blanks — above it); findHeaderRow also returns the auto-detected date/amount/merchant/
@@ -148,13 +194,16 @@ export function attemptParse(text: string): ParseAttempt {
     mapping: { resolved, unmatched },
   } = findHeaderRow(rows);
   const parsed =
-    unmatched.length === 0 ? rowsToParsed(rows, resolved as ColumnMapping, headerIndex) : [];
+    unmatched.length === 0
+      ? rowsToParsed(rows, resolved as ColumnMapping, headerIndex)
+      : { rows: [] as ParsedRow[], withheld: [] as WithheldRow[] };
   return {
     headerIndex,
     header: rows[headerIndex] ?? [],
     detectedMapping: resolved,
     unmatchedRoles: unmatched,
-    rows: parsed,
+    rows: parsed.rows,
+    withheld: parsed.withheld,
     sampleRows: rows.slice(headerIndex + 1, headerIndex + 1 + SAMPLE_ROW_COUNT),
   };
 }
