@@ -92,6 +92,9 @@ export function UploadForm({ className }: { className?: string }) {
   // summary (added / skipped counts) shown after a successful commit.
   const [preview, setPreview] = useState<UploadPreviewData | null>(null)
   const [summary, setSummary] = useState<ImportSummary | null>(null)
+  // Bumped when a recovered row is appended, to remount ClassifyTrigger and re-drive its resumable
+  // drain (see handleRecovered) rather than firing a lone unobserved classify request.
+  const [classifyRun, setClassifyRun] = useState(0)
 
   // react-doctor-disable-next-line react-doctor/no-fetch-in-effect -- one-shot client load already race-guarded by the `ignore` flag; server-side fetch is out of scope for this form
   useEffect(() => {
@@ -223,9 +226,10 @@ export function UploadForm({ className }: { className?: string }) {
           }
         : prev,
     )
-    // A recovered row is inserted pending; if the upload's initial classification drain already
-    // finished, restart it so the new row gets classified (fire-and-forget, like ClassifyTrigger).
-    if (outcome.appended > 0) void fetch("/api/classify", { method: "POST" })
+    // A recovered row is inserted pending; if the upload's initial drain already finished, remount
+    // the resumable ClassifyTrigger (key bump below) so it re-drains — with abort/retry and
+    // refresh-resume — instead of a lone unobserved request a navigation could drop.
+    if (outcome.appended > 0) setClassifyRun((run) => run + 1)
   }
 
   // Resolve to text at render (not when the error is raised) so the alert follows a locale change.
@@ -355,7 +359,7 @@ export function UploadForm({ className }: { className?: string }) {
           {/* Kick classification for the rows just appended, then watch it drain. `resumable` marks
               the run so if the user leaves this page mid-drain, the standing controls (dashboard /
               transactions / banner) pick it back up. UploadProgress shows the per-upload bar here. */}
-          <ClassifyTrigger autoRun resumable />
+          <ClassifyTrigger key={`${uploadId}-${classifyRun}`} autoRun resumable />
           <UploadProgress uploadId={uploadId} />
         </div>
       )}
