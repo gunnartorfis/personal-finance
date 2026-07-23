@@ -12,6 +12,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart"
 import { useCategoryLabels } from "@/lib/category-labels"
+import { cornerRadius } from "@/lib/charts/corner-radius"
 import { currencyFormatter } from "@/lib/format/currency"
 import { defaultLocale, toLocale } from "@/lib/i18n/config"
 import type { NetSummary } from "@/lib/dashboard/net-summary"
@@ -95,9 +96,11 @@ export function SpendingByType({
         </p>
       </div>
 
+      {/* No `overflow-hidden` here: it would clip the hover tooltip down to the 3px bar. The pill
+          shape comes from rounding the first/last bar segments' outer corners instead (below). */}
       <ChartContainer
         config={chartConfig}
-        className="aspect-auto h-3 w-full overflow-hidden rounded-full"
+        className="aspect-auto h-3 w-full"
       >
         <BarChart
           layout="vertical"
@@ -130,13 +133,16 @@ export function SpendingByType({
               />
             }
           />
-          {breakdown.map((category) => (
+          {breakdown.map((category, index) => (
             <Bar
               key={category.slug}
               dataKey={category.slug}
               stackId="spend"
               fill={`var(--color-${category.slug})`}
               isAnimationActive={false}
+              // Round only the outer corners of the end segments so the stacked bar reads as one pill
+              // (the container no longer clips). [topLeft, topRight, bottomRight, bottomLeft].
+              radius={cornerRadius(index, breakdown.length)}
             />
           ))}
         </BarChart>
