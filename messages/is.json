@@ -343,6 +343,12 @@
       "hideDetails": "Fela nánar",
       "systematicHint": "Flestar línur mistókust á sama hátt — þetta skráarsnið er mögulega ekki stutt enn.",
       "andMore": "+{count} ólæsilegar til viðbótar",
+      "andMoreImported": "+{count} þegar fluttar inn til viðbótar",
+      "alreadyImportedHeading": "Þegar flutt inn",
+      "couldntReadHeading": "Ólæsilegar",
+      "provenance": "flutt inn {date} · {file}",
+      "provenanceNoFile": "flutt inn {date}",
+      "provenanceUnknown": "þegar flutt inn",
       "reasonBadDate": "Ólæsileg dagsetning",
       "reasonBadAmount": "Ólæsileg upphæð"
     },

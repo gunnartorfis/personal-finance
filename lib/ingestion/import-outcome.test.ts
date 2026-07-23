@@ -1,9 +1,68 @@
 import { describe, expect, it } from "vitest";
 
-import { summarizeWithheld } from "./import-outcome";
+import { buildAlreadyImported, summarizeWithheld, type StoredForProvenance } from "./import-outcome";
 import type { WithheldRow } from "./parse-csv";
 
 const MAPPING = { date: 0, merchant: 1, category: 2, amount: 3 };
+
+const stored = (
+  importedAt: string | null,
+  fileName: string | null,
+  over: Partial<StoredForProvenance> = {},
+): StoredForProvenance => ({
+  date: "2026-03-01",
+  amount: -650,
+  merchant: "KAFFITAR",
+  category: "Kaffi",
+  importedAt,
+  fileName,
+  ...over,
+});
+
+const dup = (sourceRow: number, over = {}) => ({
+  sourceRow,
+  date: "2026-03-01",
+  amount: -650,
+  merchant: "KAFFITAR",
+  category: "Kaffi",
+  ...over,
+});
+
+describe("buildAlreadyImported", () => {
+  it("attaches the earliest-imported upload's provenance to a duplicate", () => {
+    const result = buildAlreadyImported(
+      [dup(2)],
+      [
+        stored("2026-02-10T00:00:00.000Z", "feb.csv"),
+        stored("2026-01-05T00:00:00.000Z", "dec.csv"), // earlier — wins
+      ],
+    );
+    expect(result.alreadyImported).toEqual([
+      {
+        sourceRow: 2,
+        date: "2026-03-01",
+        amount: -650,
+        merchant: "KAFFITAR",
+        category: "Kaffi",
+        importedAt: "2026-01-05T00:00:00.000Z",
+        fileName: "dec.csv",
+      },
+    ]);
+    expect(result.alreadyImportedTotal).toBe(1);
+  });
+
+  it("reports null provenance when the matched row has no upload (bank sync)", () => {
+    const result = buildAlreadyImported([dup(0)], [stored(null, null)]);
+    expect(result.alreadyImported[0]).toMatchObject({ importedAt: null, fileName: null });
+  });
+
+  it("caps the list but reports the true total", () => {
+    const dups = Array.from({ length: 60 }, (_, i) => dup(i));
+    const result = buildAlreadyImported(dups, [stored("2026-01-01T00:00:00.000Z", "a.csv")], 50);
+    expect(result.alreadyImported).toHaveLength(50);
+    expect(result.alreadyImportedTotal).toBe(60);
+  });
+});
 
 describe("summarizeWithheld", () => {
   it("maps a correctable row to role-labelled raw values", () => {

@@ -45,7 +45,7 @@ describe("appendTransactions", () => {
       accountId,
       rows: [row(0, -1990, "NETFLIX"), row(1, -3200, "BONUS")],
     });
-    expect(result).toEqual({ appended: 2, duplicates: 0 });
+    expect(result).toEqual({ appended: 2, duplicates: 0, alreadyImported: [] });
     const txns = await repo.transactions.list();
     expect(txns).toHaveLength(2);
     expect(txns.every((t) => t.classificationStatus === "pending")).toBe(true);
@@ -58,7 +58,16 @@ describe("appendTransactions", () => {
     const rows = [row(0, -1990, "NETFLIX")];
     await appendTransactions(repo, { uploadId, accountId, rows });
     const second = await appendTransactions(repo, { uploadId, accountId, rows });
-    expect(second).toEqual({ appended: 0, duplicates: 1 });
+    expect(second.appended).toBe(0);
+    expect(second.duplicates).toBe(1);
+    // The duplicate carries provenance from the first upload (ADR-0025).
+    expect(second.alreadyImported).toHaveLength(1);
+    expect(second.alreadyImported[0]).toMatchObject({
+      merchant: "NETFLIX",
+      amount: -1990,
+      fileName: "f.csv",
+    });
+    expect(second.alreadyImported[0].importedAt).toBeTruthy();
     expect(await repo.transactions.list()).toHaveLength(1);
   });
 
@@ -73,7 +82,7 @@ describe("appendTransactions", () => {
     await appendTransactions(repo, { uploadId: upA.id, accountId: acctA.id, rows: sameRow });
     // The same (date, amount, merchant, category) on a different account is NOT a duplicate.
     const b = await appendTransactions(repo, { uploadId: upB.id, accountId: acctB.id, rows: sameRow });
-    expect(b).toEqual({ appended: 1, duplicates: 0 });
+    expect(b).toEqual({ appended: 1, duplicates: 0, alreadyImported: [] });
     expect(await repo.transactions.list()).toHaveLength(2);
   });
 
