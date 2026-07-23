@@ -18,13 +18,15 @@ import {
   cycleKeyRange,
   isValidCycleKey,
 } from "@/lib/dashboard/cycle"
-import { loadConfiguredAmountsBreakdown } from "@/lib/dashboard/configured-amounts"
+import {
+  cycleAmountsFromItems,
+  loadConfiguredCycleItems,
+} from "@/lib/dashboard/configured-amounts"
 import { addConfiguredAmounts, loadNetSummary } from "@/lib/dashboard/net-summary"
 import { formatCycleMonth } from "@/lib/format/date"
 import { requireHousehold } from "@/lib/household/current"
 import { resolveRequestLocale } from "@/lib/i18n/locale"
 import { isClassificationPaused } from "@/shared/free-cap"
-import { toCycleAmounts } from "@/shared/income-timeline"
 import type { ExpenseType } from "@/shared/types"
 
 // Auth- and tenant-scoped per-request data.
@@ -85,17 +87,22 @@ export default async function TransactionsPage({
   const [rawRows, baseSummary, configured, categoryRows] = await Promise.all([
     repo.transactions.listWithOverrides(range),
     loadNetSummary(repo, range),
-    loadConfiguredAmountsBreakdown(repo, selected),
+    loadConfiguredCycleItems(repo, selected),
     repo.categories.list(),
   ])
-  const summary = addConfiguredAmounts(baseSummary, toCycleAmounts(configured))
+  const summary = addConfiguredAmounts(baseSummary, cycleAmountsFromItems(configured))
+  // The recurring-income line is worth showing only when it differs from the overview's Income total
+  // above — when they match, the aside would just repeat the same figure.
+  const showIncomeSources =
+    configured.incomeSourcesTotal > 0 &&
+    configured.incomeSourcesTotal !== summary.income
   // Whether any off-card amount is folded into this cycle's totals. Gates the reconciliation aside
   // and the "card transactions" label, so a Household with no off-card configuration sees neither.
   const hasConfigured =
-    configured.recurringIncome > 0 ||
-    configured.oneOffIncome > 0 ||
-    configured.recurringOffCardCost > 0 ||
-    configured.oneOffCost > 0
+    showIncomeSources ||
+    configured.offCardCosts.length > 0 ||
+    configured.oneOffCosts.length > 0 ||
+    configured.oneOffIncomes.length > 0
 
   // Always offer the current month and the selected period even before either has data, so the
   // picker never hides where the user is (or the obvious "this month" landing spot). Keys sort
@@ -172,7 +179,8 @@ export default async function TransactionsPage({
       <div className="flex flex-col gap-6">
         {hasConfigured && (
           <ConfiguredAmountsBreakdown
-            breakdown={configured}
+            items={configured}
+            showIncomeSources={showIncomeSources}
             currency={billingCurrency}
           />
         )}

@@ -39,6 +39,33 @@ export function timelinesByName<T extends { name: string; effectiveFrom: CycleKe
   return [...byName.values()];
 }
 
+/**
+ * Each named recurring source's amount in force at `cycle` (ADR-0015), in first-seen order, dropping
+ * any source resolving to 0 (not started yet, or stepped to 0 — a cleared loan / ended job). Rows
+ * sharing a `name` are versions of one source; `amountOf` reads the amount column (income sources
+ * carry `amount`, off-card costs `monthlyAmount`). For the itemized configured-amounts view, where a
+ * surface lists each source by name rather than just the per-side total {@link resolveCycleAmounts} gives.
+ */
+export function inForceByName<T extends { name: string; effectiveFrom: CycleKey }>(
+  rows: readonly T[],
+  amountOf: (row: T) => number,
+  cycle: CycleKey,
+): Array<{ name: string; amount: number }> {
+  const byName = new Map<string, EffectiveAmount[]>();
+  for (const row of rows) {
+    const version = { amount: amountOf(row), effectiveFrom: row.effectiveFrom };
+    const existing = byName.get(row.name);
+    if (existing) existing.push(version);
+    else byName.set(row.name, [version]);
+  }
+  const inForce: Array<{ name: string; amount: number }> = [];
+  for (const [name, versions] of byName) {
+    const amount = amountInForce(versions, cycle);
+    if (amount > 0) inForce.push({ name, amount });
+  }
+  return inForce;
+}
+
 /** One dated amount in a recurring source's timeline: the amount in force from `effectiveFrom` on. */
 export interface EffectiveAmount {
   /** Non-negative whole billing-currency units; 0 ends a source (a job stops, a loan is cleared). */
@@ -70,23 +97,6 @@ export interface TimelineInput {
 export interface CycleAmounts {
   monthlyIncome: number;
   offCardFixed: number;
-}
-
-/**
- * A cycle's configured amounts split by source kind (ADR-0015): recurring sources in force vs the
- * cycle's one-off adjustments, on both the income and off-card-cost sides. {@link CycleAmounts} is
- * this, summed per side. The Transactions overview surfaces the split so a reader can see which
- * non-card amounts are folded into the period totals — none of them are rows in the card list.
- */
-export interface CycleAmountsBreakdown {
-  /** Recurring income sources in force at the cycle (salary, rental income, …). */
-  recurringIncome: number;
-  /** One-off income adjustments landing on the cycle (a bonus, a tax refund). */
-  oneOffIncome: number;
-  /** Recurring off-card fixed costs in force at the cycle (rent paid, a loan, …). */
-  recurringOffCardCost: number;
-  /** One-off cost adjustments landing on the cycle (a one-time annual bill). */
-  oneOffCost: number;
 }
 
 /**
@@ -130,47 +140,21 @@ function totalInForce(
 }
 
 /**
- * Resolve each of `cycleKeys` to its {@link CycleAmountsBreakdown}: every recurring source's in-force
- * version summed, kept separate from that cycle's one-off adjustments, on each side. Returns a Map
- * keyed by cycle; cycles absent from every timeline resolve to all-zeros.
- */
-export function resolveCycleAmountsBreakdown(
-  input: TimelineInput,
-  cycleKeys: ReadonlyArray<CycleKey>,
-): Map<CycleKey, CycleAmountsBreakdown> {
-  const resolved = new Map<CycleKey, CycleAmountsBreakdown>();
-  for (const cycle of cycleKeys) {
-    resolved.set(cycle, {
-      recurringIncome: totalInForce(input.incomeSources, cycle),
-      oneOffIncome: oneOffTotal(input.incomeOneOffs, cycle),
-      recurringOffCardCost: totalInForce(input.offcardCostSources, cycle),
-      oneOffCost: oneOffTotal(input.costOneOffs, cycle),
-    });
-  }
-  return resolved;
-}
-
-/** Sum a {@link CycleAmountsBreakdown} into the per-side {@link CycleAmounts} the savings math reads. */
-export function toCycleAmounts(breakdown: CycleAmountsBreakdown): CycleAmounts {
-  return {
-    monthlyIncome: breakdown.recurringIncome + breakdown.oneOffIncome,
-    offCardFixed: breakdown.recurringOffCardCost + breakdown.oneOffCost,
-  };
-}
-
-/**
  * Resolve each of `cycleKeys` to its effective `monthlyIncome` and `offCardFixed`: every source's
  * in-force version summed, plus that cycle's one-off adjustments. Returns a Map keyed by cycle so
- * callers can look up a cycle directly; cycles absent from any timeline resolve to zeros. The per-side
- * sum of {@link resolveCycleAmountsBreakdown}.
+ * callers can look up a cycle directly; cycles absent from any timeline resolve to zeros.
  */
 export function resolveCycleAmounts(
   input: TimelineInput,
   cycleKeys: ReadonlyArray<CycleKey>,
 ): Map<CycleKey, CycleAmounts> {
   const resolved = new Map<CycleKey, CycleAmounts>();
-  for (const [cycle, breakdown] of resolveCycleAmountsBreakdown(input, cycleKeys)) {
-    resolved.set(cycle, toCycleAmounts(breakdown));
+  for (const cycle of cycleKeys) {
+    resolved.set(cycle, {
+      monthlyIncome: totalInForce(input.incomeSources, cycle) + oneOffTotal(input.incomeOneOffs, cycle),
+      offCardFixed:
+        totalInForce(input.offcardCostSources, cycle) + oneOffTotal(input.costOneOffs, cycle),
+    });
   }
   return resolved;
 }

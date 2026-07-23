@@ -899,10 +899,10 @@
       "heading": "Also counted",
       "caption": "Included in the totals above, but not among the card transactions below.",
       "settingsLink": "Income & costs",
-      "recurringOffCardCost": "Off-card costs",
-      "oneOffCost": "One-off adjustments (cost)",
       "recurringIncome": "Income sources",
-      "oneOffIncome": "One-off adjustments (income)"
+      "offCardHeading": "Off-card costs",
+      "oneOffHeading": "One-off adjustments",
+      "oneOffFallback": "One-off"
     }
   },
   "charts": {

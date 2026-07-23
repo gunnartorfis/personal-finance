@@ -2,9 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   amountInForce,
+  inForceByName,
   resolveCycleAmounts,
-  resolveCycleAmountsBreakdown,
-  toCycleAmounts,
   type EffectiveAmount,
 } from "./income-timeline.ts";
 
@@ -136,48 +135,26 @@ describe("resolveCycleAmounts", () => {
   });
 });
 
-describe("resolveCycleAmountsBreakdown", () => {
-  it("keeps recurring sources and one-off adjustments separate, per side", () => {
-    const resolved = resolveCycleAmountsBreakdown(
-      {
-        incomeSources: [[{ amount: 500_000, effectiveFrom: "2026-01" }]],
-        offcardCostSources: [[{ amount: 200_000, effectiveFrom: "2026-01" }]],
-        incomeOneOffs: [{ cycleKey: "2026-02", amount: 50_000 }], // a bonus
-        costOneOffs: [{ cycleKey: "2026-02", amount: 9_999 }], // an annual bill
-      },
-      ["2026-02"],
-    );
-    expect(resolved.get("2026-02")).toEqual({
-      recurringIncome: 500_000,
-      oneOffIncome: 50_000,
-      recurringOffCardCost: 200_000,
-      oneOffCost: 9_999,
-    });
+describe("inForceByName", () => {
+  it("returns each named source's in-force amount at the cycle, dropping those resolving to zero", () => {
+    const rows = [
+      { name: "Rent", monthlyAmount: 200_000, effectiveFrom: "2026-01" },
+      { name: "Rent", monthlyAmount: 220_000, effectiveFrom: "2026-03" },
+      { name: "Loan", monthlyAmount: 50_000, effectiveFrom: "2026-01" },
+      { name: "Loan", monthlyAmount: 0, effectiveFrom: "2026-03" }, // cleared
+    ];
+    expect(inForceByName(rows, (r) => r.monthlyAmount, "2026-03")).toEqual([
+      { name: "Rent", amount: 220_000 },
+    ]);
   });
 
-  it("resolves all-zeros for a cycle before any source starts", () => {
-    const resolved = resolveCycleAmountsBreakdown(
-      { ...EMPTY, incomeSources: [[{ amount: 500_000, effectiveFrom: "2026-06" }]] },
-      ["2026-01"],
-    );
-    expect(resolved.get("2026-01")).toEqual({
-      recurringIncome: 0,
-      oneOffIncome: 0,
-      recurringOffCardCost: 0,
-      oneOffCost: 0,
-    });
-  });
-});
-
-describe("toCycleAmounts", () => {
-  it("sums each side of a breakdown into the per-side totals", () => {
-    expect(
-      toCycleAmounts({
-        recurringIncome: 500_000,
-        oneOffIncome: 50_000,
-        recurringOffCardCost: 200_000,
-        oneOffCost: 9_999,
-      }),
-    ).toEqual({ monthlyIncome: 550_000, offCardFixed: 209_999 });
+  it("keeps first-seen order and drops a source that hasn't started yet", () => {
+    const rows = [
+      { name: "Salary", amount: 500_000, effectiveFrom: "2026-01" },
+      { name: "Rental", amount: 100_000, effectiveFrom: "2026-06" }, // not started at 2026-03
+    ];
+    expect(inForceByName(rows, (r) => r.amount, "2026-03")).toEqual([
+      { name: "Salary", amount: 500_000 },
+    ]);
   });
 });
