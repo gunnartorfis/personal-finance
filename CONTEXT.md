@@ -42,6 +42,26 @@ _Avoid_: Template, Saved mapping, Preset
 The pre-commit view of what an Upload *would* do — the parsed rows, the chosen Account, the Column mapping, and how many rows are new vs. already imported — shown so a Member can confirm or fix the mapping before anything is written. Transient (nothing is persisted until commit); surfaced only when there is a real decision — an unmapped column, a mapping that needed the AI fallback (AI involvement is itself the uncertainty signal, so it always stops for a human nod even when every role resolved), or a file that adds zero new rows — and skipped when the import is unambiguous (a heuristic-complete or **Remembered mapping** with new rows auto-commits).
 _Avoid_: Draft, Staged import (nothing is stored pre-commit), Dry run (internal term, not user-facing)
 
+**Import outcome**:
+How an **Upload**'s rows resolve, reported after commit and split three ways — **Added**, **Already imported**, and **Couldn't read** — so the post-import summary is a recovery surface, not a dead-end count: a Member can act on the latter two.
+_Avoid_: Result, Skipped (the retired two-bucket framing; see the ambiguity note)
+
+**Added**:
+The genuinely-new **Transactions** an **Upload** inserted — rows whose dedup fingerprint is not already stored for the **Account** (ADR-0003).
+_Avoid_: Appended (implementation term), Imported (the whole file was "imported")
+
+**Already imported**:
+An **Upload** row withheld because its dedup fingerprint matches a **Transaction** already stored for that **Account** (same date, amount, merchant, raw-category — ADR-0003). Not an error — the row is real, just a re-import; shown for transparency and, when it is genuinely a distinct purchase the fingerprint collapsed, forced in via **Import anyway**.
+_Avoid_: Skipped (reads as a parse failure, but it parsed fine), Duplicate (fine as the internal term for the same idea)
+
+**Couldn't read**:
+An **Upload** row the deterministic parser could not turn into a **Transaction** — a cell that is not a valid date or amount. Distinct from **Already imported** (which parsed cleanly but matched a stored row). A Member can repair the offending cell and import the row through the normal dedup path; genuinely non-data lines (blank, separator, statement footer) are counted as ignored and never offered for repair.
+_Avoid_: Skipped, Invalid / Rejected (too final — the row is recoverable), Dropped (reserve for the non-data lines that really are discarded)
+
+**Import anyway**:
+The Member gesture that forces an **Already imported** row in as a new **Transaction**, deliberately bypassing the ADR-0003 dedup guard for that one row.
+_Avoid_: Override (reserved for the **Expense type** gesture), Force (bare)
+
 **Transaction**:
 One financial line belonging to an Account: date, merchant, the charged amount (in the Account's billing currency), Account, optional source category, and optional original amount+currency. Enters the Household one of two ways — a CSV **Upload** or a bank **Sync** — the source is recorded but the shape is identical.
 
@@ -224,5 +244,6 @@ _Avoid_: Spending (a single cycle's card-side figure), Expenses
 - "language" vs **Locale**: the product setting is a **Locale** (`is`/`en`) — it governs both translated text and number/date formatting together, not just words. Reserve "language" for informal use. AI **Classification** `reasoning` is Household-shared data generated once, so it is NOT localized (v1): it stays English and is shown as-is in both UIs (dynamic data, exempt from catalogs/lint). An Icelandic-UI Member seeing English reasoning is an accepted v1 limitation. The **Assistant** is the deliberate exception: its answers are conversational chrome and DO follow the asking Member's **Locale** (Icelandic member → Icelandic prose), making it the one place AI-generated text is localized.
 - "activity" is overloaded: the **Activity log** (the member-facing record of Member actions) vs the internal "has this Household been used?" usage signal in `lib/household/activity.ts` (drives the invite-switch warning, ADR-0010). Say "Activity log" for the former and "usage signal" for the latter; never bare "activity".
 - "reconcile"/"afstemma" is NOT a domain term here: the user-facing gesture of cancelling out a reimbursed purchase is modelled as a per-Transaction **Excluded** flag, not a link between two rows. "reconciliation" already names an internal math invariant in `lib/dashboard/net-summary.ts` (`sum(byExpenseType) + unclassified === expense`); do not reuse it for the Excluded feature. Pairing/matching a debit to its funding credit stays deferred (transfer detection, issue #97).
+- "skipped" was the old post-import summary's single word for **Already imported** rows (dedup matches) — retired because it reads as a *parse* failure yet meant *duplicate*, and it hid the **Couldn't read** rows entirely (they landed in neither the added nor the skipped count). The summary now names all three **Import outcome** buckets explicitly; never resurrect bare "skipped".
 - Three money-*stock* ideas must not blur: **Net worth** and **Holdings** are one and the same entered-**Balance** total (Holdings is Net worth's dashboard label, never a separate assets-only figure), whereas **Inferred saving** is computed from *flow* and never entered. A Balance is **Net worth**, not **Savings goal** progress — the two are deliberately separate (ADR-0016). Never let an entered Balance leak into the inferred-savings math, and never call inferred saving a "balance".
 - This glossary predated **ADR-0016**; the Financial-health / Net-worth cluster above was backfilled after the code shipped. If code and glossary ever disagree on balances/net worth, assume the glossary was the straggler and check ADR-0016.
