@@ -1,5 +1,5 @@
 /** Half the proportion-bar height (h-3 = 12px) → fully rounded pill ends on the end segments. */
-export const BAR_RADIUS = 6
+const BAR_RADIUS = 6
 
 /**
  * Corner radii `[topLeft, topRight, bottomRight, bottomLeft]` for a horizontal stacked segment at
