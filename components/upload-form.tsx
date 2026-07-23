@@ -15,6 +15,7 @@ import {
   type AlreadyImportedRow,
   type CouldntReadRow,
   type ImportSummary,
+  type RecoveredOutcome,
 } from "@/components/import-summary"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -91,6 +92,9 @@ export function UploadForm({ className }: { className?: string }) {
   // summary (added / skipped counts) shown after a successful commit.
   const [preview, setPreview] = useState<UploadPreviewData | null>(null)
   const [summary, setSummary] = useState<ImportSummary | null>(null)
+  // Bumped when a recovered row is appended, to remount ClassifyTrigger and re-drive its resumable
+  // drain (see handleRecovered) rather than firing a lone unobserved classify request.
+  const [classifyRun, setClassifyRun] = useState(0)
 
   // react-doctor-disable-next-line react-doctor/no-fetch-in-effect -- one-shot client load already race-guarded by the `ignore` flag; server-side fetch is out of scope for this form
   useEffect(() => {
@@ -208,6 +212,26 @@ export function UploadForm({ className }: { className?: string }) {
     }
   }
 
+  /** A couldn't-read row was fixed & imported: drop it from the list and move it into the right
+   *  bucket (added, or already-imported if the fix turned out to be a dedup match). */
+  function handleRecovered(sourceRow: number, outcome: RecoveredOutcome) {
+    setSummary((prev) =>
+      prev
+        ? {
+            ...prev,
+            added: prev.added + outcome.appended,
+            alreadyImported: prev.alreadyImported + outcome.duplicates,
+            couldntRead: prev.couldntRead.filter((row) => row.sourceRow !== sourceRow),
+            couldntReadTotal: Math.max(0, prev.couldntReadTotal - 1),
+          }
+        : prev,
+    )
+    // A recovered row is inserted pending; if the upload's initial drain already finished, remount
+    // the resumable ClassifyTrigger (key bump below) so it re-drains — with abort/retry and
+    // refresh-resume — instead of a lone unobserved request a navigation could drop.
+    if (outcome.appended > 0) setClassifyRun((run) => run + 1)
+  }
+
   // Resolve to text at render (not when the error is raised) so the alert follows a locale change.
   // Keys are spelled out literally rather than interpolated so next-intl can statically check them.
   const errorText = !error
@@ -321,14 +345,21 @@ export function UploadForm({ className }: { className?: string }) {
         </div>
       )}
 
-      {summary && <ImportSummaryCard key={uploadId ?? ""} summary={summary} />}
+      {summary && uploadId && (
+        <ImportSummaryCard
+          key={uploadId}
+          summary={summary}
+          uploadId={uploadId}
+          onRecovered={handleRecovered}
+        />
+      )}
 
       {uploadId && (
         <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6">
           {/* Kick classification for the rows just appended, then watch it drain. `resumable` marks
               the run so if the user leaves this page mid-drain, the standing controls (dashboard /
               transactions / banner) pick it back up. UploadProgress shows the per-upload bar here. */}
-          <ClassifyTrigger autoRun resumable />
+          <ClassifyTrigger key={`${uploadId}-${classifyRun}`} autoRun resumable />
           <UploadProgress uploadId={uploadId} />
         </div>
       )}
