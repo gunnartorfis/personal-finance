@@ -634,6 +634,8 @@
       "transactionRecategorized": "breytti flokki færslu",
       "transactionShareSet": "setti sameiginlega upphæð á færslu",
       "transactionShareCleared": "hreinsaði sameiginlega upphæð færslu",
+      "transactionDeleted": "eyddi færslu",
+      "transactionRestored": "endurheimti eydda færslu",
       "accountCreated": "bætti við reikningi",
       "accountBalanceRecorded": "skráði reikningsstöður",
       "merchantRuleCreated": "bætti við söluaðilareglu",

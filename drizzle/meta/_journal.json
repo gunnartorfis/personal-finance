@@ -281,6 +281,13 @@
       "when": 1784865737186,
       "tag": "0039_mighty_agent_brand",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1784903458300,
+      "tag": "0040_aromatic_blackheart",
+      "breakpoints": true
     }
   ]
 }

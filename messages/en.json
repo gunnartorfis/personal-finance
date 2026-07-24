@@ -634,6 +634,8 @@
       "transactionRecategorized": "changed a transaction's category",
       "transactionShareSet": "set a shared amount on a transaction",
       "transactionShareCleared": "cleared a transaction's shared amount",
+      "transactionDeleted": "deleted a transaction",
+      "transactionRestored": "restored a deleted transaction",
       "accountCreated": "added an account",
       "accountBalanceRecorded": "recorded account balances",
       "merchantRuleCreated": "added a merchant rule",

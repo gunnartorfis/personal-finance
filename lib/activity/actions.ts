@@ -14,6 +14,10 @@ export const ActivityAction = {
   TransactionRecategorized: "transaction.recategorized",
   TransactionShareSet: "transaction.share_set",
   TransactionShareCleared: "transaction.share_cleared",
+  // Per-row soft-delete (ADR-0026): a Member deleted a single manually-owned Transaction, or
+  // restored one. Retained + reversible, distinct from the whole-Upload undo below.
+  TransactionDeleted: "transaction.deleted",
+  TransactionRestored: "transaction.restored",
 
   // Accounts & balances (ADR-0004/0016).
   AccountCreated: "account.created",

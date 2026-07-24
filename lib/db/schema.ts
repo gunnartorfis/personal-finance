@@ -576,6 +576,16 @@ export const transactions = pgTable(
      */
     archived: boolean("archived").notNull().default(false),
     /**
+     * A Member soft-deleted this single Transaction (ADR-0026): the undo timestamp, or null while
+     * live. Like `archived` the row is RETAINED (append-only) but HIDDEN from the transactions list
+     * and every calculation, and is reversible (Restore clears it). Unlike `archived` (upload-derived,
+     * whole-Upload) this is a per-row Member action on a manually-owned row (csv or manual, never a
+     * bank_sync row a re-Sync would re-add). Orthogonal to `archived`/`excluded`; still counts toward
+     * the Free cap and stays visible to the raw export read and the fingerprint dedup, so a re-upload
+     * never silently resurrects it.
+     */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    /**
      * Links the two legs of a detected inter-account transfer — a money-out leg in a funding Account
      * and the equal-and-opposite money-in leg it landed as in another (a card-bill payment, a savings
      * sweep). Both legs carry the same group id (issue #97). A row with a group id is money movement
