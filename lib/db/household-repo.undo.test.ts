@@ -165,4 +165,46 @@ describe("uploads.undo (ADR-0024)", () => {
     expect(await repo.uploads.undo(otherUpload.id, memberId)).toEqual({ status: "not-found" });
     expect((await other.repo.uploads.findById(otherUpload.id))?.undoneAt).toBeNull();
   });
+
+  it("markTransferPair refuses to link an archived row (stale detection can't relink after undo)", async () => {
+    const { repo } = await freshHousehold();
+    const [bank] = await repo.accounts.create({ name: "Bank" });
+    const [card] = await repo.accounts.create({ name: "Card" });
+    const [up] = await repo.uploads.create({ accountId: bank.id, fileName: "b.csv", fileHash: "mtp" });
+    const [debit] = await repo.transactions.create({
+      accountId: bank.id, uploadId: up.id, date: "2026-03-10", amount: -50_000,
+      merchant: "CARD PAYMENT", rawCategory: "", sourceRow: 0,
+    });
+    // The credit leg is already archived (its Upload was undone); pairing must NOT link it back in,
+    // which would re-exclude the surviving debit from spend after the undo.
+    const [credit] = await repo.transactions.create({
+      accountId: card.id, uploadId: up.id, date: "2026-03-11", amount: 50_000,
+      merchant: "PAYMENT", rawCategory: "", sourceRow: 1, archived: true,
+    });
+    const res = await repo.transactions.markTransferPair(debit.id, credit.id);
+    expect(res.groupId).toBeNull(); // no pair formed
+    expect((await repo.transactions.findById(debit.id))?.transferGroupId).toBeNull();
+    expect((await repo.transactions.findById(credit.id))?.transferGroupId).toBeNull();
+  });
+
+  it("two concurrent undos: exactly one wins, so attribution and archiving happen once", async () => {
+    const [h] = await db.insert(households).values({}).returning();
+    const [a] = await db.insert(members).values({ householdId: h.id, authUserId: `a-${h.id}` }).returning();
+    const [b] = await db.insert(members).values({ householdId: h.id, authUserId: `b-${h.id}` }).returning();
+    const repo = householdRepo(asRepoDb(db), h.id);
+    const [acct] = await repo.accounts.create({ name: "Main" });
+    const [up] = await repo.uploads.create({ accountId: acct.id, fileName: "c.csv", fileHash: "race" });
+    await repo.transactions.create({
+      accountId: acct.id, uploadId: up.id, date: "2026-03-10", amount: -1000,
+      merchant: "A", rawCategory: "", sourceRow: 0,
+    });
+
+    const [r1, r2] = await Promise.all([repo.uploads.undo(up.id, a.id), repo.uploads.undo(up.id, b.id)]);
+    // The atomic claim (stamp guarded on undone_at IS NULL) means exactly one call reports "undone".
+    expect([r1.status, r2.status].sort()).toEqual(["already-undone", "undone"]);
+    expect([r1, r2].filter((r) => r.status === "undone")).toHaveLength(1);
+    // Attribution is set once, to the winner; the row is archived exactly once.
+    expect([a.id, b.id]).toContain((await repo.uploads.findById(up.id))?.undoneByMemberId);
+    expect((await repo.transactions.list()).filter((r) => r.archived)).toHaveLength(1);
+  });
 });
