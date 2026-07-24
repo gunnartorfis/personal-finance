@@ -10,6 +10,7 @@ import { detectAndLinkTransfers } from "@/lib/transactions/link-transfers";
 
 import { appendTransactions } from "./append";
 import type { ColumnMapping } from "./column-mapping";
+import type { AlreadyImportedRow } from "./import-outcome";
 import type { ParsedRow } from "./parse-csv";
 
 /**
@@ -36,7 +37,13 @@ export interface IngestUploadInput {
 }
 
 export type IngestResult =
-  | { status: "created"; upload: Upload; appended: number; duplicates: number }
+  | {
+      status: "created";
+      upload: Upload;
+      appended: number;
+      duplicates: number;
+      alreadyImported: AlreadyImportedRow[];
+    }
   | { status: "duplicate"; fileHash: string }
   | { status: "unknown-account" };
 
@@ -66,7 +73,7 @@ export async function ingestUpload(
         importedByMemberId: input.importedByMemberId,
       });
       if (!upload) throw new Error("upload insert returned no row");
-      const { appended, duplicates } = await appendTransactions(txRepo, {
+      const { appended, duplicates, alreadyImported } = await appendTransactions(txRepo, {
         uploadId: upload.id,
         accountId: input.accountId,
         rows: input.rows,
@@ -78,7 +85,7 @@ export async function ingestUpload(
           input.rememberMapping.columns,
         );
       }
-      return { status: "created" as const, upload, appended, duplicates };
+      return { status: "created" as const, upload, appended, duplicates, alreadyImported };
     });
 
     // Post-commit, best-effort: link any inter-account transfers now visible (issue #97). Runs after

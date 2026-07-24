@@ -1,6 +1,11 @@
 import type { SuggestColumnMapping } from "./ai-mapping";
 import { headerSignature, type ColumnMapping, type ColumnRole } from "./column-mapping";
-import { attemptParse, parseWithMapping, type ParsedRow } from "./parse-csv";
+import {
+  attemptParse,
+  parseWithMappingAndHeader,
+  type ParsedRow,
+  type WithheldRow,
+} from "./parse-csv";
 
 /**
  * How a file's column mapping was resolved (ADR-0018 precedence): a header-heuristic match, a replay
@@ -18,6 +23,8 @@ export interface ResolvedUpload {
   unmatchedRoles: ColumnRole[];
   /** Parsed rows — populated when the mapping is complete, else `[]`. */
   rows: ParsedRow[];
+  /** Rows the parser couldn't read, retained with a reason (ADR-0025); `[]` when unmapped. */
+  withheld: WithheldRow[];
   source: MappingSource;
 }
 
@@ -46,6 +53,7 @@ export async function resolveUpload(
       mapping: attempt.detectedMapping,
       unmatchedRoles: [],
       rows: attempt.rows,
+      withheld: attempt.withheld,
       source: "heuristic",
     };
   }
@@ -54,11 +62,13 @@ export async function resolveUpload(
   // AI-suggested mapping's indices align with parseWithMapping's row-0-header contract.
   const hit = await remembered.findBySignature(headerSignature(attempt.header));
   if (hit) {
+    const parsed = parseWithMappingAndHeader(text, hit.columns);
     return {
       header: attempt.header,
       mapping: hit.columns,
       unmatchedRoles: [],
-      rows: parseWithMapping(text, hit.columns),
+      rows: parsed.rows,
+      withheld: parsed.withheld,
       source: "remembered",
     };
   }
@@ -66,11 +76,13 @@ export async function resolveUpload(
   if (suggest) {
     const ai = await suggest(attempt.header, attempt.sampleRows);
     if (ai) {
+      const parsed = parseWithMappingAndHeader(text, ai);
       return {
         header: attempt.header,
         mapping: ai,
         unmatchedRoles: [],
-        rows: parseWithMapping(text, ai),
+        rows: parsed.rows,
+        withheld: parsed.withheld,
         source: "ai",
       };
     }
@@ -81,6 +93,7 @@ export async function resolveUpload(
     mapping: attempt.detectedMapping,
     unmatchedRoles: attempt.unmatchedRoles,
     rows: [],
+    withheld: [],
     source: "none",
   };
 }

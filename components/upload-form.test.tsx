@@ -36,6 +36,8 @@ function stubApi(
     previewBody?: unknown
     uploadStatus?: number
     uploadBody?: unknown
+    rowsStatus?: number
+    rowsBody?: unknown
   } = {},
 ) {
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
@@ -61,6 +63,14 @@ function stubApi(
       return {
         ok: true,
         json: async () => ({ total: 3, pending: 0, classified: 3, failed: 0, done: true }),
+      }
+    }
+    if (url.startsWith("/api/uploads/") && url.endsWith("/rows") && method === "POST") {
+      const status = opts.rowsStatus ?? 201
+      return {
+        ok: status < 400,
+        status,
+        json: async () => opts.rowsBody ?? { appended: 1, duplicates: 0, alreadyImported: [] },
       }
     }
     if (url === "/api/classify" && method === "POST") {
@@ -196,6 +206,215 @@ describe("UploadForm", () => {
     await pickAndSubmit(ACCOUNTS[0].id)
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/no longer exists/i)
+  })
+
+  it("shows all three outcome buckets and no longer says 'skipped'", async () => {
+    stubApi({
+      uploadBody: {
+        status: "created",
+        upload: { id: "u1" },
+        appended: 3,
+        duplicates: 2,
+        couldntRead: [
+          { sourceRow: 1, reason: "bad-amount", date: "05.03.2026", amount: "x", merchant: "BÓNUS", category: "Verslun" },
+        ],
+        couldntReadTotal: 1,
+        ignoredCount: 0,
+        systematic: false,
+      },
+    })
+    render(<UploadForm />)
+    await pickAndSubmit(ACCOUNTS[0].id)
+
+    const status = await screen.findByRole("status")
+    expect(status).toHaveTextContent(/3 added/i)
+    expect(status).toHaveTextContent(/2 already imported/i)
+    expect(status).toHaveTextContent(/1 couldn.t read/i)
+    expect(status).not.toHaveTextContent(/skipped/i)
+  })
+
+  it("lists the couldn't-read rows when the details are expanded", async () => {
+    stubApi({
+      uploadBody: {
+        status: "created",
+        upload: { id: "u1" },
+        appended: 1,
+        duplicates: 0,
+        couldntRead: [
+          { sourceRow: 1, reason: "bad-amount", date: "05.03.2026", amount: "ódýrt", merchant: "BÓNUS", category: "Verslun" },
+        ],
+        couldntReadTotal: 1,
+        ignoredCount: 0,
+        systematic: false,
+      },
+    })
+    render(<UploadForm />)
+    await pickAndSubmit(ACCOUNTS[0].id)
+    await screen.findByRole("status")
+
+    await userEvent.click(screen.getByRole("button", { name: /show details/i }))
+    // The couldn't-read row is an editable Fix & import form, prefilled from the raw cells.
+    expect(screen.getByDisplayValue("BÓNUS")).toBeInTheDocument()
+    expect(screen.getByDisplayValue("2026-03-05")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /fix & import/i })).toBeInTheDocument()
+  })
+
+  it("fixes & imports a couldn't-read row and moves it into the added bucket", async () => {
+    const fetchMock = stubApi({
+      uploadBody: {
+        status: "created",
+        upload: { id: "u1" },
+        appended: 0,
+        duplicates: 0,
+        couldntRead: [
+          { sourceRow: 1, reason: "bad-amount", date: "05.03.2026", amount: "", merchant: "BÓNUS", category: "Verslun" },
+        ],
+        couldntReadTotal: 1,
+        ignoredCount: 0,
+        systematic: false,
+      },
+      rowsBody: { appended: 1, duplicates: 0, alreadyImported: [] },
+    })
+    render(<UploadForm />)
+    await pickAndSubmit(ACCOUNTS[0].id)
+    await screen.findByRole("status")
+    await userEvent.click(screen.getByRole("button", { name: /show details/i }))
+
+    await userEvent.type(screen.getByLabelText(/amount/i), "-1990")
+    await userEvent.click(screen.getByRole("button", { name: /fix & import/i }))
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some((c) => String(c[0]).endsWith("/rows"))).toBe(true),
+    )
+    const rowsCall = fetchMock.mock.calls.find((c) => String(c[0]).endsWith("/rows"))!
+    expect(String(rowsCall[0])).toBe("/api/uploads/u1/rows")
+    expect(JSON.parse((rowsCall[1] as RequestInit).body as string)).toMatchObject({
+      date: "2026-03-05",
+      amount: -1990,
+      merchant: "BÓNUS",
+      sourceRow: 1,
+    })
+
+    // The row leaves the couldn't-read list and the summary counts one more added.
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/1 added/i))
+    expect(screen.queryByRole("button", { name: /fix & import/i })).not.toBeInTheDocument()
+
+    // The recovered pending row re-triggers the classification drain (POST /api/classify after fix).
+    await waitFor(() => {
+      const urls = fetchMock.mock.calls.map((c) => String(c[0]))
+      const afterFix = urls.slice(urls.findIndex((u) => u.endsWith("/rows")) + 1)
+      expect(afterFix).toContain("/api/classify")
+    })
+  })
+
+  it("imports an already-imported row anyway, moving it into the added bucket", async () => {
+    const fetchMock = stubApi({
+      uploadBody: {
+        status: "created",
+        upload: { id: "u1" },
+        appended: 0,
+        duplicates: 1,
+        alreadyImported: [
+          {
+            sourceRow: 0,
+            date: "2026-03-01",
+            amount: -650,
+            merchant: "KAFFITAR",
+            category: "Kaffi",
+            importedAt: "2026-01-05T00:00:00.000Z",
+            fileName: "dec.csv",
+          },
+        ],
+        couldntRead: [],
+        couldntReadTotal: 0,
+        ignoredCount: 0,
+        systematic: false,
+      },
+      rowsBody: { appended: 1, duplicates: 0, alreadyImported: [] },
+    })
+    render(<UploadForm />)
+    await pickAndSubmit(ACCOUNTS[0].id)
+    await screen.findByRole("status")
+    await userEvent.click(screen.getByRole("button", { name: /show details/i }))
+    await userEvent.click(screen.getByRole("button", { name: /import anyway/i }))
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some((c) => String(c[0]).endsWith("/rows"))).toBe(true),
+    )
+    const rowsCall = fetchMock.mock.calls.find((c) => String(c[0]).endsWith("/rows"))!
+    expect(JSON.parse((rowsCall[1] as RequestInit).body as string)).toMatchObject({
+      force: true,
+      date: "2026-03-01",
+      amount: -650,
+      merchant: "KAFFITAR",
+    })
+
+    // The forced row leaves the already-imported list and the summary counts one more added.
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(/1 added/i))
+    expect(screen.queryByRole("button", { name: /import anyway/i })).not.toBeInTheDocument()
+  })
+
+  it("caps the couldn't-read list and hints at a systematic failure", async () => {
+    stubApi({
+      uploadBody: {
+        status: "created",
+        upload: { id: "u1" },
+        appended: 0,
+        duplicates: 0,
+        couldntRead: Array.from({ length: 50 }, (_, i) => ({
+          sourceRow: i,
+          reason: "bad-date",
+          date: "2026-03-01",
+          amount: "-1 kr.",
+          merchant: `M${i}`,
+          category: "C",
+        })),
+        couldntReadTotal: 200,
+        ignoredCount: 0,
+        systematic: true,
+      },
+    })
+    render(<UploadForm />)
+    await pickAndSubmit(ACCOUNTS[0].id)
+    await screen.findByRole("status")
+
+    await userEvent.click(screen.getByRole("button", { name: /show details/i }))
+    expect(screen.getByText(/format may not be supported/i)).toBeInTheDocument()
+    expect(screen.getByText(/\+\s*150 more/i)).toBeInTheDocument()
+  })
+
+  it("shows already-imported rows with provenance when details are expanded", async () => {
+    stubApi({
+      uploadBody: {
+        status: "created",
+        upload: { id: "u1" },
+        appended: 1,
+        duplicates: 1,
+        alreadyImported: [
+          {
+            sourceRow: 0,
+            date: "2026-03-01",
+            amount: -650,
+            merchant: "KAFFITAR",
+            category: "Kaffi",
+            importedAt: "2026-01-05T00:00:00.000Z",
+            fileName: "dec.csv",
+          },
+        ],
+        couldntRead: [],
+        couldntReadTotal: 0,
+        ignoredCount: 0,
+        systematic: false,
+      },
+    })
+    render(<UploadForm />)
+    await pickAndSubmit(ACCOUNTS[0].id)
+    await screen.findByRole("status")
+
+    await userEvent.click(screen.getByRole("button", { name: /show details/i }))
+    expect(screen.getByText("KAFFITAR")).toBeInTheDocument()
+    // Provenance names the file the row first arrived in.
+    expect(screen.getByText(/dec\.csv/)).toBeInTheDocument()
   })
 
   it("hides the picker and imports to the default when it's the only account", async () => {

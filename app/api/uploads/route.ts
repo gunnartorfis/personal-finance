@@ -8,10 +8,12 @@ import {
   parseColumnMappingJson,
   type ColumnMapping,
 } from "@/lib/ingestion/column-mapping";
+import { summarizeWithheld } from "@/lib/ingestion/import-outcome";
 import {
   parseWithMappingAndHeader,
   RowCapExceededError,
   type ParsedRow,
+  type WithheldRow,
 } from "@/lib/ingestion/parse-csv";
 import { resolveUpload } from "@/lib/ingestion/resolve-mapping";
 import { ingestUpload } from "@/lib/ingestion/upload";
@@ -64,12 +66,16 @@ export async function POST(request: Request) {
   //  - otherwise resolve remembered → heuristic (shared with the preview). A file neither the
   //    heuristics nor a remembered mapping can resolve is a 422 — the user must map it via preview.
   let rows: ParsedRow[];
+  let withheld: WithheldRow[] = [];
+  let effectiveMapping: ColumnMapping | undefined;
   let rememberMapping: { headerSignature: string; columns: ColumnMapping } | undefined;
   try {
     const text = new TextDecoder().decode(bytes);
     if (mapping) {
       const parsed = parseWithMappingAndHeader(text, mapping);
       rows = parsed.rows;
+      withheld = parsed.withheld;
+      effectiveMapping = mapping;
       rememberMapping = { headerSignature: headerSignature(parsed.header), columns: mapping };
     } else {
       const resolved = await resolveUpload(householdRepo(getDb(), householdId).columnMappings, text);
@@ -77,6 +83,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "could not map CSV columns" }, { status: 422 });
       }
       rows = resolved.rows;
+      withheld = resolved.withheld;
+      effectiveMapping = resolved.mapping as ColumnMapping;
     }
   } catch (err) {
     if (err instanceof RowCapExceededError) {
@@ -94,8 +102,14 @@ export async function POST(request: Request) {
     rememberMapping,
   });
 
+  // On a fresh import, report the rows we couldn't read alongside the counts (ADR-0025) so the UI
+  // can surface and later recover them. effectiveMapping is always set on this success path.
+  if (result.status === "created" && effectiveMapping) {
+    const withheldSummary = summarizeWithheld(withheld, effectiveMapping);
+    return NextResponse.json({ ...result, ...withheldSummary }, { status: 201 });
+  }
+
   // "duplicate" is a successful no-op (the file was already imported), not an error — 200, not 409.
-  const status =
-    result.status === "unknown-account" ? 404 : result.status === "duplicate" ? 200 : 201;
+  const status = result.status === "unknown-account" ? 404 : 200;
   return NextResponse.json(result, { status });
 }

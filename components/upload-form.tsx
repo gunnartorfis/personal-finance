@@ -1,6 +1,6 @@
 "use client"
 
-import { CircleAlert, CircleCheck, Loader2, Upload } from "lucide-react"
+import { CircleAlert, Loader2, Upload } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { type FormEvent, useEffect, useState } from "react"
 
@@ -10,6 +10,14 @@ import {
   type ColumnMapping,
   type UploadPreviewData,
 } from "@/components/import-preview"
+import {
+  ImportSummaryCard,
+  type AlreadyImportedRow,
+  type CouldntReadRow,
+  type ImportSummary,
+  type RecoveredOutcome,
+} from "@/components/import-summary"
+import { applyForced, applyRecovered } from "@/components/import-summary-model"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { UploadProgress } from "@/components/upload-progress"
@@ -32,6 +40,11 @@ interface UploadResponse {
   upload?: { id: string }
   appended?: number
   duplicates?: number
+  alreadyImported?: AlreadyImportedRow[]
+  couldntRead?: CouldntReadRow[]
+  couldntReadTotal?: number
+  ignoredCount?: number
+  systematic?: boolean
   error?: string
 }
 
@@ -79,7 +92,10 @@ export function UploadForm({ className }: { className?: string }) {
   // The pending Import preview (set when an import needs a human decision), and the post-import
   // summary (added / skipped counts) shown after a successful commit.
   const [preview, setPreview] = useState<UploadPreviewData | null>(null)
-  const [summary, setSummary] = useState<{ added: number; skipped: number } | null>(null)
+  const [summary, setSummary] = useState<ImportSummary | null>(null)
+  // Bumped when a recovered row is appended, to remount ClassifyTrigger and re-drive its resumable
+  // drain (see handleRecovered) rather than firing a lone unobserved classify request.
+  const [classifyRun, setClassifyRun] = useState(0)
 
   // react-doctor-disable-next-line react-doctor/no-fetch-in-effect -- one-shot client load already race-guarded by the `ignore` flag; server-side fetch is out of scope for this form
   useEffect(() => {
@@ -135,7 +151,15 @@ export function UploadForm({ className }: { className?: string }) {
     if (data?.status === "created" && data.upload) {
       setPreview(null)
       setUploadId(data.upload.id)
-      setSummary({ added: data.appended ?? 0, skipped: data.duplicates ?? 0 })
+      setSummary({
+        added: data.appended ?? 0,
+        alreadyImported: data.duplicates ?? 0,
+        alreadyImportedRows: data.alreadyImported ?? [],
+        couldntRead: data.couldntRead ?? [],
+        couldntReadTotal: data.couldntReadTotal ?? 0,
+        ignoredCount: data.ignoredCount ?? 0,
+        systematic: data.systematic ?? false,
+      })
       // Clear the form so a stray second click can't re-post the same file (a duplicate no-op).
       // Reset the account back to the default rather than blank so the picker-less single-account
       // flow stays submittable.
@@ -187,6 +211,21 @@ export function UploadForm({ className }: { className?: string }) {
     } finally {
       setBusy(false)
     }
+  }
+
+  // Fix & import: fold the outcome into the summary (pure helper), then re-drive the resumable
+  // ClassifyTrigger for the newly-pending row by remounting it (key bump) — resilient to a dropped
+  // request or navigation, unlike a lone unobserved fetch.
+  function handleRecovered(sourceRow: number, outcome: RecoveredOutcome) {
+    setSummary((prev) => (prev ? applyRecovered(prev, sourceRow, outcome) : prev))
+    if (outcome.appended > 0) setClassifyRun((run) => run + 1)
+  }
+
+  // Import anyway: the row leaves the already-imported bucket for added. A 2xx means it's imported
+  // either way (fresh, or a retry no-op of a lost insert), so re-drive classification regardless.
+  function handleForced(sourceRow: number) {
+    setSummary((prev) => (prev ? applyForced(prev, sourceRow) : prev))
+    setClassifyRun((run) => run + 1)
   }
 
   // Resolve to text at render (not when the error is raised) so the alert follows a locale change.
@@ -302,13 +341,14 @@ export function UploadForm({ className }: { className?: string }) {
         </div>
       )}
 
-      {summary && (
-        <output className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
-          <CircleCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          <p className="tabular-nums">
-            {t("preview.summary", { added: summary.added, skipped: summary.skipped })}
-          </p>
-        </output>
+      {summary && uploadId && (
+        <ImportSummaryCard
+          key={uploadId}
+          summary={summary}
+          uploadId={uploadId}
+          onRecovered={handleRecovered}
+          onForced={handleForced}
+        />
       )}
 
       {uploadId && (
@@ -316,8 +356,10 @@ export function UploadForm({ className }: { className?: string }) {
           {/* Kick classification for the rows just appended, then watch it drain. `resumable` marks
               the run so if the user leaves this page mid-drain, the standing controls (dashboard /
               transactions / banner) pick it back up. UploadProgress shows the per-upload bar here. */}
-          <ClassifyTrigger autoRun resumable />
-          <UploadProgress uploadId={uploadId} />
+          <ClassifyTrigger key={`${uploadId}-${classifyRun}`} autoRun resumable />
+          {/* Keyed by classifyRun too: a recover/force appends a pending row after the bar has
+              polled to 100%, so remount it to re-poll and reflect the new pending work. */}
+          <UploadProgress key={`${uploadId}-${classifyRun}`} uploadId={uploadId} />
         </div>
       )}
     </section>

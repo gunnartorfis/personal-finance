@@ -332,8 +332,29 @@
       },
       "sampleHeading": "Forskoðun",
       "confirm": "Staðfesta innflutning",
-      "cancel": "Hætta við",
-      "summary": "{added} bætt við, {skipped} sleppt"
+      "cancel": "Hætta við"
+    },
+    "outcome": {
+      "added": "{count} bætt við",
+      "alreadyImported": "{count} þegar fluttar inn",
+      "couldntRead": "{count} ólæsilegar",
+      "ignored": "{count} línur hunsaðar",
+      "showDetails": "Sýna nánar",
+      "hideDetails": "Fela nánar",
+      "systematicHint": "Flestar línur mistókust á sama hátt — þetta skráarsnið er mögulega ekki stutt enn.",
+      "andMore": "+{count} ólæsilegar til viðbótar",
+      "andMoreImported": "+{count} þegar fluttar inn til viðbótar",
+      "alreadyImportedHeading": "Þegar flutt inn",
+      "couldntReadHeading": "Ólæsilegar",
+      "provenance": "flutt inn {date} · {file}",
+      "provenanceNoFile": "flutt inn {date}",
+      "provenanceUnknown": "þegar flutt inn",
+      "reasonBadDate": "Ólæsileg dagsetning",
+      "reasonBadAmount": "Ólæsileg upphæð",
+      "fixImport": "Laga og flytja inn",
+      "fixFailed": "Tókst ekki að flytja inn — athugaðu gildin og reyndu aftur.",
+      "importAnyway": "Flytja samt inn",
+      "importAnywayFailed": "Tókst ekki að flytja inn — reyndu aftur."
     },
     "errors": {
       "duplicate": "Þessi skrá hefur þegar verið flutt inn.",
@@ -611,6 +632,8 @@
       "dataExported": "flutti út heimilisgögn",
       "bankDisconnected": "aftengdi banka",
       "dataReset": "núllstillti heimilisgögn",
+      "uploadRowsRecovered": "endurheimti ólæsilega línu",
+      "uploadRowsForced": "flutti inn tvítekna línu",
       "unknown": "gerði breytingu"
     }
   },

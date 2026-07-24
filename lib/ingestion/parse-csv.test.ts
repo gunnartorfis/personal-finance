@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { attemptParse, parseStatementCsv, parseWithMapping } from "./parse-csv";
+import {
+  attemptParse,
+  parseStatementCsv,
+  parseWithMapping,
+  parseWithMappingAndHeader,
+} from "./parse-csv";
 
 const CSV = [
   "Dagsetning,Mótaðili,Tegund,Upphæð",
@@ -178,5 +183,87 @@ describe("attemptParse", () => {
     const result = attemptParse(csv);
     expect(result.headerIndex).toBe(1);
     expect(result.rows).toHaveLength(1);
+  });
+
+  it("reports rows it could not read as withheld with a reason", () => {
+    const csv = [
+      "Dagsetning,Mótaðili,Tegund,Upphæð",
+      "01.03.2026,NETFLIX,Afþreying,-1.990 kr.",
+      "05.03.2026,BÓNUS,Verslun,ódýrt",
+    ].join("\n");
+    const result = attemptParse(csv);
+    expect(result.rows).toHaveLength(1);
+    expect(result.withheld).toEqual([
+      { sourceRow: 1, reason: "bad-amount", cells: ["05.03.2026", "BÓNUS", "Verslun", "ódýrt"] },
+    ]);
+  });
+});
+
+describe("parseWithMappingAndHeader — withheld rows", () => {
+  const MAPPING = { date: 0, merchant: 1, category: 2, amount: 3 };
+
+  it("withholds a row with a valid date but unreadable amount as bad-amount", () => {
+    const csv = [
+      "Dagsetning,Mótaðili,Tegund,Upphæð",
+      "01.03.2026,NETFLIX,Afþreying,-1.990 kr.",
+      "05.03.2026,BÓNUS,Verslun,ódýrt",
+    ].join("\n");
+    const { rows, withheld } = parseWithMappingAndHeader(csv, MAPPING);
+    expect(rows).toHaveLength(1);
+    expect(withheld).toEqual([
+      { sourceRow: 1, reason: "bad-amount", cells: ["05.03.2026", "BÓNUS", "Verslun", "ódýrt"] },
+    ]);
+  });
+
+  it("withholds a populated row with an invalid date as bad-date", () => {
+    const csv = [
+      "Dagsetning,Mótaðili,Tegund,Upphæð",
+      "2026-03-01,NETFLIX,Afþreying,-1.990 kr.",
+    ].join("\n");
+    const { rows, withheld } = parseWithMappingAndHeader(csv, MAPPING);
+    expect(rows).toHaveLength(0);
+    expect(withheld).toEqual([
+      {
+        sourceRow: 0,
+        reason: "bad-date",
+        cells: ["2026-03-01", "NETFLIX", "Afþreying", "-1.990 kr."],
+      },
+    ]);
+  });
+
+  it("classifies a separator line as non-data but ignores fully-empty lines", () => {
+    const csv = [
+      "Dagsetning,Mótaðili,Tegund,Upphæð",
+      "01.03.2026,NETFLIX,Afþreying,-1.990 kr.",
+      "-------,,,",
+      ",,,",
+    ].join("\n");
+    // The separator (one populated cell) is counted as non-data; the fully-empty line is not.
+    const { withheld } = parseWithMappingAndHeader(csv, MAPPING);
+    expect(withheld.map((w) => w.reason)).toEqual(["non-data"]);
+  });
+
+  it("does not count a trailing newline as an ignored line", () => {
+    const csv = "Dagsetning,Mótaðili,Tegund,Upphæð\n01.03.2026,NETFLIX,Afþreying,-1.990 kr.\n";
+    const { rows, withheld } = parseWithMappingAndHeader(csv, MAPPING);
+    expect(rows).toHaveLength(1);
+    expect(withheld).toEqual([]);
+  });
+
+  it("counts withheld (malformed) rows toward the row cap", () => {
+    const header = "Dagsetning,Mótaðili,Tegund,Upphæð";
+    const valid = Array.from({ length: 10_000 }, () => "01.03.2026,SHOP,Verslun,-100 kr.");
+    // Valid date, unreadable amount ⇒ withheld (not parsed). 10k valid + 10001 withheld > 20k cap.
+    const malformed = Array.from({ length: 10_001 }, () => "01.03.2026,SHOP,Verslun,bad");
+    const csv = [header, ...valid, ...malformed].join("\n");
+    expect(() => parseWithMappingAndHeader(csv, MAPPING)).toThrow(/too many rows/);
+  });
+
+  it("returns an empty withheld list when every row parses", () => {
+    const csv = [
+      "Dagsetning,Mótaðili,Tegund,Upphæð",
+      "01.03.2026,NETFLIX,Afþreying,-1.990 kr.",
+    ].join("\n");
+    expect(parseWithMappingAndHeader(csv, MAPPING).withheld).toEqual([]);
   });
 });
