@@ -636,6 +636,7 @@
       "transactionShareCleared": "hreinsaði sameiginlega upphæð færslu",
       "transactionDeleted": "eyddi færslu",
       "transactionRestored": "endurheimti eydda færslu",
+      "transactionCreated": "bætti við færslu",
       "accountCreated": "bætti við reikningi",
       "accountBalanceRecorded": "skráði reikningsstöður",
       "merchantRuleCreated": "bætti við söluaðilareglu",
@@ -905,6 +906,22 @@
     "previous": "Fyrra tímabil",
     "next": "Næsta tímabil",
     "label": "Greiðslutímabil"
+  },
+  "addTransaction": {
+    "trigger": "Bæta við færslu",
+    "title": "Bæta við færslu",
+    "description": "Skráðu færslu sem er ekki á yfirliti.",
+    "account": "Reikningur",
+    "kind": "Útgjöld eða tekjur",
+    "expense": "Útgjöld",
+    "income": "Tekjur",
+    "amount": "Upphæð",
+    "merchant": "Söluaðili",
+    "date": "Dagsetning",
+    "expenseType": "Tegund útgjalda",
+    "expenseTypeNone": "Láta gervigreind ákveða",
+    "save": "Vista",
+    "saveError": "Tókst ekki að bæta við — reyndu aftur"
   },
   "transactions": {
     "pageTitle": "Færslur",

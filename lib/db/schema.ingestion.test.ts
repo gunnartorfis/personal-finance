@@ -53,6 +53,31 @@ describe("ingestion & classification schema", () => {
     expect(t.expenseType).toBeNull();
   });
 
+  // A hand-entered Transaction (ADR-0026): source 'manual', no upload / external id / source row.
+  const baseManual = () => ({
+    householdId,
+    accountId,
+    source: "manual" as const,
+    date: "2026-03-05",
+    amount: -1500,
+    merchant: "Cash lunch",
+    rawCategory: "",
+  });
+
+  it("accepts a manual transaction with no upload, external id, or source row (ADR-0026)", async () => {
+    const [t] = await db.insert(transactions).values(baseManual()).returning();
+    expect(t.source).toBe("manual");
+    expect(t.uploadId).toBeNull();
+    expect(t.externalId).toBeNull();
+    expect(t.sourceRow).toBeNull();
+  });
+
+  it("rejects a manual transaction that carries an upload id (provenance CHECK)", async () => {
+    await expect(
+      db.insert(transactions).values({ ...baseManual(), uploadId }),
+    ).rejects.toThrow();
+  });
+
   it("accepts a classified transaction with the empty (not-bucketed) type", async () => {
     const [t] = await db
       .insert(transactions)
