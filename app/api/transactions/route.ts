@@ -8,6 +8,18 @@ import { EXPENSE_TYPES, type ExpenseType } from "@/shared/types"
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 /** Matches the CSV parser's merchant cap so a manual entry can't exceed what an import allows. */
 const MAX_MERCHANT_LENGTH = 200
+/** The `amount` column is a Postgres int4; reject out-of-range values with a 400, not a DB 500. */
+const MAX_AMOUNT = 2_147_483_647
+
+/**
+ * True only for a real calendar date in `YYYY-MM-DD` form — the regex alone would pass `2026-13-45`
+ * or `2026-02-30`, which the `date` column rejects with a 500. Round-tripping through `Date` catches
+ * both a non-existent month/day and normalization (Feb 30 → Mar 2).
+ */
+function isRealDate(s: string): boolean {
+  const d = new Date(`${s}T00:00:00Z`)
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s
+}
 
 interface ManualInput {
   accountId: string
@@ -31,12 +43,15 @@ function parseBody(body: unknown): ManualInput | { error: string } {
   if (typeof b.accountId !== "string" || b.accountId.trim() === "") {
     return { error: "account is required" }
   }
-  if (typeof b.date !== "string" || !DATE_RE.test(b.date)) {
-    return { error: "date must be YYYY-MM-DD" }
+  if (typeof b.date !== "string" || !DATE_RE.test(b.date) || !isRealDate(b.date)) {
+    return { error: "date must be a valid YYYY-MM-DD date" }
   }
   const amount = typeof b.amount === "number" ? Math.round(b.amount) : NaN
   if (!Number.isFinite(amount) || amount === 0) {
     return { error: "amount must be a non-zero number" }
+  }
+  if (Math.abs(amount) > MAX_AMOUNT) {
+    return { error: "amount is out of range" }
   }
   const merchant = typeof b.merchant === "string" ? b.merchant.trim() : ""
   if (merchant === "") return { error: "merchant is required" }
@@ -83,10 +98,16 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const txn = await ctx.repo.transactions.createManual(parsed)
-  await recordActivity(ctx, ActivityAction.TransactionCreated, {
-    transactionId: txn.id,
-    merchant: parsed.merchant,
-    amount: parsed.amount,
-  })
+  // Best-effort audit: the row is already committed, so a logging failure must not surface as a
+  // failed request — that would prompt a retry and create a duplicate (mirrors the upload routes).
+  try {
+    await recordActivity(ctx, ActivityAction.TransactionCreated, {
+      transactionId: txn.id,
+      merchant: parsed.merchant,
+      amount: parsed.amount,
+    })
+  } catch {
+    // The creation succeeded; swallow the logging error.
+  }
   return NextResponse.json(txn, { status: 201 })
 }

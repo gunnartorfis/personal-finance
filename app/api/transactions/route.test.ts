@@ -95,4 +95,23 @@ describe("POST /api/transactions (manual insert)", () => {
     expect(res.status).toBe(400);
     expect(createManual).not.toHaveBeenCalled();
   });
+
+  it("400s a calendar-invalid date before touching the database", async () => {
+    expect((await POST(postReq({ ...valid, date: "2026-13-45" }))).status).toBe(400);
+    expect((await POST(postReq({ ...valid, date: "2026-02-30" }))).status).toBe(400);
+    expect(requireHousehold).not.toHaveBeenCalled();
+  });
+
+  it("400s an amount outside the integer column's range", async () => {
+    expect((await POST(postReq({ ...valid, amount: 9_000_000_000 }))).status).toBe(400);
+    expect(requireHousehold).not.toHaveBeenCalled();
+  });
+
+  it("still returns 201 when activity logging fails (the row was created)", async () => {
+    const { createManual } = ctx([{ id: "a1" }], { id: "t-new", merchant: "Cash lunch" });
+    recordActivity.mockRejectedValueOnce(new Error("activity log down"));
+    const res = await POST(postReq(valid));
+    expect(res.status).toBe(201);
+    expect(createManual).toHaveBeenCalled();
+  });
 });
