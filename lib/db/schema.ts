@@ -358,8 +358,8 @@ export const classificationStatusEnum = pgEnum("classification_status", [
   "failed",
 ]);
 
-/** Where a Transaction came from: a CSV {@link uploads} import, or an automatic bank sync. */
-export const ingestionSourceEnum = pgEnum("ingestion_source", ["csv", "bank_sync"]);
+/** Where a Transaction came from: a CSV {@link uploads} import, an automatic bank sync, or a hand-entered `manual` row (ADR-0026). */
+export const ingestionSourceEnum = pgEnum("ingestion_source", ["csv", "bank_sync", "manual"]);
 
 /** One CSV import into a Household: the file, the Account its rows belong to, and the importer. */
 export const uploads = pgTable(
@@ -576,6 +576,16 @@ export const transactions = pgTable(
      */
     archived: boolean("archived").notNull().default(false),
     /**
+     * A Member soft-deleted this single Transaction (ADR-0026): the undo timestamp, or null while
+     * live. Like `archived` the row is RETAINED (append-only) but HIDDEN from the transactions list
+     * and every calculation, and is reversible (Restore clears it). Unlike `archived` (upload-derived,
+     * whole-Upload) this is a per-row Member action on a manually-owned row (csv or manual, never a
+     * bank_sync row a re-Sync would re-add). Orthogonal to `archived`/`excluded`; still counts toward
+     * the Free cap and stays visible to the raw export read and the fingerprint dedup, so a re-upload
+     * never silently resurrects it.
+     */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    /**
      * Links the two legs of a detected inter-account transfer — a money-out leg in a funding Account
      * and the equal-and-opposite money-in leg it landed as in another (a card-bill payment, a savings
      * sweep). Both legs carry the same group id (issue #97). A row with a group id is money movement
@@ -669,11 +679,15 @@ export const transactions = pgTable(
       sql`${t.categoryConfidence} IS NULL OR (${t.categoryConfidence} >= 0 AND ${t.categoryConfidence} <= 1)`,
     ),
     // Provenance integrity: a CSV row carries an Upload and no external id; a synced row carries an
-    // external id and no Upload.
+    // external id and no Upload; a hand-entered `manual` row (ADR-0026) carries none of the three.
+    // NB: the `manual` enum value is added in an earlier migration than this CHECK so the value is
+    // committed before it is referenced (Postgres forbids using a just-added enum value in the same
+    // transaction).
     check(
       "transactions_source_provenance",
       sql`(${t.source} = 'csv' AND ${t.uploadId} IS NOT NULL AND ${t.externalId} IS NULL AND ${t.sourceRow} IS NOT NULL)
-        OR (${t.source} = 'bank_sync' AND ${t.uploadId} IS NULL AND ${t.externalId} IS NOT NULL AND ${t.sourceRow} IS NULL)`,
+        OR (${t.source} = 'bank_sync' AND ${t.uploadId} IS NULL AND ${t.externalId} IS NOT NULL AND ${t.sourceRow} IS NULL)
+        OR (${t.source} = 'manual' AND ${t.uploadId} IS NULL AND ${t.externalId} IS NULL AND ${t.sourceRow} IS NULL)`,
     ),
     // Idempotent dedup for synced rows: one row per (household, account, provider transaction id).
     // Partial so CSV rows (external id null) are unconstrained.

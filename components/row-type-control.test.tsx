@@ -31,9 +31,10 @@ const BASE: TransactionRow = {
   classificationStatus: "classified",
   categoryId: null,
   overrideCategoryId: null,
+  source: "csv",
 }
 
-function setup(row: Partial<TransactionRow> = {}) {
+function setup(row: Partial<TransactionRow> = {}, opts: { onDeleted?: boolean } = { onDeleted: true }) {
   const handlers = {
     onOverrideChanged: vi.fn(),
     onIncomeChanged: vi.fn(),
@@ -41,14 +42,16 @@ function setup(row: Partial<TransactionRow> = {}) {
     onShareChanged: vi.fn(),
     onRuleCreated: vi.fn(),
   }
+  const onDeleted = vi.fn()
   render(
     <RowTypeControl
       row={{ ...BASE, ...row }}
       formatAmount={fmt}
       {...handlers}
+      {...(opts.onDeleted ? { onDeleted } : {})}
     />
   )
-  return { user: userEvent.setup(), ...handlers }
+  return { user: userEvent.setup(), ...handlers, onDeleted }
 }
 
 describe("RowTypeControl", () => {
@@ -70,6 +73,59 @@ describe("RowTypeControl", () => {
       expenseType: null,
       hasOverride: false,
     })
+  })
+
+  it("deletes a csv debit via the endpoint and notifies the parent", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }))
+    vi.stubGlobal("fetch", fetchMock)
+    const { user, onDeleted } = setup()
+
+    await user.click(screen.getByRole("button", { name: /necessary/i }))
+    await user.click(await screen.findByRole("menuitem", { name: /delete/i }))
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/transactions/t1/delete",
+      expect.objectContaining({ method: "PUT" })
+    )
+    expect(onDeleted).toHaveBeenCalled()
+  })
+
+  it("offers delete on a credit row too", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }))
+    vi.stubGlobal("fetch", fetchMock)
+    const { user, onDeleted } = setup({ amount: 5000, incomeMarked: false })
+
+    await user.click(screen.getByRole("button", { name: /credit/i }))
+    await user.click(await screen.findByRole("menuitem", { name: /delete/i }))
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/transactions/t1/delete",
+      expect.objectContaining({ method: "PUT" })
+    )
+    expect(onDeleted).toHaveBeenCalled()
+  })
+
+  it("offers delete on an excluded row too", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }))
+    vi.stubGlobal("fetch", fetchMock)
+    const { user, onDeleted } = setup({ excluded: true })
+
+    await user.click(screen.getByRole("button", { name: /excluded/i }))
+    await user.click(await screen.findByRole("menuitem", { name: /delete/i }))
+
+    expect(onDeleted).toHaveBeenCalled()
+  })
+
+  it("hides delete for a bank_sync row (a re-Sync would re-add it)", async () => {
+    const { user } = setup({ source: "bank_sync" })
+    await user.click(screen.getByRole("button", { name: /necessary/i }))
+    expect(screen.queryByRole("menuitem", { name: /delete/i })).toBeNull()
+  })
+
+  it("hides delete when no onDeleted handler is passed (rapid-review context)", async () => {
+    const { user } = setup({}, { onDeleted: false })
+    await user.click(screen.getByRole("button", { name: /necessary/i }))
+    expect(screen.queryByRole("menuitem", { name: /delete/i })).toBeNull()
   })
 
   it("creates a whole-merchant rule from the current type and refreshes (ADR-0012)", async () => {
