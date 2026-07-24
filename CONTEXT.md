@@ -27,7 +27,7 @@ A named money location within a Household — a card, a bank account, or an exte
 _Avoid_: Card (a non-card account is possible); treating "every Transaction belongs to an Account" as "every Account has Transactions" (balance-only Accounts have none)
 
 **Upload**:
-One CSV import into a Household: the file, its column mapping, the importing Member, and the Account the rows belong to.
+One CSV import into a Household: the file, its column mapping, the importing Member, and the Account the rows belong to. Has a lifecycle — **active** by default, or **undone** (see **Undo**), the latter hiding all its Transactions as **Archived**.
 _Avoid_: Import, Batch, Statement
 
 **Column mapping**:
@@ -61,6 +61,18 @@ _Avoid_: Skipped, Invalid / Rejected (too final — the row is recoverable), Dro
 **Import anyway**:
 The Member gesture that forces an **Already imported** row in as a new **Transaction**, deliberately bypassing the ADR-0003 dedup guard for that one row.
 _Avoid_: Override (reserved for the **Expense type** gesture), Force (bare)
+
+**Undo (an Upload)**:
+Reversing a prior **Upload** in one action, so every **Transaction** it brought in becomes **Archived** at once. All-or-nothing at the Upload level — a single unwanted row is **Excluded**, not undone. A logged **Member** action, and reversible (restoring the Upload un-archives its rows). Applies only to CSV Uploads; a bank **Sync** has no Upload to undo.
+_Avoid_: Delete / Remove (nothing is destroyed — rows are retained, ADR-0003), Rollback, Cancel
+
+**Archived** _(Transaction)_:
+A **Transaction** retained in the store (append-only, ADR-0003) but hidden from the transactions list _and_ every calculation, because its **Upload** was undone. Upload-derived, never set per row. Contrast **Excluded**, which keeps the row _visible_ in the list as a per-row **Member** judgement; **Archived** removes the row from view entirely and follows the whole Upload. Invisible to the dedup guard too, so re-importing an undone Upload's file shows its rows as **Added**, not **Already imported** (ADR-0024 clean-slate re-import). Reversible: restoring the Upload returns its rows to their prior state.
+_Avoid_: Excluded (visible, per-row), Deleted / Voided (the row is kept), Hidden (unqualified)
+
+**Restore (an Upload)**:
+Reversing an **Undo** — un-archiving all of an undone **Upload**'s **Transactions** so they return to the list and the math in their prior state. Offered per undone Upload, but withdrawn once the same file has been re-imported (the rows are already back), preserving the no-duplicate-rows invariant.
+_Avoid_: Redo, Re-import (uploading the file again is a separate path)
 
 **Transaction**:
 One financial line belonging to an Account: date, merchant, the charged amount (in the Account's billing currency), Account, optional source category, and optional original amount+currency. Enters the Household one of two ways — a CSV **Upload** or a bank **Sync** — the source is recorded but the shape is identical.
@@ -245,5 +257,6 @@ _Avoid_: Spending (a single cycle's card-side figure), Expenses
 - "activity" is overloaded: the **Activity log** (the member-facing record of Member actions) vs the internal "has this Household been used?" usage signal in `lib/household/activity.ts` (drives the invite-switch warning, ADR-0010). Say "Activity log" for the former and "usage signal" for the latter; never bare "activity".
 - "reconcile"/"afstemma" is NOT a domain term here: the user-facing gesture of cancelling out a reimbursed purchase is modelled as a per-Transaction **Excluded** flag, not a link between two rows. "reconciliation" already names an internal math invariant in `lib/dashboard/net-summary.ts` (`sum(byExpenseType) + unclassified === expense`); do not reuse it for the Excluded feature. Pairing/matching a debit to its funding credit stays deferred (transfer detection, issue #97).
 - "skipped" was the old post-import summary's single word for **Already imported** rows (dedup matches) — retired because it reads as a *parse* failure yet meant *duplicate*, and it hid the **Couldn't read** rows entirely (they landed in neither the added nor the skipped count). The summary now names all three **Import outcome** buckets explicitly; never resurrect bare "skipped".
+- "hidden"/"removed" splits into two distinct per-row fates: **Excluded** (a per-row Member judgement — the row stays _visible_ in the list, only out of the math) vs **Archived** (the row is _removed from view_ entirely because its **Upload** was **undone**). Never say a row is just "hidden" — say which. An Archived row is not a fourth net state: its underlying Spending/Income/Excluded state is retained for faithful restore but is inert while archived.
 - Three money-*stock* ideas must not blur: **Net worth** and **Holdings** are one and the same entered-**Balance** total (Holdings is Net worth's dashboard label, never a separate assets-only figure), whereas **Inferred saving** is computed from *flow* and never entered. A Balance is **Net worth**, not **Savings goal** progress — the two are deliberately separate (ADR-0016). Never let an entered Balance leak into the inferred-savings math, and never call inferred saving a "balance".
 - This glossary predated **ADR-0016**; the Financial-health / Net-worth cluster above was backfilled after the code shipped. If code and glossary ever disagree on balances/net worth, assume the glossary was the straggler and check ADR-0016.
