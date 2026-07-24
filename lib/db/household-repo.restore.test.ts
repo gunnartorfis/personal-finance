@@ -155,4 +155,24 @@ describe("uploads.restore (ADR-0024)", () => {
     expect(await repo.transactions.listWithOverrides(MARCH)).toHaveLength(1);
     expect((await repo.uploads.findById(up.id))?.undoneAt).toBeNull();
   });
+
+  it("two concurrent restores: exactly one wins (guarded claim prevents a double un-archive)", async () => {
+    const { repo, memberId } = await freshHousehold();
+    const [acct] = await repo.accounts.create({ name: "Main" });
+    const [up] = await repo.uploads.create({ accountId: acct.id, fileName: "c.csv", fileHash: "conc-restore" });
+    await repo.transactions.create({
+      accountId: acct.id, uploadId: up.id, date: "2026-03-10", amount: -1000,
+      merchant: "A", rawCategory: "", sourceRow: 0,
+    });
+    await repo.uploads.undo(up.id, memberId);
+
+    const [r1, r2] = await Promise.all([repo.uploads.restore(up.id), repo.uploads.restore(up.id)]);
+    // The undo_at-guarded claim means only one call actually restores; the other observes the
+    // already-active upload (or loses the claim) and never re-un-archives.
+    expect([r1, r2].filter((r) => r.status === "restored")).toHaveLength(1);
+    expect([r1, r2].some((r) => r.status === "not-undone" || r.status === "conflict")).toBe(true);
+    // Un-archived exactly once; the upload is active.
+    expect(await repo.transactions.listWithOverrides(MARCH)).toHaveLength(1);
+    expect((await repo.uploads.findById(up.id))?.undoneAt).toBeNull();
+  });
 });

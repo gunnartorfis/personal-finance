@@ -35,6 +35,11 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       { status: 409 },
     );
   }
+  if (result.status === "conflict") {
+    // A concurrent undo/restore changed the Upload between our read and write (ADR-0024). The client
+    // should refresh and retry rather than act on a stale view.
+    return NextResponse.json({ error: "upload changed, please retry", ...result }, { status: 409 });
+  }
 
   // A real restore (status "restored"): re-pair transfers and log, both best-effort — mirror the
   // rows route. Only scan when rows were actually un-archived; an empty restore has nothing to pair.
