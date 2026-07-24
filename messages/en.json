@@ -634,6 +634,7 @@
       "dataReset": "reset the household data",
       "uploadRowsRecovered": "recovered an unreadable row",
       "uploadRowsForced": "imported a duplicate row",
+      "uploadUndone": "undid an upload",
       "unknown": "made a change"
     }
   },

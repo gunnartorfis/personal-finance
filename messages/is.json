@@ -634,6 +634,7 @@
       "dataReset": "núllstillti heimilisgögn",
       "uploadRowsRecovered": "endurheimti ólæsilega línu",
       "uploadRowsForced": "flutti inn tvítekna línu",
+      "uploadUndone": "afturkallaði innsendingu",
       "unknown": "gerði breytingu"
     }
   },

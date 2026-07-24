@@ -34,6 +34,7 @@ const ACTION_LABEL_KEY: Record<string, string> = {
   [ActivityAction.DataReset]: "dataReset",
   [ActivityAction.UploadRowsRecovered]: "uploadRowsRecovered",
   [ActivityAction.UploadRowsForced]: "uploadRowsForced",
+  [ActivityAction.UploadUndone]: "uploadUndone",
 };
 
 /** The `activityLog.actions.*` catalog key for an action string; `"unknown"` if unrecognized. */
