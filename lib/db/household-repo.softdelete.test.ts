@@ -5,6 +5,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { householdRepo } from "@/lib/db/household-repo";
 import { households } from "@/lib/db/schema";
+import { detectAndLinkTransfers } from "@/lib/transactions/link-transfers";
 
 /**
  * A Member soft-deletes a single Transaction (own column `deletedAt`, distinct from the
@@ -310,5 +311,33 @@ describe("transactions soft-delete (deletedAt)", () => {
     expect(await repo.transactions.monthlySpendSeries(MARCH)).toEqual([
       { month: "2026-03", spending: 5000, income: 0 },
     ]);
+  });
+
+  it("re-pairs a restored transfer leg once detection re-runs (delete→restore round-trip)", async () => {
+    const repo = await freshHousehold();
+    const [main] = await repo.accounts.create({ name: "Main" });
+    const [savings] = await repo.accounts.create({ name: "Savings" });
+    const [up] = await repo.uploads.create({
+      accountId: main.id,
+      fileName: "x.csv",
+      fileHash: "xfer2",
+    });
+    const base = { uploadId: up.id, rawCategory: "", classificationStatus: "classified" as const, expenseType: "" };
+    const [legOut, legIn] = await repo.transactions.createMany([
+      { ...base, accountId: main.id, date: "2026-03-20", amount: -5000, merchant: "XFER-OUT", sourceRow: 0 },
+      { ...base, accountId: savings.id, date: "2026-03-20", amount: 5000, merchant: "XFER-IN", sourceRow: 1 },
+    ]);
+    await repo.transactions.markTransferPair(legOut.id, legIn.id);
+    await repo.transactions.softDelete(legIn.id);
+    await repo.transactions.restoreDeleted(legIn.id);
+    // Restore alone leaves both legs unpaired (delete cleared the group id); the route re-runs
+    // detection to re-pair them (ADR-0024). Deleted-then-restored candidates are eligible again.
+    await detectAndLinkTransfers(repo);
+    const survivor = (await repo.transactions.listWithOverrides(MARCH)).find(
+      (r) => r.merchant === "XFER-OUT",
+    );
+    expect(survivor?.transferGroupId).not.toBeNull();
+    // Re-paired → both legs are money movement again, excluded from spend.
+    expect(await repo.transactions.monthlySpendSeries(MARCH)).toEqual([]);
   });
 });

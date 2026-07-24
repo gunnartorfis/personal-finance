@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { ActivityAction } from "@/lib/activity/actions"
 import { recordActivity } from "@/lib/activity/record"
 import { requireHousehold } from "@/lib/household/current"
+import { detectAndLinkTransfers } from "@/lib/transactions/link-transfers"
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -74,9 +75,17 @@ export async function DELETE(
 
   const [updated] = await ctx.repo.transactions.restoreDeleted(id)
   // `restoreDeleted` is guarded on `deletedAt IS NOT NULL`, so a non-empty result means THIS request
-  // is the one that flipped the row — log the restore only then. Restoring a live row, or losing a
-  // concurrent-restore race, returns [] and records nothing (no duplicate audit entry).
+  // is the one that flipped the row — act only then. Restoring a live row, or losing a
+  // concurrent-restore race, returns [] and does nothing (no duplicate audit entry, no rescan).
   if (updated) {
+    // Deleting a transfer leg unlinked the pair (both legs' `transferGroupId` cleared); re-run
+    // detection so a restored leg re-pairs with its partner, matching the upload-restore route
+    // (ADR-0024). Best-effort — a restore must not fail on this re-runnable enrichment.
+    try {
+      await detectAndLinkTransfers(ctx.repo)
+    } catch {
+      // Re-runnable; the next import retries the same scan.
+    }
     await recordActivity(ctx, ActivityAction.TransactionRestored, {
       transactionId: id,
       merchant: transaction.merchant,

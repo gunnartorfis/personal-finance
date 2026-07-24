@@ -6,6 +6,11 @@ vi.mock("@/lib/household/current", () => ({ requireHousehold: () => requireHouse
 const recordActivity = vi.fn();
 vi.mock("@/lib/activity/record", () => ({ recordActivity: (...a: unknown[]) => recordActivity(...a) }));
 
+const detectAndLinkTransfers = vi.fn().mockResolvedValue({ linked: 0 });
+vi.mock("@/lib/transactions/link-transfers", () => ({
+  detectAndLinkTransfers: (...a: unknown[]) => detectAndLinkTransfers(...a),
+}));
+
 import { DELETE, PUT } from "./route";
 
 const ID = "11111111-1111-4111-8111-111111111111";
@@ -28,6 +33,7 @@ function ctx(row: Record<string, unknown> | undefined, results: { softDelete?: u
 beforeEach(() => {
   requireHousehold.mockReset();
   recordActivity.mockReset();
+  detectAndLinkTransfers.mockClear();
 });
 
 describe("PUT /api/transactions/[id]/delete (soft-delete)", () => {
@@ -92,13 +98,17 @@ describe("DELETE /api/transactions/[id]/delete (restore)", () => {
       "transaction.restored",
       expect.objectContaining({ transactionId: ID, merchant: "Netto" }),
     );
+    // Re-run transfer detection so a restored transfer leg re-pairs (delete unlinked it), mirroring
+    // the upload-restore route (ADR-0024).
+    expect(detectAndLinkTransfers).toHaveBeenCalled();
   });
 
-  it("does not log when the row was not deleted (no change)", async () => {
+  it("does not log or re-detect when the row was not deleted (no change)", async () => {
     ctx({ id: ID, source: "csv", merchant: "Netto", amount: -1234, deletedAt: null });
     const res = await DELETE(req(), params(ID));
     expect(res.status).toBe(200);
     expect(recordActivity).not.toHaveBeenCalled();
+    expect(detectAndLinkTransfers).not.toHaveBeenCalled();
   });
 
   it("404s an unknown transaction id", async () => {
