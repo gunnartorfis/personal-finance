@@ -1,10 +1,11 @@
 import { PGlite } from "@electric-sql/pglite";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { householdRepo } from "@/lib/db/household-repo";
-import { households } from "@/lib/db/schema";
+import { households, uploads } from "@/lib/db/schema";
 
 /**
  * ADR-0024: a row whose Upload was undone carries `archived = true`. It is RETAINED (append-only)
@@ -207,5 +208,22 @@ describe("transactions archived (ADR-0024)", () => {
     expect(ids).toContain(archived.id);
     expect(ids).toContain(pendingArchived.id);
     expect(ids).toContain(archivedOnlyRow.id);
+  });
+
+  it("findByFileHash ignores an undone upload so its file re-imports cleanly (ADR-0024)", async () => {
+    const repo = await freshHousehold();
+    const [acct] = await repo.accounts.create({ name: "Main" });
+    const [up] = await repo.uploads.create({
+      accountId: acct.id,
+      fileName: "mar.csv",
+      fileHash: "reimportable",
+    });
+    expect((await repo.uploads.findByFileHash("reimportable"))?.id).toBe(up.id);
+    // Undo it: the exact-file guard must no longer treat this hash as a duplicate.
+    await db
+      .update(uploads)
+      .set({ undoneAt: new Date("2026-07-24T00:00:00Z") })
+      .where(eq(uploads.id, up.id));
+    expect(await repo.uploads.findByFileHash("reimportable")).toBeUndefined();
   });
 });
