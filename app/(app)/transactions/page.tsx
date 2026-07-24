@@ -2,6 +2,7 @@ import { Upload } from "lucide-react"
 import { getTranslations } from "next-intl/server"
 import Link from "next/link"
 
+import { AddTransactionSheet } from "@/components/add-transaction-sheet"
 import { ClassifyTrigger } from "@/components/classify-trigger"
 import { ConfiguredAmountsBreakdown } from "@/components/configured-amounts-breakdown"
 import { CycleSummary } from "@/components/cycle-summary"
@@ -87,7 +88,7 @@ export default async function TransactionsPage({
   // and Off-card fixed costs join the card debits on the expense side — so both figures reflect the
   // Household's off-card configuration, not only card activity. `addConfiguredAmounts` folds them in
   // while keeping `income + expense === net`.
-  const [rawRows, rawDeleted, baseSummary, configured, categoryRows] =
+  const [rawRows, rawDeleted, baseSummary, configured, categoryRows, accountRows] =
     await Promise.all([
       repo.transactions.listWithOverrides(range),
       // This cycle's soft-deleted rows (ADR-0026), for the table's durable "Deleted" view.
@@ -95,6 +96,8 @@ export default async function TransactionsPage({
       loadNetSummary(repo, range),
       loadConfiguredCycleItems(repo, selected),
       repo.categories.list(),
+      // The Household's accounts, for the "Add transaction" form's account picker (ADR-0026).
+      repo.accounts.list(),
     ])
   const summary = addConfiguredAmounts(baseSummary, cycleAmountsFromItems(configured))
   // The recurring-income line is worth showing only when it differs from the overview's Income total
@@ -155,6 +158,7 @@ export default async function TransactionsPage({
         </div>
         <div className="flex items-center gap-2">
           <PeriodSelector options={options} selected={selected} />
+          <AddTransactionSheet accounts={accountRows} />
           <Button variant="outline" size="sm" render={<Link href="/upload" />}>
             <Upload />
             {t("upload")}

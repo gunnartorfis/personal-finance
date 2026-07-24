@@ -1,0 +1,4 @@
+ALTER TABLE "transactions" DROP CONSTRAINT "transactions_source_provenance";--> statement-breakpoint
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_source_provenance" CHECK (("transactions"."source" = 'csv' AND "transactions"."upload_id" IS NOT NULL AND "transactions"."external_id" IS NULL AND "transactions"."source_row" IS NOT NULL)
+        OR ("transactions"."source" = 'bank_sync' AND "transactions"."upload_id" IS NULL AND "transactions"."external_id" IS NOT NULL AND "transactions"."source_row" IS NULL)
+        OR ("transactions"."source" = 'manual' AND "transactions"."upload_id" IS NULL AND "transactions"."external_id" IS NULL AND "transactions"."source_row" IS NULL));

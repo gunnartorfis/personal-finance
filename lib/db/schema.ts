@@ -358,8 +358,8 @@ export const classificationStatusEnum = pgEnum("classification_status", [
   "failed",
 ]);
 
-/** Where a Transaction came from: a CSV {@link uploads} import, or an automatic bank sync. */
-export const ingestionSourceEnum = pgEnum("ingestion_source", ["csv", "bank_sync"]);
+/** Where a Transaction came from: a CSV {@link uploads} import, an automatic bank sync, or a hand-entered `manual` row (ADR-0026). */
+export const ingestionSourceEnum = pgEnum("ingestion_source", ["csv", "bank_sync", "manual"]);
 
 /** One CSV import into a Household: the file, the Account its rows belong to, and the importer. */
 export const uploads = pgTable(
@@ -679,11 +679,15 @@ export const transactions = pgTable(
       sql`${t.categoryConfidence} IS NULL OR (${t.categoryConfidence} >= 0 AND ${t.categoryConfidence} <= 1)`,
     ),
     // Provenance integrity: a CSV row carries an Upload and no external id; a synced row carries an
-    // external id and no Upload.
+    // external id and no Upload; a hand-entered `manual` row (ADR-0026) carries none of the three.
+    // NB: the `manual` enum value is added in an earlier migration than this CHECK so the value is
+    // committed before it is referenced (Postgres forbids using a just-added enum value in the same
+    // transaction).
     check(
       "transactions_source_provenance",
       sql`(${t.source} = 'csv' AND ${t.uploadId} IS NOT NULL AND ${t.externalId} IS NULL AND ${t.sourceRow} IS NOT NULL)
-        OR (${t.source} = 'bank_sync' AND ${t.uploadId} IS NULL AND ${t.externalId} IS NOT NULL AND ${t.sourceRow} IS NULL)`,
+        OR (${t.source} = 'bank_sync' AND ${t.uploadId} IS NULL AND ${t.externalId} IS NOT NULL AND ${t.sourceRow} IS NULL)
+        OR (${t.source} = 'manual' AND ${t.uploadId} IS NULL AND ${t.externalId} IS NULL AND ${t.sourceRow} IS NULL)`,
     ),
     // Idempotent dedup for synced rows: one row per (household, account, provider transaction id).
     // Partial so CSV rows (external id null) are unconstrained.

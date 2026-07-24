@@ -19,6 +19,7 @@ const ACTION_LABEL_KEY: Record<string, string> = {
   [ActivityAction.TransactionShareCleared]: "transactionShareCleared",
   [ActivityAction.TransactionDeleted]: "transactionDeleted",
   [ActivityAction.TransactionRestored]: "transactionRestored",
+  [ActivityAction.TransactionCreated]: "transactionCreated",
   [ActivityAction.AccountCreated]: "accountCreated",
   [ActivityAction.AccountBalanceRecorded]: "accountBalanceRecorded",
   [ActivityAction.MerchantRuleCreated]: "merchantRuleCreated",

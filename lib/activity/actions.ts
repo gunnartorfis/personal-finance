@@ -18,6 +18,8 @@ export const ActivityAction = {
   // restored one. Retained + reversible, distinct from the whole-Upload undo below.
   TransactionDeleted: "transaction.deleted",
   TransactionRestored: "transaction.restored",
+  // A Member hand-entered a Transaction (ADR-0026): a first-class `manual`-source row.
+  TransactionCreated: "transaction.created",
 
   // Accounts & balances (ADR-0004/0016).
   AccountCreated: "account.created",

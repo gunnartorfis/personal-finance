@@ -288,6 +288,20 @@
       "when": 1784903458300,
       "tag": "0040_aromatic_blackheart",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1784909684361,
+      "tag": "0041_sturdy_killer_shrike",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1784909714711,
+      "tag": "0042_wet_tarantula",
+      "breakpoints": true
     }
   ]
 }

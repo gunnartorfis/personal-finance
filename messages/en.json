@@ -636,6 +636,7 @@
       "transactionShareCleared": "cleared a transaction's shared amount",
       "transactionDeleted": "deleted a transaction",
       "transactionRestored": "restored a deleted transaction",
+      "transactionCreated": "added a transaction",
       "accountCreated": "added an account",
       "accountBalanceRecorded": "recorded account balances",
       "merchantRuleCreated": "added a merchant rule",
@@ -905,6 +906,22 @@
     "previous": "Previous period",
     "next": "Next period",
     "label": "Statement period"
+  },
+  "addTransaction": {
+    "trigger": "Add transaction",
+    "title": "Add transaction",
+    "description": "Record a transaction that isn't on a statement.",
+    "account": "Account",
+    "kind": "Expense or income",
+    "expense": "Expense",
+    "income": "Income",
+    "amount": "Amount",
+    "merchant": "Merchant",
+    "date": "Date",
+    "expenseType": "Expense type",
+    "expenseTypeNone": "Let AI decide",
+    "save": "Save",
+    "saveError": "Couldn't add — try again"
   },
   "transactions": {
     "pageTitle": "Transactions",
