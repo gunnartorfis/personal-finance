@@ -67,6 +67,29 @@ describe("leaveHousehold", () => {
     expect(i.invitedByMemberId).toBeNull();
   });
 
+  it("nulls a leaver's upload-undo attribution so departure never hits an FK violation (ADR-0024)", async () => {
+    const [hh] = await db.insert(households).values({}).returning();
+    const leaver = await seedMember(hh.id, "undoer");
+    await seedMember(hh.id, "stayer");
+    const [acct] = await db.insert(accounts).values({ householdId: hh.id, name: "Visa" }).returning();
+    // An upload this member undid: undone_by points at the leaver (NO ACTION composite FK).
+    const [upload] = await db
+      .insert(uploads)
+      .values({
+        householdId: hh.id,
+        accountId: acct.id,
+        fileName: "u.csv",
+        fileHash: "undo-fk",
+        undoneAt: new Date("2026-07-24T00:00:00Z"),
+        undoneByMemberId: leaver,
+      })
+      .returning();
+    await leaveHousehold(asDb(db), hh.id, leaver);
+    const [u] = await db.select().from(uploads).where(eq(uploads.id, upload.id));
+    expect(u.undoneByMemberId).toBeNull(); // attribution nulled, upload kept
+    expect(u.undoneAt).not.toBeNull(); // the undo itself stands
+  });
+
   it("nulls a leaver's Assistant attributions so departure never hits an FK violation (#101)", async () => {
     const [hh] = await db.insert(households).values({}).returning();
     const leaver = await seedMember(hh.id, "assistant-leaver");

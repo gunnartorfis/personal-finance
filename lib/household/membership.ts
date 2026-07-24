@@ -40,9 +40,9 @@ export class LeaveError extends Error {
 }
 
 /**
- * Detach a Member's row from a Household: null their actor references (upload importer, override
- * author, invite issuer, Assistant conversation opener + message author — composite FKs are NO
- * ACTION) so the row can go, then delete it. No
+ * Detach a Member's row from a Household: null their actor references (upload importer + undoer,
+ * override author, invite issuer, Assistant conversation opener + message author — composite FKs
+ * are NO ACTION) so the row can go, then delete it. No
  * last-Member guard and no transaction of its own — the caller supplies both. Runs on a `Db` or a
  * transaction handle, so it composes inside a larger atomic operation (e.g. an Invite switch).
  */
@@ -51,6 +51,12 @@ async function releaseMembership(db: Db, householdId: string, memberId: string):
     .update(uploads)
     .set({ importedByMemberId: null })
     .where(and(eq(uploads.householdId, householdId), eq(uploads.importedByMemberId, memberId)));
+  // The undo attribution (ADR-0024) is a separate NO ACTION composite FK; null it too, else a
+  // Member who undid an Upload could not leave (the delete would roll back).
+  await db
+    .update(uploads)
+    .set({ undoneByMemberId: null })
+    .where(and(eq(uploads.householdId, householdId), eq(uploads.undoneByMemberId, memberId)));
   await db
     .update(overrides)
     .set({ memberId: null })
