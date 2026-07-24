@@ -935,6 +935,7 @@
     "deletedNotice": "{merchant} eytt",
     "undo": "Afturkalla",
     "restore": "Endurheimta",
+    "restoreError": "Tókst ekki að endurheimta — reyndu aftur",
     "noDeleted": "Engar eyddar færslur á þessu tímabili.",
     "colDate": "Dagsetning",
     "colMerchant": "Söluaðili",

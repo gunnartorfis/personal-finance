@@ -688,6 +688,8 @@ export function TransactionsTable({
   const [deleted, setDeleted] = useState(initialDeleted)
   // The most-recently soft-deleted row, backing the inline Undo affordance; null once undone/dismissed.
   const [justDeleted, setJustDeleted] = useState<TransactionRow | null>(null)
+  // Set when a restore request fails, so the failure is surfaced instead of silently swallowed.
+  const [restoreError, setRestoreError] = useState(false)
   const [query, setQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all")
   // react-doctor-disable-next-line react-doctor/no-derived-useState -- one-time seed from the URL param (like `rows`); the chip's clear button owns it thereafter, so it must not re-derive from the prop
@@ -748,70 +750,46 @@ export function TransactionsTable({
       timeZone: "UTC",
     })
 
-  function handleChanged(
+  // Apply an optimistic local patch to a row, then refresh. The row updates instantly for feedback
+  // while the server-derived figures (net summary, Rapid review badge, expense-type buckets)
+  // recompute — the shared shape of every inline control (override, income, exclude, share).
+  function patchRow(id: string, patch: Partial<TransactionRow>) {
+    setRows((current) =>
+      current.map((row) => (row.id === id ? { ...row, ...patch } : row))
+    )
+    router.refresh()
+  }
+
+  const handleChanged = (
     id: string,
     next: { expenseType: ExpenseType | null; hasOverride: boolean }
-  ) {
-    setRows((current) =>
-      current.map((row) =>
-        row.id === id
-          ? { ...row, overrideType: next.hasOverride ? next.expenseType : null }
-          : row
-      )
-    )
-    // The local update gives this row instant feedback, but the net summary and the whole-household
-    // Rapid review badge are server-derived — settling (or clearing) a row here changes the backlog,
-    // so refresh to recount them, exactly as closing the rapid-review overlay does.
-    router.refresh()
-  }
+  ) => patchRow(id, { overrideType: next.hasOverride ? next.expenseType : null })
 
-  function handleIncomeChanged(id: string, incomeMarked: boolean) {
-    setRows((current) =>
-      current.map((row) => (row.id === id ? { ...row, incomeMarked } : row))
-    )
-    // Marking changes the server-derived Income / Difference in the period summary above.
-    router.refresh()
-  }
+  const handleIncomeChanged = (id: string, incomeMarked: boolean) =>
+    patchRow(id, { incomeMarked })
 
-  function handleExcludeChanged(
+  const handleExcludeChanged = (
     id: string,
     next: { excluded: boolean; note: string | null }
-  ) {
-    setRows((current) =>
-      current.map((row) =>
-        row.id === id
-          ? {
-              ...row,
-              excluded: next.excluded,
-              exclusionNote: next.note,
-              // Excluding clears any income mark (ADR-0011) and any Own share (ADR-0014) — both are
-              // mutually exclusive with Excluded; the server does the same, so mirror it locally to
-              // keep the row consistent without a round-trip.
-              incomeMarked: next.excluded ? false : row.incomeMarked,
-              ownShareAmount: next.excluded ? null : row.ownShareAmount,
-            }
-          : row
-      )
-    )
-    // Excluding/including changes server-derived Spending, Income, Difference, and the whole-household
-    // review backlog — refresh to recompute them, as the other inline controls do.
-    router.refresh()
-  }
+  ) =>
+    // Excluding clears any income mark (ADR-0011) and Own share (ADR-0014) — both mutually exclusive
+    // with Excluded; mirror the server so the row stays consistent without a round-trip. Re-including
+    // leaves them untouched (the patch omits them).
+    patchRow(id, {
+      excluded: next.excluded,
+      exclusionNote: next.note,
+      ...(next.excluded ? { incomeMarked: false, ownShareAmount: null } : {}),
+    })
 
-  function handleShareChanged(id: string, ownShareAmount: number | null) {
-    setRows((current) =>
-      current.map((row) => (row.id === id ? { ...row, ownShareAmount } : row))
-    )
-    // Setting/clearing an Own share changes server-derived Spending (only the share counts) and the
-    // expense-type buckets it feeds — refresh to recompute them, as the other inline controls do.
-    router.refresh()
-  }
+  const handleShareChanged = (id: string, ownShareAmount: number | null) =>
+    patchRow(id, { ownShareAmount })
 
   // RowTypeControl already soft-deleted the row on the server (ADR-0026); move it from the live
   // mirror to the deleted one, surface an inline Undo, and refresh so the server-derived summaries
   // drop it. Local mirrors keep the two views consistent without a remount (the prop mirrors seed
   // once). We hold the whole row so Undo can re-insert it without a re-fetch.
   function handleDeleted(row: TransactionRow) {
+    setRestoreError(false)
     setRows((current) => current.filter((r) => r.id !== row.id))
     setDeleted((current) => [row, ...current])
     setJustDeleted(row)
@@ -819,12 +797,14 @@ export function TransactionsTable({
   }
 
   // Restore a soft-deleted row (from the Undo affordance or the Deleted view): un-delete on the
-  // server, then move it back to the live mirror. On failure the row stays deleted so the user can
-  // retry. Re-sorting in `visible` puts it back in date order.
+  // server, then move it back to the live mirror. On failure the row stays deleted and we surface an
+  // error so it isn't silently lost. Re-sorting in `visible` puts a restored row back in date order.
   async function restore(row: TransactionRow) {
+    setRestoreError(false)
     try {
       await restoreTransaction(row.id)
     } catch {
+      setRestoreError(true)
       return
     }
     setDeleted((current) => current.filter((r) => r.id !== row.id))
@@ -855,6 +835,12 @@ export function TransactionsTable({
           merchant={justDeleted.merchant}
           onUndo={() => void restore(justDeleted)}
         />
+      )}
+
+      {restoreError && (
+        <p role="alert" className="text-xs text-destructive">
+          {t("restoreError")}
+        </p>
       )}
 
       <TableToolbar

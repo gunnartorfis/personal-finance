@@ -935,6 +935,7 @@
     "deletedNotice": "Deleted {merchant}",
     "undo": "Undo",
     "restore": "Restore",
+    "restoreError": "Couldn't restore — try again",
     "noDeleted": "No deleted transactions in this period.",
     "colDate": "Date",
     "colMerchant": "Merchant",

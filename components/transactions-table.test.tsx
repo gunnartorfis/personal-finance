@@ -542,4 +542,25 @@ describe("TransactionsTable — shared expenses (ADR-0014)", () => {
       expect.objectContaining({ method: "DELETE" })
     )
   })
+
+  it("surfaces an error and keeps the row when restore fails", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: false, status: 500, json: async () => ({}) }))
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    const deletedRow: TransactionRow = { ...ROWS[0], id: "tdel", merchant: "OLDCHARGE" }
+    render(
+      <TransactionsTable rows={ROWS} currency="ISK" initialDeleted={[deletedRow]} />
+    )
+
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: /filter by type/i }),
+      "deleted"
+    )
+    const row = screen.getByRole("row", { name: /OLDCHARGE/ })
+    await user.click(within(row).getByRole("button", { name: /restore/i }))
+
+    // The failure is surfaced, and the row stays in the Deleted view (not silently lost).
+    expect(await screen.findByRole("alert")).toBeInTheDocument()
+    expect(screen.getByRole("row", { name: /OLDCHARGE/ })).toBeInTheDocument()
+  })
 })

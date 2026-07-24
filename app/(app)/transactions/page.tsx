@@ -60,9 +60,12 @@ export default async function TransactionsPage({
   // drive the whole-household "Classify pending" affordance beside Rapid review — like ActionBand,
   // it's hidden once the Free cap has paused classification, since a drain would skip every row.
   const capped = plan !== "Premium"
-  const [months, reviewMonths, pendingCount, classifiedCount] =
+  const [months, deletedMonths, reviewMonths, pendingCount, classifiedCount] =
     await Promise.all([
       repo.transactions.cycleMonths(),
+      // Cycles whose only remaining rows are soft-deleted (ADR-0026): kept selectable so a member can
+      // navigate back to restore them, but deliberately NOT part of the default-landing logic below.
+      repo.transactions.deletedMonths(),
       repo.transactions.reviewQueueMonths(),
       repo.transactions.countPending(),
       capped ? repo.transactions.countClassified() : Promise.resolve(0),
@@ -110,7 +113,9 @@ export default async function TransactionsPage({
   // Always offer the current month and the selected period even before either has data, so the
   // picker never hides where the user is (or the obvious "this month" landing spot). Keys sort
   // lexicographically the same as chronologically; reverse for newest-first.
-  const keys = Array.from(new Set([current, selected, ...months]))
+  const keys = Array.from(
+    new Set([current, selected, ...months, ...deletedMonths])
+  )
     .filter(isValidCycleKey)
     .sort()
     .reverse()
