@@ -368,6 +368,23 @@
       "retrying": "Tókst ekki að hlaða framvindu — reyni aftur…",
       "complete": "Flokkun lokið",
       "classifying": "Flokka…"
+    },
+    "history": {
+      "heading": "Upphleðslusaga",
+      "empty": "Engar upphleðslur enn.",
+      "importedBy": "Flutt inn af {name}",
+      "importedByUnknown": "Flutt inn af fyrrum meðlim",
+      "transactionCount": "{count, plural, one {# færsla} other {# færslur}}",
+      "undo": "Afturkalla",
+      "undoConfirm": "Afturkalla þessa upphleðslu? {count, plural, one {# færsla verður falin} other {# færslur verða faldar}} — þú getur endurheimt þær síðar.",
+      "confirm": "Staðfesta",
+      "cancel": "Hætta við",
+      "restore": "Endurheimta",
+      "undoneBadge": "Afturkallað",
+      "undoneBy": "af {name} · {date}",
+      "supersededNote": "Þegar flutt inn aftur",
+      "undoError": "Tókst ekki að afturkalla — reyndu aftur.",
+      "restoreError": "Tókst ekki að endurheimta — reyndu aftur."
     }
   },
   "accounts": {

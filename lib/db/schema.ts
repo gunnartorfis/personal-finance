@@ -656,6 +656,9 @@ export const transactions = pgTable(
     }),
     // Speeds the Category-breakdown aggregations (group/filter by category within a Household).
     index("transactions_household_category_idx").on(t.householdId, t.categoryId),
+    // Speeds every (household, upload)-scoped access (ADR-0024): the per-upload count in
+    // `uploads.listHistory` and the undo/restore/archive UPDATEs that filter by `upload_id`.
+    index("transactions_household_upload_idx").on(t.householdId, t.uploadId),
     // Category confidence only accompanies an assigned Category, and is a probability in [0, 1].
     check(
       "transactions_category_confidence_requires_category",
