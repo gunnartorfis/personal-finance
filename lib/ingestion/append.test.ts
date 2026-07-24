@@ -4,7 +4,7 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { householdRepo } from "@/lib/db/household-repo";
-import { households } from "@/lib/db/schema";
+import { households, members } from "@/lib/db/schema";
 
 import { appendTransactions } from "./append";
 import type { ParsedRow } from "./parse-csv";
@@ -129,5 +129,30 @@ describe("appendTransactions", () => {
       rows: [row(0, -650, "KAFFITAR"), row(1, -650, "KAFFITAR")],
     });
     expect(result.appended).toBe(2);
+  });
+
+  it("re-imports rows after their upload was undone — dedup skips archived (clean-slate, ADR-0024)", async () => {
+    const [hh] = await db.insert(households).values({}).returning();
+    const [member] = await db
+      .insert(members)
+      .values({ householdId: hh.id, authUserId: `u-${hh.id}` })
+      .returning();
+    const repo = householdRepo(asDb(db), hh.id);
+    const [account] = await repo.accounts.create({ name: "Visa" });
+    const [upA] = await repo.uploads.create({ accountId: account.id, fileName: "a.csv", fileHash: "reimp-a" });
+    const rows = [row(0, -1990, "NETFLIX"), row(1, -3200, "BONUS")];
+    await appendTransactions(repo, { uploadId: upA.id, accountId: account.id, rows });
+
+    // Undo upload A: its rows are archived (hidden). A later re-import of the SAME rows must not
+    // dedup against those archived rows — they behave as if never imported (clean slate).
+    await repo.uploads.undo(upA.id, member.id);
+    const [upB] = await repo.uploads.create({ accountId: account.id, fileName: "b.csv", fileHash: "reimp-b" });
+    const result = await appendTransactions(repo, { uploadId: upB.id, accountId: account.id, rows });
+
+    expect(result).toEqual({ appended: 2, duplicates: 0, alreadyImported: [] });
+    const all = await repo.transactions.list();
+    expect(all).toHaveLength(4); // 2 archived originals + 2 fresh active
+    expect(all.filter((t) => t.archived)).toHaveLength(2);
+    expect(all.filter((t) => !t.archived)).toHaveLength(2);
   });
 });
