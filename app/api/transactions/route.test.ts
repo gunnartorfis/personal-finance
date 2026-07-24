@@ -82,6 +82,22 @@ describe("POST /api/transactions (manual insert)", () => {
     );
   });
 
+  it("marks a manual credit as income so it actually counts (ADR-0009)", async () => {
+    const { createManual } = ctx([{ id: "a1" }]);
+    await POST(postReq({ ...valid, amount: 5000 }));
+    expect(createManual).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 5000, incomeMarked: true }),
+    );
+  });
+
+  it("does not income-mark a debit", async () => {
+    const { createManual } = ctx([{ id: "a1" }]);
+    await POST(postReq(valid));
+    expect(createManual).toHaveBeenCalledWith(
+      expect.not.objectContaining({ incomeMarked: true }),
+    );
+  });
+
   it("400s an expense type on a credit (types are debit-only)", async () => {
     const { createManual } = ctx([{ id: "a1" }]);
     const res = await POST(postReq({ ...valid, amount: 5000, expenseType: "Necessary" }));

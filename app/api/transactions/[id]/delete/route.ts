@@ -52,11 +52,17 @@ export async function PUT(
   // An empty result means the row was already soft-deleted (bank-sync and foreign ids are handled
   // above) — idempotent success, and no spurious audit entry for a no-op.
   if (updated) {
-    await recordActivity(ctx, ActivityAction.TransactionDeleted, {
-      transactionId: id,
-      merchant: transaction.merchant,
-      amount: transaction.amount,
-    })
+    // Best-effort audit: the delete is already committed, so a logging failure must not surface as a
+    // failed request — that would leave the client showing failure while the row is gone.
+    try {
+      await recordActivity(ctx, ActivityAction.TransactionDeleted, {
+        transactionId: id,
+        merchant: transaction.merchant,
+        amount: transaction.amount,
+      })
+    } catch {
+      // The soft-delete succeeded; swallow the logging error.
+    }
   }
   return NextResponse.json({
     id,
@@ -86,11 +92,16 @@ export async function DELETE(
     } catch {
       // Re-runnable; the next import retries the same scan.
     }
-    await recordActivity(ctx, ActivityAction.TransactionRestored, {
-      transactionId: id,
-      merchant: transaction.merchant,
-      amount: transaction.amount,
-    })
+    // Best-effort audit, like the delete path — the restore is already committed.
+    try {
+      await recordActivity(ctx, ActivityAction.TransactionRestored, {
+        transactionId: id,
+        merchant: transaction.merchant,
+        amount: transaction.amount,
+      })
+    } catch {
+      // The restore succeeded; swallow the logging error.
+    }
   }
   return NextResponse.json({ id, deletedAt: null })
 }

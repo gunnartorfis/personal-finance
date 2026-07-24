@@ -98,7 +98,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "unknown account" }, { status: 400 })
   }
 
-  const txn = await ctx.repo.transactions.createManual(parsed)
+  // A manual credit is entered via the form's "Income" choice, so mark it as income — otherwise an
+  // unmarked credit counts for nothing (ADR-0009). Debits carry an optional expense type instead.
+  const txn = await ctx.repo.transactions.createManual({
+    ...parsed,
+    ...(parsed.amount > 0 ? { incomeMarked: true } : {}),
+  })
   // Best-effort audit: the row is already committed, so a logging failure must not surface as a
   // failed request — that would prompt a retry and create a duplicate (mirrors the upload routes).
   try {

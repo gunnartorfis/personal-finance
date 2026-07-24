@@ -83,6 +83,23 @@ describe("transactions createManual (ADR-0026)", () => {
     );
   });
 
+  it("a manual credit marked as income counts toward income (ADR-0009)", async () => {
+    const repo = await freshHousehold();
+    const [acct] = await repo.accounts.create({ name: "Cash" });
+    const txn = await repo.transactions.createManual({
+      accountId: acct.id,
+      date: "2026-03-12",
+      amount: 5000,
+      merchant: "Refund",
+      incomeMarked: true,
+    });
+    expect(txn.incomeMarked).toBe(true);
+    // A marked credit lands on the Income line, not lost as an unmarked credit.
+    expect(await repo.transactions.monthlySpendSeries(MARCH)).toEqual([
+      { month: "2026-03", spending: 0, income: 5000 },
+    ]);
+  });
+
   it("a manual row is soft-deletable (not a bank_sync row)", async () => {
     const repo = await freshHousehold();
     const [acct] = await repo.accounts.create({ name: "Cash" });

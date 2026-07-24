@@ -115,4 +115,24 @@ describe("DELETE /api/transactions/[id]/delete (restore)", () => {
     ctx(undefined);
     expect((await DELETE(req(), params(ID))).status).toBe(404);
   });
+
+  it("still 200s when activity logging fails after a committed restore", async () => {
+    ctx(
+      { id: ID, source: "csv", merchant: "Netto", amount: -1234, deletedAt: new Date("2026-07-01T00:00:00Z") },
+      { restoreDeleted: [{ id: ID, deletedAt: null }] },
+    );
+    recordActivity.mockRejectedValueOnce(new Error("activity log down"));
+    expect((await DELETE(req(), params(ID))).status).toBe(200);
+  });
+});
+
+describe("post-commit audit resilience for delete", () => {
+  it("still 200s when activity logging fails after a committed soft-delete", async () => {
+    ctx(
+      { id: ID, source: "csv", merchant: "Netto", amount: -1234, deletedAt: null },
+      { softDelete: [{ id: ID, deletedAt: new Date("2026-07-24T00:00:00Z") }] },
+    );
+    recordActivity.mockRejectedValueOnce(new Error("activity log down"));
+    expect((await PUT(req(), params(ID))).status).toBe(200);
+  });
 });
