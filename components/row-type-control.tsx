@@ -7,6 +7,7 @@ import {
   Loader2,
   Sparkles,
   Split,
+  Trash2,
   Undo2,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/menu"
 import { useExpenseTypeLabels } from "@/lib/expense-type-labels"
 import { clearOverride, putOverride } from "@/lib/overrides/client"
+import { deleteTransaction } from "@/lib/transactions/delete-client"
 import {
   excludeTransaction,
   includeTransaction,
@@ -100,6 +102,7 @@ export function RowTypeControl({
   onExcludeChanged,
   onShareChanged,
   onRuleCreated,
+  onDeleted,
 }: {
   row: TransactionRow
   formatAmount: (amount: number) => string
@@ -112,6 +115,12 @@ export function RowTypeControl({
   onShareChanged: (ownShareAmount: number | null) => void
   /** Fired after a whole-merchant rule is created — the parent re-types matching rows / recounts. */
   onRuleCreated: () => void
+  /**
+   * Fired after the row is soft-deleted (ADR-0026). Passed only by the transactions table, so the
+   * Delete action appears there but NOT in rapid review; omitted → no Delete item. A `bank_sync` row
+   * never offers Delete regardless (a re-Sync would re-add it).
+   */
+  onDeleted?: () => void
 }) {
   const t = useTranslations("rowType")
   const typeLabels = useExpenseTypeLabels()
@@ -137,6 +146,12 @@ export function RowTypeControl({
       {t("saveError")}
     </span>
   ) : null
+
+  // A per-row Delete (ADR-0026) for every branch's menu; renders only when the parent wired
+  // `onDeleted` (the table, not rapid review) and the row isn't bank_sync — see {@link DeleteMenuItem}.
+  const deleteItem = (
+    <DeleteMenuItem row={row} onDeleted={onDeleted} run={run} />
+  )
 
   // --- Excluded: count for nothing; only Include applies (ADR-0011). ---
   if (row.excluded) {
@@ -165,6 +180,7 @@ export function RowTypeControl({
               <Undo2 />
               {t("include")}
             </MenuItem>
+            {deleteItem}
           </MenuContent>
         </Menu>
         {row.exclusionNote && (
@@ -213,6 +229,7 @@ export function RowTypeControl({
             >
               {t("countAsIncome")}
             </MenuCheckboxItem>
+            {deleteItem}
           </MenuContent>
         </Menu>
         {errorSlot}
@@ -364,6 +381,7 @@ export function RowTypeControl({
             <Ban />
             {t("exclude")}
           </MenuItem>
+          {deleteItem}
         </MenuContent>
       </Menu>
 
@@ -374,6 +392,42 @@ export function RowTypeControl({
       )}
       {errorSlot}
     </div>
+  )
+}
+
+/**
+ * The per-row Delete action (ADR-0026) shared by every branch of {@link RowTypeControl}'s menu.
+ * Renders nothing unless the parent passed `onDeleted` (the transactions table does; rapid review
+ * doesn't) and the row is deletable — a `bank_sync` row is excluded (a re-Sync would re-add it).
+ * Soft-deletes through the parent's `run`, so a failure surfaces in the shared inline error slot.
+ */
+function DeleteMenuItem({
+  row,
+  onDeleted,
+  run,
+}: {
+  row: TransactionRow
+  onDeleted?: () => void
+  run: (action: () => Promise<void>) => void
+}) {
+  const t = useTranslations("rowType")
+  if (!onDeleted || row.source === "bank_sync") return null
+  return (
+    <>
+      <MenuSeparator />
+      <MenuItem
+        onClick={() =>
+          run(async () => {
+            await deleteTransaction(row.id)
+            onDeleted()
+          })
+        }
+        className="text-destructive data-[highlighted]:text-destructive"
+      >
+        <Trash2 />
+        {t("delete")}
+      </MenuItem>
+    </>
   )
 }
 

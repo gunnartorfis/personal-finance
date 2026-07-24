@@ -1,23 +1,25 @@
 "use client"
 
-import { ChevronDown, ChevronsUpDown, ChevronUp, Search } from "lucide-react"
+import { ChevronDown, ChevronsUpDown, ChevronUp, RotateCcw, Search, Undo2 } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useId, useMemo, useState } from "react"
 
 import { RowTypeControl } from "@/components/row-type-control"
+import { Button } from "@/components/ui/button"
 import { useCategoryLabel } from "@/lib/categories/label"
 import { currencyFormatter } from "@/lib/format/currency"
 import { formatDate } from "@/lib/format/date"
 import { defaultLocale, toLocale } from "@/lib/i18n/config"
+import { restoreTransaction } from "@/lib/transactions/delete-client"
 import { cn } from "@/lib/utils"
 import type { ExpenseType } from "@/shared/types"
 
 /** A row's effective bucket for filtering: excluded, an expense type, an unreviewed debit, or a credit. */
 type TypeBucket = ExpenseType | "unclassified" | "credit" | "excluded"
-/** The type dropdown's value: any bucket, or "all" for no type filter. */
-type TypeFilter = TypeBucket | "all"
+/** The type dropdown's value: any bucket, "all" for no type filter, or "deleted" for the soft-deleted view. */
+type TypeFilter = TypeBucket | "all" | "deleted"
 
 /** Column the table is sorted by. Type isn't sortable — it holds the inline controls. */
 type SortKey = "date" | "merchant" | "amount"
@@ -51,6 +53,76 @@ function bucketOf(row: TransactionRow): TypeBucket {
   return row.overrideType ?? row.classifiedType ?? ""
 }
 
+/**
+ * Filter a cycle's rows by the search needle and the type/category filter, then sort by the chosen
+ * column (date falls back to id for a stable within-day order). Pure so the table's `visible` memo
+ * stays a one-liner.
+ */
+function filterAndSortRows(
+  rows: TransactionRow[],
+  query: string,
+  typeFilter: TypeFilter,
+  categoryFilter: string | null,
+  sortKey: SortKey,
+  sortDir: SortDir
+): TransactionRow[] {
+  const needle = query.trim().toLowerCase()
+  const filtered = rows.filter((row) => {
+    if (typeFilter !== "all" && bucketOf(row) !== typeFilter) return false
+    if (categoryFilter !== null) {
+      const catId = effectiveCategoryId(row)
+      // `none` keeps only Uncategorized rows; otherwise keep rows whose effective Category matches.
+      if (categoryFilter === "none" ? catId !== null : catId !== categoryFilter) return false
+    }
+    if (needle && !row.merchant.toLowerCase().includes(needle)) return false
+    return true
+  })
+  const dir = sortDir === "asc" ? 1 : -1
+  return filtered.toSorted((a, b) => {
+    const cmp =
+      sortKey === "merchant"
+        ? a.merchant.localeCompare(b.merchant)
+        : sortKey === "amount"
+          ? a.amount - b.amount
+          : a.date.localeCompare(b.date) || a.id.localeCompare(b.id)
+    return cmp * dir
+  })
+}
+
+/**
+ * Build the Category filter's options from a cycle's rows: "All", each Category present (plus the
+ * active filter even with no rows here — a dashboard deep-link), then "Uncategorized" when any row
+ * lacks one. Sorted by label. Pure so the table's memo stays a one-liner.
+ */
+function buildCategoryOptions(
+  rows: TransactionRow[],
+  categoryFilter: string | null,
+  categoryParts: Map<string, CategoryOption>,
+  labelOf: (parts: CategoryOption) => string,
+  allLabel: string,
+  uncategorizedLabel: string
+): { value: string; label: string }[] {
+  const ids = new Set<string>()
+  let hasUncategorized = false
+  for (const row of rows) {
+    const id = effectiveCategoryId(row)
+    if (id === null) hasUncategorized = true
+    else ids.add(id)
+  }
+  if (categoryFilter && categoryFilter !== "none") ids.add(categoryFilter)
+  const named = [...ids]
+    .map((id) => {
+      const parts = categoryParts.get(id)
+      return { value: id, label: parts ? labelOf(parts) : id }
+    })
+    .sort((a, b) => a.label.localeCompare(b.label))
+  const opts = [{ value: "all", label: allLabel }, ...named]
+  if (hasUncategorized || categoryFilter === "none") {
+    opts.push({ value: "none", label: uncategorizedLabel })
+  }
+  return opts
+}
+
 /** One transaction row: display fields plus the classified type, AI signals, and any manual override. */
 export interface TransactionRow {
   id: string
@@ -80,10 +152,19 @@ export interface TransactionRow {
   categoryId: string | null
   /** Manually overridden Category leaf id (ADR-0020); wins over {@link categoryId} when set. */
   overrideCategoryId: string | null
+  /**
+   * Ingestion provenance (ADR-0026): a CSV upload, a bank sync, or a hand-entered `manual` row.
+   * Gates the per-row Delete action — a `bank_sync` row is not deletable (a re-Sync re-adds it).
+   * Optional because the rapid-review row shape omits it (that path never offers Delete).
+   */
+  source?: "csv" | "bank_sync" | "manual"
 }
 
 /** Stable empty default so an omitted `categories` prop doesn't allocate a new array each render. */
 const NO_CATEGORIES: CategoryOption[] = []
+
+/** Stable empty default for the optional `initialDeleted` prop (same rationale as {@link NO_CATEGORIES}). */
+const NO_ROWS: TransactionRow[] = []
 
 /** A Household Category leaf's identity + label parts, for resolving a row's effective Category. */
 export interface CategoryOption {
@@ -135,6 +216,7 @@ function TableToolbar({
   onQueryChange,
   typeFilter,
   onTypeFilterChange,
+  deletedCount,
   categoryOptions,
   categoryValue,
   onCategoryChange,
@@ -143,6 +225,8 @@ function TableToolbar({
   onQueryChange: (value: string) => void
   typeFilter: TypeFilter
   onTypeFilterChange: (value: TypeFilter) => void
+  /** Count of soft-deleted rows this cycle; when >0 the type filter offers a "Deleted" view (ADR-0026). */
+  deletedCount: number
   /** Category filter options (`all` / leaf ids / `none`); the select is hidden when only `all`. */
   categoryOptions: { value: string; label: string }[]
   categoryValue: string
@@ -160,7 +244,12 @@ function TableToolbar({
     unclassified: t("filter.unclassified"),
     credit: t("filter.credits"),
     excluded: t("filter.excluded"),
+    deleted: t("filter.deleted", { count: deletedCount }),
   }
+
+  // Offer the "Deleted" view only when there are soft-deleted rows to see (ADR-0026).
+  const typeOptions: TypeFilter[] =
+    deletedCount > 0 ? [...TYPE_FILTER_VALUES, "deleted"] : TYPE_FILTER_VALUES
 
   // Unique per instance so IDs / label associations don't collide if two tables ever mount together.
   const searchId = useId()
@@ -234,7 +323,7 @@ function TableToolbar({
             }
             className="col-span-full row-start-1 appearance-none bg-transparent py-1 pr-7 pl-2.5 text-sm font-medium outline-none"
           >
-            {TYPE_FILTER_VALUES.map((value) => (
+            {typeOptions.map((value) => (
               <option key={value} value={value}>
                 {filterLabels[value]}
               </option>
@@ -372,6 +461,7 @@ function TransactionRowView({
   onExcludeChanged,
   onShareChanged,
   onRuleCreated,
+  onDeleted,
 }: {
   row: TransactionRow
   /** The row's effective Category label (override ?? classified), or null when Uncategorized. */
@@ -386,6 +476,7 @@ function TransactionRowView({
   onExcludeChanged: (next: { excluded: boolean; note: string | null }) => void
   onShareChanged: (share: number | null) => void
   onRuleCreated: () => void
+  onDeleted: () => void
 }) {
   const t = useTranslations("transactions")
   const isCredit = row.amount > 0
@@ -443,7 +534,74 @@ function TransactionRowView({
           // A new merchant rule re-types every matching row server-side (ADR-0012);
           // refresh so this period's other rows and the net summary reflect it.
           onRuleCreated={onRuleCreated}
+          // Passing onDeleted is what surfaces the per-row Delete action (ADR-0026); the
+          // rapid-review usage omits it, so Delete appears only in the table.
+          onDeleted={onDeleted}
         />
+      </td>
+    </tr>
+  )
+}
+
+/**
+ * Inline reversal notice shown right after a soft-delete (ADR-0026). No toast primitive exists, so
+ * this mirrors the inline reversible-action pattern in `upload-history.tsx`.
+ */
+function UndoBanner({
+  merchant,
+  onUndo,
+}: {
+  merchant: string
+  onUndo: () => void
+}) {
+  const t = useTranslations("transactions")
+  return (
+    <div
+      aria-live="polite"
+      className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm"
+    >
+      <span className="text-muted-foreground">
+        {t("deletedNotice", { merchant })}
+      </span>
+      <Button variant="ghost" size="sm" onClick={onUndo}>
+        <Undo2 />
+        {t("undo")}
+      </Button>
+    </div>
+  )
+}
+
+/**
+ * A soft-deleted row in the durable "Deleted" view (ADR-0026): the same columns as a live row but
+ * struck through and read-only, with a single Restore action in place of the type control.
+ */
+function DeletedRowView({
+  row,
+  categoryLabel,
+  fmtDate,
+  fmtAmount,
+  onRestore,
+}: {
+  row: TransactionRow
+  categoryLabel: string | null
+  fmtDate: (date: string) => string
+  fmtAmount: (amount: number) => string
+  onRestore: () => void
+}) {
+  const t = useTranslations("transactions")
+  return (
+    <tr className="border-b border-border text-muted-foreground last:border-0">
+      <td className="py-3 pr-4 tabular-nums">{fmtDate(row.date)}</td>
+      <td className="py-3 pr-4 font-medium line-through">{row.merchant}</td>
+      <td className="py-3 pr-4 text-right tabular-nums line-through">
+        {fmtAmount(row.amount)}
+      </td>
+      <td className="py-3 pr-4 line-through">{categoryLabel ?? "—"}</td>
+      <td className="py-3">
+        <Button variant="outline" size="sm" onClick={onRestore}>
+          <RotateCcw />
+          {t("restore")}
+        </Button>
       </td>
     </tr>
   )
@@ -483,11 +641,14 @@ export function TransactionsTable({
   currency,
   categories = NO_CATEGORIES,
   initialCategoryId,
+  initialDeleted = NO_ROWS,
   className,
   backlogElsewhere = 0,
 }: {
   rows: TransactionRow[]
   currency: string
+  /** This cycle's soft-deleted rows (ADR-0026), for the durable "Deleted" view. */
+  initialDeleted?: TransactionRow[]
   /** The Household's Category leaves, to label each row's effective Category (ADR-0020). */
   categories?: CategoryOption[]
   /**
@@ -523,6 +684,10 @@ export function TransactionsTable({
       : null
   // react-doctor-disable-next-line react-doctor/no-derived-useState -- `rows` is an intentional local mutable mirror seeded once from the server prop; the inline controls optimistically mutate it for instant feedback (router.refresh recomputes the server-derived summaries), so it must NOT be re-derived from `initial` on every render
   const [rows, setRows] = useState(initial)
+  // react-doctor-disable-next-line react-doctor/no-derived-useState -- seeded once from the server prop like `rows`; delete/restore move rows between the two mirrors locally (router.refresh recomputes the server summaries), so it must NOT re-derive from `initialDeleted`
+  const [deleted, setDeleted] = useState(initialDeleted)
+  // The most-recently soft-deleted row, backing the inline Undo affordance; null once undone/dismissed.
+  const [justDeleted, setJustDeleted] = useState<TransactionRow | null>(null)
   const [query, setQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all")
   // react-doctor-disable-next-line react-doctor/no-derived-useState -- one-time seed from the URL param (like `rows`); the chip's clear button owns it thereafter, so it must not re-derive from the prop
@@ -533,30 +698,10 @@ export function TransactionsTable({
 
   // Derive the shown rows from the (stateful) period rows so inline override/income edits — which
   // mutate `rows` — re-filter and re-sort in place. Cheap: one cycle's rows are bounded.
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    const filtered = rows.filter((row) => {
-      if (typeFilter !== "all" && bucketOf(row) !== typeFilter) return false
-      if (categoryFilter !== null) {
-        const catId = effectiveCategoryId(row)
-        // `none` keeps only Uncategorized rows; otherwise keep rows whose effective Category matches.
-        if (categoryFilter === "none" ? catId !== null : catId !== categoryFilter) return false
-      }
-      if (needle && !row.merchant.toLowerCase().includes(needle)) return false
-      return true
-    })
-    const dir = sortDir === "asc" ? 1 : -1
-    return filtered.toSorted((a, b) => {
-      const cmp =
-        sortKey === "merchant"
-          ? a.merchant.localeCompare(b.merchant)
-          : sortKey === "amount"
-            ? a.amount - b.amount
-            : // date: fall back to id for a stable order within a day, mirroring the query.
-              a.date.localeCompare(b.date) || a.id.localeCompare(b.id)
-      return cmp * dir
-    })
-  }, [rows, query, typeFilter, categoryFilter, sortKey, sortDir])
+  const visible = useMemo(
+    () => filterAndSortRows(rows, query, typeFilter, categoryFilter, sortKey, sortDir),
+    [rows, query, typeFilter, categoryFilter, sortKey, sortDir]
+  )
 
   const filtering = query.trim() !== "" || typeFilter !== "all" || categoryFilter !== null
 
@@ -580,27 +725,18 @@ export function TransactionsTable({
   // (plus the active filter even when it has no rows here — e.g. a dashboard deep-link), then
   // "Uncategorized" when any row lacks a Category. Sorted by label; the select hides when there's
   // nothing to filter (only "All").
-  const categoryOptions = useMemo(() => {
-    const ids = new Set<string>()
-    let hasUncategorized = false
-    for (const row of rows) {
-      const id = effectiveCategoryId(row)
-      if (id === null) hasUncategorized = true
-      else ids.add(id)
-    }
-    if (categoryFilter && categoryFilter !== "none") ids.add(categoryFilter)
-    const named = [...ids]
-      .map((id) => {
-        const parts = categoryParts.get(id)
-        return { value: id, label: parts ? categoryLabelOf(parts) : id }
-      })
-      .sort((a, b) => a.label.localeCompare(b.label))
-    const opts = [{ value: "all", label: t("filter.allCategories") }, ...named]
-    if (hasUncategorized || categoryFilter === "none") {
-      opts.push({ value: "none", label: t("uncategorized") })
-    }
-    return opts
-  }, [rows, categoryFilter, categoryParts, categoryLabelOf, t])
+  const categoryOptions = useMemo(
+    () =>
+      buildCategoryOptions(
+        rows,
+        categoryFilter,
+        categoryParts,
+        categoryLabelOf,
+        t("filter.allCategories"),
+        t("uncategorized")
+      ),
+    [rows, categoryFilter, categoryParts, categoryLabelOf, t]
+  )
 
   const money = currencyFormatter(currency, locale)
   const fmtAmount = (amount: number) => money.format(amount)
@@ -671,32 +807,81 @@ export function TransactionsTable({
     router.refresh()
   }
 
-  if (rows.length === 0) {
+  // RowTypeControl already soft-deleted the row on the server (ADR-0026); move it from the live
+  // mirror to the deleted one, surface an inline Undo, and refresh so the server-derived summaries
+  // drop it. Local mirrors keep the two views consistent without a remount (the prop mirrors seed
+  // once). We hold the whole row so Undo can re-insert it without a re-fetch.
+  function handleDeleted(row: TransactionRow) {
+    setRows((current) => current.filter((r) => r.id !== row.id))
+    setDeleted((current) => [row, ...current])
+    setJustDeleted(row)
+    router.refresh()
+  }
+
+  // Restore a soft-deleted row (from the Undo affordance or the Deleted view): un-delete on the
+  // server, then move it back to the live mirror. On failure the row stays deleted so the user can
+  // retry. Re-sorting in `visible` puts it back in date order.
+  async function restore(row: TransactionRow) {
+    try {
+      await restoreTransaction(row.id)
+    } catch {
+      return
+    }
+    setDeleted((current) => current.filter((r) => r.id !== row.id))
+    setRows((current) => [...current, row])
+    setJustDeleted((j) => (j?.id === row.id ? null : j))
+    router.refresh()
+  }
+
+  if (rows.length === 0 && deleted.length === 0) {
     return (
       <EmptyPeriod backlogElsewhere={backlogElsewhere} className={className} />
     )
   }
 
+  const showingDeleted = typeFilter === "deleted"
+  // The Deleted view honors the search box (by merchant) and shows newest-first; the type/category
+  // filters and the column sort apply to the live view only.
+  const needle = query.trim().toLowerCase()
+  const deletedShown = deleted
+    .filter((r) => needle === "" || r.merchant.toLowerCase().includes(needle))
+    .toSorted((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id))
+  const shown = showingDeleted ? deletedShown : visible
+
   return (
     <div className={cn("flex flex-col gap-3", className)}>
+      {justDeleted && (
+        <UndoBanner
+          merchant={justDeleted.merchant}
+          onUndo={() => void restore(justDeleted)}
+        />
+      )}
+
       <TableToolbar
         query={query}
         onQueryChange={setQuery}
         typeFilter={typeFilter}
         onTypeFilterChange={setTypeFilter}
+        deletedCount={deleted.length}
         categoryOptions={categoryOptions}
         categoryValue={categoryFilter ?? "all"}
         onCategoryChange={(value) => setCategoryFilter(value === "all" ? null : value)}
       />
 
-      {filtering && (
+      {filtering && !showingDeleted && (
         <p className="text-xs text-muted-foreground" aria-live="polite">
           {t("showingCount", { visible: visible.length, total: rows.length })}
         </p>
       )}
 
-      {visible.length === 0 ? (
-        <NoMatch onClear={clearFilters} />
+      {shown.length === 0 ? (
+        showingDeleted ? (
+          <p className="rounded-lg border border-dashed border-border px-6 py-12 text-center text-sm text-muted-foreground">
+            {t("noDeleted")}
+          </p>
+        ) : (
+          <NoMatch onClear={clearFilters} />
+        )
       ) : (
         <div className="-mx-6 -my-2 overflow-x-auto whitespace-nowrap">
           <div className="inline-block min-w-full px-6 py-2 align-middle">
@@ -707,24 +892,36 @@ export function TransactionsTable({
                 onToggleSort={toggleSort}
               />
               <tbody>
-                {visible.map((row) => (
-                  <TransactionRowView
-                    key={row.id}
-                    row={row}
-                    categoryLabel={resolveCategory(row)}
-                    fmtDate={fmtDate}
-                    fmtAmount={fmtAmount}
-                    onOverrideChanged={(next) => handleChanged(row.id, next)}
-                    onIncomeChanged={(marked) =>
-                      handleIncomeChanged(row.id, marked)
-                    }
-                    onExcludeChanged={(next) =>
-                      handleExcludeChanged(row.id, next)
-                    }
-                    onShareChanged={(share) => handleShareChanged(row.id, share)}
-                    onRuleCreated={() => router.refresh()}
-                  />
-                ))}
+                {showingDeleted
+                  ? deletedShown.map((row) => (
+                      <DeletedRowView
+                        key={row.id}
+                        row={row}
+                        categoryLabel={resolveCategory(row)}
+                        fmtDate={fmtDate}
+                        fmtAmount={fmtAmount}
+                        onRestore={() => void restore(row)}
+                      />
+                    ))
+                  : visible.map((row) => (
+                      <TransactionRowView
+                        key={row.id}
+                        row={row}
+                        categoryLabel={resolveCategory(row)}
+                        fmtDate={fmtDate}
+                        fmtAmount={fmtAmount}
+                        onOverrideChanged={(next) => handleChanged(row.id, next)}
+                        onIncomeChanged={(marked) =>
+                          handleIncomeChanged(row.id, marked)
+                        }
+                        onExcludeChanged={(next) =>
+                          handleExcludeChanged(row.id, next)
+                        }
+                        onShareChanged={(share) => handleShareChanged(row.id, share)}
+                        onRuleCreated={() => router.refresh()}
+                        onDeleted={() => handleDeleted(row)}
+                      />
+                    ))}
               </tbody>
             </table>
           </div>

@@ -84,12 +84,15 @@ export default async function TransactionsPage({
   // and Off-card fixed costs join the card debits on the expense side — so both figures reflect the
   // Household's off-card configuration, not only card activity. `addConfiguredAmounts` folds them in
   // while keeping `income + expense === net`.
-  const [rawRows, baseSummary, configured, categoryRows] = await Promise.all([
-    repo.transactions.listWithOverrides(range),
-    loadNetSummary(repo, range),
-    loadConfiguredCycleItems(repo, selected),
-    repo.categories.list(),
-  ])
+  const [rawRows, rawDeleted, baseSummary, configured, categoryRows] =
+    await Promise.all([
+      repo.transactions.listWithOverrides(range),
+      // This cycle's soft-deleted rows (ADR-0026), for the table's durable "Deleted" view.
+      repo.transactions.listDeleted(range),
+      loadNetSummary(repo, range),
+      loadConfiguredCycleItems(repo, selected),
+      repo.categories.list(),
+    ])
   const summary = addConfiguredAmounts(baseSummary, cycleAmountsFromItems(configured))
   // The recurring-income line is worth showing only when it differs from the overview's Income total
   // above — when they match, the aside would just repeat the same figure.
@@ -116,8 +119,13 @@ export default async function TransactionsPage({
     label: formatCycleMonth(key, locale),
   }))
 
-  // The DB CHECK constrains these text columns to valid expense types, so the cast is safe.
+  // The DB CHECK constrains these text columns to valid expense types, so the casts are safe.
   const rows: TransactionRow[] = rawRows.map((row) => ({
+    ...row,
+    classifiedType: row.classifiedType as ExpenseType | null,
+    overrideType: row.overrideType as ExpenseType | null,
+  }))
+  const deletedRows: TransactionRow[] = rawDeleted.map((row) => ({
     ...row,
     classifiedType: row.classifiedType as ExpenseType | null,
     overrideType: row.overrideType as ExpenseType | null,
@@ -199,6 +207,7 @@ export default async function TransactionsPage({
             currency={billingCurrency}
             categories={categories}
             initialCategoryId={category}
+            initialDeleted={deletedRows}
             backlogElsewhere={reviewTotal}
           />
         </div>

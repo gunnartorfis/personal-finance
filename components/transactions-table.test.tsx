@@ -484,4 +484,62 @@ describe("TransactionsTable — shared expenses (ADR-0014)", () => {
       expect.objectContaining({ method: "DELETE" })
     )
   })
+
+  it("soft-deletes a row: it leaves the list and an Undo appears (ADR-0026)", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }))
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    render(<TransactionsTable rows={ROWS} currency="ISK" />)
+
+    await openRowMenu(user, /NETFLIX/)
+    await user.click(await screen.findByRole("menuitem", { name: /delete/i }))
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/transactions/t1/delete",
+      expect.objectContaining({ method: "PUT" })
+    )
+    expect(screen.queryByRole("row", { name: /NETFLIX/ })).toBeNull()
+    expect(screen.getByRole("button", { name: /undo/i })).toBeInTheDocument()
+  })
+
+  it("undo restores a just-deleted row via the restore endpoint", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }))
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    render(<TransactionsTable rows={ROWS} currency="ISK" />)
+
+    await openRowMenu(user, /NETFLIX/)
+    await user.click(await screen.findByRole("menuitem", { name: /delete/i }))
+    await user.click(screen.getByRole("button", { name: /undo/i }))
+
+    expect(await screen.findByRole("row", { name: /NETFLIX/ })).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/transactions/t1/delete",
+      expect.objectContaining({ method: "DELETE" })
+    )
+  })
+
+  it("lists soft-deleted rows under the Deleted filter and restores them", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }))
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    const deletedRow: TransactionRow = { ...ROWS[0], id: "tdel", merchant: "OLDCHARGE" }
+    render(
+      <TransactionsTable rows={ROWS} currency="ISK" initialDeleted={[deletedRow]} />
+    )
+
+    // A soft-deleted row is absent from the default (live) view.
+    expect(screen.queryByRole("row", { name: /OLDCHARGE/ })).toBeNull()
+    // Switching to the Deleted view surfaces it with a Restore control.
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: /filter by type/i }),
+      "deleted"
+    )
+    const row = screen.getByRole("row", { name: /OLDCHARGE/ })
+    await user.click(within(row).getByRole("button", { name: /restore/i }))
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/transactions/tdel/delete",
+      expect.objectContaining({ method: "DELETE" })
+    )
+  })
 })
