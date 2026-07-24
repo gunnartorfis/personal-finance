@@ -8,8 +8,9 @@ import { EXPENSE_TYPES, type ExpenseType } from "@/shared/types"
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 /** Matches the CSV parser's merchant cap so a manual entry can't exceed what an import allows. */
 const MAX_MERCHANT_LENGTH = 200
-/** The `amount` column is a Postgres int4; reject out-of-range values with a 400, not a DB 500. */
-const MAX_AMOUNT = 2_147_483_647
+/** The `amount` column is a Postgres int4 (asymmetric range); reject out-of-range with a 400, not a DB 500. */
+const INT4_MIN = -2_147_483_648
+const INT4_MAX = 2_147_483_647
 
 /**
  * True only for a real calendar date in `YYYY-MM-DD` form — the regex alone would pass `2026-13-45`
@@ -50,7 +51,7 @@ function parseBody(body: unknown): ManualInput | { error: string } {
   if (!Number.isFinite(amount) || amount === 0) {
     return { error: "amount must be a non-zero number" }
   }
-  if (Math.abs(amount) > MAX_AMOUNT) {
+  if (amount < INT4_MIN || amount > INT4_MAX) {
     return { error: "amount is out of range" }
   }
   const merchant = typeof b.merchant === "string" ? b.merchant.trim() : ""

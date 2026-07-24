@@ -104,7 +104,17 @@ describe("POST /api/transactions (manual insert)", () => {
 
   it("400s an amount outside the integer column's range", async () => {
     expect((await POST(postReq({ ...valid, amount: 9_000_000_000 }))).status).toBe(400);
+    expect((await POST(postReq({ ...valid, amount: 2_147_483_648 }))).status).toBe(400);
     expect(requireHousehold).not.toHaveBeenCalled();
+  });
+
+  it("accepts the asymmetric int4 minimum boundary amount", async () => {
+    const { createManual } = ctx([{ id: "a1" }]);
+    const res = await POST(postReq({ ...valid, amount: -2_147_483_648 }));
+    expect(res.status).toBe(201);
+    expect(createManual).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: -2_147_483_648 }),
+    );
   });
 
   it("still returns 201 when activity logging fails (the row was created)", async () => {
