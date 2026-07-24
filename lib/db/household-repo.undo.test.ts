@@ -206,5 +206,12 @@ describe("uploads.undo (ADR-0024)", () => {
     // Attribution is set once, to the winner; the row is archived exactly once.
     expect([a.id, b.id]).toContain((await repo.uploads.findById(up.id))?.undoneByMemberId);
     expect((await repo.transactions.list()).filter((r) => r.archived)).toHaveLength(1);
+    // Neither response exposes a stale upload: the already-undone loser re-reads, so its returned
+    // row reflects the committed stamp rather than a null-undoneAt pre-claim snapshot.
+    for (const r of [r1, r2]) {
+      if (r.status === "undone" || r.status === "already-undone") {
+        expect(r.upload.undoneAt).not.toBeNull();
+      }
+    }
   });
 });
