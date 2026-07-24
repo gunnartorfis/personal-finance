@@ -778,6 +778,7 @@
     "splitCharge": "Split charge…",
     "removeSplit": "Remove split",
     "exclude": "Exclude…",
+    "delete": "Delete",
     "shared": "Shared",
     "split": {
       "shareLabel": "Your share",
@@ -921,6 +922,7 @@
       "unclassified": "Unclassified",
       "credits": "Credits",
       "excluded": "Excluded",
+      "deleted": "Deleted ({count})",
       "allCategories": "All categories"
     },
     "showingCount": "{visible} of {total} transactions",
@@ -930,6 +932,11 @@
     "noMatch": "No matching transactions",
     "noMatchBody": "No transactions in this period match your search or filter.",
     "clearFilters": "Clear filters",
+    "deletedNotice": "Deleted {merchant}",
+    "undo": "Undo",
+    "restore": "Restore",
+    "restoreError": "Couldn't restore — try again",
+    "noDeleted": "No deleted transactions in this period.",
     "colDate": "Date",
     "colMerchant": "Merchant",
     "colAmount": "Amount",

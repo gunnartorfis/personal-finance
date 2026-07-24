@@ -778,6 +778,7 @@
     "splitCharge": "Skipta færslu…",
     "removeSplit": "Fjarlægja skiptingu",
     "exclude": "Undanskilja…",
+    "delete": "Eyða",
     "shared": "Deilt",
     "split": {
       "shareLabel": "Þinn hluti",
@@ -921,6 +922,7 @@
       "unclassified": "Óflokkað",
       "credits": "Innborganir",
       "excluded": "Undanskilið",
+      "deleted": "Eyddar ({count})",
       "allCategories": "Allir flokkar"
     },
     "showingCount": "{visible} af {total} færslum",
@@ -930,6 +932,11 @@
     "noMatch": "Engar færslur passa",
     "noMatchBody": "Engar færslur á þessu tímabili passa við leitina eða síuna.",
     "clearFilters": "Hreinsa síur",
+    "deletedNotice": "{merchant} eytt",
+    "undo": "Afturkalla",
+    "restore": "Endurheimta",
+    "restoreError": "Tókst ekki að endurheimta — reyndu aftur",
+    "noDeleted": "Engar eyddar færslur á þessu tímabili.",
     "colDate": "Dagsetning",
     "colMerchant": "Söluaðili",
     "colAmount": "Upphæð",

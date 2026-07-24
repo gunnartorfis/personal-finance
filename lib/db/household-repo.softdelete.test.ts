@@ -192,6 +192,17 @@ describe("transactions soft-delete (deletedAt)", () => {
     expect(months).not.toContain("2026-08");
   });
 
+  it("deletedMonths surfaces a deleted-only month so the selector can still reach it", async () => {
+    const { repo, soloRow } = await seed();
+    await repo.transactions.softDelete(soloRow.id);
+    const months = await repo.transactions.deletedMonths();
+    // The month whose only row is now deleted is reachable via deletedMonths (its Deleted view holds
+    // restorable rows), even though cycleMonths dropped it.
+    expect(months).toContain("2026-08");
+    // Months with only live rows carry no deleted rows, so they're absent here.
+    expect(months).not.toContain("2026-03");
+  });
+
   it("accountIdsWithTransactions omits an account whose only row is soft-deleted", async () => {
     const { repo, main, solo, soloRow } = await seed();
     await repo.transactions.softDelete(soloRow.id);

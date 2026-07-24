@@ -60,9 +60,12 @@ export default async function TransactionsPage({
   // drive the whole-household "Classify pending" affordance beside Rapid review — like ActionBand,
   // it's hidden once the Free cap has paused classification, since a drain would skip every row.
   const capped = plan !== "Premium"
-  const [months, reviewMonths, pendingCount, classifiedCount] =
+  const [months, deletedMonths, reviewMonths, pendingCount, classifiedCount] =
     await Promise.all([
       repo.transactions.cycleMonths(),
+      // Cycles whose only remaining rows are soft-deleted (ADR-0026): kept selectable so a member can
+      // navigate back to restore them, but deliberately NOT part of the default-landing logic below.
+      repo.transactions.deletedMonths(),
       repo.transactions.reviewQueueMonths(),
       repo.transactions.countPending(),
       capped ? repo.transactions.countClassified() : Promise.resolve(0),
@@ -84,12 +87,15 @@ export default async function TransactionsPage({
   // and Off-card fixed costs join the card debits on the expense side — so both figures reflect the
   // Household's off-card configuration, not only card activity. `addConfiguredAmounts` folds them in
   // while keeping `income + expense === net`.
-  const [rawRows, baseSummary, configured, categoryRows] = await Promise.all([
-    repo.transactions.listWithOverrides(range),
-    loadNetSummary(repo, range),
-    loadConfiguredCycleItems(repo, selected),
-    repo.categories.list(),
-  ])
+  const [rawRows, rawDeleted, baseSummary, configured, categoryRows] =
+    await Promise.all([
+      repo.transactions.listWithOverrides(range),
+      // This cycle's soft-deleted rows (ADR-0026), for the table's durable "Deleted" view.
+      repo.transactions.listDeleted(range),
+      loadNetSummary(repo, range),
+      loadConfiguredCycleItems(repo, selected),
+      repo.categories.list(),
+    ])
   const summary = addConfiguredAmounts(baseSummary, cycleAmountsFromItems(configured))
   // The recurring-income line is worth showing only when it differs from the overview's Income total
   // above — when they match, the aside would just repeat the same figure.
@@ -107,7 +113,9 @@ export default async function TransactionsPage({
   // Always offer the current month and the selected period even before either has data, so the
   // picker never hides where the user is (or the obvious "this month" landing spot). Keys sort
   // lexicographically the same as chronologically; reverse for newest-first.
-  const keys = Array.from(new Set([current, selected, ...months]))
+  const keys = Array.from(
+    new Set([current, selected, ...months, ...deletedMonths])
+  )
     .filter(isValidCycleKey)
     .sort()
     .reverse()
@@ -116,8 +124,13 @@ export default async function TransactionsPage({
     label: formatCycleMonth(key, locale),
   }))
 
-  // The DB CHECK constrains these text columns to valid expense types, so the cast is safe.
+  // The DB CHECK constrains these text columns to valid expense types, so the casts are safe.
   const rows: TransactionRow[] = rawRows.map((row) => ({
+    ...row,
+    classifiedType: row.classifiedType as ExpenseType | null,
+    overrideType: row.overrideType as ExpenseType | null,
+  }))
+  const deletedRows: TransactionRow[] = rawDeleted.map((row) => ({
     ...row,
     classifiedType: row.classifiedType as ExpenseType | null,
     overrideType: row.overrideType as ExpenseType | null,
@@ -199,6 +212,7 @@ export default async function TransactionsPage({
             currency={billingCurrency}
             categories={categories}
             initialCategoryId={category}
+            initialDeleted={deletedRows}
             backlogElsewhere={reviewTotal}
           />
         </div>
