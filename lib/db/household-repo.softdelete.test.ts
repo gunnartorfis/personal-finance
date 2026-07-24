@@ -258,4 +258,57 @@ describe("transactions soft-delete (deletedAt)", () => {
     const other = await freshHousehold();
     expect(await other.transactions.softDelete(toDelete.id)).toHaveLength(0);
   });
+
+  it("drops a soft-deleted pending row from upload progress, so the upload can complete", async () => {
+    const { repo, pending } = await seed();
+    // The upload's rows: 3 classified + 1 pending. Before delete, progress still awaits the pending one.
+    const before = await repo.transactions.progress(pending.uploadId!);
+    expect(before).toMatchObject({ total: 4, pending: 1, classified: 3 });
+    // Deleting the pending row must remove it from BOTH pending and total, else the progress poller
+    // waits forever for classification work that can never happen (listPending already skips it).
+    await repo.transactions.softDelete(pending.id);
+    expect(await repo.transactions.progress(pending.uploadId!)).toMatchObject({
+      total: 3,
+      pending: 0,
+      classified: 3,
+    });
+  });
+
+  it("restoreDeleted only affects an actually-deleted row (idempotent, no double-restore)", async () => {
+    const { repo, active, toDelete } = await seed();
+    // A live row is a no-op (guards the route against a duplicate 'restored' audit entry on races).
+    expect(await repo.transactions.restoreDeleted(active.id)).toHaveLength(0);
+    await repo.transactions.softDelete(toDelete.id);
+    // The first restore of a deleted row wins; a second is a no-op.
+    expect(await repo.transactions.restoreDeleted(toDelete.id)).toHaveLength(1);
+    expect(await repo.transactions.restoreDeleted(toDelete.id)).toHaveLength(0);
+  });
+
+  it("softDelete unlinks a transfer pair so the surviving leg returns to spend math", async () => {
+    const repo = await freshHousehold();
+    const [main] = await repo.accounts.create({ name: "Main" });
+    const [savings] = await repo.accounts.create({ name: "Savings" });
+    const [up] = await repo.uploads.create({
+      accountId: main.id,
+      fileName: "x.csv",
+      fileHash: "xfer",
+    });
+    const base = { uploadId: up.id, rawCategory: "", classificationStatus: "classified" as const, expenseType: "" };
+    const [legOut, legIn] = await repo.transactions.createMany([
+      { ...base, accountId: main.id, date: "2026-03-20", amount: -5000, merchant: "XFER-OUT", sourceRow: 0 },
+      { ...base, accountId: savings.id, date: "2026-03-20", amount: 5000, merchant: "XFER-IN", sourceRow: 1 },
+    ]);
+    await repo.transactions.markTransferPair(legOut.id, legIn.id);
+    // While paired, both legs are money movement — excluded from spend, so March shows no spend.
+    expect(await repo.transactions.monthlySpendSeries(MARCH)).toEqual([]);
+    // Deleting the money-in leg must unlink the pair, freeing the surviving debit to count as spend.
+    await repo.transactions.softDelete(legIn.id);
+    const survivor = (await repo.transactions.listWithOverrides(MARCH)).find(
+      (r) => r.merchant === "XFER-OUT",
+    );
+    expect(survivor?.transferGroupId).toBeNull();
+    expect(await repo.transactions.monthlySpendSeries(MARCH)).toEqual([
+      { month: "2026-03", spending: 5000, income: 0 },
+    ]);
+  });
 });

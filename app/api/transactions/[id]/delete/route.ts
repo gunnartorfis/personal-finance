@@ -73,9 +73,10 @@ export async function DELETE(
   const { ctx, transaction } = resolved
 
   const [updated] = await ctx.repo.transactions.restoreDeleted(id)
-  // Only a row that was actually deleted is a real restore worth logging; restoring a live row is a
-  // no-op.
-  if (updated && transaction.deletedAt !== null) {
+  // `restoreDeleted` is guarded on `deletedAt IS NOT NULL`, so a non-empty result means THIS request
+  // is the one that flipped the row — log the restore only then. Restoring a live row, or losing a
+  // concurrent-restore race, returns [] and records nothing (no duplicate audit entry).
+  if (updated) {
     await recordActivity(ctx, ActivityAction.TransactionRestored, {
       transactionId: id,
       merchant: transaction.merchant,
