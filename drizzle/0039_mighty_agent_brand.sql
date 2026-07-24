@@ -1,0 +1,1 @@
+CREATE INDEX "transactions_household_upload_idx" ON "transactions" USING btree ("household_id","upload_id");
