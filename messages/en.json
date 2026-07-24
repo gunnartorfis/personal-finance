@@ -368,6 +368,23 @@
       "retrying": "Couldn't load progress — retrying…",
       "complete": "Classification complete",
       "classifying": "Classifying…"
+    },
+    "history": {
+      "heading": "Upload history",
+      "empty": "No uploads yet.",
+      "importedBy": "Imported by {name}",
+      "importedByUnknown": "Imported by a past member",
+      "transactionCount": "{count, plural, one {# transaction} other {# transactions}}",
+      "undo": "Undo",
+      "undoConfirm": "Undo this upload? {count, plural, one {# transaction} other {# transactions}} will be hidden — you can restore them later.",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "restore": "Restore",
+      "undoneBadge": "Undone",
+      "undoneBy": "by {name} · {date}",
+      "supersededNote": "Already re-imported",
+      "undoError": "Couldn't undo — try again.",
+      "restoreError": "Couldn't restore — try again."
     }
   },
   "accounts": {
@@ -634,6 +651,8 @@
       "dataReset": "reset the household data",
       "uploadRowsRecovered": "recovered an unreadable row",
       "uploadRowsForced": "imported a duplicate row",
+      "uploadUndone": "undid an upload",
+      "uploadRestored": "restored an upload",
       "unknown": "made a change"
     }
   },

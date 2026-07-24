@@ -267,6 +267,20 @@
       "when": 1783206400011,
       "tag": "0037_wooden_typhoid_mary",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1784854657776,
+      "tag": "0038_thankful_spiral",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1784865737186,
+      "tag": "0039_mighty_agent_brand",
+      "breakpoints": true
     }
   ]
 }

@@ -50,6 +50,11 @@ export const ActivityAction = {
   // duplicate in — the latter deliberately overriding the ADR-0003 dedup guard.
   UploadRowsRecovered: "upload.rows_recovered",
   UploadRowsForced: "upload.rows_forced",
+
+  // Upload undo (ADR-0024): a Member undid an Upload, archiving all of its Transactions (reversible).
+  UploadUndone: "upload.undone",
+  // Upload restore (ADR-0024): a Member restored an undone Upload, un-archiving its Transactions.
+  UploadRestored: "upload.restored",
 } as const;
 
 export type ActivityAction = (typeof ActivityAction)[keyof typeof ActivityAction];

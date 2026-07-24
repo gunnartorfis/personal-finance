@@ -375,6 +375,13 @@ export const uploads = pgTable(
     fileName: text("file_name").notNull(),
     /** SHA-256 of the raw bytes — the exact-file import guard (ADR-0003). */
     fileHash: text("file_hash").notNull(),
+    /**
+     * When this Upload was undone (ADR-0024): every Transaction it brought in is Archived and the
+     * file hash is freed for a clean re-import. Null while the Upload is active; cleared on Restore.
+     */
+    undoneAt: timestamp("undone_at", { withTimezone: true }),
+    /** The Member who undid the Upload (same Household); null while active, and nulled if they leave. */
+    undoneByMemberId: uuid("undone_by_member_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -391,10 +398,19 @@ export const uploads = pgTable(
       foreignColumns: [members.householdId, members.id],
       name: "uploads_importer_household_fk",
     }),
+    // The undoer Member must belong to the same Household (NO ACTION; nulled by the app on leave).
+    foreignKey({
+      columns: [t.householdId, t.undoneByMemberId],
+      foreignColumns: [members.householdId, members.id],
+      name: "uploads_undoer_household_fk",
+    }),
     // Target for the composite same-household FK from transactions.
     unique("uploads_household_id_id_key").on(t.householdId, t.id),
-    // One import of a given file per Household (the exact-file guard, enforced at the DB).
-    unique("uploads_household_id_file_hash_key").on(t.householdId, t.fileHash),
+    // Exact-file guard (ADR-0003), narrowed to ACTIVE uploads: an undone Upload frees its file for a
+    // clean re-import (ADR-0024 clean-slate). Partial unique on undone_at IS NULL.
+    uniqueIndex("uploads_household_id_file_hash_key")
+      .on(t.householdId, t.fileHash)
+      .where(sql`${t.undoneAt} IS NULL`),
   ],
 );
 
@@ -552,6 +568,14 @@ export const transactions = pgTable(
     /** Optional free-text reason shown on the excluded row (e.g. "grandma's vacuum"); null otherwise. */
     exclusionNote: text("exclusion_note"),
     /**
+     * The Transaction's Upload was undone, Archiving it (ADR-0024): retained (append-only) but hidden
+     * from the transactions list and every calculation. Upload-derived — set for all of an undone
+     * Upload's rows, cleared on Restore — never a per-row Member judgement (that is `excluded`).
+     * Orthogonal to `excluded`/`incomeMarked` (the underlying net state is preserved for a faithful
+     * Restore) and, like `excluded`, still counts toward the Free cap.
+     */
+    archived: boolean("archived").notNull().default(false),
+    /**
      * Links the two legs of a detected inter-account transfer — a money-out leg in a funding Account
      * and the equal-and-opposite money-in leg it landed as in another (a card-bill payment, a savings
      * sweep). Both legs carry the same group id (issue #97). A row with a group id is money movement
@@ -632,6 +656,9 @@ export const transactions = pgTable(
     }),
     // Speeds the Category-breakdown aggregations (group/filter by category within a Household).
     index("transactions_household_category_idx").on(t.householdId, t.categoryId),
+    // Speeds every (household, upload)-scoped access (ADR-0024): the per-upload count in
+    // `uploads.listHistory` and the undo/restore/archive UPDATEs that filter by `upload_id`.
+    index("transactions_household_upload_idx").on(t.householdId, t.uploadId),
     // Category confidence only accompanies an assigned Category, and is a probability in [0, 1].
     check(
       "transactions_category_confidence_requires_category",
