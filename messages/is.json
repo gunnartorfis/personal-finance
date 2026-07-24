@@ -635,6 +635,7 @@
       "uploadRowsRecovered": "endurheimti ólæsilega línu",
       "uploadRowsForced": "flutti inn tvítekna línu",
       "uploadUndone": "afturkallaði innsendingu",
+      "uploadRestored": "endurheimti innsendingu",
       "unknown": "gerði breytingu"
     }
   },

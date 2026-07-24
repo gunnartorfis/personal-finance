@@ -53,6 +53,8 @@ export const ActivityAction = {
 
   // Upload undo (ADR-0024): a Member undid an Upload, archiving all of its Transactions (reversible).
   UploadUndone: "upload.undone",
+  // Upload restore (ADR-0024): a Member restored an undone Upload, un-archiving its Transactions.
+  UploadRestored: "upload.restored",
 } as const;
 
 export type ActivityAction = (typeof ActivityAction)[keyof typeof ActivityAction];

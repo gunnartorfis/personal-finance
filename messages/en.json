@@ -635,6 +635,7 @@
       "uploadRowsRecovered": "recovered an unreadable row",
       "uploadRowsForced": "imported a duplicate row",
       "uploadUndone": "undid an upload",
+      "uploadRestored": "restored an upload",
       "unknown": "made a change"
     }
   },
