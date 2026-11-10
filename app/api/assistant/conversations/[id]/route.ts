@@ -40,7 +40,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     })
   } catch (error) {
     unstable_rethrow(error)
-    console.error("GET /api/assistant/conversations/[id] failed", error)
+    console.error(JSON.stringify({ event: "assistant.conversation.failed" }))
     return NextResponse.json({ error: "conversation_failed" }, { status: 500 })
   }
 }

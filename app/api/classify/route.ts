@@ -33,7 +33,7 @@ export async function POST() {
     // rethrow those untouched, and only convert genuine infrastructure failures into a structured
     // 500 so cron/poll callers can distinguish a server error from a bad request or empty queue.
     unstable_rethrow(error);
-    console.error("POST /api/classify failed", error);
+    console.error(JSON.stringify({ event: "classification.request_failed" }));
     return NextResponse.json({ error: "classification_failed" }, { status: 500 });
   }
 }

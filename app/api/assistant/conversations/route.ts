@@ -20,7 +20,7 @@ export async function GET() {
     })
   } catch (error) {
     unstable_rethrow(error)
-    console.error("GET /api/assistant/conversations failed", error)
+    console.error(JSON.stringify({ event: "assistant.conversations.failed" }))
     return NextResponse.json({ error: "conversations_failed" }, { status: 500 })
   }
 }

@@ -107,11 +107,11 @@ export async function syncDueConnections(params: {
       });
       inserted += res.inserted;
       failed += res.failed;
-    } catch (err) {
+    } catch {
       // syncHousehold isolates per-connection failures internally, so this only fires on an
       // unexpected household-level error; count it and keep the batch going.
       failed += 1;
-      console.error(`[open-banking cron] household ${household.id} sync failed`, err);
+      console.error(JSON.stringify({ event: "banking.cron.failed" }));
     }
   }
 

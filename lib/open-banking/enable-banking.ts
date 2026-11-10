@@ -192,9 +192,7 @@ export class EnableBankingClient implements IngestionProvider {
         if (!txn.externalId) {
           // No transaction_id and no entry_reference — an unusable dedup key. Skip loudly rather
           // than persist an empty-string sentinel that would collide across rows and corrupt dedup.
-          console.warn(
-            `Enable Banking transaction for account ${accountUid} has no transaction_id or entry_reference; skipping`,
-          );
+          console.warn(JSON.stringify({ event: "banking.sync.external_id_missing" }));
           continue;
         }
         out.push(txn);

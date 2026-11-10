@@ -8,6 +8,7 @@ import { listDigestRecipients } from "@/lib/digest/recipients"
 import { runMonthlyDigest } from "@/lib/digest/run-monthly"
 import { digestSendExists, recordDigestSend } from "@/lib/digest/sent-ledger"
 import { digestUnsubscribeToken } from "@/lib/digest/unsubscribe-token"
+import { withScheduledExecution } from "@/lib/scheduling/execution.mjs"
 
 /** The Digest sender identity (ADR-0019). Verified sender domain: auratal.is. */
 const DIGEST_FROM = "Auratal <no-reply@auratal.is>"
@@ -42,7 +43,7 @@ async function handle(request: Request): Promise<Response> {
   if (!apiKey || !unsubscribeSecret) {
     // Missing email config isn't retryable, so return 200 (not 5xx) — a non-2xx would make Vercel
     // Cron burn its retry attempts every run. Surface it in logs + body instead.
-    console.warn("[digest] skipped: RESEND_API_KEY / DIGEST_UNSUBSCRIBE_SECRET not configured")
+    console.warn(JSON.stringify({ event: "digest.configuration_missing" }))
     return NextResponse.json({ skipped: "email_not_configured" })
   }
 
@@ -72,4 +73,4 @@ async function handle(request: Request): Promise<Response> {
 }
 
 // Vercel Cron only issues GET — don't expose an out-of-schedule send trigger via POST.
-export { handle as GET }
+export const GET = withScheduledExecution("monthly-digest", handle)

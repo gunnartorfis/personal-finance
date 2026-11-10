@@ -9,6 +9,7 @@ import { dueForRenewal } from "@/lib/billing/renew"
 import { nextRenewal } from "@/lib/billing/renewal"
 import { getDb } from "@/lib/db"
 import { households } from "@/lib/db/schema"
+import { withScheduledExecution } from "@/lib/scheduling/execution.mjs"
 import { chargeStoredToken, isAuthorised, isPending } from "@/lib/payments/straumur"
 
 export const dynamic = "force-dynamic"
@@ -99,11 +100,11 @@ async function handle(request: Request): Promise<Response> {
       } else {
         await recordRefusal()
       }
-    } catch (error) {
+    } catch {
       // Unknown outcome (network/gateway error): the charge may have actually gone through, so do
       // NOT bump the dunning count — leaving it unchanged keeps the same idempotency key, so the
       // next run dedupes instead of risking a double charge.
-      console.error(`[renew] charge errored for household ${household.id}`, error)
+      console.error(JSON.stringify({ event: "billing.renewal.charge_unknown" }))
       errored += 1
     }
   }
@@ -112,4 +113,4 @@ async function handle(request: Request): Promise<Response> {
 }
 
 // Vercel Cron only issues GET — don't expose POST as an out-of-schedule charge trigger.
-export { handle as GET }
+export const GET = withScheduledExecution("billing-renewal", handle)

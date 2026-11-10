@@ -25,13 +25,13 @@ export async function POST() {
     // a successful cancel into a 500 (which the outer catch would do).
     try {
       await recordActivity(ctx, ActivityAction.BillingCancelled)
-    } catch (logError) {
-      console.error("failed to record billing.cancelled activity", logError)
+    } catch {
+      console.error(JSON.stringify({ event: "billing.cancel.audit_failed" }))
     }
     return NextResponse.json({ cancelled: true })
   } catch (error) {
     unstable_rethrow(error)
-    console.error("POST /api/billing/cancel failed", error)
+    console.error(JSON.stringify({ event: "billing.cancel.failed" }))
     return NextResponse.json({ error: "cancel_failed" }, { status: 500 })
   }
 }

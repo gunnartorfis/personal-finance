@@ -7,6 +7,7 @@ import { getDb } from "@/lib/db";
 import { requireHousehold } from "@/lib/household/current";
 import { syncDueConnections, syncHousehold } from "@/lib/open-banking/cron-sync";
 import { getIngestionProvider } from "@/lib/open-banking/provider-factory";
+import { withScheduledExecution } from "@/lib/scheduling/execution.mjs";
 import { canUseBankSync } from "@/shared/bank-sync";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +47,7 @@ async function handle(request: Request): Promise<Response> {
 }
 
 // Vercel Cron issues GET, guarded by the cron secret (system-wide, every household).
-export { handle as GET };
+export const GET = withScheduledExecution("bank-sync", handle);
 
 /**
  * On-link initial sync (#146): pull a freshly-linked bank's transactions immediately instead of

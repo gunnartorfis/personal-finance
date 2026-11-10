@@ -106,9 +106,7 @@ export async function recordWebhookEvent(
   // so they match). Keep the swap attempt observable; ops can also reconcile Premium households whose
   // straumurRecurringDetailReference stays null.
   if (args.recurringDetailReference && args.recurringDetailReference !== row.recurringDetailReference) {
-    console.warn(
-      `[straumur-webhook] ignoring changed recurringDetailReference on re-delivery (psp=${args.pspReference}); first-seen token retained`,
-    );
+    console.warn(JSON.stringify({ event: "payments.webhook.token_conflict" }));
   }
   return row;
 }

@@ -27,7 +27,7 @@ export async function GET() {
   } catch (error) {
     // requireHousehold signals auth/tenant redirects via control-flow errors Next must catch.
     unstable_rethrow(error);
-    console.error("GET /api/classify/status failed", error);
+    console.error(JSON.stringify({ event: "classification.status.failed" }));
     return NextResponse.json({ error: "status_failed" }, { status: 500 });
   }
 }

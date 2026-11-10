@@ -57,8 +57,8 @@ export async function POST(request: Request) {
       try {
         const repo = householdRepo(getDb(), householdId)
         await recordActivity({ repo, memberId, user }, ActivityAction.InviteAccepted)
-      } catch (error) {
-        console.error("failed to record invite.accepted activity", error)
+      } catch {
+        console.error(JSON.stringify({ event: "household.invite.accept_audit_failed" }))
       }
     }
     return NextResponse.json({ ok: true, householdId })

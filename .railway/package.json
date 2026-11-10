@@ -1,0 +1,7 @@
+{
+  "name": "personal-finance-infrastructure",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.9.0",
+  "devDependencies": { "railway": "3.12.0" }
+}

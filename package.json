@@ -4,18 +4,18 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.9.0",
-  "description": "Hosted, multi-tenant personal-finance app (Next.js / Vercel / Neon) that classifies Icelandic card statements with Claude — Fixed / Necessary / Nice to have, with editable types and income / net-profit tracking.",
+  "description": "Hosted household finance application on Next.js and Neon; portable container hosting.",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/gunnartorfis/personal-finance.git"
   },
   "engines": {
-    "node": ">=22"
+    "node": "24.21.0"
   },
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/migrate-on-vercel.mjs && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
@@ -23,7 +23,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "db:generate": "node --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs generate",
-    "db:migrate": "node --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs migrate",
+    "db:migrate": "node --env-file-if-exists=.env.local scripts/hosting/migrate.mjs",
+    "test:hosting": "node --test scripts/hosting/*.test.mjs",
     "db:check": "node node_modules/drizzle-kit/bin.cjs check",
     "doctor": "pnpm dlx react-doctor@0.5.8"
   },

@@ -13,7 +13,7 @@ export async function GET() {
     return NextResponse.json({ plan })
   } catch (error) {
     unstable_rethrow(error)
-    console.error("GET /api/assistant/status failed", error)
+    console.error(JSON.stringify({ event: "assistant.status.failed" }))
     return NextResponse.json({ error: "status_failed" }, { status: 500 })
   }
 }

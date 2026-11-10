@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     return NextResponse.json(institutions)
   } catch (error) {
     unstable_rethrow(error)
-    console.error("GET /api/open-banking/institutions failed", error)
+    console.error(JSON.stringify({ event: "banking.institutions.failed" }))
     return NextResponse.json({ error: "institutions_unavailable" }, { status: 502 })
   }
 }

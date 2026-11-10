@@ -19,7 +19,7 @@ export async function GET() {
     // Let requireHousehold's redirect()/notFound() control-flow pass through; log + 500 real failures
     // so a DB/auth error is observable rather than a silent 500 the client keeps polling against.
     unstable_rethrow(error)
-    console.error("GET /api/billing/status failed", error)
+    console.error(JSON.stringify({ event: "billing.status.failed" }))
     return NextResponse.json({ error: "status_failed" }, { status: 500 })
   }
 }

@@ -162,7 +162,7 @@ describe("drainPending", () => {
     const { repo, addTxn } = await setup();
     await addTxn(-100);
     const boom: Classifier = async () => {
-      throw new Error("model error");
+      throw new Error("model error: SECRET-MERCHANT -4242 secret-token");
     };
     const result = await drainPending(repo, boom, { plan: "Premium" });
     expect(result).toEqual({ classified: 0, failed: 1, capped: 0, reused: 0 });
@@ -177,14 +177,15 @@ describe("drainPending", () => {
       errs.push(args.map(String).join(" "));
     });
     const boom: Classifier = async () => {
-      throw new Error("model error");
+      throw new Error("model error: SECRET-MERCHANT -4242 secret-token");
     };
     await drainPending(repo, boom, { plan: "Premium" });
     spy.mockRestore();
     const joined = errs.join("\n");
-    expect(joined).toContain("[classify] failed"); // still surfaces the failure + txn id
+    expect(joined).toContain("classification.failed"); // failure remains observable without provider payloads
     expect(joined).not.toContain("SECRET-MERCHANT");
     expect(joined).not.toContain("4242");
+    expect(joined).not.toContain("secret-token");
   });
 
   it("is resumable — a second drain does nothing once the queue is empty", async () => {

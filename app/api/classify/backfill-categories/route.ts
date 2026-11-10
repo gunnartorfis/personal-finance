@@ -29,7 +29,7 @@ export async function POST() {
     // requireHousehold issues redirect()/notFound() via control-flow errors Next must catch —
     // rethrow those untouched; convert only genuine infrastructure failures into a structured 500.
     unstable_rethrow(error);
-    console.error("POST /api/classify/backfill-categories failed", error);
+    console.error(JSON.stringify({ event: "classification.backfill.request_failed" }));
     return NextResponse.json({ error: "backfill_failed" }, { status: 500 });
   }
 }
