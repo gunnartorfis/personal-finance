@@ -24,8 +24,13 @@ test("fails closed without runtime secrets, without printing their values", asyn
   assert.ok(event.keys.includes("DATABASE_URL"))
 })
 
-test(
-  "forwards SIGTERM and waits for child cleanup",
+for (const [signal, serverCode, expectedCode] of [
+  ["SIGTERM", 0, 0],
+  ["SIGTERM", 143, 0],
+  ["SIGINT", 130, 0],
+  ["SIGTERM", 1, 1],
+]) test(
+  `forwards ${signal}, waits for cleanup, and maps child exit ${serverCode} to ${expectedCode}`,
   { timeout: 10_000 },
   async () => {
     const directory = await mkdtemp(join(tmpdir(), "finance-runtime-"))
@@ -33,8 +38,8 @@ test(
       join(directory, "server.js"),
       `
     setInterval(() => {}, 1000);
-    process.on('SIGTERM', () => setTimeout(() => {
-      console.log('synthetic-cleanup-complete'); process.exit(0);
+    process.on('${signal}', () => setTimeout(() => {
+      console.log('synthetic-cleanup-complete'); process.exit(${serverCode});
     }, 20));
     console.log('synthetic-ready');
   `
@@ -59,9 +64,9 @@ test(
         child.once("error", reject)
         child.once("exit", () => reject(new Error("Child exited before ready")))
       })
-      child.kill("SIGTERM")
+      child.kill(signal)
       const [code] = await exited
-      assert.equal(code, 0)
+      assert.equal(code, expectedCode)
       assert.ok(output.includes("synthetic-cleanup-complete"))
       assert.ok(output.includes('"event":"runtime.draining"'))
       assert.ok(output.includes('"event":"runtime.exited"'))

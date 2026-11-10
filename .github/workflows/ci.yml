@@ -96,4 +96,4 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Pinned (not @latest) so a future react-doctor release can't add rules and
       # spuriously fail the gate; bump deliberately alongside the `doctor` script.
-      - run: pnpm dlx react-doctor@0.5.8 --yes --scope full --blocking warning --no-telemetry
+      - run: pnpm dlx react-doctor@0.5.8 --yes --scope full --blocking warning --no-telemetry --verbose

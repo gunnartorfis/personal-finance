@@ -21,10 +21,12 @@ const child = spawn(process.execPath, ["server.js"], {
 })
 log("runtime.starting")
 let stopping = false
+let stopSignal
 for (const signal of ["SIGTERM", "SIGINT"]) {
   process.on(signal, () => {
     if (stopping) return
     stopping = true
+    stopSignal = signal
     log("runtime.draining", { signal })
     child.kill(signal)
     // Railway's drain window must exceed this. Next finishes in-flight requests first.
@@ -38,7 +40,13 @@ child.on("error", () => {
 child.on("exit", (code, signal) => {
   log("runtime.exited", { code, signal })
   // Accept an expected forwarded termination; preserve crashes and forced termination as failures.
+  // Next.js may use numeric 128 + signal exits instead of a signal-terminated process.
+  const expectedExit =
+    stopping &&
+    (signal === stopSignal ||
+      (stopSignal === "SIGTERM" && code === 143) ||
+      (stopSignal === "SIGINT" && code === 130))
   process.exit(
-    code ?? (stopping && ["SIGTERM", "SIGINT"].includes(signal) ? 0 : 1)
+    expectedExit ? 0 : (code ?? 1)
   )
 })
