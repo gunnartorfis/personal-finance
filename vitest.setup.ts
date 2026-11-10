@@ -15,10 +15,13 @@ globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObse
 
 // Base UI's Menu/Popover (floating-ui + roving focus) call these DOM APIs jsdom doesn't implement.
 // Stub them so a menu opens and its items are focusable/queryable under tests.
-Element.prototype.scrollIntoView ??= () => {}
-Element.prototype.hasPointerCapture ??= () => false
-Element.prototype.setPointerCapture ??= () => {}
-Element.prototype.releasePointerCapture ??= () => {}
+// Database coordination tests use Vitest's Node environment, without DOM globals.
+if (typeof Element !== "undefined") {
+  Element.prototype.scrollIntoView ??= () => {}
+  Element.prototype.hasPointerCapture ??= () => false
+  Element.prototype.setPointerCapture ??= () => {}
+  Element.prototype.releasePointerCapture ??= () => {}
+}
 globalThis.matchMedia ??= ((query: string) => ({
   matches: false,
   media: query,
