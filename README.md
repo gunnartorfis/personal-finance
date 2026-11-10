@@ -45,7 +45,8 @@ Migrations are reviewed release operations, separate from builds and application
 The former `scripts/migrate-on-vercel.mjs` ran migrations in production builds and is retired.
 `pnpm db:migrate` now requires an explicit target, an independently configured direct database
 hostname, and approval. Read [the release runbook](docs/deployment/railway.md) before running it.
-Never migrate from previews; never copy a production database into staging.
+Never migrate from previews. Railway uses a single production environment; automated
+deployment checks use synthetic households and must not charge, sync or email real accounts.
 
 ## Hosting migration status
 

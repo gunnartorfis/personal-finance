@@ -1,7 +1,7 @@
 # Railway hosting migration — evidence and release runbook
 
-Status on 2026-11-10: **BLOCKED before staging validation. Not a production release package.**
-The user authorized production cutover on 2026-11-10 once staging validation succeeds ("Continue until everything on production is running on the new architecture"). No further cutover approval is needed within this hosting scope. Keep the previous host for rollback; destructive retirement is not authorized by that instruction.
+Status on 2026-11-10: **CI passed; production deployment and acceptance pending. Not yet an executable cutover package.**
+The user authorized production cutover and selected a single production Railway environment on 2026-11-10. Separate staging and local Docker/browser testing are waived. Keep the previous host through deployed acceptance and rollback readiness. Removal of the old host follows acceptance; permanent deletion requires action-time confirmation when performed through the browser.
 
 No production changes, data migrations, provider calls, DNS changes or host retirement performed.
 
@@ -35,8 +35,7 @@ local preparation and have not run against production.
 | Failed newer release | https://vercel.com/gunnar-steinarssons-projects/personal-finance/3hHGAqkpxK1nxXibHEKN15m7k9Cn | Local HEAD `8b7717d`; build failed after entering the migration phase. Exact database failure not established; do not assume its migrations were rolled back |
 | Railway workspace | GA solutions `c3eeb9c9-ecb1-4994-8ea1-4a94ea009093` | Confirmed team workspace through Railway connector |
 | Railway project | https://railway.com/project/2c2ceec6-dacc-4c72-9f2a-fc1f980d57ec | Created in company workspace; reused account resources; no previous Personal Finance project existed |
-| Staging | `55011e12-2ebb-4637-bf00-fe7a95f4fef1` | Empty environment; no deployment or staging URL yet |
-| Production on Railway | Not created | Must be isolated from staging; no live resources yet |
+| Production on Railway | `55011e12-2ebb-4637-bf00-fe7a95f4fef1` | Existing empty staging environment renamed to production in place on 2026-11-10; sole environment; no services or deployments yet |
 | Database | Neon PostgreSQL, Drizzle + `pg` TCP pool | Source verified; actual project/branch/region, recovery configuration and applied migration ledger still require inspection |
 | Authentication | `@neondatabase/auth` + Neon Auth UI, `/api/auth/[...path]` | Preserve identity, cookie secret and callbacks. ADR-0001's Stack wording is stale. Production provider configuration not inspected |
 | Payments | Straumur wrapper over Adyen; `/api/webhooks/straumur` | Source verified; credentials configured on Vercel. Merchant/sandbox mode and callback allowlist not verified |
@@ -56,7 +55,7 @@ current application source; do not remove them without verifying other consumers
 
 No `NEXT_PUBLIC_*` application variables were found. If added later they are public and fixed
 at build time; runtime secrets must remain runtime-only. No credentials should enter Docker ARGs.
-Set `ENABLE_HOUSEHOLD_RESET=false` in staging/production unless explicitly testing reset on synthetic data.
+Set `ENABLE_HOUSEHOLD_RESET=false` in production. Use synthetic records for verification without exposing reset to real households.
 
 ## Execution/access blockers
 
@@ -72,12 +71,12 @@ Set `ENABLE_HOUSEHOLD_RESET=false` in staging/production unless explicitly testi
   check for `@emnapi/core`. Policies were not weakened and dependencies were not substituted.
 - Repository Next.js 16.2.6 bundled docs are consequently unavailable. Read official current self-hosting
   docs plus adjacent installed Next.js 16.3.3 standalone-output guide; exact-version validation remains pending.
-- Isolated Neon database/auth instance and sandbox providers have not been provisioned or verified.
+- Production runtime credentials, callbacks and safe provider verification modes have not been configured on Railway.
 
 Restore shell network or repository write access so the candidate can be published and checked
 by CI. Docker socket access is not required for the requested deployment-side workflow.
 Provision secrets directly in scoped provider/Railway/GitHub secret stores, never in chat or this document.
-Do not reuse preview credentials or clone production financial records for staging.
+Do not copy financial records into test artifacts. Synthetic households must be isolated by the existing household authorization. Provider diagnostics must use mocks or supported test modes; never switch the live production merchant/account globally into a sandbox mode.
 
 ## Implemented preparation
 
@@ -91,16 +90,16 @@ Do not reuse preview credentials or clone production financial records for stagi
 - Runtime supervisor forwards SIGTERM/SIGINT and allows 310 seconds for in-flight requests; Railway
   drain is drafted at 320 seconds. Lifecycle metadata uses JSON with no sensitive payloads.
 - CI retains lint/typecheck/unit/build/migration-drift/React-Doctor gates and adds hosting guards and
-  container builds. Manual staging workflow requires successful CI for the exact SHA and an explicit
-  isolated-staging attestation. No GitHub Railway auto-deploy source is connected. Local vercel.json disables all automatic
+  container builds. The manual production workflow requires successful CI for the exact SHA and the
+  railway-production GitHub environment. CLI installation is in a separate unprivileged job. No GitHub Railway auto-deploy source is connected. Local vercel.json disables all automatic
   Git deployments while retaining the existing cron entries; the current deployed Vercel service is untouched.
 - `.railway/railway.ts` is an unapplied IaC draft. Its SDK lockfile, type validation and plan are pending.
-  It refuses production. New Railway services use IaC rather than deprecated railway.json.
+  It targets only production. New Railway services use IaC rather than deprecated railway.json.
 
 Application API/provider diagnostics now emit fixed structured event names, without exception bodies,
 OAuth state/cookie fragments, bank names, payment amounts or transaction identifiers. The classifier
 privacy regression now injects sensitive text into the thrown SDK error (test not yet run). Third-party
-framework/platform logs still require a staging audit; never enable verbose provider payload logging.
+framework/platform logs still require a deployed production audit; never enable verbose provider payload logging.
 Financial calculations and user-facing strings are unchanged.
 
 ## Schedules and external effects — implemented locally, validation pending
@@ -132,7 +131,7 @@ explicit ownership assignment. Do not run Drizzle push/pull across this infrastr
 
 Configuration:
 
-- Web: SCHEDULER_INSTANCE is a fixed deployment identity such as railway-staging or vercel-production.
+- Web: SCHEDULER_INSTANCE is a fixed deployment identity such as railway-production or vercel-production.
   DATABASE_URL supplies the same environment's coordination and product database. No second database.
 - Cron: APP_ORIGIN must be the canonical HTTPS application origin; CRON_SECRET is a runtime secret.
   SCHEDULER_ENABLED defaults off. Start with `node scripts/hosting/run-scheduled.mjs billing-renewal`
@@ -192,17 +191,17 @@ Accept-Language. Railway country geolocation equivalence is not established. Do 
 client-provided country header or claim parity. Validate a trusted edge country signal or record the
 explicit signed-out fallback decision. Signed-in per-member locale and financial formatting stay intact.
 
-## Staging acceptance matrix
+## Production-only acceptance matrix
 
-Every row is **NOT RUN** unless explicitly marked below. Record SHA, image digest, deployment ID,
+CI run https://github.com/gunnartorfis/personal-finance/actions/runs/42814519957 passed all six jobs for revision `e0d55b3355a944ff979f92f188ece45dd3a1bbcb`. The production-only workflow/configuration changes made afterward require a fresh CI run. Deployed acceptance remains **NOT RUN** unless explicitly marked below. Record SHA, image digest, deployment ID,
 synthetic fixture version and redacted evidence. Do not attach transaction payloads or real screenshots.
 
 | Gate | Required evidence |
 | --- | --- |
-| Migration configuration guards | PASS: 15 native Node tests on Node 24.21.0, 2026-11-10 (migration/runtime guards, sanitized diagnostics + scheduler state machine). PostgreSQL/provider acceptance pending |
-| Existing quality gates | lint, typecheck, Vitest, React Doctor 100/100, db:check + generated-schema diff |
-| Container | frozen build with no secrets; static JS/CSS/fonts; non-root; custom PORT; clean stop; restart |
-| Login | isolated Neon Auth, allowed origin/callback, secure cookies, refresh, logout |
+| Migration configuration guards | PASS: 18 native Node tests in CI on Node 24.21.0, 2026-11-10 (migration/runtime guards, sanitized diagnostics + scheduler state machine). PostgreSQL/provider acceptance pending |
+| Existing quality gates | PASS in linked CI: lint, typecheck, Vitest, pinned React Doctor with no blocking warnings, db:check + generated-schema diff |
+| Container | PASS in linked CI: frozen build with no secrets; static JS/CSS/fonts; non-root; custom PORT; clean stop; restart; migration image build |
+| Login | Preserve existing Neon Auth; verify allowed production origin/callback, secure cookies, refresh, logout using a controlled test identity |
 | Household isolation | two synthetic households; membership; wrong-household IDs denied on reads and writes |
 | CSV | parse preview, ingest, re-import dedup, recover invalid rows, forced import, undo/restore |
 | Editing | overrides, manual rows, soft-delete/restore, transfer/exclusion/own-share behavior |
@@ -210,13 +209,14 @@ synthetic fixture version and redacted evidence. Do not attach transaction paylo
 | AI | injected/sandbox classification, retry/resume/cap, stream chunks and persisted reply |
 | Payments | sandbox checkout; signed duplicate/out-of-order webhook; unknown charge outcome/retry |
 | Banking/email | sandbox consent + incremental dedup; fake/test-only recipient; crash recovery |
-| Schedules | Native state-machine checks PASS; supplemental SQL smoke PASS on cached PGlite 0.5.8 (locked 0.5.3 suite NOT RUN). Real multi-client and deployed cron validation pending |
+| Schedules | Native state-machine checks PASS; locked PGlite 0.5.3 suite PASS in linked CI. Real multi-client and deployed cron validation pending |
 | Locales/browser | Icelandic and English labels/formatting; navigation/back/refresh; stale-tab deploy transition |
 | Performance | representative synthetic import/classification/stream workload; p50/p95, CPU/RAM/egress |
 
 To run after access is restored:
 
 ```sh
+cd ~/code/personal-finance
 pnpm install --frozen-lockfile
 pnpm lint
 pnpm typecheck
@@ -227,22 +227,23 @@ pnpm db:generate
 test -z "$(git status --porcelain drizzle)"
 pnpm dlx react-doctor@0.5.8 --yes --scope full --blocking warning --no-telemetry
 pnpm build
-docker build --tag personal-finance:staging .
-docker build --target migrations --tag personal-finance-migrations:staging .
+docker build --tag personal-finance:production .
+docker build --target migrations --tag personal-finance-migrations:production .
 ```
 
 For explicit migration execution, populate the ignored runtime environment from secret stores:
 DATABASE_URL (direct endpoint), MIGRATION_DATABASE_HOST (independently verified),
-MIGRATION_ENVIRONMENT=staging, MIGRATION_APPROVED=true. Then:
+MIGRATION_ENVIRONMENT=production, MIGRATION_APPROVED=true. Then:
 
 ```sh
-docker run --rm --env-file /secure/path/staging-migration.env personal-finance-migrations:staging
+cd ~/code/personal-finance
+docker run --rm --env-file /secure/path/production-migration.env personal-finance-migrations:production
 ```
 
 That file path is an operator-supplied prerequisite, not a file supplied by this repository.
 Production requires separately scoped credentials and backup/restore evidence. User release approval
 was given on 2026-11-10; validation and access prerequisites remain unsatisfied.
-The staging workflow is not an acceptance test and must not be treated as production approval.
+The production workflow uploads code only. It does not migrate the database, assign scheduler ownership, switch domains, prove runtime acceptance or retire Vercel. Use the same production environment for controlled verification before switching traffic. Keep automatic financial effects paused until the ownership handover.
 
 ## Monitoring, limits and cost assumptions
 
@@ -255,8 +256,8 @@ compute cutoff without an explicit availability decision. Add provider budgets i
 [Railway pricing](https://docs.railway.com/pricing), read 2026-11-10: RAM $10/GB-month,
 CPU $20/vCPU-month, egress $0.05/GB. Pro is $20/month credited toward workspace resource usage.
 Illustrative **unmeasured** web usage per environment: 0.5–1 GiB average RAM, 0.02–0.10 average
-vCPU, 5–20 GB egress => **$5.65–$13/month**, or **$11.30–$26** for two continuously running
-web environments, before cron/build overhead, external services and shared subscription allocation.
+vCPU, 5–20 GB egress => **$5.65–$13/month** for the single production web service, before
+cron/build overhead, external services and shared subscription allocation.
 Limits are not average usage. This is not a savings claim or an observed forecast.
 
 Measure representative synthetic workloads and 24h idle usage before replacing these assumptions.
@@ -267,7 +268,7 @@ actual invoices and product-specific budgets are unknown. Keep Vercel costs duri
 ## Cutover and rollback procedure — requires completed release package
 
 Do not execute until every acceptance gate passes. The user has now explicitly authorized production
-cutover; that authorization does not waive staging, backup, callback or financial-effect safety gates.
+cutover and waived separate staging; backup, callback and financial-effect safety gates remain.
 This procedure is a checklist awaiting concrete IDs/domains and validated command paths, not yet an
 executable production release package.
 
@@ -275,7 +276,7 @@ executable production release package.
    migration ledger after the failed Vercel build. Review additive schema compatibility with both hosts.
 2. Confirm Neon restore window/backups and a synthetic restore drill. Record chosen RPO/RTO, backup ID,
    current schema/migration IDs and restored checks. Never overwrite production to test restoration.
-3. Create separate Railway production environment; provision preserved runtime secrets directly.
+3. Reuse the sole Railway production environment above; provision preserved runtime secrets directly.
    Record exact image/deployment IDs, limits, region, rollback image and provider callbacks.
 4. Approve and run migrations once with the guarded migration target; inspect success before deployment.
    Neither host may auto-migrate during rollout. No destructive schema change without separate recovery plan.
@@ -284,7 +285,7 @@ executable production release package.
 6. Domain decision required: auratalapp.vercel.app is Vercel-owned and cannot be moved to Railway by DNS.
    Verify ownership of an application domain (auratal.is appears only as an email sender in source), or
    approve a new origin. Configure DNS/TLS, auth trusted origins/redirects, Straumur return/origin/webhook,
-   Enable Banking callback, email dashboard/unsubscribe URLs. Test each exact URL in staging first.
+   Enable Banking callback, email dashboard/unsubscribe URLs. Verify each exact production URL with a controlled test identity and provider-supported test mechanisms before enabling real traffic/effects.
 7. Disable Vercel deployment triggers and cron ownership as one recorded controlled change; verify no
    old jobs can run. Remove Vercel crons only in the cutover revision. Enable the new schedule owner
    once, preserving UTC schedules; record last successful occurrence and next intended occurrence.
@@ -301,6 +302,6 @@ executable production release package.
 11. Retire Vercel resources only after explicit separate acceptance/retirement approval. Preserve gateway
     service access while it still provides AI. Do not delete Neon/auth/provider resources in this migration.
 
-Before executing the authorized cutover, replace unknowns with a validated staging URL, exact release/image revision,
+Before executing the authorized cutover, replace unknowns with the validated Railway production candidate URL, exact release/image revision,
 full check evidence, measured cost forecast, recorded backup/restore, actual domains/callbacks, and tested
 cutover/rollback commands. None of these approval prerequisites are waived by a healthy homepage.

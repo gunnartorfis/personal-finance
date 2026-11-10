@@ -8,8 +8,8 @@ export default defineRailway((ctx) => {
   if (ctx.projectId !== "2c2ceec6-dacc-4c72-9f2a-fc1f980d57ec") {
     throw new Error("Personal Finance GA Solutions project required")
   }
-  if (ctx.environment !== "staging") {
-    throw new Error("Production configuration has not been validated")
+  if (ctx.environment !== "production") {
+    throw new Error("Personal Finance uses production only")
   }
   return project("Personal Finance", {
     resources: [
@@ -26,7 +26,7 @@ export default defineRailway((ctx) => {
           NODE_ENV: "production",
           TZ: "UTC",
           HOSTNAME: "0.0.0.0",
-          SCHEDULER_INSTANCE: "railway-staging",
+          SCHEDULER_INSTANCE: "railway-production",
         },
       }),
       ...Object.entries(SCHEDULES).map(([job, schedule]) =>

@@ -1,7 +1,9 @@
 # Portable Railway application hosting; preserve Neon and existing identity
 
-Status: implementation in progress. User authorized production cutover on 2026-11-10 after required
-staging validation; cutover has not been executed. Prior host retention remains required for rollback.
+Status: implementation in progress. User authorized production cutover and selected production-only
+Railway hosting on 2026-11-10. No separate staging environment or local Docker/browser acceptance
+is required. CI gates and safe deployed production verification remain required. Cutover has not
+been executed. Prior host retention remains required through acceptance for rollback.
 Date: 2026-11-10.
 
 The approved [GA Solutions mantra](https://app.notion.com/p/412f135054ba81e9b90ce26bb92bedfb)
