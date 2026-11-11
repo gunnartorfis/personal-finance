@@ -60,9 +60,11 @@ the migration is **not yet accepted for retiring old resources**.
 
 Production containers require runtime `APP_ORIGIN` set to the canonical public HTTPS origin.
 It determines banking callbacks, payment returns and digest links; never use the container's
-bind address as a public URL. The origin fix is currently local and pending deployment.
-Passing `main` commits release automatically through GitHub after CI, with a separate migration
-service completing before the web deployment. See the runbook for current revision evidence.
+bind address as a public URL. The public origin is configured in Railway; keep it aligned with provider callbacks.
+Railway natively deploys pushes to `main`. The Docker build runs lint, typecheck, application
+and hosting tests, migration checks/drift detection, React Doctor and Next build. Web owns the
+controlled pre-deploy migration hook; `/api/health` gates rollout and reports the deployed SHA.
+GitHub Actions is not part of building or publishing releases; Wait for CI is disabled. See the runbook for current revision evidence.
 
 - [Deployment inventory, evidence, remaining gates and cutover/rollback](docs/deployment/railway.md)
 - [Railway architecture decision](docs/adr/0027-portable-railway-hosting.md)
