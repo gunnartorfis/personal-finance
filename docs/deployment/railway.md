@@ -10,16 +10,27 @@ Verification update, 2026-11-11:
 - New local startup validation rejects missing/malformed DB/Clerk configuration, mismatched
   Clerk test/live key modes and imported [SENSITIVE] placeholders. This does not prove key
   validity or make a development Clerk instance production-ready.
-- On pinned Node 24.21.0: all 244 application test files / 1,683 tests PASS; 21 native hosting
+- On pinned Node 24.21.0: all 244 application test files / 1,683 tests PASS; 24 native hosting
   tests PASS; TypeScript PASS; Drizzle migration checks PASS. Lint has no errors and one
   pre-existing unused schema import warning in lib/open-banking/connect-intent.test.ts.
 - The shell default is Node 26, where jsdom/localStorage tests failed. Those tests all pass
   on the pinned Node 24; no application behavior was changed to accommodate Node 26.
-- Local Next build is blocked by Google Fonts downloads in the restricted shell. The new
-  Clerk/database changes require publishing and CI on Node 24 before deployment.
+- Local Next build is blocked by Google Fonts downloads in the restricted shell. Pushed revision 4158259 passed CI test, lint, typecheck, migration and build/container
+  gates in run 43000501677. React Doctor failed only missing metadata on the two new auth
+  pages; localized metadata is now fixed locally, pending push and CI.
 - Clerk dashboard still reports No Production Environment for Personal Finance. The user
   selected the Railway hostname, without an owned domain. Production identity setup and
   verified email delivery remain unresolved; do not claim live production acceptance.
+- The company policy now makes passing main commits the automatic production source. The
+  updated workflow verifies current main + successful CI, runs the one-off migration service,
+  waits for its structured production completion, then deploys web and waits for SUCCESS.
+  It records both deployment IDs and commit SHA. No native GitHub auto-deploy is connected.
+  The GitHub railway-production environment needs a project-scoped RAILWAY_TOKEN secret;
+  its presence has not been verified. Changes are local and not yet active.
+- Migration service 83575ae3-9f5b-4aa8-b93d-f79888d6a3f1 is configured with
+  Dockerfile.migrations, NEVER restart, private Postgres reference, independently configured
+  target hostname, production/approval guards, Europe region and 1 CPU / 1 GiB limits.
+  It has never deployed or applied a migration.
 - Railway web has no source/deployment yet. Fresh Postgres is healthy. No application or
   hosting migrations, real financial effects, scheduler handover or host retirement performed.
 
@@ -39,12 +50,10 @@ The historical Neon inventory below describes the old Vercel host, not the new t
 - Live web variable DATABASE_URL references Postgres.DATABASE_URL. Banking application ID
   and Straumur production base URL https://greidslugatt.straumur.is are configured.
 - New cron secret generated in an ignored mode-0600 local file. Banking PEM validated as RSA.
-  Upload is blocked by shell network; run scripts/hosting/configure-private-runtime.mjs from
-  the user's authenticated terminal. It uses CLI stdin and prints variable names only.
+  The user ran scripts/hosting/configure-private-runtime.mjs successfully from their
+  authenticated terminal. It uses CLI stdin and prints variable names only.
 - Clerk app created under GA Solutions; production domain/DNS and keys still pending.
-- There is a pending Railway variable patch from the earlier export/import. Do not apply it
-  without inspecting for placeholders and stale Neon/DATABASE_URL values. It must not overwrite
-  the new DB reference or generated secret. Values are intentionally not recorded here.
+- No pending Railway variable patch remains. Values are intentionally not recorded here.
 - CI was green before this auth/database scope change. Clerk code, new dependencies/lockfile,
   new database migrations, deployed auth/household/provider flows still require validation.
 
@@ -136,14 +145,15 @@ Do not copy financial records into test artifacts. Synthetic households must be 
   independently configured target hostname, direct connection and migration-file validity. Financial
   migrations run on the same PostgreSQL session as the release lock; a separate child cannot outlive
   that lock. The versioned hosting schema is applied afterward in its own transaction.
-- Pinned Node 24.21.0 / pnpm 11.9.0. Docker has runtime and separate migration targets; frozen install,
+- Pinned Node 24.21.0 / pnpm 11.9.0. Docker has separate runtime and migration Dockerfiles; frozen install,
   non-root runtime, standalone server, port/host binding, static assets, no secret build args.
 - `/api/health` is no-store process liveness only. It does not prove DB/auth readiness.
 - Runtime supervisor forwards SIGTERM/SIGINT and allows 310 seconds for in-flight requests; Railway
   drain is drafted at 320 seconds. Lifecycle metadata uses JSON with no sensitive payloads.
 - CI retains lint/typecheck/unit/build/migration-drift/React-Doctor gates and adds hosting guards and
-  container builds. The manual production workflow requires successful CI for the exact SHA and the
-  railway-production GitHub environment. CLI installation is in a separate unprivileged job. No GitHub Railway auto-deploy source is connected. Local vercel.json disables all automatic
+  container builds. The automatic production workflow requires successful push CI for current main
+  and the railway-production GitHub environment. The migration service must report completion
+  before web deploys; a successful image build alone is insufficient. CLI installation is in a separate unprivileged job. No GitHub Railway auto-deploy source is connected. Local vercel.json disables all automatic
   Git deployments while retaining the existing cron entries; the current deployed Vercel service is untouched.
 - `.railway/railway.ts` is an unapplied IaC draft. Its SDK lockfile, type validation and plan are pending.
   It targets only production. New Railway services use IaC rather than deprecated railway.json.

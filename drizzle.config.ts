@@ -1,9 +1,9 @@
 import { defineConfig } from "drizzle-kit";
 
 /**
- * Drizzle Kit config (ADR-0001): generates and runs SQL migrations for the Neon Postgres
- * database. `DATABASE_URL` is read from the environment (Vercel env in production; `.env.local`
- * locally) and is only needed for commands that touch the database (e.g. `migrate`).
+ * Drizzle Kit config: generates PostgreSQL migrations. Controlled production migrations
+ * run separately through the Railway migration service (ADR-0028). DATABASE_URL is
+ * only needed by commands that connect to the database, never by the application build.
  */
 const url = process.env.DATABASE_URL;
 

@@ -32,9 +32,16 @@ The public Clerk publishable key is a Docker build argument and a runtime variab
 Clerk secret, database connection, banking PEM, cron secret and payment keys are runtime-only.
 CI builds use a nonfunctional synthetic public key; real releases must build with the selected
 production public key. Pin SDKs older than the repository's seven-day package age window.
-The new SDK dependency lockfile has not yet been resolved in this restricted session.
+The user resolved the lockfile with pnpm 11.9.0; frozen installation and application/container
+builds passed CI on commit 4158259.
 
 Rollback before financial activity can restore Vercel and its original database/auth routing.
 After new signups, financial writes or external effects, routing back does not merge these
 independent datasets or identities. Pause jobs, preserve both systems and reconcile forward;
 never silently replace the new database with the old one. Keep the old host through acceptance.
+
+Company policy alignment, 2026-11-11: passing main commits automatically release through
+the GitHub workflow. Use a dedicated, NEVER-restarting migration service with Dockerfile.migrations;
+wait for a structured production migration completion before releasing web. Record commit
+and deployment IDs. Keep native Railway GitHub auto-deploy disconnected to prevent competing
+triggers. Build/startup/preview processes never apply production migrations.

@@ -1,7 +1,13 @@
 import { SignIn } from "@clerk/nextjs"
+import { getTranslations } from "next-intl/server"
 import { Suspense } from "react"
 
 export const dynamic = "force-dynamic"
+
+export async function generateMetadata() {
+  const t = await getTranslations("common")
+  return { title: t("appName"), robots: { index: false, follow: false } }
+}
 
 export default function AuthPage() {
   return (

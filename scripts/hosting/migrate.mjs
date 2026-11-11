@@ -118,12 +118,12 @@ export async function migrate(env = process.env) {
     controller.signal.throwIfAborted()
     phase("hosting-migrations")
     await migrateOperations(client)
-    console.log(JSON.stringify({ event: "migration.completed", environment }))
   } finally {
     process.off("SIGTERM", abort)
     process.off("SIGINT", abort)
     await client.end()
   }
+  console.log(JSON.stringify({ event: "migration.completed", environment }))
 }
 
 if (

@@ -15,15 +15,6 @@ ARG DEPLOYMENT_VERSION
 ENV DEPLOYMENT_VERSION=$DEPLOYMENT_VERSION
 RUN pnpm build
 
-# Explicit one-off release task; never used as an application entrypoint/pre-deploy hook.
-FROM dependencies AS migrations
-COPY drizzle ./drizzle
-COPY ops-migrations ./ops-migrations
-COPY drizzle.config.ts ./
-COPY scripts/hosting ./scripts/hosting
-USER node
-CMD ["node", "scripts/hosting/migrate.mjs"]
-
 FROM node:24.21.0-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000 TZ=UTC
