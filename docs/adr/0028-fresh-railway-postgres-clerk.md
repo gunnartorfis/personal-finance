@@ -28,6 +28,16 @@ a user-selected owned application domain and DNS verification. Do not substitute
 keys for production acceptance. The default development instance is a Clerk platform resource,
 not an additional Railway environment.
 
+On 2026-11-11 the user selected the existing development instance to unblock initial Railway
+verification without owning an application domain. It remains limited to evaluation with
+synthetic records: Clerk documents relaxed session security, a 100-user cap and no transfer
+of development users to a production instance. This does not satisfy production identity acceptance.
+
+Absolute provider callbacks, payment returns and digest links use runtime APP_ORIGIN, explicitly
+configured to the Railway HTTPS origin. Container request.url can contain 0.0.0.0:3000 and must
+not determine public destinations. Production startup rejects missing or invalid APP_ORIGIN;
+request Host and forwarded Host cannot override the configured public origin.
+
 The public Clerk publishable key is a Docker build argument and a runtime variable. The
 Clerk secret, database connection, banking PEM, cron secret and payment keys are runtime-only.
 CI builds use a nonfunctional synthetic public key; real releases must build with the selected

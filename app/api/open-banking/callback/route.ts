@@ -1,3 +1,4 @@
+import { applicationUrl } from "@/lib/http/application-url"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
   // A JS-initiated navigation from this same-origin page is same-site, so the session cookie rides
   // along. `status` is a fixed literal (no injection); the meta-refresh is a no-JS fallback.
   const back = (status: "connected" | "error") => {
-    const target = new URL(`/accounts?bank=${status}`, request.url).toString()
+    const target = applicationUrl(`/accounts?bank=${status}`, request).toString()
     const targetJson = JSON.stringify(target)
     const html =
       `<!doctype html><html><head><meta charset="utf-8"><title>Finishing up…</title>` +

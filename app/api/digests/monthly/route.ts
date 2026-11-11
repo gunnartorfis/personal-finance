@@ -1,3 +1,4 @@
+import { applicationUrl } from "@/lib/http/application-url"
 import { timingSafeEqual } from "node:crypto"
 
 import { NextResponse } from "next/server"
@@ -52,7 +53,7 @@ async function handle(request: Request): Promise<Response> {
 
   const db = getDb()
   const now = new Date()
-  const origin = new URL(request.url).origin
+  const origin = applicationUrl("/", request).origin
 
   const summary = await runMonthlyDigest({
     now,

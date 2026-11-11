@@ -1,5 +1,31 @@
 # Railway hosting migration — evidence and release runbook
 
+Deployment update, 2026-11-11:
+
+- Main revision `91c5012be2298dac1bc2a52c7fc14dd068259b3d` passed all six CI gates
+  ([run 43013545904](https://github.com/gunnartorfis/personal-finance/actions/runs/43013545904)).
+  Release workflow [43014276829](https://github.com/gunnartorfis/personal-finance/actions/runs/43014276829)
+  completed successfully after restoring web DATABASE_URL to the private Postgres reference.
+- Web deployment `979bc7c7-1154-443f-81bc-394c0b71f816` is SUCCESS at
+  https://web-production-a5531.up.railway.app. Health returns ok; Clerk development sign-in
+  renders; anonymous account requests redirect to sign-in; the unauthenticated billing
+  scheduler request returns unauthorized. Authenticated financial acceptance is pending.
+- Migration deployment `de03fd81-688b-46f1-86be-e672cc794662` completed successfully.
+  Direct database inspection found all 43 application migration rows, with final hash matching
+  0042_wet_tarantula.sql. All three scheduler owners remain NULL; no ownership handover occurred.
+- Deployed callback rejection exposed the container address in its return URL. A local fix
+  uses canonical runtime APP_ORIGIN for banking, payment and digest links, rejects untrusted
+  origin/path configuration, and requires it at production startup. APP_ORIGIN is configured
+  on web as the Railway HTTPS origin; the code fix still needs publication and deployment.
+- Environment observability dashboard now has CPU, memory, disk, egress, error logs and spend.
+  Railway's backup UI requires Pro for new backups, schedules and PITR. Backups, restore drill,
+  alert delivery and representative workload measurements remain pending.
+- The selected Clerk development instance is an explicit initial-evaluation exception, not
+  production-grade authentication. No real charges, bank synchronization or digests were tested.
+  Keep the old host; do not retire it on the basis of process health or these public smoke checks.
+
+Earlier updates below are historical where they conflict with this deployment evidence.
+
 Verification update, 2026-11-11:
 
 - All required web variable names are now present in Railway; the user configured the

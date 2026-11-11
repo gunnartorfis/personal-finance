@@ -1,3 +1,4 @@
+import { applicationUrl } from "@/lib/http/application-url"
 import { randomUUID } from "node:crypto"
 
 import { cookies } from "next/headers"
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
 
   const provider = getIngestionProvider()
   const state = randomUUID()
-  const redirectUrl = new URL("/api/open-banking/callback", request.url).toString()
+  const redirectUrl = applicationUrl("/api/open-banking/callback", request).toString()
   const validUntil = new Date(Date.now() + CONSENT_DAYS * 86_400_000).toISOString()
 
   const { url } = await provider.startAuth({

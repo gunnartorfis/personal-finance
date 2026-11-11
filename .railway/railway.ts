@@ -26,6 +26,7 @@ export default defineRailway((ctx) => {
           NODE_ENV: "production",
           TZ: "UTC",
           HOSTNAME: "0.0.0.0",
+          APP_ORIGIN: "https://web-production-a5531.up.railway.app",
           SCHEDULER_INSTANCE: "railway-production",
         },
       }),

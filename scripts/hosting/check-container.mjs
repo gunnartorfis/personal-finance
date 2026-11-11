@@ -39,6 +39,8 @@ try {
     "--env",
     "PORT=4317",
     "--env",
+    "APP_ORIGIN=https://synthetic.up.railway.app",
+    "--env",
     "DATABASE_URL=postgresql://test:test@127.0.0.1:9/synthetic",
     "--env",
     "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_c3ludGhldGljLmNsZXJrLmFjY291bnRzLmRldiQ=",
