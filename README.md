@@ -37,8 +37,8 @@ pnpm db:generate  # offline; CI rejects uncommitted generated migrations
 pnpm build       # build only: never migrates a database
 ```
 
-CI also requires the pinned React Doctor full scan to score 100/100 and builds the runtime
-and separate runtime/migration Dockerfiles. `pnpm start` runs the built app locally. Docker uses the
+Railway’s Docker build also requires the pinned React Doctor full scan with no blocking
+findings and builds one image containing the standalone app and separate pre-deploy tools. `pnpm start` runs the built app locally. Docker uses the
 standalone server, includes static assets, and runs as a non-root user.
 
 ## Database migrations

@@ -21,7 +21,7 @@ export default defineRailway((ctx) => {
           restartPolicyType: "ON_FAILURE",
           restartPolicyMaxRetries: 3,
           drainingSeconds: 320,
-          preDeployCommand: ["cd /release && node scripts/hosting/migrate.mjs"],
+          preDeployCommand: ["/bin/sh -c 'cd /release && exec node scripts/hosting/migrate.mjs'"],
           preDeployTimeoutSeconds: 300,
         },
         env: {

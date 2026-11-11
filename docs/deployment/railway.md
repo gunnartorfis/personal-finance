@@ -38,8 +38,7 @@ Next deployment identity without pinning future releases.
 Web pre-deploy command:
 
 ```sh
-cd /release
-node scripts/hosting/migrate.mjs
+/bin/sh -c 'cd /release && exec node scripts/hosting/migrate.mjs'
 ```
 
 Railway pre-deploy timeout is 300 seconds. The immutable image contains the separate /release
@@ -86,7 +85,23 @@ Public destinations use canonical APP_ORIGIN rather than the container bind addr
 
 Prior Actions release 43014276829 deployed main 91c5012be2298dac1bc2a52c7fc14dd068259b3d successfully
 as web deployment 979bc7c7-1154-443f-81bc-394c0b71f816. That is historical evidence, not the new
-native release. The native main-triggered deployment ID/SHA must be recorded after terminal SUCCESS.
+native release. The first native source deployment reached terminal SUCCESS on 2026-11-11:
+
+- Main SHA: `70fc226502d4f12ce1f7f816eb3c991a0aa60010` (PR #365).
+- Deployment: `7c98f6c7-e8d5-480d-9c83-f5644f5c7cd3`.
+- Image digest: `sha256:fcb53e6bfbdbf8444613ed74b026a64055856da0a4669787565509b2a20804ff`.
+- Railway build passed 245 files / 1,688 tests, 23 hosting tests, lint/typecheck, migration
+  drift/checks, React Doctor (no findings) and Next build. Lint retains one existing warning.
+- Production `migration.completed` observed after financial and hosting migration phases.
+- Railway health rollout passed. A live public health probe returned 200 and the matching SHA.
+- A missing-state banking callback navigated safely to sign-in on the public Railway origin.
+- Native push-trigger verification remains to be observed after the follow-up documentation merge.
+
+The first attempt failed before migration logs because the Docker command required an explicit
+shell. Updating the hook and using redeploy still failed; a fresh native source deployment with
+`/bin/sh -c 'cd /release && exec node scripts/hosting/migrate.mjs'` succeeded. A redeploy can retain
+an older deployment manifest; use a new main-triggered deployment to verify changed lifecycle settings.
+Keep all migration guards enabled. Never bypass pre-deploy merely to obtain a healthy application.
 
 Direct DB inspection found 43 application migration rows and a final hash matching
 0042_wet_tarantula.sql. All three scheduler owners remain NULL. Repeated migration deployments
