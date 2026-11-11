@@ -14,7 +14,17 @@ export function deploymentOutcome(deployment, migration, logText = "") {
   const events = logText.split("\n").flatMap((line) => {
     try {
       const record = JSON.parse(line)
-      return [typeof record.message === "string" ? JSON.parse(record.message) : record]
+      // Railway can parse JSON stdout into top-level fields (with an empty message),
+      // or return structured attributes. Do not require the original JSON in message.
+      const fields = Array.isArray(record.attributes)
+        ? Object.fromEntries(record.attributes.map(({ key, value }) => {
+          try { return [key, JSON.parse(value)] } catch { return [key, value] }
+        }))
+        : record.attributes ?? {}
+      const parsed = { ...fields, ...record }
+      if (parsed.event) return [parsed]
+      if (record.message?.trim().startsWith("{")) return [JSON.parse(record.message)]
+      return []
     } catch { return [] }
   })
   if (events.some((event) => event.event === "migration.failed"))
