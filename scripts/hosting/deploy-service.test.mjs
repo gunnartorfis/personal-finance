@@ -21,3 +21,19 @@ test("web deployment requires terminal SUCCESS", () => {
   assert.equal(deploymentOutcome({ status: "SUCCESS" }, false), true)
   assert.throws(() => deploymentOutcome({ status: "FAILED" }, false))
 })
+
+test("Railway parsed structured logs retain completion even when message is empty", () => {
+  for (const record of [
+    { message: "", event: "migration.completed", environment: "production" },
+    { message: "", attributes: { event: "migration.completed", environment: "production" } },
+    { message: "", attributes: [
+      { key: "event", value: '"migration.completed"' },
+      { key: "environment", value: '"production"' },
+    ] },
+  ]) {
+    assert.equal(deploymentOutcome({ status: "SUCCESS" }, true, JSON.stringify(record)), true)
+    assert.throws(() => deploymentOutcome({ status: "CRASHED" }, true, JSON.stringify(record)))
+  }
+  assert.throws(() => deploymentOutcome({ status: "SUCCESS" }, true,
+    JSON.stringify({ message: "", event: "migration.failed" })))
+})
