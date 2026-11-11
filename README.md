@@ -2,8 +2,8 @@
 
 A hosted Next.js application for household finances. Households upload CSV statements,
 review classifications, manage budgets and savings, and optionally connect bank accounts.
-Financial records are tenant-scoped in Neon PostgreSQL. Authentication uses the existing
-Neon Auth SDK. Icelandic (`is`, default) and English (`en`) are supported per member.
+The new target uses tenant-scoped Railway PostgreSQL and Clerk authentication. This is a
+fresh start: existing Neon data and users are not imported. Icelandic (`is`, default) and English (`en`) are supported per member.
 
 The old Vite application is frozen in `legacy/`. Earlier versions of this README described
 that application; the current application does **not** keep customer data solely on the
@@ -14,18 +14,20 @@ user's machine. `CONTEXT.md` and `docs/adr/` define current financial behavior.
 Use Node **24.21.0** (`.node-version`) and **pnpm 11.9.0** (`packageManager`).
 
 ```sh
+cd ~/code/personal-finance
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
 The development server listens on http://localhost:3000. Configure a dedicated development
-Neon database and Neon Auth instance with `DATABASE_URL`, `NEON_AUTH_BASE_URL` and
-`NEON_AUTH_COOKIE_SECRET` in an ignored `.env.local`. Never use production records or
+PostgreSQL database and Clerk application with `DATABASE_URL`,
+`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in an ignored `.env.local`. Never use production records or
 provider credentials in automated tests. See the deployment inventory for integration variables.
 
 ## Checks and builds
 
 ```sh
+cd ~/code/personal-finance
 pnpm lint
 pnpm typecheck
 pnpm test:run
@@ -51,8 +53,9 @@ deployment checks use synthetic households and must not charge, sync or email re
 ## Hosting migration status
 
 Production currently remains on Vercel at https://auratalapp.vercel.app. The Railway move is
-**in preparation, not accepted**. Neon PostgreSQL, Neon Auth and existing integrations remain
-in scope as preserved dependencies. No Clerk migration is authorized.
+**in preparation, not accepted**. On 2026-11-10 the user explicitly authorized replacing Neon with a fresh Railway database
+and replacing Neon Auth with Clerk, without importing old records or identities. PostgreSQL
+is provisioned; Clerk application setup and code validation are in progress.
 
 - [Deployment inventory, evidence, remaining gates and cutover/rollback](docs/deployment/railway.md)
 - [Railway architecture decision](docs/adr/0027-portable-railway-hosting.md)

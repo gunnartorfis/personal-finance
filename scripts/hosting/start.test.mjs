@@ -48,9 +48,9 @@ for (const [signal, serverCode, expectedCode] of [
       cwd: directory,
       env: {
         ...process.env,
-        DATABASE_URL: "synthetic",
-        NEON_AUTH_BASE_URL: "synthetic",
-        NEON_AUTH_COOKIE_SECRET: "synthetic",
+        DATABASE_URL: "postgresql://synthetic:synthetic@localhost/synthetic",
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_c3ludGhldGljLmNsZXJrLmFjY291bnRzLmRldiQ=",
+        CLERK_SECRET_KEY: "sk_test_synthetic",
       },
     })
     const exited = once(child, "exit")

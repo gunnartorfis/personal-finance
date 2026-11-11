@@ -8,7 +8,9 @@ RUN pnpm install --frozen-lockfile
 
 FROM dependencies AS builder
 COPY . .
-# No credentials or database connection is required or accepted as a build argument.
+# Public Clerk identity is compiled into browser bundles. Runtime secrets are never build arguments.
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ARG DEPLOYMENT_VERSION
 ENV DEPLOYMENT_VERSION=$DEPLOYMENT_VERSION
 RUN pnpm build
@@ -29,6 +31,7 @@ COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 COPY --from=builder --chown=node:node /app/public ./public
 COPY --chown=node:node scripts/hosting/start.mjs ./scripts/hosting/start.mjs
+COPY --chown=node:node scripts/hosting/runtime-config.mjs ./scripts/hosting/runtime-config.mjs
 COPY --chown=node:node scripts/hosting/run-scheduled.mjs ./scripts/hosting/run-scheduled.mjs
 COPY --chown=node:node lib/scheduling/execution.mjs ./lib/scheduling/execution.mjs
 USER node

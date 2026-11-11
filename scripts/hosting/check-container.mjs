@@ -41,9 +41,9 @@ try {
     "--env",
     "DATABASE_URL=postgresql://test:test@127.0.0.1:9/synthetic",
     "--env",
-    "NEON_AUTH_BASE_URL=https://auth.example.invalid/auth",
+    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_c3ludGhldGljLmNsZXJrLmFjY291bnRzLmRldiQ=",
     "--env",
-    `NEON_AUTH_COOKIE_SECRET=${"synthetic".repeat(8)}`,
+    `CLERK_SECRET_KEY=sk_test_${"synthetic".repeat(8)}`,
     image
   )
   await ready()

@@ -9,8 +9,8 @@ vi.mock("next/navigation", () => ({
   usePathname: () => usePathname(),
   useRouter: () => ({ refresh: () => {} }),
 }))
-// UserButton needs the Neon Auth provider; stub it so the sidebar renders standalone.
-vi.mock("@neondatabase/auth-ui", () => ({
+// UserButton needs the Clerk provider; stub it so the sidebar renders standalone.
+vi.mock("@clerk/nextjs", () => ({
   UserButton: () => <div data-testid="user-button" />,
 }))
 

@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { authClient } from "@/lib/auth/client"
+import { useAuthActions } from "@/lib/auth/client"
 
 type ResendState = "idle" | "sending" | "sent" | "error"
 
@@ -17,6 +17,7 @@ type ResendState = "idle" | "sending" | "sent" | "error"
  * with a different account.
  */
 export function VerifyEmailGate({ email }: { email: string }) {
+  const authClient = useAuthActions()
   const t = useTranslations("join.verify")
   const [resend, setResend] = useState<ResendState>("idle")
   const [continuing, setContinuing] = useState(false)

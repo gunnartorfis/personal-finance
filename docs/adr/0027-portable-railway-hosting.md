@@ -6,6 +6,9 @@ is required. CI gates and safe deployed production verification remain required.
 been executed. Prior host retention remains required through acceptance for rollback.
 Date: 2026-11-10.
 
+The database/auth preservation scope below was superseded later on the same date by
+[ADR-0028](0028-fresh-railway-postgres-clerk.md), explicitly authorized by the user.
+
 The approved [GA Solutions mantra](https://app.notion.com/p/412f135054ba81e9b90ce26bb92bedfb)
 selects company-owned Railway hosting. Move the existing Next.js application only; preserve
 Neon PostgreSQL, Neon Auth, household authorization, financial calculations, localization

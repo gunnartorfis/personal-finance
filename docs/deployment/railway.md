@@ -1,5 +1,57 @@
 # Railway hosting migration — evidence and release runbook
 
+Verification update, 2026-11-11:
+
+- All required web variable names are now present in Railway; the user configured the
+  values directly. OAuth exposes names only, so provider credentials are not yet exercised.
+  Retired Neon Auth/legacy Claude variables are no longer listed. No pending Railway patch.
+- Secure terminal script successfully uploaded CRON_SECRET and ENABLE_BANKING_PRIVATE_KEY,
+  as confirmed by the user. No secret value was displayed or committed.
+- New local startup validation rejects missing/malformed DB/Clerk configuration, mismatched
+  Clerk test/live key modes and imported [SENSITIVE] placeholders. This does not prove key
+  validity or make a development Clerk instance production-ready.
+- On pinned Node 24.21.0: all 244 application test files / 1,683 tests PASS; 21 native hosting
+  tests PASS; TypeScript PASS; Drizzle migration checks PASS. Lint has no errors and one
+  pre-existing unused schema import warning in lib/open-banking/connect-intent.test.ts.
+- The shell default is Node 26, where jsdom/localStorage tests failed. Those tests all pass
+  on the pinned Node 24; no application behavior was changed to accommodate Node 26.
+- Local Next build is blocked by Google Fonts downloads in the restricted shell. The new
+  Clerk/database changes require publishing and CI on Node 24 before deployment.
+- Clerk dashboard still reports No Production Environment for Personal Finance. The user
+  selected the Railway hostname, without an owned domain. Production identity setup and
+  verified email delivery remain unresolved; do not claim live production acceptance.
+- Railway web has no source/deployment yet. Fresh Postgres is healthy. No application or
+  hosting migrations, real financial effects, scheduler handover or host retirement performed.
+
+Current scope update, 2026-11-10: [ADR-0028](../adr/0028-fresh-railway-postgres-clerk.md)
+authorizes a **fresh Railway PostgreSQL database and new Clerk users, with no old data import**.
+The historical Neon inventory below describes the old Vercel host, not the new target.
+
+- Railway Postgres: `5d41d9d5-2ce3-42bc-8b84-d70d1f265c47`, PostgreSQL 18,
+  deployment `e1692184-422d-4d35-afe1-295d63f17818` SUCCESS; private network only,
+  5 GB volume `36ff80c5-ae59-4ee0-aba8-c35455ab0821`, europe-west4-drams3a.
+- Web: `7ca219f0-5894-4257-909c-735b36eee88a`; initial 1 CPU / 1 GiB limit,
+  health /api/health, 320s drain, ON_FAILURE retries 3; no deployment yet.
+- Candidate origin: https://web-production-a5531.up.railway.app; Straumur webhook:
+  https://web-production-a5531.up.railway.app/api/webhooks/straumur.
+- Banking callback: candidate origin + /api/open-banking/callback. Update the existing
+  application redirect allowlist; do not create a replacement banking application.
+- Live web variable DATABASE_URL references Postgres.DATABASE_URL. Banking application ID
+  and Straumur production base URL https://greidslugatt.straumur.is are configured.
+- New cron secret generated in an ignored mode-0600 local file. Banking PEM validated as RSA.
+  Upload is blocked by shell network; run scripts/hosting/configure-private-runtime.mjs from
+  the user's authenticated terminal. It uses CLI stdin and prints variable names only.
+- Clerk app created under GA Solutions; production domain/DNS and keys still pending.
+- There is a pending Railway variable patch from the earlier export/import. Do not apply it
+  without inspecting for placeholders and stale Neon/DATABASE_URL values. It must not overwrite
+  the new DB reference or generated secret. Values are intentionally not recorded here.
+- CI was green before this auth/database scope change. Clerk code, new dependencies/lockfile,
+  new database migrations, deployed auth/household/provider flows still require validation.
+
+The preserved-dependency descriptions below are historical preparation and are superseded
+where they conflict with the fresh-start decision above. Cost assumptions below omit the new
+Postgres storage/compute and Clerk fees; revise them after measuring the new architecture.
+
 Status on 2026-11-10: **CI passed; production deployment and acceptance pending. Not yet an executable cutover package.**
 The user authorized production cutover and selected a single production Railway environment on 2026-11-10. Separate staging and local Docker/browser testing are waived. Keep the previous host through deployed acceptance and rollback readiness. Removal of the old host follows acceptance; permanent deletion requires action-time confirmation when performed through the browser.
 

@@ -1,16 +1,13 @@
 import { spawn } from "node:child_process"
+import { invalidRuntimeConfiguration } from "./runtime-config.mjs"
 
 // Only allowlisted metadata: no URLs, request bodies, environment dumps or provider errors.
 const log = (event, fields = {}) =>
   console.log(JSON.stringify({ event, ...fields }))
-const required = [
-  "DATABASE_URL",
-  "NEON_AUTH_BASE_URL",
-  "NEON_AUTH_COOKIE_SECRET",
-]
-if (required.some((key) => !process.env[key])) {
+const invalidKeys = invalidRuntimeConfiguration(process.env)
+if (invalidKeys.length) {
   log("runtime.configuration_missing", {
-    keys: required.filter((key) => !process.env[key]),
+    keys: invalidKeys,
   })
   process.exit(1)
 }

@@ -1,31 +1,39 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
-// Mock the Neon Auth server instance so we can assert exactly how `getSession` is invoked.
-const { getSession } = vi.hoisted(() => ({ getSession: vi.fn() }));
-vi.mock("@/lib/auth/server", () => ({ auth: { getSession } }));
+const { currentUser } = vi.hoisted(() => ({ currentUser: vi.fn() }))
+vi.mock("@clerk/nextjs/server", () => ({ currentUser }))
+import { getCurrentUser } from "./session"
 
-import { getCurrentUser } from "./session";
+const identity = {
+  id: "user_synthetic", primaryEmailAddressId: "primary",
+  emailAddresses: [
+    { id: "other", emailAddress: "other@example.invalid", verification: { status: "verified" } },
+    { id: "primary", emailAddress: "member@example.invalid", verification: { status: "verified" } },
+  ],
+}
 
-describe("getCurrentUser", () => {
-  beforeEach(() => {
-    getSession.mockReset();
-    getSession.mockResolvedValue({ data: { user: { id: "u1", email: "a@b.co", emailVerified: true } } });
-  });
+beforeEach(() => { currentUser.mockReset(); currentUser.mockResolvedValue(identity) })
 
-  it("uses the cached session by default (no cookie-cache bypass)", async () => {
-    await getCurrentUser();
-    expect(getSession).toHaveBeenCalledWith(undefined);
-  });
-
-  it("bypasses the cookie cache with the STRING 'true' when fresh", async () => {
-    // Neon Auth's wrapper gates on a strict string compare (`disableCookieCache === "true"`); a
-    // boolean would silently leave the cache on, so the exact string shape is load-bearing.
-    await getCurrentUser({ fresh: true });
-    expect(getSession).toHaveBeenCalledWith({ query: { disableCookieCache: "true" } });
-  });
-
-  it("returns null when there is no session", async () => {
-    getSession.mockResolvedValue({ data: null });
-    expect(await getCurrentUser()).toBeNull();
-  });
-});
+describe("Clerk identity boundary", () => {
+  it("uses only the backend primary email for household invitations", async () => {
+    expect(await getCurrentUser()).toEqual({
+      id: "user_synthetic", email: "member@example.invalid", emailVerified: true,
+    })
+  })
+  it("reads the authoritative backend user for fresh verification callers", async () => {
+    await getCurrentUser({ fresh: true })
+    expect(currentUser).toHaveBeenCalledOnce()
+  })
+  it("does not treat a verified secondary email as verification of the primary", async () => {
+    currentUser.mockResolvedValue({ ...identity, emailAddresses: [
+      identity.emailAddresses[0], { ...identity.emailAddresses[1], verification: { status: "unverified" } },
+    ] })
+    expect((await getCurrentUser())?.emailVerified).toBe(false)
+  })
+  it("fails closed for signed-out users and missing primary email", async () => {
+    currentUser.mockResolvedValue(null)
+    expect(await getCurrentUser()).toBeNull()
+    currentUser.mockResolvedValue({ ...identity, primaryEmailAddressId: "missing" })
+    expect(await getCurrentUser()).toBeNull()
+  })
+})

@@ -22,4 +22,8 @@ previously empty staging environment was renamed in place, retaining its ID. Pro
 runtime secrets directly in the production secret store. Three disabled cron services
 are included in the draft. Keep them disabled until Vercel ownership is fenced and
 provider configuration is verified. Add CPU/memory limits and region after inspecting the
-supported SDK fields and Neon location; these are outstanding release gates.
+supported SDK fields and Railway PostgreSQL region; these are outstanding release gates.
+
+The new Postgres service was provisioned through Railway after this draft was written.
+Import its existing service/volume into the configuration before applying any IaC plan;
+reject any plan that deletes or replaces that database. See ADR-0028.

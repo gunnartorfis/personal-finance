@@ -43,6 +43,8 @@ jobs:
       - run: pnpm test:run
 
   build:
+    env:
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_c3ludGhldGljLmNsZXJrLmFjY291bnRzLmRldiQ=
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +56,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm test:hosting
-      - run: docker build --tag personal-finance:ci .
+      - run: docker build --build-arg "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" --tag personal-finance:ci .
       - run: docker build --target migrations --tag personal-finance-migrations:ci .
       - run: node scripts/hosting/check-container.mjs personal-finance:ci
 
