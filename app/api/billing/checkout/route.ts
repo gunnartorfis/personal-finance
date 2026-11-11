@@ -1,3 +1,4 @@
+import { applicationUrl } from "@/lib/http/application-url"
 import { unstable_rethrow } from "next/navigation"
 import { NextResponse } from "next/server"
 
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
       // Random suffix so rapid/concurrent requests from one household can't collide on a reference
       // (Straumur/Adyen require it to be unique).
       reference: `sub_${householdId}_${period}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      returnUrl: new URL("/dashboard", request.url).toString(),
+      returnUrl: applicationUrl("/dashboard", request).toString(),
       recurringProcessingModel: "Subscription",
       merchantShopperReference: householdId,
     })

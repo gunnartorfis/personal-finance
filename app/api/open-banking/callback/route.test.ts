@@ -45,6 +45,22 @@ const landsOn = async (res: Response, target: string) => {
 }
 
 describe("GET /api/open-banking/callback", () => {
+  it("returns to the configured public origin rather than the container address or Host header", async () => {
+    vi.stubEnv("APP_ORIGIN", "https://synthetic.up.railway.app")
+    try {
+      const res = await GET(new Request("https://0.0.0.0:3000/api/open-banking/callback", {
+        headers: { host: "attacker.invalid", "x-forwarded-host": "attacker.invalid" },
+      }))
+      const html = await res.text()
+      expect(html).toContain("https://synthetic.up.railway.app/accounts?bank=error")
+      expect(html).not.toContain("0.0.0.0")
+      expect(html).not.toContain("attacker.invalid")
+      expect(completeBankConnection).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it("rejects a state mismatch without resolving an intent", async () => {
     cookieStore.get.mockReturnValue({ value: "expected" })
     const res = await GET(req("code=c&state=WRONG"))

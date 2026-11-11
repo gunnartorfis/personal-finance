@@ -56,3 +56,10 @@ test("rejects build/preview contexts and environment mismatches", () => {
     assert.throws(() => validateMigrationEnvironment({ ...env, ...extra }))
   }
 })
+
+test("only the configured Railway service may own pre-deploy migrations", () => {
+  const owned = { ...env, RAILWAY_SERVICE_ID: "web", MIGRATION_SERVICE_ID: "web" }
+  assert.equal(validateMigrationEnvironment(owned), "staging")
+  assert.throws(() => validateMigrationEnvironment({ ...owned, RAILWAY_SERVICE_ID: "worker" }))
+  assert.throws(() => validateMigrationEnvironment({ ...owned, MIGRATION_SERVICE_ID: "" }))
+})

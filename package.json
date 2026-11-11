@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.9.0",
-  "description": "Hosted household finance application on Next.js and Neon; portable container hosting.",
+  "description": "Hosted household finance application on Next.js, Railway PostgreSQL and Clerk.",
   "license": "MIT",
   "repository": {
     "type": "git",

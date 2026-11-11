@@ -43,6 +43,8 @@ export function validateMigrationEnvironment(env) {
   }
   if (env.MIGRATION_APPROVED !== "true")
     throw new Error("Explicit migration approval required")
+  if (env.RAILWAY_SERVICE_ID && env.RAILWAY_SERVICE_ID !== env.MIGRATION_SERVICE_ID)
+    throw new Error("This service is not the configured migration owner")
   const url = new URL(env.DATABASE_URL ?? "")
   if (
     !["postgres:", "postgresql:"].includes(url.protocol) ||

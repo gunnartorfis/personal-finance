@@ -25,3 +25,10 @@ test("invalid URLs and missing credentials produce only variable names", () => {
   assert.deepEqual(result, ["CLERK_SECRET_KEY", "DATABASE_URL", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"])
   assert.ok(!JSON.stringify(result).includes("sensitive-invalid-url"))
 })
+
+test("production requires a canonical HTTPS public origin", () => {
+  assert.deepEqual(invalidRuntimeConfiguration({ ...configured, NODE_ENV: "production" }), ["APP_ORIGIN"])
+  assert.deepEqual(invalidRuntimeConfiguration({ ...configured, NODE_ENV: "production", APP_ORIGIN: "https://synthetic.up.railway.app" }), [])
+  for (const APP_ORIGIN of ["http://example.com", "https://user:secret@example.com", "https://example.com/path", "https://example.com?x=1"])
+    assert.deepEqual(invalidRuntimeConfiguration({ ...configured, NODE_ENV: "production", APP_ORIGIN }), ["APP_ORIGIN"])
+})

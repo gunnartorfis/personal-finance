@@ -38,7 +38,7 @@ pnpm build       # build only: never migrates a database
 ```
 
 CI also requires the pinned React Doctor full scan to score 100/100 and builds the runtime
-and migration container targets. `pnpm start` runs the built app locally. Docker uses the
+and separate runtime/migration Dockerfiles. `pnpm start` runs the built app locally. Docker uses the
 standalone server, includes static assets, and runs as a non-root user.
 
 ## Database migrations
@@ -52,10 +52,19 @@ deployment checks use synthetic households and must not charge, sync or email re
 
 ## Hosting migration status
 
-Production currently remains on Vercel at https://auratalapp.vercel.app. The Railway move is
-**in preparation, not accepted**. On 2026-11-10 the user explicitly authorized replacing Neon with a fresh Railway database
-and replacing Neon Auth with Clerk, without importing old records or identities. PostgreSQL
-is provisioned; Clerk application setup and code validation are in progress.
+The new application is deployed at https://web-production-a5531.up.railway.app with fresh
+Railway PostgreSQL and Clerk development authentication for initial verification. Old records
+and identities were intentionally not imported. The previous Vercel host remains available
+through acceptance. Financial/provider, household-isolation and recovery acceptance are pending;
+the migration is **not yet accepted for retiring old resources**.
+
+Production containers require runtime `APP_ORIGIN` set to the canonical public HTTPS origin.
+It determines banking callbacks, payment returns and digest links; never use the container's
+bind address as a public URL. The public origin is configured in Railway; keep it aligned with provider callbacks.
+Railway natively deploys pushes to `main`. The Docker build runs lint, typecheck, application
+and hosting tests, migration checks/drift detection, React Doctor and Next build. Web owns the
+controlled pre-deploy migration hook; `/api/health` gates rollout and reports the deployed SHA.
+GitHub Actions is not part of building or publishing releases; Wait for CI is disabled. See the runbook for current revision evidence.
 
 - [Deployment inventory, evidence, remaining gates and cutover/rollback](docs/deployment/railway.md)
 - [Railway architecture decision](docs/adr/0027-portable-railway-hosting.md)

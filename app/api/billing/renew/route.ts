@@ -1,3 +1,4 @@
+import { applicationUrl } from "@/lib/http/application-url"
 import { timingSafeEqual } from "node:crypto"
 
 import { eq } from "drizzle-orm"
@@ -82,7 +83,7 @@ async function handle(request: Request): Promise<Response> {
         reference: `renew_${household.id}_${period}_${cycleKey}`,
         tokenValue: household.token,
         recurringProcessingModel: "Subscription",
-        returnUrl: new URL("/dashboard", request.url).toString(),
+        returnUrl: applicationUrl("/dashboard", request).toString(),
         // Attempt-indexed: a recorded refusal bumps the count so the next run is a fresh attempt,
         // while a mid-charge crash leaves the count unchanged so the retry dedupes.
         idempotencyKey: `renew-${household.id}-${cycleKey}-${household.renewalFailureCount}`,
