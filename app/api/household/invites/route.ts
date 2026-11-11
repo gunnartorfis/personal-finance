@@ -53,8 +53,8 @@ export async function POST(request: Request) {
   // as 500 because their result is re-queryable; an invite token is not.)
   try {
     await recordActivity(ctx, ActivityAction.InviteCreated, { email, expiresAt })
-  } catch (error) {
-    console.error("failed to record invite.created activity", error)
+  } catch {
+    console.error(JSON.stringify({ event: "household.invite.audit_failed" }))
   }
   // `token` is returned exactly once; the client turns it into `${origin}/join/${token}`.
   return NextResponse.json({ token: rawToken, path: `/join/${rawToken}`, expiresAt }, { status: 201 })

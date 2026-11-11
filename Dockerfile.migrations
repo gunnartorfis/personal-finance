@@ -1,0 +1,14 @@
+# syntax=docker/dockerfile:1
+# One-off controlled release operation; contains no app or provider credentials.
+FROM node:24.21.0-bookworm-slim
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm install --global pnpm@11.9.0
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY drizzle ./drizzle
+COPY ops-migrations ./ops-migrations
+COPY drizzle.config.ts ./
+COPY scripts/hosting ./scripts/hosting
+USER node
+CMD ["node", "scripts/hosting/migrate.mjs"]

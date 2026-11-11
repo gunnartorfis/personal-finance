@@ -19,7 +19,7 @@ export async function POST() {
     // requireHousehold issues redirect()/notFound() via control-flow errors Next must catch —
     // rethrow those and only convert genuine infrastructure failures into a structured 500.
     unstable_rethrow(error);
-    console.error("POST /api/classify/retry failed", error);
+    console.error(JSON.stringify({ event: "classification.retry.failed" }));
     return NextResponse.json({ error: "retry_failed" }, { status: 500 });
   }
 }

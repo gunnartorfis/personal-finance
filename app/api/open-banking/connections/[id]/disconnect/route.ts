@@ -43,8 +43,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         connectionId: id,
         institutionName: connection.institutionName,
       })
-    } catch (logError) {
-      console.error("failed to record bank.disconnected activity", logError)
+    } catch {
+      console.error(JSON.stringify({ event: "banking.disconnect.audit_failed" }))
     }
   }
 
@@ -53,8 +53,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   // and sync has stopped, so the worst case is a consent that lingers server-side until it expires.
   try {
     await getIngestionProvider().deleteSession(connection.providerConnectionId)
-  } catch (err) {
-    console.error(`[ob:disconnect] aggregator consent revoke failed for connection ${id}`, err)
+  } catch {
+    console.error(JSON.stringify({ event: "banking.disconnect.revoke_failed" }))
   }
 
   return NextResponse.json({ id: updated.id, status: updated.status })

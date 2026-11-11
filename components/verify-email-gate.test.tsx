@@ -3,14 +3,11 @@ import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { VerifyEmailGate } from "@/components/verify-email-gate"
-import { authClient } from "@/lib/auth/client"
 import { renderWithIntl as render } from "@/lib/test/render"
 
-vi.mock("@/lib/auth/client", () => ({
-  authClient: { sendVerificationEmail: vi.fn(), signOut: vi.fn() },
-}))
-
-const sendVerificationEmail = vi.mocked(authClient.sendVerificationEmail)
+const authClient = vi.hoisted(() => ({ sendVerificationEmail: vi.fn(), signOut: vi.fn() }))
+vi.mock("@/lib/auth/client", () => ({ useAuthActions: () => authClient }))
+const sendVerificationEmail = authClient.sendVerificationEmail
 
 beforeEach(() => sendVerificationEmail.mockReset())
 

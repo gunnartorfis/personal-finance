@@ -1,42 +1,19 @@
 # Contributing
 
-Thanks for your interest! This is a small, local-first personal-finance dashboard
-(React + Vite + TypeScript) that classifies a bank-card statement with Claude.
+Personal Finance is the hosted Next.js application described in [README.md](README.md),
+not the frozen Vite tool in `legacy/`.
 
-## Setup
+Use Node 24.21.0 and pnpm 11.9.0; install with `pnpm install --frozen-lockfile`.
+Read `AGENTS.md`, `CONTEXT.md`, the relevant architecture decisions and the installed
+Next.js documentation before implementing changes. UI strings belong in both message
+catalogs; use locale-aware formatting helpers and `renderWithIntl` in component tests.
 
-- **Node 22+** and **pnpm** (`npm i -g pnpm`)
-- `pnpm install`
-- See the [README](README.md) for adding your own `combined.csv`, configuring the
-  Claude token, and running `pnpm classify` / `pnpm dev`.
+Before submitting a PR, run lint, typecheck, test:run, test:hosting, build, db:check,
+and the pinned React Doctor full scan. CI additionally generates migrations to detect
+schema drift, builds both Docker targets, and enforces React Doctor's 100/100 quality gate.
+Use Conventional Commits and describe the resulting behavior and validation.
 
-You can develop without a Claude token using `pnpm seed` (bootstraps from a CSV
-that already has a `Type` column; confidence shows as `—`).
-
-## Development
-
-| Command | What it does |
-|---|---|
-| `pnpm dev` | Run the app + local data API at http://localhost:5173 |
-| `pnpm typecheck` | `tsc --noEmit` — must pass (CI enforces it) |
-| `pnpm lint` | ESLint — must pass (CI enforces it) |
-| `pnpm test` | Vitest in watch mode (`pnpm test:run` for a single run, as CI does) |
-| `pnpm build` | Production build — must pass (CI enforces it) |
-| `pnpm doctor` | React Doctor health scan (CI runs it on changed files per PR) |
-
-## Conventions
-
-- **TypeScript must compile** with no errors (`pnpm typecheck`) before a PR is ready.
-- Use [Conventional Commits](https://www.conventionalcommits.org/) — `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`…
-- Keep PRs focused and describe **what** changed and **why**.
-
-## Data & privacy
-
-- **Never commit personal data.** `combined.csv` and `data/` are git-ignored — keep it that way.
-- Secrets live in `.env` (git-ignored). Never hardcode tokens; read them from the environment.
-
-## Submitting a PR
-
-1. Branch off `main`.
-2. Make your change; run `pnpm lint`, `pnpm typecheck`, `pnpm test:run`, and `pnpm build` locally.
-3. Open a PR against `main`. CI runs lint, typecheck, test, build, and React Doctor on every PR.
+Develop against isolated Neon/Auth instances with synthetic records and sandbox providers.
+Never commit statements, tokens, environment files, provider responses or financial screenshots.
+Builds and application startup must not apply migrations. Follow
+[the deployment runbook](docs/deployment/railway.md) for controlled migration/release work.

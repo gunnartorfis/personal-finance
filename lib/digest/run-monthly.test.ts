@@ -154,7 +154,7 @@ describe("runMonthlyDigest", () => {
     expect(is?.subject).toContain("júlí 2026")
   })
 
-  it("counts the email as sent even if recording the ledger throws (no abort)", async () => {
+  it("reports delivered-but-unrecorded email for scheduler reconciliation", async () => {
     const { sender, sent } = fakeSender()
     const summary = await runMonthlyDigest(
       deps({
@@ -165,7 +165,7 @@ describe("runMonthlyDigest", () => {
       }),
     )
     expect(sent).toHaveLength(1)
-    expect(summary).toMatchObject({ sent: 1, failed: 0 })
+    expect(summary).toMatchObject({ sent: 1, failed: 0, reconciliationRequired: 1 })
   })
 
   it("isolates a failing household so later households still send", async () => {

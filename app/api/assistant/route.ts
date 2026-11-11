@@ -54,8 +54,8 @@ export async function POST(request: Request) {
       onFinish: async ({ text }) => {
         try {
           await persistAssistantReply(repo, turn.conversationId, text);
-        } catch (persistError) {
-          console.error("assistant reply persistence failed", persistError);
+        } catch {
+          console.error(JSON.stringify({ event: "assistant.reply_persistence_failed" }));
         }
       },
     });
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     if (error instanceof Error && (error.message === "empty_message" || error.message === "message_too_long")) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    console.error("POST /api/assistant failed", error);
+    console.error(JSON.stringify({ event: "assistant.request_failed" }));
     return NextResponse.json({ error: "assistant_failed" }, { status: 500 });
   }
 }

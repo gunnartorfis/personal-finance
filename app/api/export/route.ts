@@ -60,8 +60,8 @@ export async function GET() {
   // the download if the log write fails.
   try {
     await recordActivity(ctx, ActivityAction.DataExported)
-  } catch (logError) {
-    console.error("failed to record data.exported activity", logError)
+  } catch {
+    console.error(JSON.stringify({ event: "export.audit_failed" }))
   }
 
   const body = JSON.stringify({ householdId, data }, null, 2)

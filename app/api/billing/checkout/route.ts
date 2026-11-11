@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     // Pricing is ISK-only (ADR-0004); the DB CHECK only validates the currency *format*, so guard
     // against a non-ISK value sending a wrongly-scaled amount (toStraumurWireAmount skips the ×100).
     if (billingCurrency !== "ISK") {
-      console.error(`checkout: unsupported billing currency ${billingCurrency}`)
+      console.error(JSON.stringify({ event: "billing.checkout.unsupported_currency" }))
       return NextResponse.json({ error: "unsupported_currency" }, { status: 500 })
     }
     const session = await createSession({
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     // Let requireHousehold's redirect() control-flow pass through; convert real failures to a 502
     // (the gateway call is the likely culprit) so the client can distinguish from a bad request.
     unstable_rethrow(error)
-    console.error("POST /api/billing/checkout failed", error)
+    console.error(JSON.stringify({ event: "billing.checkout.failed" }))
     return NextResponse.json({ error: "checkout_failed" }, { status: 502 })
   }
 }

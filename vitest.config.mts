@@ -8,6 +8,8 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     exclude: [
+      // Native Node subprocess tests have their own runner (`pnpm test:hosting`).
+      "scripts/hosting/**",
       "**/node_modules/**",
       "**/legacy/**",
       "**/dist/**",

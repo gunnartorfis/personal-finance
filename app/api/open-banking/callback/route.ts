@@ -23,22 +23,10 @@ export async function GET(request: Request) {
 
   const jar = await cookies()
   const expectedState = jar.get(STATE_COOKIE)?.value
-  // Snapshot which cookies arrived BEFORE deleting the state cookie, so a genuinely-missing cookie is
-  // distinguishable from one that was present and just consumed.
-  const arrivedCookies = jar.getAll().map((c) => c.name)
   jar.delete(STATE_COOKIE)
 
-  // Diagnostic: confirms the callback handler ran (vs middleware/session bounce) and shows which
-  // inputs arrived on the cross-site redirect. `code`/state values are truncated — not logged raw.
-  const trunc = (v: string | null | undefined) => (v ? `${v.slice(0, 8)}…(${v.length})` : v ?? null)
-  console.log("[ob:callback] hit", {
-    hasCode: Boolean(code),
-    error: error ?? null,
-    stateParam: trunc(state),
-    stateCookie: trunc(expectedState),
-    stateMatches: Boolean(state && expectedState && state === expectedState),
-    arrivedCookies,
-  })
+  // Event-only diagnostics: never log OAuth state, cookies or provider payloads.
+  console.log(JSON.stringify({ event: "banking.callback.received" }))
 
   // Return a same-origin HTML interstitial that navigates client-side, rather than an HTTP redirect.
   // The bank's redirect into this callback is cross-site, and a 307 to /accounts is treated by the
@@ -68,17 +56,7 @@ export async function GET(request: Request) {
 
   // CSRF: the echoed state must match the cookie set at connect-start.
   if (error || !code || !state || !expectedState || state !== expectedState) {
-    console.warn("[ob:callback] rejected before intent lookup", {
-      reason: error
-        ? "bank_error"
-        : !code
-          ? "missing_code"
-          : !state
-            ? "missing_state_param"
-            : !expectedState
-              ? "missing_state_cookie"
-              : "state_mismatch",
-    })
+    console.warn(JSON.stringify({ event: "banking.callback.rejected" }))
     return back("error")
   }
 
@@ -88,31 +66,23 @@ export async function GET(request: Request) {
     const db = getDb()
     const intent = await consumeConnectIntent(db, state)
     if (!intent) {
-      console.warn("[ob:callback] no matching intent (unknown/expired/replayed)", {
-        stateParam: trunc(state),
-      })
+      console.warn(JSON.stringify({ event: "banking.callback.intent_missing" }))
       return back("error")
     }
-    console.log("[ob:callback] intent resolved", {
-      householdId: intent.householdId,
-      institutionName: intent.institutionName,
-    })
+    console.log(JSON.stringify({ event: "banking.callback.intent_resolved" }))
     const repo = householdRepo(db, intent.householdId)
     const provider = getIngestionProvider()
-    const result = await completeBankConnection({
+    await completeBankConnection({
       repo,
       provider,
       code,
       institutionName: intent.institutionName ?? undefined,
     })
-    console.log("[ob:callback] connection completed", {
-      connectionId: result.connectionId,
-      accounts: result.accountIds.length,
-    })
-  } catch (err) {
-    console.error("[ob:callback] failed during intent/provider/persist", err)
+    console.log(JSON.stringify({ event: "banking.callback.completed" }))
+  } catch {
+    console.error(JSON.stringify({ event: "banking.callback.failed" }))
     return back("error")
   }
-  console.log("[ob:callback] redirecting to accounts?bank=connected")
+  console.log(JSON.stringify({ event: "banking.callback.redirecting" }))
   return back("connected")
 }

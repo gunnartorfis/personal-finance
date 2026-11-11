@@ -4,7 +4,7 @@ import { Pool } from "pg";
 import * as schema from "./schema";
 
 /**
- * The application's Neon Postgres connection (ADR-0001).
+ * The application's PostgreSQL connection (ADR-0001).
  *
  * Built lazily from `DATABASE_URL` on first use so that importing this module never requires the
  * env var (e.g. during build, or in tests that use their own in-memory database). Uses

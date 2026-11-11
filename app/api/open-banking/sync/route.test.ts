@@ -1,3 +1,8 @@
+// Domain tests inject the schedule boundary; dedicated coordinator tests cover it.
+vi.mock("@/lib/scheduling/execution.mjs", () => ({
+  withScheduledExecution: (_job: string, handle: (request: Request) => Promise<Response>) => handle,
+}))
+
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { requireHousehold } from "@/lib/household/current"

@@ -1,3 +1,8 @@
+// Domain tests inject the schedule boundary; dedicated coordinator tests cover it.
+vi.mock("@/lib/scheduling/execution.mjs", () => ({
+  withScheduledExecution: (_job: string, handle: (request: Request) => Promise<Response>) => handle,
+}))
+
 import { PGlite } from "@electric-sql/pglite"
 import { eq } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/pglite"

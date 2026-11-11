@@ -1,14 +1,16 @@
 import { NextRequest } from "next/server"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-// Mock the auth server so importing proxy.ts doesn't pull in the real Neon Auth module. A stable
-// hoisted spy lets us assert whether authMiddleware runs for a given request.
-const authFn = vi.hoisted(() => vi.fn(() => undefined))
-vi.mock("@/lib/auth/server", () => ({
-  auth: { middleware: () => authFn },
+const authFn = vi.hoisted(() => vi.fn())
+vi.mock("@clerk/nextjs/server", () => ({
+  clerkMiddleware: (handler: (auth: null, request: NextRequest) => Response | undefined) =>
+    (request: NextRequest) => { authFn(); return handler(null, request) },
 }))
 
-import middleware, { config } from "./proxy"
+import proxy, { config } from "./proxy"
+
+// The Clerk mock above is synchronous; the real middleware also receives NextFetchEvent.
+const middleware = proxy as unknown as (request: NextRequest) => Response | undefined
 
 describe("route-protection matcher", () => {
   const authedSegments = [
@@ -20,19 +22,16 @@ describe("route-protection matcher", () => {
     "upload",
   ]
 
-  it("protects every signed-in (app) route segment", () => {
+  it("initializes Clerk for every signed-in (app) route segment", () => {
     for (const segment of authedSegments) {
       expect(config.matcher).toContain(`/${segment}/:path*`)
     }
   })
 
-  it("leaves the marketing root and public routes unprotected", () => {
-    // A matcher entry for "/" (root), auth, or join would break the public marketing/sign-in flow.
-    expect(config.matcher).not.toContain("/")
-    // A catch-all like "/:path*" or "/(.*)" would intercept root + public routes too — reject those.
-    expect(config.matcher.some((m) => m === "/:path*" || m === "/(.*)" || m === "/((?!).*)")).toBe(false)
-    expect(config.matcher.some((m) => m.startsWith("/auth"))).toBe(false)
-    expect(config.matcher.some((m) => m.startsWith("/join"))).toBe(false)
+  it("initializes Clerk on public pages without forcing a sign-in redirect", () => {
+    expect(config.matcher).toContain("/")
+    expect(config.matcher).toContain("/auth/:path*")
+    expect(config.matcher).toContain("/join/:path*")
   })
 
   it("adds the /api matcher so the CSRF check runs on API routes", () => {
@@ -81,14 +80,14 @@ describe("CSRF cross-site rejection on mutating API requests", () => {
     expect(middleware(req("/api/webhooks/straumur", "POST", "cross-site"))).toBeUndefined()
   })
 
-  it("exempts the Neon Auth handler path", () => {
-    expect(middleware(req("/api/auth/anything", "POST", "cross-site"))).toBeUndefined()
+  it("does not exempt the retired auth namespace", () => {
+    expect((middleware(req("/api/auth/anything", "POST", "cross-site")) as Response).status).toBe(403)
   })
 
-  it("never runs authMiddleware for /api paths (auth stays in the routes)", () => {
+  it("initializes Clerk context for API paths while route guards enforce authorization", () => {
     middleware(req("/api/accounts", "POST", "same-origin"))
     middleware(req("/api/billing/status", "GET", "cross-site"))
-    expect(authFn).not.toHaveBeenCalled()
+    expect(authFn).toHaveBeenCalledTimes(2)
   })
 
   it("still runs authMiddleware for a page path", () => {

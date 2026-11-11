@@ -45,7 +45,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const hmacKey = process.env.STRAUMUR_WEBHOOK_HMAC_KEY
   if (!hmacKey) {
-    console.error("[straumur-webhook] STRAUMUR_WEBHOOK_HMAC_KEY not configured")
+    console.error(JSON.stringify({ event: "payments.webhook.unconfigured" }))
     return new Response("Webhook not configured", { status: 503 })
   }
   if (!(await verifyStraumurHmac(payload, hmacKey))) {
@@ -60,11 +60,9 @@ export async function POST(request: Request): Promise<Response> {
     // additionalData isn't HMAC-signed, so a *missing* eventType on a verified payload is
     // suspicious (a genuine Authorization we'd silently drop) — warn so it stays observable.
     if (eventType === undefined) {
-      console.warn(
-        `[straumur-webhook] HMAC-verified payload with no eventType — dropped (psp=${payload.payfacReference ?? "<missing>"})`,
-      )
+      console.warn(JSON.stringify({ event: "payments.webhook.event_missing" }))
     } else {
-      console.info(`[straumur-webhook] ignoring non-Authorization event: ${eventType}`)
+      console.info(JSON.stringify({ event: "payments.webhook.event_ignored" }))
     }
     return accepted()
   }
@@ -124,14 +122,12 @@ export async function POST(request: Request): Promise<Response> {
           now: recorded.createdAt,
         })
       } else {
-        console.error(
-          `[straumur-webhook] amount/currency mismatch: got ${amount} ${currency}, expected ${expected.amount} ${expected.currency} (psp=${pspReference}) — not activating`,
-        )
+        console.error(JSON.stringify({ event: "payments.webhook.amount_mismatch" }))
       }
     }
-  } catch (error) {
+  } catch {
     // Transient DB failure: don't ACK, so Straumur retries.
-    console.error("[straumur-webhook] failed to record event", error)
+    console.error(JSON.stringify({ event: "payments.webhook.persist_failed" }))
     return new Response("Server Error", { status: 500 })
   }
 

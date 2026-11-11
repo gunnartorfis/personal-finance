@@ -88,9 +88,9 @@ export async function syncActiveConnections(params: {
     try {
       const res = await syncConnection({ repo, provider, connection, now, backfillDays });
       inserted += res.inserted;
-    } catch (err) {
+    } catch {
       failed += 1;
-      console.error(`open-banking sync failed for connection ${connection.id}`, err);
+      console.error(JSON.stringify({ event: "banking.sync.failed" }));
       // Flag the connection so the reconnect UI (#116) can surface it; best-effort.
       await repo.bankConnections.update(connection.id, { status: "error" }).catch(() => {});
     }

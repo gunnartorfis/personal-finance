@@ -1,73 +1,30 @@
-import type { NextRequest } from "next/server";
+import { clerkMiddleware } from "@clerk/nextjs/server"
+import type { NextRequest } from "next/server"
 
-import { auth } from "@/lib/auth/server";
+const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"])
 
-/**
- * Route-protection middleware (ADR-0001/0002). Next 16 names the middleware entry `proxy.ts`.
- * Unauthenticated requests to matched routes are redirected to the sign-in page. The root `/` is
- * intentionally left public so signed-out visitors get the marketing landing page; `app/page.tsx`
- * sends signed-in members on to the dashboard.
+/** Additional browser CSRF boundary. API identity/household checks remain in handlers.
+ * Webhooks use their own HMAC boundary. Clerk's frontend API is hosted separately;
+ * the retired Neon Auth namespace has no exemption or handler.
  */
-const authMiddleware = auth.middleware({ loginUrl: "/auth/sign-in" });
-
-const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-// Paths that legitimately receive non-browser mutating POSTs: the Straumur webhook (HMAC is its
-// trust boundary) and Neon Auth's own handler (manages its own flows). The trailing slash is
-// deliberate — these are prefixes for subpaths (`/api/webhooks/straumur`, `/api/auth/[...path]`).
-// If a future maintainer adds a root-level handler at exactly `/api/auth` or `/api/webhooks` (no
-// subpath), extend the pattern, or a cross-site POST to it would be 403'd.
-const CSRF_EXEMPT = [/^\/api\/webhooks\//, /^\/api\/auth\//];
-
-/**
- * CSRF defense-in-depth: is this a mutating request whose browser-set `Sec-Fetch-Site` header proves
- * a cross-site initiator? The header is sent by all browsers since ~2020 and cannot be forged or
- * stripped by web content, so it's a library-independent guard that holds even if the Neon Auth
- * session cookie's SameSite default ever changes. Absent header = non-browser client (webhooks, curl,
- * tests) or a very old browser — the SameSite cookie remains the defense there. "none" = a
- * user-initiated top-level navigation (e.g. the address bar), which is not a CSRF vector.
- */
-function isCrossSite(request: NextRequest): boolean {
-  const site = request.headers.get("sec-fetch-site");
-  return site !== null && site !== "same-origin" && site !== "none";
+export function checkRequestBoundary(request: NextRequest) {
+  const site = request.headers.get("sec-fetch-site")
+  if (
+    request.nextUrl.pathname.startsWith("/api/") &&
+    !request.nextUrl.pathname.startsWith("/api/webhooks/") &&
+    MUTATING.has(request.method) &&
+    site !== null && site !== "same-origin" && site !== "none"
+  ) return new Response("Cross-site request rejected", { status: 403 })
 }
 
-export default function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // API routes self-guard for *auth* via requireHousehold(); the middleware only adds the *CSRF*
-  // check here and must never run authMiddleware on them (that would send /api through the sign-in
-  // redirect). "same-site" (a sibling subdomain) is deliberately rejected — nothing legit calls the
-  // API cross-subdomain.
-  if (pathname.startsWith("/api/")) {
-    if (
-      MUTATING.has(request.method) &&
-      !CSRF_EXEMPT.some((re) => re.test(pathname)) &&
-      isCrossSite(request)
-    ) {
-      return new Response("Cross-site request rejected", { status: 403 });
-    }
-    return;
-  }
-
-  // Don't intercept Server Action POSTs (they carry a Next-Action header).
-  if (request.headers.has("Next-Action")) {
-    return;
-  }
-  return authMiddleware(request);
-}
+// Initialize Clerk for public and protected requests. Data-access guards enforce
+// sign-in and household ownership; APIs retain 401 responses rather than redirects.
+export default clerkMiddleware((_auth, request) => checkRequestBoundary(request))
 
 export const config = {
-  // Protect the signed-in `(app)` routes at the edge (pages also self-guard via requireHousehold).
-  // The root marketing page (`/`), the auth pages (`/auth/*`), invite links (`/join/*`), and API
-  // routes (which guard themselves) stay open. Keep in sync with the `app/(app)/*` route segments.
   matcher: [
-    "/accounts/:path*",
-    "/dashboard/:path*",
-    "/savings/:path*",
-    "/settings/:path*",
-    "/transactions/:path*",
-    "/upload/:path*",
-    // API routes run the CSRF cross-site check only (they self-guard for auth via requireHousehold).
-    "/api/:path*",
+    "/accounts/:path*", "/dashboard/:path*", "/savings/:path*",
+    "/settings/:path*", "/transactions/:path*", "/upload/:path*",
+    "/api/:path*", "/", "/auth/:path*", "/join/:path*",
   ],
-};
+}

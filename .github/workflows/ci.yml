@@ -13,7 +13,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
@@ -25,7 +25,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
@@ -37,22 +37,28 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:run
 
   build:
+    env:
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_c3ludGhldGljLmNsZXJrLmFjY291bnRzLmRldiQ=
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - run: pnpm test:hosting
+      - run: docker build --build-arg "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" --tag personal-finance:ci .
+      - run: docker build --file Dockerfile.migrations --tag personal-finance-migrations:ci .
+      - run: node scripts/hosting/check-container.mjs personal-finance:ci
 
   migrations:
     runs-on: ubuntu-latest
@@ -61,7 +67,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # Detect conflicting/duplicate migration files (e.g. two branches generated the same index).
@@ -87,9 +93,9 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # Pinned (not @latest) so a future react-doctor release can't add rules and
       # spuriously fail the gate; bump deliberately alongside the `doctor` script.
-      - run: pnpm dlx react-doctor@0.5.8 --yes --scope full --blocking warning --no-telemetry
+      - run: pnpm dlx react-doctor@0.5.8 --yes --scope full --blocking warning --no-telemetry --verbose

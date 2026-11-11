@@ -189,12 +189,9 @@ export async function drainPending(
         categoryId,
         categoryConfidence: categoryConfidence ?? null,
       });
-    } catch (error) {
-      // Surface the real cause on Vercel logs — the row is marked `failed` and the drain continues,
-      // so without this the AI Gateway / schema-validation / rate-limit error vanishes silently. Log
-      // only the txn id (enough to look the row up in the DB): merchant/amount are financial PII and
-      // must not be mirrored into platform logs in this multi-tenant app.
-      console.error(`[classify] failed txn=${txn.id}`, error);
+    } catch {
+      // SDK errors can contain the statement prompt. Log the event without the error payload.
+      console.error(JSON.stringify({ event: "classification.failed" }));
       await repo.transactions.markFailed(txn.id);
       failed += 1;
     }

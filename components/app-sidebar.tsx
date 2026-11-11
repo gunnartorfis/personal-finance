@@ -1,7 +1,7 @@
 "use client"
 
-import { UserButton } from "@neondatabase/auth-ui"
-import { PiggyBank, Settings } from "lucide-react"
+import { UserButton } from "@clerk/nextjs"
+import { PiggyBank } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -23,7 +23,7 @@ import { isActivePath, NAV_ITEMS } from "@/lib/nav"
 
 /**
  * Left app sidebar for signed-in users (ADR Phase H): brand, primary navigation that collapses to
- * an icon rail, and the Neon Auth user menu in the footer. Wrapped in its own `TooltipProvider`
+ * an icon rail, and the Clerk user menu in the footer. Wrapped in its own `TooltipProvider`
  * so the icon-mode menu tooltips work without touching the root layout.
  */
 export function AppSidebar() {
@@ -72,25 +72,8 @@ export function AppSidebar() {
         </SidebarContent>
         <SidebarFooter>
           <LocaleSwitcher />
-          {/* Account menu is an identity control, not a primary action — render the trigger as a
-              neutral, full-width row matching the sidebar's menu items instead of the auth-ui
-              default (a solid `bg-primary` button). The default "Settings" link (which points at the
-              account view) is replaced with one to the Settings hub; account/security live inside it. */}
-          <UserButton
-            size="default"
-            className="w-full justify-start bg-transparent text-sidebar-foreground shadow-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            disableDefaultLinks
-            additionalLinks={[
-              {
-                href: "/settings",
-                icon: <Settings />,
-                label: labels.settings,
-                signedIn: true,
-                separator: true,
-              },
-              ...themeItems,
-            ]}
-          />
+          <UserButton showName userProfileMode="navigation" userProfileUrl="/settings/account" />
+          <div className="flex flex-wrap gap-1">{themeItems}</div>
         </SidebarFooter>
       </Sidebar>
     </TooltipProvider>

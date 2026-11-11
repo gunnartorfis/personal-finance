@@ -84,6 +84,8 @@ export interface DigestRunSummary {
   skippedAlreadySent: number
   /** Members whose send failed (transport error / refusal); no ledger row written, retried next run. */
   failed: number
+  /** Delivered but not recorded; the scheduler requires reconciliation before any replay. */
+  reconciliationRequired: number
 }
 
 /**
@@ -101,6 +103,7 @@ export async function runMonthlyDigest(deps: MonthlyDigestDeps): Promise<DigestR
   let skippedEmpty = 0
   let skippedAlreadySent = 0
   let failed = 0
+  let reconciliationRequired = 0
 
   for (const household of households) {
     // Isolate each Household: a flaky loadCycle (or any throw) must not abort the whole batch and
@@ -135,21 +138,22 @@ export async function runMonthlyDigest(deps: MonthlyDigestDeps): Promise<DigestR
           sent += 1
           try {
             await deps.recordSent(household.householdId, member.memberId, cycleKey)
-          } catch (error) {
-            // Delivered but the ledger write failed: a rerun may re-send this one Member. Better than
-            // aborting the batch; log and move on (at-most-once degrades to at-least-once only here).
-            console.error(`[digest] recordSent failed for member ${member.memberId} cycle ${cycleKey}`, error)
+          } catch {
+            reconciliationRequired += 1
+            // Delivered but its ledger write failed. Finish the batch and report the gap;
+            // scheduler coordination prevents replay until delivery has been reconciled.
+            console.error(JSON.stringify({ event: "digest.ledger_failed" }))
           }
-        } catch (error) {
-          console.error(`[digest] send failed for member ${member.memberId} cycle ${cycleKey}`, error)
+        } catch {
+          console.error(JSON.stringify({ event: "digest.delivery_failed" }))
           failed += 1
         }
       }
-    } catch (error) {
-      console.error(`[digest] household ${household.householdId} failed for cycle ${cycleKey}`, error)
+    } catch {
+      console.error(JSON.stringify({ event: "digest.household_failed" }))
       failed += household.members.length
     }
   }
 
-  return { cycleKey, households: households.length, sent, skippedEmpty, skippedAlreadySent, failed }
+  return { cycleKey, households: households.length, sent, skippedEmpty, skippedAlreadySent, failed, reconciliationRequired }
 }

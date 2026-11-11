@@ -49,11 +49,11 @@ export async function backfillCategories(
         });
         const categoryId = result.category ? (leafSlugToId.get(result.category) ?? null) : null;
         hit = { categoryId, categoryConfidence: categoryId ? result.categoryConfidence : undefined };
-      } catch (error) {
+      } catch {
         // Skip this merchant on a transient classify error (mirrors drainPending) rather than
         // aborting the whole pass — partial progress is already durable and idempotent. Cache null
         // so its other rows this run aren't retried. Log only the txn id (merchant/amount are PII).
-        console.error(`[backfill-categories] failed txn=${txn.id}`, error);
+        console.error(JSON.stringify({ event: "classification.backfill_failed" }));
         hit = { categoryId: null };
         failed += 1;
       }
