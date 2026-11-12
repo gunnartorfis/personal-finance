@@ -108,7 +108,9 @@ describe("EnableBankingClient", () => {
     const page1 = {
       transactions: [
         {
-          transaction_id: "t1",
+          transaction_id: "details-1",
+          entry_reference: "t1",
+          status: "BOOK",
           booking_date: "2026-03-01",
           transaction_amount: { amount: "1990.00", currency: "ISK" },
           credit_debit_indicator: "DBIT",
@@ -121,7 +123,9 @@ describe("EnableBankingClient", () => {
     const page2 = {
       transactions: [
         {
-          transaction_id: "t2",
+          transaction_id: "details-2",
+          entry_reference: "t2",
+          status: "BOOK",
           booking_date: "2026-03-02",
           transaction_amount: { amount: "5000.00", currency: "ISK" },
           credit_debit_indicator: "CRDT",
@@ -138,6 +142,8 @@ describe("EnableBankingClient", () => {
     expect(calls[0].url).toContain("/accounts/acc-uid-1/transactions");
     expect(calls[0].url).toContain("date_from=2026-01-01");
     expect(calls[0].url).toContain("date_to=2026-03-31");
+    expect(calls[0].url).toContain("strategy=longest");
+    expect(calls[0].url).toContain("transaction_status=BOOK");
     expect(calls[1].url).toContain("continuation_key=c2");
     expect(txns).toEqual([
       { externalId: "t1", date: "2026-03-01", amount: -1990, currency: "ISK", merchant: "NETFLIX", reference: "Netflix" },
@@ -145,12 +151,13 @@ describe("EnableBankingClient", () => {
     ]);
   });
 
-  it("falls back to entry_reference for the external id when transaction_id is absent", async () => {
+  it("uses entry_reference for the external id when transaction_id is absent", async () => {
     // Mock ASPSP / export data carries entry_reference but no transaction_id.
     const { fn } = stubFetch(() => ({
       transactions: [
         {
           entry_reference: "er-9",
+          status: "BOOK",
           booking_date: "2026-03-03",
           transaction_amount: { amount: "1200.00", currency: "ISK" },
           credit_debit_indicator: "DBIT",
@@ -163,11 +170,13 @@ describe("EnableBankingClient", () => {
     expect(txn.externalId).toBe("er-9");
   });
 
-  it("skips a transaction with neither transaction_id nor entry_reference (unusable dedup key)", async () => {
+  it("skips transactions without a stable entry reference, including details-only ids", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { fn } = stubFetch(() => ({
       transactions: [
         {
+          transaction_id: "unstable-details-id",
+          status: "BOOK",
           booking_date: "2026-03-04",
           transaction_amount: { amount: "10.00", currency: "ISK" },
           credit_debit_indicator: "DBIT",
@@ -176,6 +185,7 @@ describe("EnableBankingClient", () => {
         },
         {
           entry_reference: "er-ok",
+          status: "BOOK",
           booking_date: "2026-03-05",
           transaction_amount: { amount: "20.00", currency: "ISK" },
           credit_debit_indicator: "DBIT",
@@ -193,6 +203,43 @@ describe("EnableBankingClient", () => {
   it("throws on a non-ok response", async () => {
     const { fn } = stubFetch(() => ({ error: "boom" }), false, 500);
     await expect(client(fn).listInstitutions("IS")).rejects.toThrow();
+  });
+
+  it("keeps the same dedup key when the provider changes its transaction details id", async () => {
+    let reads = 0;
+    const { fn } = stubFetch(() => ({
+      transactions: [{
+        entry_reference: "purchase-123",
+        transaction_id: `details-${++reads}`,
+        status: "BOOK",
+        booking_date: "2026-03-01",
+        transaction_amount: { amount: "1990.00", currency: "ISK" },
+        credit_debit_indicator: "DBIT",
+      }],
+    }));
+    const provider = client(fn);
+    const range = { from: "2026-01-01", to: "2026-03-31" };
+    expect((await provider.listTransactions("acc-1", range))[0].externalId).toBe("purchase-123");
+    expect((await provider.listTransactions("acc-1", range))[0].externalId).toBe("purchase-123");
+  });
+
+  it("does not import pending authorizations even when the bank ignores the booked filter", async () => {
+    const { fn } = stubFetch(() => ({ transactions: [{
+      entry_reference: "pending-1",
+      status: "PDNG",
+      transaction_date: "2026-03-01",
+      transaction_amount: { amount: "1990.00", currency: "ISK" },
+      credit_debit_indicator: "DBIT",
+    }] }));
+    expect(await client(fn).listTransactions("acc-1", { from: "2026-01-01", to: "2026-03-31" })).toEqual([]);
+  });
+
+  it("continues after an empty page when a continuation key is present", async () => {
+    const { fn, calls } = stubFetch((url) => url.includes("continuation_key=next")
+      ? { transactions: [] }
+      : { transactions: [], continuation_key: "next" });
+    expect(await client(fn).listTransactions("acc-1", { from: "2026-01-01", to: "2026-03-31" })).toEqual([]);
+    expect(calls).toHaveLength(2);
   });
 
   it("deletes a session via DELETE /sessions/{id}", async () => {

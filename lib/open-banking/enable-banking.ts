@@ -15,6 +15,7 @@ const DEFAULT_BASE_URL = "https://api.enablebanking.com";
 const JWT_TTL_SECONDS = 3600;
 /** Safety cap on transaction pagination to bound memory/latency on an anomalous response. */
 const MAX_TRANSACTION_PAGES = 100;
+const REQUEST_TIMEOUT_MS = 30_000;
 
 /** Config for {@link EnableBankingClient}. `privateKey` is the app's RSA private key (PEM). */
 export interface EnableBankingConfig {
@@ -46,8 +47,9 @@ interface EbAccount {
   cash_account_type?: string;
 }
 interface EbTransaction {
-  /** Aggregator's stable id; optional because mock/some ASPSPs only populate `entry_reference`. */
+  /** Details lookup handle only; not stable between fetches and never a dedup key. */
   transaction_id?: string;
+  status: "BOOK" | "PDNG";
   booking_date?: string;
   value_date?: string;
   transaction_date?: string;
@@ -110,6 +112,7 @@ export class EnableBankingClient implements IngestionProvider {
     }
     const res = await this.cfg.fetch(url.toString(), {
       method,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       headers: {
         Authorization: `Bearer ${this.jwt()}`,
         "Content-Type": "application/json",
@@ -185,13 +188,21 @@ export class EnableBankingClient implements IngestionProvider {
         transactions: EbTransaction[];
         continuation_key?: string;
       }>("GET", `/accounts/${accountUid}/transactions`, {
-        query: { date_from: range.from, date_to: range.to, continuation_key: continuationKey },
+        query: {
+          date_from: range.from,
+          date_to: range.to,
+          continuation_key: continuationKey,
+          // Our append-only ledger cannot reconcile changing pending card authorizations.
+          transaction_status: "BOOK",
+          // The initial backfill asks for two years; banks may expose a shorter window.
+          strategy: "longest",
+        },
       });
       for (const raw of data.transactions) {
+        if (raw.status !== "BOOK") continue;
         const txn = toProviderTransaction(raw);
         if (!txn.externalId) {
-          // No transaction_id and no entry_reference — an unusable dedup key. Skip loudly rather
-          // than persist an empty-string sentinel that would collide across rows and corrupt dedup.
+          // Never substitute the unstable details id for the bank's immutable entry reference.
           console.warn(JSON.stringify({ event: "banking.sync.external_id_missing" }));
           continue;
         }
@@ -209,6 +220,7 @@ export class EnableBankingClient implements IngestionProvider {
     // best-effort.
     const res = await this.cfg.fetch(`${this.cfg.baseUrl}/sessions/${sessionId}`, {
       method: "DELETE",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       headers: {
         Authorization: `Bearer ${this.jwt()}`,
         "Content-Type": "application/json",
@@ -237,10 +249,8 @@ function toProviderTransaction(t: EbTransaction): ProviderTransaction {
     t.credit_debit_indicator === "DBIT" ? t.creditor?.name : t.debtor?.name;
   const remittance = t.remittance_information ?? [];
   return {
-    // Prefer the aggregator's stable id; fall back to entry_reference (both are stable per-account
-    // ids used for dedup) so mock/ASPSPs that omit transaction_id still yield a non-null external id
-    // — otherwise the bank_sync provenance CHECK rejects the row and nothing syncs.
-    externalId: t.transaction_id ?? t.entry_reference ?? "",
+    // Only entry_reference is immutable. transaction_id is a changeable details lookup handle.
+    externalId: t.entry_reference ?? "",
     date: t.booking_date ?? t.value_date ?? t.transaction_date ?? "",
     amount,
     currency: t.transaction_amount.currency,
