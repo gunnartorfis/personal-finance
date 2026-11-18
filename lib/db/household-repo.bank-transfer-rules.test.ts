@@ -80,3 +80,51 @@ it("enriches legacy transfers, previews past matches, and keeps a per-deposit in
     await client.close();
   }
 });
+
+it("keeps a confirmed sender-label rule on unverified incoming credits for the selected account", async () => {
+  const client = new PGlite();
+  try {
+    const database = drizzle(client);
+    await migrate(database, { migrationsFolder: "./drizzle" });
+    const db = database as unknown as Parameters<typeof householdRepo>[0];
+    const [household] = await database.insert(households).values({}).returning();
+    const repo = householdRepo(db, household.id);
+    const [joint] = await repo.accounts.create({ name: "Joint" });
+    const [personal] = await repo.accounts.create({ name: "Personal" });
+    const credit = {
+      accountId: joint.id, amount: 5000, date: "2026-03-10", createdAt: new Date(0),
+      source: "bank_sync" as const, merchant: "Sigrún Jónsdóttir", rawCategory: "",
+    };
+    const [anchor, past, , debit, , verified] = await repo.transactions.createSyncedMany([
+      { ...credit, externalId: "anchor" },
+      { ...credit, externalId: "past", amount: 6000, merchant: " Sigrún Jónsdóttir " },
+      { ...credit, externalId: "other-account", amount: 1000, accountId: personal.id },
+      { ...credit, externalId: "debit", amount: -5000 },
+      { ...credit, externalId: "other-label", amount: 2000, merchant: "Sigrún Jónsdóttir Refund" },
+      { ...credit, externalId: "verified", amount: 3000, counterpartyFingerprint: "some-bank-hash" },
+    ]);
+    const key = await repo.bankTransferRules.incomingLabelKey(anchor.id);
+    expect(key).toBeTruthy();
+    if (!key) throw new Error("Expected a label rule key");
+    expect(await repo.bankTransferRules.incomingLabelKey(debit.id)).toBeNull();
+    expect(await repo.bankTransferRules.incomingLabelKey(verified.id)).toBeNull();
+    expect(await repo.bankTransferRules.preview(key, anchor.id)).toMatchObject({
+      count: 1, sample: [{ id: past.id }],
+    });
+
+    const range = { from: "2026-03-01", to: "2026-04-01" };
+    const totalAmounts = async () => (await repo.transactions.summaryRows(range)).map((row) => row.amount).sort((a, b) => a - b);
+    await repo.bankTransferRules.save(key, anchor.id, false);
+    expect(await totalAmounts()).toEqual([-5000, 1000, 2000, 3000, 6000]);
+
+    await repo.bankTransferRules.save(key, anchor.id, true);
+    expect(await totalAmounts()).toEqual([-5000, 1000, 2000, 3000]);
+    await repo.transactions.setIncomeMarked(past.id, true);
+    expect(await totalAmounts()).toContain(6000);
+
+    await repo.bankTransferRules.remove(key);
+    expect(await totalAmounts()).toHaveLength(6);
+  } finally {
+    await client.close();
+  }
+});

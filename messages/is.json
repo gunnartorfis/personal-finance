@@ -757,6 +757,9 @@
     "cash-withdrawal": "Peningaúttektir"
   },
   "internalTransferRule": {
+    "labelDescription": "Staðfest reikningsnúmer vantar fyrir þessa innborgun. Þú getur merkt innborganir á sama viðtökureikning með nákvæmlega sama heiti „{label}“ sem innri millifærslur þegar reikningsnúmer vantar. Veldu Telja sem tekjur fyrir einstakar undantekningar.",
+    "labelActive": "Regla um innri millifærslur er virk fyrir þetta heiti.",
+    "confirmLabel": "Staðfesta heiti sendanda",
     "label": "Innri millifærsla",
     "excludeOne": "Undanskilja þessa færslu",
     "create": "Merkja millifærslur við þennan reikning sem innri",

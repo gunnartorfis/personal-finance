@@ -187,6 +187,7 @@ describe("TransactionsTable", () => {
         json: async () => ({
           available: true,
           active: false,
+          mode: "incoming_label",
           historical: { count: 1, sample: [{ id: "past", date: "2026-03-01", amount: 500 }] },
         }),
       })
@@ -200,14 +201,15 @@ describe("TransactionsTable", () => {
     const history = await screen.findByRole("checkbox", { name: /also apply to 1 past match/i })
     expect(history).not.toBeChecked()
     await user.click(history)
-    await user.click(screen.getByRole("button", { name: /confirm account/i }))
+    expect(screen.getByText(/same receiving account/i)).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: /confirm sender label/i }))
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1, "/api/transactions/t2/internal-transfer-rule", expect.objectContaining({ method: "POST" })
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       2, "/api/transactions/t2/internal-transfer-rule",
-      expect.objectContaining({ method: "PUT", body: JSON.stringify({ includePast: true }) })
+      expect.objectContaining({ method: "PUT", body: JSON.stringify({ includePast: true, mode: "incoming_label" }) })
     )
   })
 

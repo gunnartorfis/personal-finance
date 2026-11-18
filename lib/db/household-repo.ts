@@ -73,11 +73,20 @@ type Db = NodePgDatabase<typeof schema>
 type DbOrTx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0]
 
 const hasMerchant = sql`${transactions.merchant} ~ '[^[:space:]]'`
+// A confirmed label rule is confined to unverified incoming bank credits on one receiving account.
+const incomingLabelRuleKey = sql<string | null>`case when
+  ${transactions.source} = 'bank_sync' and ${transactions.amount} > 0
+  and ${transactions.counterpartyFingerprint} is null and ${hasMerchant}
+  then 'incoming-label:' || ${transactions.accountId}::text || ':' ||
+    encode(sha256(convert_to(btrim(${transactions.merchant}), 'UTF8')), 'hex')
+  end`
 // Evaluate the rule at read time so removal immediately restores the original classifications.
 const sharedTransferRuleApplies = sql<boolean>`exists (
   select 1 from ${bankTransferRules}
   where ${bankTransferRules.householdId} = ${transactions.householdId}
-    and ${bankTransferRules.counterpartyFingerprint} = ${transactions.counterpartyFingerprint}
+    and ${bankTransferRules.counterpartyFingerprint} in (
+      ${transactions.counterpartyFingerprint}, ${incomingLabelRuleKey}
+    )
     and (${bankTransferRules.includePast}
       or ${bankTransferRules.anchorTransactionId} = ${transactions.id}
       or (${bankTransferRules.createdAt} <= ${transactions.createdAt}
@@ -746,10 +755,19 @@ export function householdRepo(db: Db, householdId: string) {
         ))
         return rule
       },
+      incomingLabelKey: async (transactionId: string) => {
+        const [row] = await db.select({ key: incomingLabelRuleKey }).from(transactions).where(and(
+          eq(transactions.householdId, householdId),
+          eq(transactions.id, transactionId)
+        ))
+        return row?.key ?? null
+      },
       preview: async (fingerprint: string, transactionId?: string) => {
         const match = and(
           eq(transactions.householdId, householdId),
-          eq(transactions.counterpartyFingerprint, fingerprint),
+          fingerprint.startsWith("incoming-label:")
+            ? sql`${incomingLabelRuleKey} = ${fingerprint}`
+            : eq(transactions.counterpartyFingerprint, fingerprint),
           transactionId ? ne(transactions.id, transactionId) : undefined,
           eq(transactions.incomeMarked, false),
           eq(transactions.excluded, false),
