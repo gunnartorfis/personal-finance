@@ -578,14 +578,12 @@ function TransactionDetails({
         {t("details.close")}
       </SheetClose>
       <dl className="flex flex-col gap-3 border-t border-border p-6 text-sm">
-        {fields
-          .filter(({ value }) => value)
-          .map(({ label, value }) => (
-            <div key={label} className="grid grid-cols-[2fr_3fr] items-baseline gap-3">
-              <dt className="text-muted-foreground">{label}</dt>
-              <dd className="min-w-0 wrap-break-word">{value}</dd>
-            </div>
-          ))}
+        {fields.map(({ label, value }) => value && (
+          <div key={label} className="grid grid-cols-[2fr_3fr] items-baseline gap-3">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="min-w-0 wrap-break-word">{value}</dd>
+          </div>
+        ))}
       </dl>
       {row.reasoning && (
         <p className="border-t border-border p-6 text-sm wrap-break-word text-muted-foreground">
@@ -779,6 +777,68 @@ function NoMatch({ onClear }: { onClear: () => void }) {
   )
 }
 
+type TransactionLists = { rows: TransactionRow[]; deleted: TransactionRow[] }
+
+/** Apply acknowledged row edits while a new server snapshot is loading. */
+function useTransactionRows(initial: TransactionRow[], initialDeleted: TransactionRow[]) {
+  const router = useRouter()
+  const [local, setLocal] = useState<{
+    initial: TransactionRow[]
+    initialDeleted: TransactionRow[]
+    lists: TransactionLists
+  } | null>(null)
+  const [justDeleted, setJustDeleted] = useState<TransactionRow | null>(null)
+  const [restoreError, setRestoreError] = useState(false)
+
+  function currentLists(snapshot: typeof local): TransactionLists {
+    return snapshot?.initial === initial && snapshot.initialDeleted === initialDeleted
+      ? snapshot.lists
+      : { rows: initial, deleted: initialDeleted }
+  }
+
+  function updateLists(update: (current: TransactionLists) => TransactionLists) {
+    setLocal((snapshot) => ({
+      initial,
+      initialDeleted,
+      lists: update(currentLists(snapshot)),
+    }))
+    router.refresh()
+  }
+
+  function patchRow(id: string, patch: Partial<TransactionRow>) {
+    updateLists(({ rows, deleted }) => ({
+      rows: rows.map((row) => row.id === id ? { ...row, ...patch } : row),
+      deleted,
+    }))
+  }
+
+  function handleDeleted(row: TransactionRow) {
+    setRestoreError(false)
+    setJustDeleted(row)
+    updateLists(({ rows, deleted }) => ({
+      rows: rows.filter((r) => r.id !== row.id),
+      deleted: [row, ...deleted],
+    }))
+  }
+
+  async function restore(row: TransactionRow) {
+    setRestoreError(false)
+    try {
+      await restoreTransaction(row.id)
+    } catch {
+      setRestoreError(true)
+      return
+    }
+    setJustDeleted((last) => last?.id === row.id ? null : last)
+    updateLists(({ rows, deleted }) => ({
+      rows: rows.some((r) => r.id === row.id) ? rows : [...rows, row],
+      deleted: deleted.filter((r) => r.id !== row.id),
+    }))
+  }
+
+  return { ...currentLists(local), justDeleted, restoreError, patchRow, handleDeleted, restore }
+}
+
 /**
  * A statement period's transactions (Phase H) with a single inline "Type" control per row
  * (<RowTypeControl>): a color-keyed pill that opens a menu holding every per-row action (set type,
@@ -838,20 +898,8 @@ export function TransactionsTable({
     initialCategoryId && (initialCategoryId === "none" || categoryParts.has(initialCategoryId))
       ? initialCategoryId
       : null
-  // Local edits stay immediate. A new server snapshot (e.g. after reclassification)
-  // replaces the mirrors without remounting the table or clearing its filters.
-  const [rows, setRows] = useState(initial)
-  const [deleted, setDeleted] = useState(initialDeleted)
-  const [snapshot, setSnapshot] = useState({ initial, initialDeleted })
-  if (snapshot.initial !== initial || snapshot.initialDeleted !== initialDeleted) {
-    setSnapshot({ initial, initialDeleted })
-    setRows(initial)
-    setDeleted(initialDeleted)
-  }
-  // The most-recently soft-deleted row, backing the inline Undo affordance; null once undone/dismissed.
-  const [justDeleted, setJustDeleted] = useState<TransactionRow | null>(null)
-  // Set when a restore request fails, so the failure is surfaced instead of silently swallowed.
-  const [restoreError, setRestoreError] = useState(false)
+  const { rows, deleted, justDeleted, restoreError, patchRow, handleDeleted, restore } =
+    useTransactionRows(initial, initialDeleted)
   const [query, setQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all")
   const [accountFilter, setAccountFilter] = useState<string | null>(null)
@@ -925,16 +973,6 @@ export function TransactionsTable({
       timeZone: "UTC",
     })
 
-  // Apply an optimistic local patch to a row, then refresh. The row updates instantly for feedback
-  // while the server-derived figures (net summary, Rapid review badge, expense-type buckets)
-  // recompute — the shared shape of every inline control (override, income, exclude, share).
-  function patchRow(id: string, patch: Partial<TransactionRow>) {
-    setRows((current) =>
-      current.map((row) => (row.id === id ? { ...row, ...patch } : row))
-    )
-    router.refresh()
-  }
-
   const handleChanged = (
     id: string,
     next: { expenseType: ExpenseType | null; hasOverride: boolean }
@@ -959,34 +997,6 @@ export function TransactionsTable({
   const handleShareChanged = (id: string, ownShareAmount: number | null) =>
     patchRow(id, { ownShareAmount })
 
-  // RowTypeControl already soft-deleted the row on the server (ADR-0026); move it from the live
-  // mirror to the deleted one, surface an inline Undo, and refresh so the server-derived summaries
-  // drop it. We hold the whole row so Undo can re-insert it without waiting for the refresh.
-  function handleDeleted(row: TransactionRow) {
-    setRestoreError(false)
-    setRows((current) => current.filter((r) => r.id !== row.id))
-    setDeleted((current) => [row, ...current])
-    setJustDeleted(row)
-    router.refresh()
-  }
-
-  // Restore a soft-deleted row (from the Undo affordance or the Deleted view): un-delete on the
-  // server, then move it back to the live mirror. On failure the row stays deleted and we surface an
-  // error so it isn't silently lost. Re-sorting in `visible` puts a restored row back in date order.
-  async function restore(row: TransactionRow) {
-    setRestoreError(false)
-    try {
-      await restoreTransaction(row.id)
-    } catch {
-      setRestoreError(true)
-      return
-    }
-    setDeleted((current) => current.filter((r) => r.id !== row.id))
-    setRows((current) => [...current, row])
-    setJustDeleted((j) => (j?.id === row.id ? null : j))
-    router.refresh()
-  }
-
   if (rows.length === 0 && deleted.length === 0) {
     return (
       <EmptyPeriod backlogElsewhere={backlogElsewhere} className={className} />
@@ -1007,8 +1017,10 @@ export function TransactionsTable({
   // The Deleted view applies the account and merchant filters and shows newest-first.
   const needle = query.trim().toLowerCase()
   const deletedShown = deleted
-    .filter((r) => accountFilter === null || r.accountId === accountFilter)
-    .filter((r) => needle === "" || r.merchant.toLowerCase().includes(needle))
+    .filter((r) =>
+      (accountFilter === null || r.accountId === accountFilter) &&
+      (needle === "" || r.merchant.toLowerCase().includes(needle))
+    )
     .toSorted((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id))
   const shown = showingDeleted ? deletedShown : visible
   const details = rows.find((row) => row.id === detailsId) ?? deleted.find((row) => row.id === detailsId)
