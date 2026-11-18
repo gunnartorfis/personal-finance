@@ -1,4 +1,5 @@
 import type { HouseholdRepo } from "@/lib/db/household-repo";
+import { detectAndLinkTransfers } from "@/lib/transactions/link-transfers";
 import type { transactions } from "@/lib/db/schema";
 
 import { bankAccountFingerprint } from "./account-identity";
@@ -113,6 +114,7 @@ export async function syncActiveConnections(params: {
       await repo.bankConnections.update(connection.id, { status: "error" }).catch(() => {});
     }
   }
+  if (connections.length > failed) await detectAndLinkTransfers(repo, { bankOnly: true });
   if (inserted > 0) await classify();
   return { connections: connections.length, inserted, failed };
 }

@@ -66,3 +66,53 @@ export function detectTransferPairs(
 
   return pairs;
 }
+
+
+type BankTransferCandidate = TransferCandidate & {
+  merchant: string;
+  bankReference: string | null;
+};
+
+function normalizeBankLabel(value: string | null): string {
+  return value?.normalize("NFC").trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+}
+
+function corroboratesTransfer(debit: BankTransferCandidate, credit: BankTransferCandidate): boolean {
+  const reference = normalizeBankLabel(debit.bankReference);
+  if (/\d/.test(reference) && reference.length >= 8 && reference === normalizeBankLabel(credit.bankReference)) {
+    return true;
+  }
+  // Older imports have no bank reference. Require a full shared counterparty label,
+  // not a blank, one-word bank description, or legacy transaction identifier.
+  const name = normalizeBankLabel(debit.merchant);
+  return /^\p{L}{2,}(?:[ -]\p{L}{2,})+$/u.test(name) && name === normalizeBankLabel(credit.merchant);
+}
+
+/**
+ * Bank history can include legitimate income and debits of equal value. Require exactly
+ * one opposite leg in either direction, same booking day, plus a corroborating bank label.
+ */
+export function detectBankTransferPairs(
+  candidates: ReadonlyArray<BankTransferCandidate>,
+): TransferPair[] {
+  const byDateAndAmount = new Map<string, BankTransferCandidate[]>();
+  for (const row of candidates) {
+    const key = `${row.date}:${row.amount}`;
+    const group = byDateAndAmount.get(key);
+    if (group) group.push(row);
+    else byDateAndAmount.set(key, [row]);
+  }
+
+  const pairs: TransferPair[] = [];
+  for (const debit of candidates) {
+    if (debit.amount >= 0) continue;
+    const credits = byDateAndAmount.get(`${debit.date}:${-debit.amount}`);
+    const debits = byDateAndAmount.get(`${debit.date}:${debit.amount}`);
+    const credit = credits?.[0];
+    if (debits?.length !== 1 || credits?.length !== 1 || !credit) continue;
+    if (credit.accountId !== debit.accountId && corroboratesTransfer(debit, credit)) {
+      pairs.push({ fromId: debit.id, toId: credit.id });
+    }
+  }
+  return pairs;
+}
