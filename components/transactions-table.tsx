@@ -867,6 +867,53 @@ function useTransactionRows(initial: TransactionRow[], initialDeleted: Transacti
   return { ...currentLists(local), justDeleted, restoreError, patchRow, handleDeleted, removeMovedRow, restore }
 }
 
+function useTransactionCategories(
+  categories: CategoryOption[],
+  initialCategoryId: string | undefined,
+  rows: TransactionRow[]
+) {
+  const t = useTranslations("transactions")
+  const categoryLabelOf = useCategoryLabel()
+  // Category leaves keyed by id, so each row's effective Category (override ?? classified) resolves
+  // to a localized label in one lookup; rebuilt only when the Household's categories change.
+  const categoryParts = useMemo(
+    () => new Map(categories.map((c) => [c.id, c])),
+    [categories]
+  )
+  const resolveCategory = (row: TransactionRow): string | null => {
+    const id = effectiveCategoryId(row)
+    if (id === null) return null
+    const parts = categoryParts.get(id)
+    return parts ? categoryLabelOf(parts) : null
+  }
+  // Seed the Category filter from the URL only when meaningful here: the `none` (Uncategorized)
+  // sentinel, or a leaf the Household actually has. A stale/unknown id falls back to no filter.
+  const seededCategoryFilter =
+    initialCategoryId && (initialCategoryId === "none" || categoryParts.has(initialCategoryId))
+      ? initialCategoryId
+      : null
+  // react-doctor-disable-next-line react-doctor/no-derived-useState -- one-time seed from the URL param (like `rows`); the chip's clear button owns it thereafter, so it must not re-derive from the prop
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(seededCategoryFilter)
+  // Options for the Category filter select: "All", then each Category present in this cycle's rows
+  // (plus the active filter even when it has no rows here — e.g. a dashboard deep-link), then
+  // "Uncategorized" when any row lacks a Category. Sorted by label; the select hides when there's
+  // nothing to filter (only "All").
+  const categoryOptions = useMemo(
+    () =>
+      buildCategoryOptions(
+        rows,
+        categoryFilter,
+        categoryParts,
+        categoryLabelOf,
+        t("filter.allCategories"),
+        t("uncategorized")
+      ),
+    [rows, categoryFilter, categoryParts, categoryLabelOf, t]
+  )
+
+  return { categoryFilter, setCategoryFilter, resolveCategory, categoryOptions }
+}
+
 /**
  * A statement period's transactions (Phase H) with a single inline "Type" control per row
  * (<RowTypeControl>): a color-keyed pill that opens a menu holding every per-row action (set type,
@@ -907,37 +954,18 @@ export function TransactionsTable({
 }) {
   const t = useTranslations("transactions")
   const locale = toLocale(useLocale()) ?? defaultLocale
-  const categoryLabelOf = useCategoryLabel()
-  // Category leaves keyed by id, so each row's effective Category (override ?? classified) resolves
-  // to a localized label in one lookup; rebuilt only when the Household's categories change.
-  const categoryParts = useMemo(
-    () => new Map(categories.map((c) => [c.id, c])),
-    [categories]
-  )
-  const resolveCategory = (row: TransactionRow): string | null => {
-    const id = effectiveCategoryId(row)
-    if (id === null) return null
-    const parts = categoryParts.get(id)
-    return parts ? categoryLabelOf(parts) : null
-  }
-  // Seed the Category filter from the URL only when meaningful here: the `none` (Uncategorized)
-  // sentinel, or a leaf the Household actually has. A stale/unknown id falls back to no filter.
-  const seededCategoryFilter =
-    initialCategoryId && (initialCategoryId === "none" || categoryParts.has(initialCategoryId))
-      ? initialCategoryId
-      : null
   const [query, setQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all")
   const [accountFilter, setAccountFilter] = useState<string | null>(null)
   const [detailsId, setDetailsId] = useState<string | null>(null)
   const [movedTo, setMovedTo] = useState<string | null>(null)
-  // react-doctor-disable-next-line react-doctor/no-derived-useState -- one-time seed from the URL param (like `rows`); the chip's clear button owns it thereafter, so it must not re-derive from the prop
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(seededCategoryFilter)
   const [sortKey, setSortKey] = useState<SortKey>("date")
   const [sortDir, setSortDir] = useState<SortDir>("desc")
   const router = useRouter()
   const { rows, deleted, justDeleted, restoreError, patchRow, handleDeleted, removeMovedRow, restore } =
     useTransactionRows(initial, initialDeleted)
+  const { categoryFilter, setCategoryFilter, resolveCategory, categoryOptions } =
+    useTransactionCategories(categories, initialCategoryId, rows)
   const refreshCycle = useCallback(() => {
     const url = new URL(window.location.href)
     // The default landing month can change as the review queue is updated. Keep this month selected.
@@ -974,23 +1002,6 @@ export function TransactionsTable({
     setCategoryFilter(null)
     setAccountFilter(null)
   }
-
-  // Options for the Category filter select: "All", then each Category present in this cycle's rows
-  // (plus the active filter even when it has no rows here — e.g. a dashboard deep-link), then
-  // "Uncategorized" when any row lacks a Category. Sorted by label; the select hides when there's
-  // nothing to filter (only "All").
-  const categoryOptions = useMemo(
-    () =>
-      buildCategoryOptions(
-        rows,
-        categoryFilter,
-        categoryParts,
-        categoryLabelOf,
-        t("filter.allCategories"),
-        t("uncategorized")
-      ),
-    [rows, categoryFilter, categoryParts, categoryLabelOf, t]
-  )
 
   const money = currencyFormatter(currency, locale)
   const fmtAmount = (amount: number) => money.format(amount)
