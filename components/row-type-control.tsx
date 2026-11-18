@@ -13,7 +13,7 @@ import {
 import { useTranslations } from "next-intl"
 import { useRef, useState, type ReactNode } from "react"
 
-import { InternalTransferRuleSheet } from "@/components/internal-transfer-rule-sheet"
+import { InternalTransferRuleSheet, useInternalTransferRulePreview } from "@/components/internal-transfer-rule-sheet"
 import type { TransactionRow } from "@/components/transactions-table"
 import { Button } from "@/components/ui/button"
 import {
@@ -211,7 +211,8 @@ export function RowTypeControl({
 }) {
   const t = useTranslations("rowType")
   const typeLabels = useExpenseTypeLabels()
-  const [editor, setEditor] = useState<"none" | "split" | "exclude" | "transfer-rule">("none")
+  const [editor, setEditor] = useState<"none" | "split" | "exclude">("none")
+  const transferRule = useInternalTransferRulePreview(row.id)
   const [busy, setBusy] = useState(false)
   const [errored, setErrored] = useState(false)
 
@@ -300,15 +301,16 @@ export function RowTypeControl({
     )
   }
 
-  if (editor === "transfer-rule") {
+  if (transferRule.state) {
     return (
       <InternalTransferRuleSheet
         transactionId={row.id}
+        state={transferRule.state}
         merchant={row.merchant}
         formatAmount={formatAmount}
-        onClose={() => setEditor("none")}
+        onClose={transferRule.close}
         onSaved={onRuleCreated}
-        onExclude={() => setEditor("exclude")}
+        onExclude={() => { transferRule.close(); setEditor("exclude") }}
       />
     )
   }
@@ -325,7 +327,7 @@ export function RowTypeControl({
           onIncomeChanged(marked)
         })}
         onExclude={() => setEditor("exclude")}
-        onRule={() => setEditor("transfer-rule")}
+        onRule={transferRule.open}
       />
     )
   }
@@ -449,7 +451,7 @@ export function RowTypeControl({
               {t("removeSplit")}
             </MenuItem>
           )}
-          <AccountTransferRuleMenuItem row={row} onSelect={() => setEditor("transfer-rule")} />
+          <AccountTransferRuleMenuItem row={row} onSelect={transferRule.open} />
           <ExcludeMenuItem onSelect={() => setEditor("exclude")} />
           {deleteItem}
         </MenuContent>
