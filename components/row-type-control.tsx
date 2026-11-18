@@ -75,6 +75,11 @@ function pillButton(className?: string) {
   )
 }
 
+function classificationStatusTitle(row: TransactionRow) {
+  if (!row.merchant.trim()) return "missingMerchantTitle"
+  return row.classificationStatus === "failed" ? "failedTitle" : "awaitingTitle"
+}
+
 /**
  * The single inline control that owns a transaction row's "Type" cell (Phase H redesign). It
  * collapses what used to be a row of competing links — the type dropdown, Reset, the "apply to all"
@@ -283,15 +288,7 @@ export function RowTypeControl({
         <MenuTrigger
           render={pillButton(unclassified ? "border-dashed" : undefined)}
           disabled={busy}
-          title={
-            unclassified
-              ? !row.merchant.trim()
-                ? t("missingMerchantTitle")
-                : row.classificationStatus === "failed"
-                  ? t("failedTitle")
-                  : t("awaitingTitle")
-              : undefined
-          }
+          title={unclassified ? t(classificationStatusTitle(row)) : undefined}
         >
           {unclassified ? (
             <Dot className="bg-muted-foreground/40" />
