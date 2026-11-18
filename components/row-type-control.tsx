@@ -11,7 +11,7 @@ import {
   Undo2,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { useRef, useState } from "react"
+import { useRef, useState, type ReactNode } from "react"
 
 import type { TransactionRow } from "@/components/transactions-table"
 import { Button } from "@/components/ui/button"
@@ -80,6 +80,32 @@ function classificationStatusTitle(row: TransactionRow) {
   return row.classificationStatus === "failed" ? "failedTitle" : "awaitingTitle"
 }
 
+function TransferTypeControl({ deleteItem }: { deleteItem?: ReactNode }) {
+  const t = useTranslations("transactions.details")
+  if (!deleteItem) {
+    return <span className="text-xs font-medium text-muted-foreground">{t("transfer")}</span>
+  }
+  return (
+    <Menu>
+      <MenuTrigger render={pillButton("text-muted-foreground")}>
+        {t("transfer")}
+        <ChevronDown className="opacity-60" aria-hidden />
+      </MenuTrigger>
+      <MenuContent>{deleteItem}</MenuContent>
+    </Menu>
+  )
+}
+
+function ExcludeMenuItem({ onSelect }: { onSelect: () => void }) {
+  const t = useTranslations("rowType")
+  return (
+    <MenuItem onClick={onSelect} className="text-destructive data-[highlighted]:text-destructive">
+      <Ban />
+      {t("exclude")}
+    </MenuItem>
+  )
+}
+
 /**
  * The single inline control that owns a transaction row's "Type" cell (Phase H redesign). It
  * collapses what used to be a row of competing links — the type dropdown, Reset, the "apply to all"
@@ -87,12 +113,12 @@ function classificationStatusTitle(row: TransactionRow) {
  * action for that row. The two actions that need input (Split, Exclude) swap an inline editor into
  * the cell rather than crowding the collapsed state.
  *
- * Three shapes, matching the table's display logic:
+ * Four shapes, matching the table's display logic:
  * - **Debit**: the pill shows the effective type (`overrideType ?? classifiedType`), or "Needs
  *   review" while unclassified; the menu picks a type, resets to the AI suggestion, offers a
  *   whole-merchant rule (ADR-0012), splits (ADR-0014), or excludes (ADR-0011).
- * - **Credit**: never an expense — the pill reads "Income"/"Credit" and the menu's sole lever is the
- *   income checkbox (ADR-0009).
+ * - **Credit**: can be counted as income (ADR-0009) or explicitly excluded.
+ * - **Transfer**: both linked legs are outside spending and income.
  * - **Excluded**: a muted pill with any reason, and a menu that only re-includes it.
  *
  * Each action persists via the shared client helpers and, on success, calls the matching `onChanged`
@@ -201,7 +227,24 @@ export function RowTypeControl({
     )
   }
 
-  // --- Credit: never an expense; the income checkbox is the only lever (ADR-0009). ---
+  if (row.transferGroupId) {
+    return <TransferTypeControl deleteItem={onDeleted && row.source !== "bank_sync" ? deleteItem : undefined} />
+  }
+
+  if (editor === "exclude") {
+    return (
+      <ExcludeEditor
+        transactionId={row.id}
+        onDone={(note) => {
+          onExcludeChanged({ excluded: true, note })
+          setEditor("none")
+        }}
+        onCancel={() => setEditor("none")}
+      />
+    )
+  }
+
+  // --- Credit: only a marked credit contributes income (ADR-0009). ---
   if (row.amount > 0) {
     return (
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -234,6 +277,7 @@ export function RowTypeControl({
             >
               {t("countAsIncome")}
             </MenuCheckboxItem>
+            <ExcludeMenuItem onSelect={() => setEditor("exclude")} />
             {deleteItem}
           </MenuContent>
         </Menu>
@@ -269,18 +313,6 @@ export function RowTypeControl({
     )
   }
 
-  if (editor === "exclude") {
-    return (
-      <ExcludeEditor
-        transactionId={row.id}
-        onDone={(note) => {
-          onExcludeChanged({ excluded: true, note })
-          setEditor("none")
-        }}
-        onCancel={() => setEditor("none")}
-      />
-    )
-  }
 
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -373,13 +405,7 @@ export function RowTypeControl({
               {t("removeSplit")}
             </MenuItem>
           )}
-          <MenuItem
-            onClick={() => setEditor("exclude")}
-            className="text-destructive data-[highlighted]:text-destructive"
-          >
-            <Ban />
-            {t("exclude")}
-          </MenuItem>
+          <ExcludeMenuItem onSelect={() => setEditor("exclude")} />
           {deleteItem}
         </MenuContent>
       </Menu>
@@ -629,7 +655,7 @@ function SplitEditor({
 }
 
 /**
- * Inline editor to exclude a debit from every calculation (ADR-0011) with an optional reason.
+ * Inline editor to exclude a transaction from every calculation (ADR-0011) with an optional reason.
  * Persists via {@link excludeTransaction} and reports the saved note.
  */
 function ExcludeEditor({

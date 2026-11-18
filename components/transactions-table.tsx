@@ -28,7 +28,7 @@ import { useExpenseTypeLabels } from "@/lib/expense-type-labels"
 import type { ExpenseType } from "@/shared/types"
 
 /** A row's effective bucket for filtering: excluded, an expense type, an unreviewed debit, or a credit. */
-type TypeBucket = ExpenseType | "unclassified" | "credit" | "excluded"
+type TypeBucket = ExpenseType | "unclassified" | "credit" | "excluded" | "transfer"
 /** The type dropdown's value: any bucket, "all" for no type filter, or "deleted" for the soft-deleted view. */
 type TypeFilter = TypeBucket | "all" | "deleted"
 
@@ -45,6 +45,7 @@ const TYPE_FILTER_VALUES: TypeFilter[] = [
   "",
   "unclassified",
   "credit",
+  "transfer",
   "excluded",
 ]
 
@@ -57,6 +58,7 @@ function effectiveCategoryId(row: TransactionRow): string | null {
 function bucketOf(row: TransactionRow): TypeBucket {
   // Excluded rows count for nothing, so they leave every type-specific bucket (ADR-0011).
   if (row.excluded) return "excluded"
+  if (row.transferGroupId) return "transfer"
   if (row.amount > 0) return "credit"
   const unclassified =
     row.classificationStatus !== "classified" && row.overrideType === null
@@ -268,6 +270,7 @@ function TableToolbar({
     "": t("filter.splitNone"),
     unclassified: t("filter.unclassified"),
     credit: t("filter.credits"),
+    transfer: t("filter.transfers"),
     excluded: t("filter.excluded"),
     deleted: t("filter.deleted", { count: deletedCount }),
   }
@@ -534,13 +537,15 @@ function TransactionDetails({
   const locale = toLocale(useLocale()) ?? defaultLocale
   const bucket = bucketOf(row)
   const type =
-    bucket === "credit"
-      ? t(row.incomeMarked ? "details.income" : "details.credit")
-      : bucket === "excluded"
-        ? t("filter.excluded")
-        : bucket === "unclassified"
-          ? t("filter.unclassified")
-          : typeLabels[bucket]
+    bucket === "transfer"
+      ? t("details.transfer")
+      : bucket === "credit"
+        ? t(row.incomeMarked ? "details.income" : "details.credit")
+        : bucket === "excluded"
+          ? t("filter.excluded")
+          : bucket === "unclassified"
+            ? t("filter.unclassified")
+            : typeLabels[bucket]
   const source = {
     bank_sync: t("details.bankSync"),
     csv: t("details.csv"),
@@ -554,7 +559,7 @@ function TransactionDetails({
     },
     { label: t("details.account"), value: accountName },
     { label: t("details.source"), value: row.source && source[row.source] },
-    { label: t("colType"), value: row.transferGroupId ? t("details.transfer") : type },
+    { label: t("colType"), value: type },
     { label: t("colCategory"), value: categoryLabel ?? t("uncategorized") },
     { label: t("details.ownShare"), value: row.ownShareAmount !== null ? money.format(row.ownShareAmount) : null },
     { label: t("details.reference"), value: row.bankReference },
@@ -626,6 +631,7 @@ function TransactionRowView({
 }) {
   const t = useTranslations("transactions")
   const isCredit = row.amount > 0
+  const outsideTotals = row.excluded || Boolean(row.transferGroupId)
   return (
     <tr className="cursor-pointer border-b border-border hover:bg-muted/40 last:border-0" onClick={openTransactionFromRow}>
       <td className="py-3 pr-4 text-muted-foreground tabular-nums">
@@ -635,7 +641,7 @@ function TransactionRowView({
         className={cn(
           "py-3 pr-4 font-medium",
           // Excluded rows read as struck-through: they count for nothing (ADR-0011).
-          row.excluded && "text-muted-foreground line-through"
+          outsideTotals && "text-muted-foreground line-through"
         )}
       >
         <TransactionDetailsTrigger row={row} onOpen={onOpenDetails} />
@@ -644,15 +650,15 @@ function TransactionRowView({
         className={cn(
           "py-3 pr-4 text-right tabular-nums",
           isCredit &&
-            !row.excluded &&
+            !outsideTotals &&
             "text-emerald-600 dark:text-emerald-500",
-          row.excluded && "text-muted-foreground line-through"
+          outsideTotals && "text-muted-foreground line-through"
         )}
       >
         {fmtAmount(row.amount)}
         {/* A Shared expense shows the full charge above and the counted Own share
             beneath, so the face value is never hidden (ADR-0014). */}
-        {row.ownShareAmount !== null && !row.excluded && (
+        {row.ownShareAmount !== null && !outsideTotals && (
           <div className="text-xs font-normal text-muted-foreground">
             {t("yourShare", {
               amount: fmtAmount(row.ownShareAmount),
@@ -663,7 +669,7 @@ function TransactionRowView({
       <td
         className={cn(
           "py-3 pr-4 text-muted-foreground",
-          row.excluded && "line-through"
+          outsideTotals && "line-through"
         )}
       >
         {/* Effective Category (override wins over classified); an em dash reads as Uncategorized. */}

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { sonnetClassifier } from "@/lib/classification/sonnet-classifier";
 import { drainPending } from "@/lib/classification/worker";
 import { cycleKeyRange, isValidCycleKey } from "@/lib/dashboard/cycle";
+import { detectAndLinkTransfers } from "@/lib/transactions/link-transfers";
 import { requireHousehold } from "@/lib/household/current";
 
 /** Pending transactions classified per request; the trigger is re-invoked until the queue drains. */
@@ -35,10 +36,12 @@ export async function POST(request: Request) {
   }
   try {
     const { plan, repo } = await requireHousehold();
+    const range = cycle ? cycleKeyRange(cycle) : undefined;
+    if (range && !after) await detectAndLinkTransfers(repo, { bankOnly: true, range });
     const result = await drainPending(repo, sonnetClassifier(), {
       plan,
       limit: BATCH,
-      rerun: cycle ? { range: cycleKeyRange(cycle), after } : undefined,
+      rerun: range ? { range, after } : undefined,
     });
     return NextResponse.json(result);
   } catch (error) {

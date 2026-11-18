@@ -130,7 +130,7 @@ describe("TransactionsTable", () => {
     ).toBeInTheDocument()
   })
 
-  it("gives a credit an income checkbox instead of expense types, and no Exclude (ADR-0009)", async () => {
+  it("gives a credit an income checkbox and an explicit exclusion action", async () => {
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({}) }))
     vi.stubGlobal("fetch", fetchMock)
     const user = userEvent.setup()
@@ -146,10 +146,9 @@ describe("TransactionsTable", () => {
     const toggle = await screen.findByRole("menuitemcheckbox", {
       name: /count as income/i,
     })
-    // A credit is already out of every calculation; Exclude would be a no-op, so it's not offered.
     expect(
-      screen.queryByRole("menuitem", { name: /exclude/i })
-    ).not.toBeInTheDocument()
+      screen.getByRole("menuitem", { name: /exclude/i })
+    ).toBeInTheDocument()
 
     await user.click(toggle)
     expect(fetchMock).toHaveBeenCalledWith(
@@ -166,6 +165,19 @@ describe("TransactionsTable", () => {
     expect(
       await screen.findByRole("menuitem", { name: /exclude/i })
     ).toBeInTheDocument()
+  })
+
+  it("labels linked bank credits as transfers and keeps them out of the Credits filter", async () => {
+    const user = userEvent.setup()
+    const transfer: TransactionRow = { ...ROWS[2], source: "bank_sync", transferGroupId: "pair" }
+    render(<TransactionsTable rows={[transfer, ROWS[0]]} currency="ISK" />)
+
+    expect(screen.getByText("Own-account transfer")).toBeInTheDocument()
+    const types = screen.getByRole("combobox", { name: /filter by type/i })
+    await user.selectOptions(types, "credit")
+    expect(screen.queryByText("Own-account transfer")).not.toBeInTheDocument()
+    await user.selectOptions(types, "transfer")
+    expect(screen.getByText("Own-account transfer")).toBeInTheDocument()
   })
 
   it("keeps the Include-only affordance on an already-excluded credit (ADR-0011)", async () => {

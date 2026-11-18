@@ -80,6 +80,15 @@ const classificationCandidate = and(
 
 /** Build a data-access surface scoped to a single Household. */
 export function householdRepo(db: Db, householdId: string) {
+  const unreviewedBankTransferLeg = and(
+    eq(transactions.source, "bank_sync"),
+    eq(transactions.incomeMarked, false),
+    isNull(transactions.ownShareAmount),
+    notExists(db.select({ id: overrides.id }).from(overrides).where(
+      and(eq(overrides.householdId, householdId), eq(overrides.transactionId, transactions.id))
+    ))
+  )
+
   // Full-set swaps for the Savings config lists (delete + insert). Callers wrap these in a
   // transaction — per list for a single-list replace, or one shared transaction for
   // `savings.replaceConfig` so the two lists can never commit half-updated.
@@ -722,18 +731,18 @@ export function householdRepo(db: Db, householdId: string) {
           .from(transactions)
           .where(eq(transactions.householdId, householdId)),
       /**
-       * Candidate rows for inter-account transfer detection (#97): the minimal `{id, accountId,
-       * amount, date}` for every not-yet-linked, non-excluded Transaction. Filtered in SQL (uses the
-       * partial `transfer_group_id` index) so an import doesn't ship a household's whole history just
-       * to pair a couple of legs. Feeds the pure `detectTransferPairs`.
+       * Unlinked, non-excluded transfer candidates. Bank-only matching uses the saved bank labels
+       * and skips reviewed rows. The optional range bounds a monthly rerun.
        */
-      transferCandidates: () =>
+      transferCandidates: (bankOnly = false, range?: { from: string; to: string }) =>
         db
           .select({
             id: transactions.id,
             accountId: transactions.accountId,
             amount: transactions.amount,
             date: transactions.date,
+            merchant: transactions.merchant,
+            bankReference: transactions.bankReference,
           })
           .from(transactions)
           .where(
@@ -741,6 +750,8 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.householdId, householdId),
               isNull(transactions.transferGroupId),
               eq(transactions.excluded, false),
+              bankOnly ? unreviewedBankTransferLeg : undefined,
+              range ? and(gte(transactions.date, range.from), lt(transactions.date, range.to)) : undefined,
               eq(transactions.archived, false), isNull(transactions.deletedAt)
             )
           ),
@@ -1871,7 +1882,7 @@ export function householdRepo(db: Db, householdId: string) {
        * half-linked or overwritten leg can result. Detection ({@link detectTransferPairs}) supplies
        * the pairing.
        */
-      markTransferPair: (fromId: string, toId: string) => {
+      markTransferPair: (fromId: string, toId: string, bankOnly = false) => {
         const groupId = crypto.randomUUID();
         return db
           .transaction(async (tx) => {
@@ -1886,6 +1897,8 @@ export function householdRepo(db: Db, householdId: string) {
                   // so an already-linked group id is never overwritten even if a concurrent pairing
                   // commits between statements (READ COMMITTED would let a separate SELECT go stale).
                   isNull(transactions.transferGroupId),
+                  eq(transactions.excluded, false),
+                  bankOnly ? unreviewedBankTransferLeg : undefined,
                   // Never link an Archived row (ADR-0024): if a concurrent undo archived a leg after
                   // detection selected it, this drops the match to <2 rows and the pairing rolls back,
                   // so an undone leg can't be relinked and re-exclude its surviving partner.

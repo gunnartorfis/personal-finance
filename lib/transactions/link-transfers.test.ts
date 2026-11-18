@@ -64,6 +64,36 @@ describe("detectAndLinkTransfers", () => {
     expect(await detectAndLinkTransfers(repo)).toEqual({ linked: 0 });
   });
 
+  it("links corroborated bank transfers in the selected month and preserves other bank entries", async () => {
+    const repo = await freshHousehold();
+    const [from] = await repo.accounts.create({ name: "Current" });
+    const [to] = await repo.accounts.create({ name: "Savings" });
+    const bankRow = (accountId: string, date: string, amount: number, merchant: string, externalId: string) => ({
+      accountId, date, amount, merchant, externalId, source: "bank_sync" as const, rawCategory: "",
+    });
+    const [out, incoming, expense, credit, markedOut, markedIncome, earlier, earlierCredit] =
+      await repo.transactions.createSyncedMany([
+        bankRow(from.id, "2026-03-10", -5000, "Bank Customer", "1"),
+        bankRow(to.id, "2026-03-10", 5000, "bank  customer", "2"),
+        bankRow(from.id, "2026-03-10", -2000, "Shop", "3"),
+        bankRow(to.id, "2026-03-10", 2000, "Bank Customer", "4"),
+        bankRow(from.id, "2026-03-10", -7000, "Bank Customer", "5"),
+        { ...bankRow(to.id, "2026-03-10", 7000, "Bank Customer", "6"), incomeMarked: true },
+        bankRow(from.id, "2026-02-10", -5000, "Bank Customer", "7"),
+        bankRow(to.id, "2026-02-10", 5000, "Bank Customer", "8"),
+      ]);
+    const range = { from: "2026-03-01", to: "2026-04-01" };
+    expect(await detectAndLinkTransfers(repo, { bankOnly: true, range })).toEqual({ linked: 1 });
+    const group = await transferGroupOf(out.id);
+    expect(group).toBeTruthy();
+    expect(await transferGroupOf(incoming.id)).toBe(group);
+    for (const row of [expense, credit, markedOut, markedIncome, earlier, earlierCredit]) {
+      expect(await transferGroupOf(row.id)).toBeNull();
+    }
+    expect((await repo.transactions.summaryRows(range)).map(({ amount }) => amount).sort((a, b) => a - b))
+      .toEqual([-7000, -2000, 2000, 7000]);
+  });
+
   it("skips excluded rows so a manually-excluded leg is never auto-linked", async () => {
     const repo = await freshHousehold();
     const { out, into } = await seed(repo);

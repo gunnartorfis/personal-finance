@@ -959,6 +959,7 @@
       "splitNone": "Split / none",
       "unclassified": "Unclassified",
       "credits": "Credits",
+      "transfers": "Transfers",
       "excluded": "Excluded",
       "deleted": "Deleted ({count})",
       "allCategories": "All categories"
