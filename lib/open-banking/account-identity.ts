@@ -8,7 +8,7 @@ export function bankAccountFingerprint(iban: string | undefined): string | null 
 }
 
 /** Require a complete, valid IBAN before using it for a persistent counterparty rule. */
-export function counterpartyAccountFingerprint(iban: string | undefined): string | null {
+function counterpartyAccountFingerprint(iban: string | undefined): string | null {
   const normalized = iban?.replace(/\s/g, "").toUpperCase();
   if (!normalized || !/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(normalized)) return null;
   if (normalized.startsWith("IS") && !/^IS\d{24}$/.test(normalized)) return null;

@@ -1,7 +1,7 @@
 "use client"
 
 import { useLocale, useTranslations } from "next-intl"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -24,8 +24,30 @@ type Preview =
       historical: { count: number; sample: { id: string; date: string; amount: number }[] }
     }
 
+type PreviewState = { preview: Preview | "loading" | "loadError" }
+
+export function useInternalTransferRulePreview(transactionId: string) {
+  const [state, setState] = useState<PreviewState | null>(null)
+
+  async function open() {
+    const request: PreviewState = { preview: "loading" }
+    setState(request)
+    try {
+      const res = await fetch(`/api/transactions/${transactionId}/internal-transfer-rule`, { method: "POST" })
+      if (!res.ok) throw new Error("preview failed")
+      const preview: Preview = await res.json()
+      setState((current) => current === request ? { preview } : current)
+    } catch {
+      setState((current) => current === request ? { preview: "loadError" } : current)
+    }
+  }
+
+  return { state, open, close: () => setState(null) }
+}
+
 export function InternalTransferRuleSheet({
   transactionId,
+  state,
   merchant,
   formatAmount,
   onClose,
@@ -33,6 +55,7 @@ export function InternalTransferRuleSheet({
   onExclude,
 }: {
   transactionId: string
+  state: PreviewState
   merchant: string
   formatAmount: (amount: number) => string
   onClose: () => void
@@ -41,31 +64,15 @@ export function InternalTransferRuleSheet({
 }) {
   const t = useTranslations("internalTransferRule")
   const locale = toLocale(useLocale()) ?? defaultLocale
-  const [preview, setPreview] = useState<Preview | null>(null)
+  const preview = typeof state.preview === "object" ? state.preview : null
   const [includePast, setIncludePast] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<"loadError" | "saveError" | null>(null)
+  const [saveError, setSaveError] = useState(false)
   const endpoint = `/api/transactions/${transactionId}/internal-transfer-rule`
-
-  useEffect(() => {
-    const controller = new AbortController()
-    async function load() {
-      try {
-        const res = await fetch(endpoint, { method: "POST", signal: controller.signal })
-        if (!res.ok) throw new Error("preview failed")
-        const result: Preview = await res.json()
-        if (!controller.signal.aborted) setPreview(result)
-      } catch {
-        if (!controller.signal.aborted) setError("loadError")
-      }
-    }
-    void load()
-    return () => controller.abort()
-  }, [endpoint])
 
   async function save(remove: boolean) {
     setSaving(true)
-    setError(null)
+    setSaveError(false)
     try {
       const res = await fetch(endpoint, remove
         ? { method: "DELETE" }
@@ -78,7 +85,7 @@ export function InternalTransferRuleSheet({
       onSaved()
       onClose()
     } catch {
-      setError("saveError")
+      setSaveError(true)
       setSaving(false)
     }
   }
@@ -94,8 +101,9 @@ export function InternalTransferRuleSheet({
           <SheetDescription>{t("description", { account: merchant || t("bankAccount") })}</SheetDescription>
         </SheetHeader>
         <div className="flex flex-col gap-3 px-6 text-sm">
-          {error && <p role="alert" className="text-destructive">{t(error)}</p>}
-          {!preview && !error && <p role="status">{t("loading")}</p>}
+          {state.preview === "loadError" && <p role="alert" className="text-destructive">{t("loadError")}</p>}
+          {saveError && <p role="alert" className="text-destructive">{t("saveError")}</p>}
+          {state.preview === "loading" && <p role="status">{t("loading")}</p>}
           {preview && !preview.available && <p>{t("unavailable")}</p>}
           {preview?.available && preview.active && <p>{t("active")}</p>}
           {history && history.count > 0 && (
