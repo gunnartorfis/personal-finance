@@ -80,7 +80,7 @@ const classificationCandidate = and(
 
 /** Build a data-access surface scoped to a single Household. */
 export function householdRepo(db: Db, householdId: string) {
-  const unreviewedBankTransferLeg = and(
+  const unreviewedBankTransferLeg = () => and(
     eq(transactions.source, "bank_sync"),
     eq(transactions.incomeMarked, false),
     isNull(transactions.ownShareAmount),
@@ -750,7 +750,7 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.householdId, householdId),
               isNull(transactions.transferGroupId),
               eq(transactions.excluded, false),
-              bankOnly ? unreviewedBankTransferLeg : undefined,
+              bankOnly ? unreviewedBankTransferLeg() : undefined,
               range ? and(gte(transactions.date, range.from), lt(transactions.date, range.to)) : undefined,
               eq(transactions.archived, false), isNull(transactions.deletedAt)
             )
@@ -1898,7 +1898,7 @@ export function householdRepo(db: Db, householdId: string) {
                   // commits between statements (READ COMMITTED would let a separate SELECT go stale).
                   isNull(transactions.transferGroupId),
                   eq(transactions.excluded, false),
-                  bankOnly ? unreviewedBankTransferLeg : undefined,
+                  bankOnly ? unreviewedBankTransferLeg() : undefined,
                   // Never link an Archived row (ADR-0024): if a concurrent undo archived a leg after
                   // detection selected it, this drops the match to <2 rows and the pairing rolls back,
                   // so an undone leg can't be relinked and re-exclude its surviving partner.
