@@ -33,10 +33,12 @@ export function TransactionReportingMonth({
   const suggested = reportingMonth || previous.length !== 7 || previous.startsWith("0000")
     ? current
     : previous
-  const [editing, setEditing] = useState(false)
-  const [year, setYear] = useState(suggested.slice(0, 4))
-  const [month, setMonth] = useState(suggested.slice(5))
-  const [status, setStatus] = useState<"idle" | "saving" | "error">("idle")
+  const [{ year, month }, setPeriod] = useState(() => ({
+    year: suggested.slice(0, 4),
+    month: suggested.slice(5),
+  }))
+  const [status, setStatus] = useState<"closed" | "editing" | "saving" | "error">("closed")
+  const editing = status !== "closed"
   const target = `${year}-${month}`
 
   async function save(destination: string | null) {
@@ -68,7 +70,7 @@ export function TransactionReportingMonth({
           <p className="font-medium">{formatCycleMonth(current, locale)}</p>
         </div>
         {editable && !editing && (
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+          <Button size="sm" variant="outline" onClick={() => setStatus("editing")}>
             {t("change")}
           </Button>
         )}
@@ -82,7 +84,7 @@ export function TransactionReportingMonth({
                 id={`${fieldId}-month`}
                 className="h-8 rounded-lg border border-input bg-background px-2"
                 value={month}
-                onChange={(event) => setMonth(event.target.value)}
+                onChange={(event) => setPeriod({ year, month: event.target.value })}
               >
                 {MONTHS.map((value) => (
                   <option key={value} value={value}>
@@ -101,7 +103,7 @@ export function TransactionReportingMonth({
                 maxLength={4}
                 required
                 value={year}
-                onChange={(event) => setYear(event.target.value)}
+                onChange={(event) => setPeriod({ year: event.target.value, month })}
               />
             </div>
           </fieldset>

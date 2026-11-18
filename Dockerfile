@@ -9,7 +9,7 @@ RUN pnpm install --frozen-lockfile
 FROM dependencies AS builder
 COPY . .
 # All production checks run here, without database/provider credentials or migrations.
-RUN pnpm lint && pnpm typecheck && pnpm test:run && pnpm test:hosting && pnpm db:check && node scripts/hosting/check-migration-drift.mjs && pnpm dlx react-doctor@0.5.8 --yes --scope full --blocking warning --no-telemetry --verbose
+RUN pnpm lint && pnpm typecheck && pnpm test:run && pnpm test:hosting && pnpm db:check && node scripts/hosting/check-migration-drift.mjs && pnpm dlx react-doctor@0.5.8 --yes --scope full --blocking warning --no-telemetry --json
 # Public Clerk identity is compiled into browser bundles. Runtime secrets are never build arguments.
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
