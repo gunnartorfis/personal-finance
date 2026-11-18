@@ -534,6 +534,7 @@ export const transactions = pgTable(
     merchant: text("merchant").notNull(),
     rawCategory: text("raw_category").notNull(),
     bankReference: text("bank_reference"),
+    counterpartyFingerprint: text("counterparty_fingerprint"),
     /** CSV row index for traceability; null for synced rows (which use externalId instead). */
     sourceRow: integer("source_row"),
     classificationStatus: classificationStatusEnum("classification_status")
@@ -699,12 +700,28 @@ export const transactions = pgTable(
       .where(sql`${t.externalId} IS NOT NULL`),
     // Target for the composite same-household FK from overrides.
     unique("transactions_household_id_id_key").on(t.householdId, t.id),
+    index("transactions_counterparty_fingerprint_idx")
+      .on(t.householdId, t.counterpartyFingerprint)
+      .where(sql`${t.counterpartyFingerprint} IS NOT NULL`),
     // Transfer legs are a tiny minority; a partial index lets aggregations that filter
     // `transfer_group_id IS NULL` and group-id lookups (backfill/unlink) skip a full scan (#97).
     index("transactions_transfer_group_id_idx")
       .on(t.transferGroupId)
       .where(sql`${t.transferGroupId} IS NOT NULL`),
   ],
+);
+
+/** An account confirmed by a member as part of the household's shared finances. */
+export const bankTransferRules = pgTable(
+  "bank_transfer_rules",
+  {
+    householdId: uuid("household_id").notNull().references(() => households.id, { onDelete: "cascade" }),
+    counterpartyFingerprint: text("counterparty_fingerprint").notNull(),
+    anchorTransactionId: uuid("anchor_transaction_id").notNull(),
+    includePast: boolean("include_past").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("bank_transfer_rules_household_counterparty_key").on(t.householdId, t.counterpartyFingerprint)],
 );
 
 /** A Member's manual Expense-type change to a Transaction; overrides the classified type. */

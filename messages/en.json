@@ -756,6 +756,26 @@
     "fines-interest": "Fines & interest",
     "cash-withdrawal": "Cash withdrawals"
   },
+  "internalTransferRule": {
+    "label": "Internal transfer",
+    "excludeOne": "Exclude this transaction",
+    "create": "Treat transfers with this account as internal",
+    "manage": "Manage internal transfer rule",
+    "title": "Shared finances",
+    "description": "Treat transfers with {account} as internal from now on, including this transaction. Use Count as income for any individual deposit you want to count.",
+    "bankAccount": "this bank account",
+    "loading": "Checking bank details…",
+    "unavailable": "The bank has not provided a verified account number for this transaction. You can exclude it individually from its transaction menu.",
+    "active": "An internal transfer rule is active for this account.",
+    "includePast": "Also apply to {count, plural, one {# past match} other {# past matches}}",
+    "more": "{count, plural, one {# more match} other {# more matches}}",
+    "confirm": "Confirm account",
+    "applyPast": "Apply to past matches",
+    "remove": "Remove rule",
+    "close": "Close",
+    "loadError": "The bank details could not be loaded. Close this panel and try again.",
+    "saveError": "The rule could not be saved. Try again."
+  },
   "rowType": {
     "missingMerchantTitle": "No merchant details — review manually",
     "saveError": "Couldn't save",

@@ -34,6 +34,7 @@ import {
   accounts,
   activityLog,
   bankConnections,
+  bankTransferRules,
   categories,
   expenseTypeBudgets,
   columnMappings,
@@ -72,9 +73,21 @@ type Db = NodePgDatabase<typeof schema>
 type DbOrTx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0]
 
 const hasMerchant = sql`${transactions.merchant} ~ '[^[:space:]]'`
+// Evaluate the rule at read time so removal immediately restores the original classifications.
+const sharedTransferRuleApplies = sql<boolean>`exists (
+  select 1 from ${bankTransferRules}
+  where ${bankTransferRules.householdId} = ${transactions.householdId}
+    and ${bankTransferRules.counterpartyFingerprint} = ${transactions.counterpartyFingerprint}
+    and (${bankTransferRules.includePast}
+      or ${bankTransferRules.anchorTransactionId} = ${transactions.id}
+      or (${bankTransferRules.createdAt} <= ${transactions.createdAt}
+        and ${transactions.date} >= (${bankTransferRules.createdAt} at time zone 'UTC')::date))
+)`
+const notTransfer = and(isNull(transactions.transferGroupId), sql`not (${sharedTransferRuleApplies} and not ${transactions.incomeMarked})`)
+
 const classificationCandidate = and(
   eq(transactions.excluded, false),
-  isNull(transactions.transferGroupId),
+  notTransfer,
   or(gte(transactions.amount, 0), hasMerchant)
 )
 
@@ -188,7 +201,7 @@ export function householdRepo(db: Db, householdId: string) {
           lt(transactions.amount, 0),
           hasMerchant,
           eq(transactions.excluded, false),
-          isNull(transactions.transferGroupId),
+          notTransfer,
           isNull(overrides.id)
         )
       )
@@ -724,6 +737,47 @@ export function householdRepo(db: Db, householdId: string) {
           .orderBy(desc(uploads.createdAt))
       },
     },
+    bankTransferRules: {
+      list: () => db.select().from(bankTransferRules).where(eq(bankTransferRules.householdId, householdId)),
+      find: async (fingerprint: string) => {
+        const [rule] = await db.select().from(bankTransferRules).where(and(
+          eq(bankTransferRules.householdId, householdId),
+          eq(bankTransferRules.counterpartyFingerprint, fingerprint)
+        ))
+        return rule
+      },
+      preview: async (fingerprint: string, transactionId?: string) => {
+        const match = and(
+          eq(transactions.householdId, householdId),
+          eq(transactions.counterpartyFingerprint, fingerprint),
+          transactionId ? ne(transactions.id, transactionId) : undefined,
+          eq(transactions.incomeMarked, false),
+          eq(transactions.excluded, false),
+          eq(transactions.archived, false),
+          isNull(transactions.deletedAt),
+          notTransfer
+        )
+        const [[total], sample] = await Promise.all([
+          db.select({ value: count() }).from(transactions).where(match),
+          db.select({ id: transactions.id, date: transactions.date, amount: transactions.amount })
+            .from(transactions).where(match).orderBy(desc(transactions.date), asc(transactions.id)).limit(5),
+        ])
+        return { count: total?.value ?? 0, sample }
+      },
+      save: (fingerprint: string, transactionId: string, includePast: boolean) => {
+        const insert = db.insert(bankTransferRules).values({
+          householdId, counterpartyFingerprint: fingerprint, anchorTransactionId: transactionId, includePast,
+        })
+        const target = [bankTransferRules.householdId, bankTransferRules.counterpartyFingerprint]
+        return includePast
+          ? insert.onConflictDoUpdate({ target, set: { includePast: true } })
+          : insert.onConflictDoNothing({ target })
+      },
+      remove: (fingerprint: string) => db.delete(bankTransferRules).where(and(
+        eq(bankTransferRules.householdId, householdId),
+        eq(bankTransferRules.counterpartyFingerprint, fingerprint)
+      )),
+    },
     transactions: {
       list: () =>
         db
@@ -748,7 +802,7 @@ export function householdRepo(db: Db, householdId: string) {
           .where(
             and(
               eq(transactions.householdId, householdId),
-              isNull(transactions.transferGroupId),
+              notTransfer,
               eq(transactions.excluded, false),
               bankOnly ? unreviewedBankTransferLeg() : undefined,
               range ? and(gte(transactions.date, range.from), lt(transactions.date, range.to)) : undefined,
@@ -859,6 +913,23 @@ export function householdRepo(db: Db, householdId: string) {
                 where: sql`${transactions.externalId} is not null`,
               })
               .returning(),
+      /** Enrich older imports without modifying their amounts, classifications or overrides. */
+      fillCounterpartyFingerprints: async (accountId: string, entries: ReadonlyMap<string, string>) => {
+        const identified = [...entries]
+        for (let offset = 0; offset < identified.length; offset += 500) {
+          const batch = identified.slice(offset, offset + 500)
+          await db.update(transactions).set({
+            counterpartyFingerprint: sql`case ${transactions.externalId}
+              ${sql.join(batch.map(([externalId, fingerprint]) => sql`when ${externalId} then ${fingerprint}`), sql` `)}
+              end`,
+          }).where(and(
+            eq(transactions.householdId, householdId),
+            eq(transactions.accountId, accountId),
+            isNull(transactions.counterpartyFingerprint),
+            inArray(transactions.externalId, batch.map(([externalId]) => externalId))
+          ))
+        }
+      },
       /**
        * The classification work queue: transactions still awaiting classification, in a stable
        * order (oldest first) so a crash-resumable worker drains them deterministically. `limit`
@@ -930,7 +1001,7 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.householdId, householdId),
               eq(transactions.excluded, false),
-              isNull(transactions.transferGroupId),
+              notTransfer,
               hasMerchant,
               eq(transactions.classificationStatus, "classified"),
               isNull(transactions.categoryId),
@@ -1028,7 +1099,7 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.archived, false), isNull(transactions.deletedAt),
               // Both legs of a detected inter-account transfer are money movement, not spend or
               // income — drop them so a card-bill payment doesn't double-count (issue #97).
-              isNull(transactions.transferGroupId),
+              notTransfer,
               gte(transactions.date, range.from),
               lt(transactions.date, range.to)
             )
@@ -1051,6 +1122,7 @@ export function householdRepo(db: Db, householdId: string) {
             bankReference: transactions.bankReference,
             amount: transactions.amount,
             ownShareAmount: transactions.ownShareAmount,
+            sharedTransferRuleApplies,
             incomeMarked: transactions.incomeMarked,
             excluded: transactions.excluded,
             exclusionNote: transactions.exclusionNote,
@@ -1097,6 +1169,7 @@ export function householdRepo(db: Db, householdId: string) {
             bankReference: transactions.bankReference,
             amount: transactions.amount,
             ownShareAmount: transactions.ownShareAmount,
+            sharedTransferRuleApplies,
             incomeMarked: transactions.incomeMarked,
             excluded: transactions.excluded,
             exclusionNote: transactions.exclusionNote,
@@ -1153,7 +1226,7 @@ export function householdRepo(db: Db, householdId: string) {
               // Archived rows (undone Upload) are hidden from every read (ADR-0024).
               eq(transactions.archived, false), isNull(transactions.deletedAt),
               // Detected inter-account transfer legs are money movement, not spend or income (#97).
-              isNull(transactions.transferGroupId),
+              notTransfer,
               gte(transactions.date, range.from),
               lt(transactions.date, range.to)
             )
@@ -1197,7 +1270,7 @@ export function householdRepo(db: Db, householdId: string) {
               // Archived rows (undone Upload) are hidden from every read (ADR-0024).
               eq(transactions.archived, false), isNull(transactions.deletedAt),
               // Neither is a detected inter-account transfer leg — it's money movement, not spend (#97).
-              isNull(transactions.transferGroupId),
+              notTransfer,
               gte(transactions.date, range.from),
               lt(transactions.date, range.to),
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
@@ -1240,7 +1313,7 @@ export function householdRepo(db: Db, householdId: string) {
               // Archived rows (undone Upload) are hidden from every read (ADR-0024).
               eq(transactions.archived, false), isNull(transactions.deletedAt),
               // Neither is a detected inter-account transfer leg — it's money movement, not spend (#97).
-              isNull(transactions.transferGroupId),
+              notTransfer,
               gte(transactions.date, range.from),
               lt(transactions.date, range.to)
             )
@@ -1284,7 +1357,7 @@ export function householdRepo(db: Db, householdId: string) {
               lt(transactions.amount, 0),
               eq(transactions.excluded, false),
               eq(transactions.archived, false), isNull(transactions.deletedAt),
-              isNull(transactions.transferGroupId),
+              notTransfer,
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`,
               gte(transactions.date, range.from),
               lt(transactions.date, range.to)
@@ -1320,7 +1393,7 @@ export function householdRepo(db: Db, householdId: string) {
               // Archived rows (undone Upload) are hidden from every read (ADR-0024).
               eq(transactions.archived, false), isNull(transactions.deletedAt),
               // Neither is a detected inter-account transfer leg — it's money movement, not spend (#97).
-              isNull(transactions.transferGroupId),
+              notTransfer,
               gte(transactions.date, range.from),
               lt(transactions.date, range.to),
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
@@ -1362,7 +1435,7 @@ export function householdRepo(db: Db, householdId: string) {
               // Archived rows (undone Upload) are hidden from every read (ADR-0024).
               eq(transactions.archived, false), isNull(transactions.deletedAt),
               // Neither is a detected inter-account transfer leg — it's money movement, not spend (#97).
-              isNull(transactions.transferGroupId),
+              notTransfer,
               gte(transactions.date, range.from),
               lt(transactions.date, range.to),
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
@@ -1456,7 +1529,7 @@ export function householdRepo(db: Db, householdId: string) {
               // Archived rows (undone Upload) are hidden from every read (ADR-0024).
               eq(transactions.archived, false), isNull(transactions.deletedAt),
               // Neither is a detected inter-account transfer leg — it's money movement, not spend (#97).
-              isNull(transactions.transferGroupId),
+              notTransfer,
               gte(transactions.date, range.from),
               lt(transactions.date, range.to),
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
@@ -1540,7 +1613,7 @@ export function householdRepo(db: Db, householdId: string) {
               lt(transactions.amount, 0),
               // An Excluded row is settled: it counts for nothing, so it needs no review (ADR-0011).
               eq(transactions.excluded, false),
-              isNull(transactions.transferGroupId),
+              notTransfer,
               // Worth reviewing = still unclassified, OR classified but below the confidence ceiling
               // (a weak AI guess). `lt` is null-safe: credits/pending have null confidence and
               // deterministic merchant rules sit at 1, so neither slips in via the second disjunct.
@@ -1584,6 +1657,7 @@ export function householdRepo(db: Db, householdId: string) {
             ownShareAmount: transactions.ownShareAmount,
             // Always false here (the queue is debits only) but selected so the row shape stays
             // identical to listWithOverrides for <ReviewMode>.
+            sharedTransferRuleApplies,
             incomeMarked: transactions.incomeMarked,
             // Always false / null here (excluded rows are filtered out below) but selected to keep
             // the row shape identical to listWithOverrides for <ReviewMode>.
@@ -1614,7 +1688,7 @@ export function householdRepo(db: Db, householdId: string) {
               lt(transactions.amount, 0),
               // An Excluded row is settled: it counts for nothing, so it needs no review (ADR-0011).
               eq(transactions.excluded, false),
-              isNull(transactions.transferGroupId),
+              notTransfer,
               // Worth reviewing = still unclassified, OR classified but below the confidence ceiling
               // (a weak AI guess). `lt` is null-safe: credits/pending have null confidence and
               // deterministic merchant rules sit at 1, so neither slips in via the second disjunct.
@@ -1652,7 +1726,7 @@ export function householdRepo(db: Db, householdId: string) {
             and(
               eq(transactions.householdId, householdId),
               eq(transactions.excluded, false),
-              isNull(transactions.transferGroupId),
+              notTransfer,
               hasMerchant,
               eq(transactions.classificationStatus, "classified"),
               isNotNull(transactions.expenseType),
@@ -1896,7 +1970,7 @@ export function householdRepo(db: Db, householdId: string) {
                   // Guard on the UPDATE itself — one atomic check-and-set. Only unlinked rows match,
                   // so an already-linked group id is never overwritten even if a concurrent pairing
                   // commits between statements (READ COMMITTED would let a separate SELECT go stale).
-                  isNull(transactions.transferGroupId),
+                  notTransfer,
                   eq(transactions.excluded, false),
                   bankOnly ? unreviewedBankTransferLeg() : undefined,
                   // Never link an Archived row (ADR-0024): if a concurrent undo archived a leg after

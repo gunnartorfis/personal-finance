@@ -6,6 +6,7 @@ import { householdRepo } from "@/lib/db/household-repo";
 import {
   accounts,
   assistantConversations,
+  bankTransferRules,
   merchantRules,
   overrides,
   transactions,
@@ -62,6 +63,7 @@ export async function resetHouseholdFinancialData(
     await tx.delete(uploads).where(eq(uploads.householdId, householdId));
     await tx.delete(accounts).where(eq(accounts.householdId, householdId));
     await tx.delete(merchantRules).where(eq(merchantRules.householdId, householdId));
+    await tx.delete(bankTransferRules).where(eq(bankTransferRules.householdId, householdId));
     // Restore the default account so the Household never exists without one.
     await tx
       .insert(accounts)

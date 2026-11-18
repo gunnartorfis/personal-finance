@@ -180,6 +180,37 @@ describe("TransactionsTable", () => {
     expect(screen.getByText("Own-account transfer")).toBeInTheDocument()
   })
 
+  it("previews matches before saving the internal transfer rule with history", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          available: true,
+          active: false,
+          historical: { count: 1, sample: [{ id: "past", date: "2026-03-01", amount: 500 }] },
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true })
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    render(<TransactionsTable rows={[{ ...ROWS[2], source: "bank_sync" }]} currency="ISK" />)
+
+    await openRowMenu(user, /SALARY/)
+    await user.click(await screen.findByRole("menuitem", { name: /treat transfers with this account as internal/i }))
+    const history = await screen.findByRole("checkbox", { name: /also apply to 1 past match/i })
+    expect(history).not.toBeChecked()
+    await user.click(history)
+    await user.click(screen.getByRole("button", { name: /confirm account/i }))
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1, "/api/transactions/t2/internal-transfer-rule", expect.objectContaining({ method: "POST" })
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2, "/api/transactions/t2/internal-transfer-rule",
+      expect.objectContaining({ method: "PUT", body: JSON.stringify({ includePast: true }) })
+    )
+  })
+
   it("keeps the Include-only affordance on an already-excluded credit (ADR-0011)", async () => {
     // A credit excluded before this change (or one income-marked then excluded) must still be
     // restorable — the excluded branch shows Include, never the income checkbox.

@@ -10,6 +10,7 @@ function emptyInput(): HouseholdExportInput {
     transactions: [],
     overrides: [],
     merchantRules: [],
+    bankTransferRules: [],
     bankConnections: [],
     savings: { goal: undefined, incomeSources: [], offcardCosts: [], oneOffAdjustments: [] },
     budgets: [],

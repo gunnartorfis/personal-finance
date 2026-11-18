@@ -756,6 +756,26 @@
     "fines-interest": "Sektir & vextir",
     "cash-withdrawal": "Peningaúttektir"
   },
+  "internalTransferRule": {
+    "label": "Innri millifærsla",
+    "excludeOne": "Undanskilja þessa færslu",
+    "create": "Merkja millifærslur við þennan reikning sem innri",
+    "manage": "Breyta reglu um innri millifærslur",
+    "title": "Sameiginleg fjármál",
+    "description": "Merkja millifærslur við {account} sem innri héðan í frá, þar á meðal þessa færslu. Veldu Telja sem tekjur fyrir einstakar innborganir sem eiga að teljast til tekna.",
+    "bankAccount": "þennan bankareikning",
+    "loading": "Sæki bankaupplýsingar…",
+    "unavailable": "Bankinn hefur ekki gefið upp staðfest reikningsnúmer fyrir þessa færslu. Þú getur undanskilið hana í færsluvalmyndinni.",
+    "active": "Regla um innri millifærslur er virk fyrir þennan reikning.",
+    "includePast": "Nota líka fyrir {count, plural, one {# eldri færslu} other {# eldri færslur}}",
+    "more": "{count, plural, one {# færsla til viðbótar} other {# færslur til viðbótar}}",
+    "confirm": "Staðfesta reikning",
+    "applyPast": "Nota fyrir eldri færslur",
+    "remove": "Fjarlægja reglu",
+    "close": "Loka",
+    "loadError": "Ekki tókst að sækja bankaupplýsingar. Lokaðu glugganum og reyndu aftur.",
+    "saveError": "Ekki tókst að vista regluna. Reyndu aftur."
+  },
   "rowType": {
     "missingMerchantTitle": "Engar upplýsingar um söluaðila — farðu yfir færsluna handvirkt",
     "saveError": "Tókst ekki að vista",
