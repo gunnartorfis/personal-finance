@@ -48,19 +48,27 @@ export async function POST(_request: Request, context: Context) {
   if (!target) return NextResponse.json({ error: "not_found" }, { status: 404 });
   const { row, repo, plan } = target;
   let fingerprint = row.counterpartyFingerprint;
+  let bankUnavailable = false;
   if (!fingerprint && canUseBankSync(plan)) {
     try {
       fingerprint = await recoverFingerprint(repo, row);
     } catch {
-      return NextResponse.json({ error: "bank_unavailable" }, { status: 502 });
+      bankUnavailable = true;
     }
   }
-  if (!fingerprint) return NextResponse.json({ available: false });
+  const mode = fingerprint ? "account" : "incoming_label";
+  fingerprint ??= await repo.bankTransferRules.incomingLabelKey(row.id);
+  if (!fingerprint) {
+    return bankUnavailable
+      ? NextResponse.json({ error: "bank_unavailable" }, { status: 502 })
+      : NextResponse.json({ available: false });
+  }
   const rule = await repo.bankTransferRules.find(fingerprint);
   const historical = await repo.bankTransferRules.preview(fingerprint, rule ? undefined : row.id);
   return NextResponse.json({
     available: true,
     active: Boolean(rule),
+    mode,
     historical,
   });
 }
@@ -69,21 +77,29 @@ export async function PUT(request: Request, context: Context) {
   const target = await readTransaction(context);
   if (!target) return NextResponse.json({ error: "not_found" }, { status: 404 });
   const { row, repo } = target;
-  if (!row.counterpartyFingerprint) {
-    return NextResponse.json({ error: "identifier_unavailable" }, { status: 409 });
-  }
   const body = await request.json().catch(() => null);
-  if (typeof body?.includePast !== "boolean") {
+  const mode = body?.mode ?? "account";
+  if (typeof body?.includePast !== "boolean" || (mode !== "account" && mode !== "incoming_label")) {
     return NextResponse.json({ error: "invalid_scope" }, { status: 400 });
   }
-  await repo.bankTransferRules.save(row.counterpartyFingerprint, row.id, body.includePast);
+  const fingerprint = mode === "account"
+    ? row.counterpartyFingerprint
+    : await repo.bankTransferRules.incomingLabelKey(row.id);
+  if (!fingerprint) {
+    return NextResponse.json({ error: "identifier_unavailable" }, { status: 409 });
+  }
+  await repo.bankTransferRules.save(fingerprint, row.id, body.includePast);
   return NextResponse.json({ active: true });
 }
 
-export async function DELETE(_request: Request, context: Context) {
+export async function DELETE(request: Request, context: Context) {
   const target = await readTransaction(context);
   if (!target) return NextResponse.json({ error: "not_found" }, { status: 404 });
   const { row, repo } = target;
-  if (row.counterpartyFingerprint) await repo.bankTransferRules.remove(row.counterpartyFingerprint);
+  const mode = new URL(request.url).searchParams.get("mode");
+  const fingerprint = mode === "incoming_label"
+    ? await repo.bankTransferRules.incomingLabelKey(row.id)
+    : row.counterpartyFingerprint;
+  if (fingerprint) await repo.bankTransferRules.remove(fingerprint);
   return NextResponse.json({ active: false });
 }

@@ -757,6 +757,9 @@
     "cash-withdrawal": "Cash withdrawals"
   },
   "internalTransferRule": {
+    "labelDescription": "There’s no verified account number for this deposit. You can treat incoming bank transfers with the exact bank label “{label}” on this same receiving account as internal when their account number is missing. Use Count as income for individual exceptions.",
+    "labelActive": "An internal transfer rule is active for this bank label.",
+    "confirmLabel": "Confirm sender label",
     "label": "Internal transfer",
     "excludeOne": "Exclude this transaction",
     "create": "Treat transfers with this account as internal",

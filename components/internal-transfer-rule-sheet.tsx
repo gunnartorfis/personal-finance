@@ -21,6 +21,7 @@ type Preview =
   | {
       available: true
       active: boolean
+      mode: "account" | "incoming_label"
       historical: { count: number; sample: { id: string; date: string; amount: number }[] }
     }
 
@@ -74,12 +75,13 @@ export function InternalTransferRuleSheet({
     setSaving(true)
     setSaveError(false)
     try {
-      const res = await fetch(endpoint, remove
+      const mode = preview?.available ? preview.mode : "account"
+      const res = await fetch(remove ? `${endpoint}?mode=${mode}` : endpoint, remove
         ? { method: "DELETE" }
         : {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ includePast }),
+            body: JSON.stringify({ includePast, mode }),
           })
       if (!res.ok) throw new Error("rule update failed")
       onSaved()
@@ -90,6 +92,7 @@ export function InternalTransferRuleSheet({
     }
   }
 
+  const labelMatch = preview?.available && preview.mode === "incoming_label"
   const history = preview?.available ? preview.historical : null
   const more = history ? history.count - history.sample.length : 0
 
@@ -98,14 +101,18 @@ export function InternalTransferRuleSheet({
       <SheetContent className="overflow-y-auto" showCloseButton={false}>
         <SheetHeader>
           <SheetTitle>{t("title")}</SheetTitle>
-          <SheetDescription>{t("description", { account: merchant || t("bankAccount") })}</SheetDescription>
+          <SheetDescription>
+            {labelMatch
+              ? t("labelDescription", { label: merchant.trim() })
+              : t("description", { account: merchant || t("bankAccount") })}
+          </SheetDescription>
         </SheetHeader>
         <div className="flex flex-col gap-3 px-6 text-sm">
           {state.preview === "loadError" && <p role="alert" className="text-destructive">{t("loadError")}</p>}
           {saveError && <p role="alert" className="text-destructive">{t("saveError")}</p>}
           {state.preview === "loading" && <p role="status">{t("loading")}</p>}
           {preview && !preview.available && <p>{t("unavailable")}</p>}
-          {preview?.available && preview.active && <p>{t("active")}</p>}
+          {preview?.available && preview.active && <p>{t(labelMatch ? "labelActive" : "active")}</p>}
           {history && history.count > 0 && (
             <>
               <label className="flex items-start gap-2">
@@ -131,7 +138,7 @@ export function InternalTransferRuleSheet({
         <SheetFooter>
           {preview?.available && (!preview.active || includePast) && (
             <Button onClick={() => void save(false)} disabled={saving}>
-              {t(preview.active ? "applyPast" : "confirm")}
+              {t(preview.active ? "applyPast" : labelMatch ? "confirmLabel" : "confirm")}
             </Button>
           )}
           {preview?.available && preview.active && (
@@ -139,7 +146,7 @@ export function InternalTransferRuleSheet({
               {t("remove")}
             </Button>
           )}
-          {preview && !preview.available && (
+          {preview && (!preview.available || (labelMatch && !preview.active)) && (
             <Button variant="outline" onClick={onExclude}>{t("excludeOne")}</Button>
           )}
           <SheetClose render={<Button variant="ghost" />} disabled={saving}>{t("close")}</SheetClose>
