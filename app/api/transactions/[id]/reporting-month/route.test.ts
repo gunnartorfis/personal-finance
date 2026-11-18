@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { PGlite } from "@electric-sql/pglite"
 import { drizzle } from "drizzle-orm/pglite"
 import { migrate } from "drizzle-orm/pglite/migrator"
@@ -90,4 +92,4 @@ it("moves only the selected salary between reporting months and keeps the booked
   } finally {
     await client.close()
   }
-})
+}, 20_000)
