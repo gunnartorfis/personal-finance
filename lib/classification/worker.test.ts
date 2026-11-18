@@ -47,6 +47,82 @@ const always =
   async () => ({ expenseType, confidence: 0.9, reasoning: "test" });
 
 describe("drainPending", () => {
+  it("leaves blank merchants for rapid review without blocking a bounded drain", async () => {
+    const { repo, addTxn } = await setup();
+    const [blank] = await addTxn(-1990, " 	 ");
+    const [known] = await addTxn(-3200, "SHOP");
+    const classify = vi.fn(always("Necessary"));
+
+    expect(await repo.transactions.countPending()).toBe(1);
+    await drainPending(repo, classify, { plan: "Premium", limit: 1 });
+    expect(classify).toHaveBeenCalledTimes(1);
+    expect((await repo.transactions.findById(known.id))?.expenseType).toBe("Necessary");
+    expect((await repo.transactions.findById(blank.id))?.expenseType).toBeNull();
+    expect((await repo.transactions.reviewQueue()).map((row) => row.id)).toEqual([blank.id]);
+  });
+
+  it("reruns only the selected month in fresh batches and keeps the prior result on failure", async () => {
+    const { repo, addTxn, accountId, uploadId } = await setup();
+    const [first] = await addTxn(-100, "SHOP");
+    const [second] = await addTxn(-200, "SHOP");
+    const [fail] = await addTxn(-300, "TEMPORARY ERROR");
+    const [overridden] = await addTxn(-400, "OVERRIDE");
+    const [excluded] = await addTxn(-500, "EXCLUDED");
+    const [blank] = await addTxn(-600, "");
+    const [outside] = await repo.transactions.create({
+      accountId, uploadId, date: "2026-04-01", amount: -700, merchant: "SHOP",
+      rawCategory: "", sourceRow: 10,
+    });
+    for (const txn of [first, second, fail, overridden, outside]) {
+      await repo.transactions.classify(txn.id, { expenseType: "Nice to have", confidence: 0.98 });
+    }
+    await repo.overrides.upsert({ transactionId: overridden.id, expenseType: "Fixed" });
+    await repo.transactions.setExcluded(excluded.id, true);
+    const classify = vi.fn<Classifier>(async ({ merchant }) => {
+      if (merchant === "TEMPORARY ERROR") throw new Error("model unavailable");
+      return { expenseType: "Necessary", confidence: 0.9 };
+    });
+    const range = { from: "2026-03-01", to: "2026-04-01" };
+
+    const page1 = await drainPending(repo, classify, {
+      plan: "Premium", limit: 2, rerun: { range, after: null },
+    });
+    expect(page1.nextCursor).toBeTruthy();
+    const page2 = await drainPending(repo, classify, {
+      plan: "Premium", limit: 2, rerun: { range, after: page1.nextCursor! },
+    });
+    expect(page2.nextCursor).toBeNull();
+    expect(page1.classified + page2.classified).toBe(2);
+    expect(page1.failed + page2.failed).toBe(1);
+    expect(classify.mock.calls.map(([txn]) => txn.merchant).sort())
+      .toEqual(["SHOP", "SHOP", "TEMPORARY ERROR"]);
+
+    for (const txn of [first, second]) {
+      expect((await repo.transactions.findById(txn.id))?.expenseType).toBe("Necessary");
+    }
+    for (const txn of [fail, overridden, outside]) {
+      expect((await repo.transactions.findById(txn.id))?.expenseType).toBe("Nice to have");
+    }
+    expect((await repo.transactions.findById(blank.id))?.expenseType).toBeNull();
+  });
+
+  it("keeps a concurrent override from being overwritten by a rerun", async () => {
+    const { repo, addTxn } = await setup();
+    const [txn] = await addTxn(-100, "SHOP");
+    await repo.transactions.classify(txn.id, { expenseType: "Fixed" });
+
+    const result = await drainPending(repo, async () => {
+      await repo.overrides.upsert({ transactionId: txn.id, expenseType: "Necessary" });
+      return { expenseType: "Nice to have" };
+    }, {
+      plan: "Premium",
+      rerun: { range: { from: "2026-03-01", to: "2026-04-01" }, after: null },
+    });
+
+    expect(result.classified).toBe(0);
+    expect((await repo.transactions.findById(txn.id))?.expenseType).toBe("Fixed");
+  });
+
   it("classifies expense rows via the injected classifier", async () => {
     const { repo, addTxn } = await setup();
     await addTxn(-1990, "A");

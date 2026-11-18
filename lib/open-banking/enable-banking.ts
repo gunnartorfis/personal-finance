@@ -57,6 +57,8 @@ interface EbTransaction {
   credit_debit_indicator: "CRDT" | "DBIT";
   creditor?: { name?: string };
   debtor?: { name?: string };
+  creditor_account?: { iban?: string };
+  debtor_account?: { iban?: string };
   remittance_information?: string[];
   entry_reference?: string;
 }
@@ -247,14 +249,17 @@ function toProviderTransaction(t: EbTransaction): ProviderTransaction {
   const amount = t.credit_debit_indicator === "DBIT" ? -magnitude : magnitude;
   const counterparty =
     t.credit_debit_indicator === "DBIT" ? t.creditor?.name : t.debtor?.name;
-  const remittance = t.remittance_information ?? [];
+  const counterpartyIban =
+    t.credit_debit_indicator === "DBIT" ? t.creditor_account?.iban : t.debtor_account?.iban;
+  const remittance = (t.remittance_information ?? []).map((part) => part.trim()).filter(Boolean);
   return {
     // Only entry_reference is immutable. transaction_id is a changeable details lookup handle.
     externalId: t.entry_reference ?? "",
     date: t.booking_date ?? t.value_date ?? t.transaction_date ?? "",
     amount,
     currency: t.transaction_amount.currency,
-    merchant: counterparty ?? remittance[0] ?? t.entry_reference ?? "",
+    merchant: counterparty?.trim() || remittance[0] || "",
+    ...(counterpartyIban ? { counterpartyIban } : {}),
     reference: remittance.length > 0 ? remittance.join(" ") : null,
   };
 }

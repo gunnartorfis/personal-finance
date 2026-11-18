@@ -19,7 +19,7 @@ export type ExportedBankConnection = Omit<BankConnection, "accessToken" | "refre
 
 /** Everything a household's data export gathers (the raw repo reads). */
 export interface HouseholdExportInput {
-  accounts: Array<typeof accounts.$inferSelect>;
+  accounts: Array<Omit<typeof accounts.$inferSelect, "bankAccountFingerprint">>;
   balances: Array<typeof accountBalances.$inferSelect>;
   uploads: Array<typeof uploads.$inferSelect>;
   transactions: Array<typeof transactions.$inferSelect>;

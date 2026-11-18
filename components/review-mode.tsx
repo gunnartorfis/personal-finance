@@ -53,6 +53,7 @@ export function ReviewMode({
   onClose: () => void
 }) {
   const t = useTranslations("rapidReview")
+  const transactionLabels = useTranslations("transactions")
   const locale = toLocale(useLocale()) ?? defaultLocale
   const typeLabels = useExpenseTypeLabels()
   const { cur, total, reviewedCount, done, canUndo, assign, next, prev, undo } =
@@ -154,7 +155,9 @@ export function ReviewMode({
         {cur && !done ? (
           <div className="flex w-full max-w-md flex-col gap-6 rounded-xl border border-border bg-card p-6 shadow-sm">
             <div className="flex flex-col gap-1">
-              <span className="text-lg font-semibold">{cur.merchant}</span>
+              <span className="text-lg font-semibold">
+                {cur.merchant.trim() || transactionLabels("unknownMerchant")}
+              </span>
               <span className="text-sm text-muted-foreground">
                 {fmtDate(cur.date)}
               </span>
@@ -169,18 +172,20 @@ export function ReviewMode({
                     confident rows), and the filter guarantees a non-null type and confidence — guard
                     on both rather than papering over a null with a fallback, so a malformed row falls
                     through to the neutral status instead of showing a fabricated "0% confident" guess. */}
-                {cur.classificationStatus === "classified" &&
-                cur.classifiedType !== null &&
-                cur.confidence !== null
-                  ? t("statusLowConfidence", {
-                      type: typeLabels[cur.classifiedType],
-                      confidence: Math.round(cur.confidence * 100),
-                    })
-                  : cur.classificationStatus === "failed"
-                    ? t("statusFailed")
-                    : t("statusAwaiting")}
+                {!cur.merchant.trim()
+                  ? t("statusMissingMerchant")
+                  : cur.classificationStatus === "classified" &&
+                      cur.classifiedType !== null &&
+                      cur.confidence !== null
+                    ? t("statusLowConfidence", {
+                        type: typeLabels[cur.classifiedType],
+                        confidence: Math.round(cur.confidence * 100),
+                      })
+                    : cur.classificationStatus === "failed"
+                      ? t("statusFailed")
+                      : t("statusAwaiting")}
               </span>
-              {cur.reasoning && (
+              {cur.merchant.trim() && cur.reasoning && (
                 <p className="text-sm text-pretty text-muted-foreground/80 italic">
                   {cur.reasoning}
                 </p>

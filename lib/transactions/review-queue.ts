@@ -21,6 +21,8 @@ export function buildReviewQueue(rows: TransactionRow[]): TransactionRow[] {
     .filter(
       (r) =>
         r.amount < 0 &&
+        !r.excluded &&
+        !r.transferGroupId &&
         r.overrideType === null &&
         (r.classificationStatus !== "classified" ||
           (r.confidence !== null && r.confidence < REVIEW_CONFIDENCE_CEILING))

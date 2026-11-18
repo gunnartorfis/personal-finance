@@ -1,6 +1,7 @@
 import type { HouseholdRepo } from "@/lib/db/household-repo";
 import type { transactions } from "@/lib/db/schema";
 
+import { bankAccountFingerprint } from "./account-identity";
 import type { IngestionProvider, ProviderTransaction } from "./provider";
 
 /** How far back the first sync of a connection reaches (bank-capped in practice). */
@@ -30,6 +31,7 @@ export function mapProviderTransaction(
     amount: Math.round(pt.amount),
     merchant: pt.merchant,
     rawCategory: "",
+    ...(pt.reference ? { bankReference: pt.reference } : {}),
   };
 }
 
@@ -53,12 +55,28 @@ export async function syncConnection(params: {
     : isoDate(new Date(now.getTime() - backfillDays * 86_400_000));
   const to = isoDate(now);
 
-  const accounts = await repo.accounts.listByConnection(connection.id);
+  const [accounts, ownFingerprints] = await Promise.all([
+    repo.accounts.listByConnection(connection.id),
+    repo.accounts.listBankAccountFingerprints(),
+  ]);
+  const owned = new Set(ownFingerprints.map((account) => account.fingerprint));
   let inserted = 0;
   for (const account of accounts) {
     if (!account.externalAccountId) continue;
     const pts = await provider.listTransactions(account.externalAccountId, { from, to });
-    const rows = pts.map((pt) => mapProviderTransaction(pt, account.id));
+    const rows = pts.map((pt) => {
+      const row = mapProviderTransaction(pt, account.id);
+      const counterparty = bankAccountFingerprint(pt.counterpartyIban);
+      if (
+        account.bankAccountFingerprint &&
+        counterparty &&
+        counterparty !== account.bankAccountFingerprint &&
+        owned.has(counterparty)
+      ) {
+        row.excluded = true;
+      }
+      return row;
+    });
     const newRows = await repo.transactions.createSyncedMany(rows);
     inserted += newRows.length;
   }

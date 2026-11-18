@@ -47,6 +47,30 @@ describe("ClassifyTrigger", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
+  it("follows only the selected month cursor, even if a batch updates no rows", async () => {
+    const cursor = "9a593283-8ae8-4278-91b5-18e0c8935991"
+    const onSettled = vi.fn()
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ classified: 0, failed: 0, capped: 25, nextCursor: cursor }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ classified: 2, failed: 0, capped: 0, nextCursor: null }),
+      })
+    vi.stubGlobal("fetch", fetchMock)
+    render(<ClassifyTrigger cycle="2026-03" onSettled={onSettled} />)
+
+    await userEvent.click(screen.getByRole("button", { name: "Reclassify month" }))
+    expect(await screen.findByText(/2 classified/i)).toBeInTheDocument()
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "/api/classify?cycle=2026-03",
+      `/api/classify?cycle=2026-03&after=${cursor}`,
+    ])
+    expect(onSettled).toHaveBeenCalledOnce()
+  })
+
   it("renders a progress bar against the pending baseline, filling to 100% on completion", async () => {
     stubClassify([
       { classified: 6, failed: 0, capped: 0 },

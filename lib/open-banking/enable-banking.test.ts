@@ -114,7 +114,8 @@ describe("EnableBankingClient", () => {
           booking_date: "2026-03-01",
           transaction_amount: { amount: "1990.00", currency: "ISK" },
           credit_debit_indicator: "DBIT",
-          creditor: { name: "NETFLIX" },
+          creditor: { name: " " },
+          creditor_account: { iban: "IS960000000000000000000002" },
           remittance_information: ["Netflix"],
         },
       ],
@@ -130,6 +131,7 @@ describe("EnableBankingClient", () => {
           transaction_amount: { amount: "5000.00", currency: "ISK" },
           credit_debit_indicator: "CRDT",
           debtor: { name: "SALARY" },
+          debtor_account: { iban: "IS960000000000000000000003" },
           remittance_information: [],
         },
       ],
@@ -146,8 +148,8 @@ describe("EnableBankingClient", () => {
     expect(calls[0].url).toContain("transaction_status=BOOK");
     expect(calls[1].url).toContain("continuation_key=c2");
     expect(txns).toEqual([
-      { externalId: "t1", date: "2026-03-01", amount: -1990, currency: "ISK", merchant: "NETFLIX", reference: "Netflix" },
-      { externalId: "t2", date: "2026-03-02", amount: 5000, currency: "ISK", merchant: "SALARY", reference: null },
+      { externalId: "t1", date: "2026-03-01", amount: -1990, currency: "ISK", merchant: "Netflix", reference: "Netflix", counterpartyIban: "IS960000000000000000000002" },
+      { externalId: "t2", date: "2026-03-02", amount: 5000, currency: "ISK", merchant: "SALARY", reference: null, counterpartyIban: "IS960000000000000000000003" },
     ]);
   });
 
@@ -161,13 +163,12 @@ describe("EnableBankingClient", () => {
           booking_date: "2026-03-03",
           transaction_amount: { amount: "1200.00", currency: "ISK" },
           credit_debit_indicator: "DBIT",
-          creditor: { name: "BONUS" },
           remittance_information: [],
         },
       ],
     }));
     const [txn] = await client(fn).listTransactions("acc-uid-1", { from: "2026-01-01", to: "2026-03-31" });
-    expect(txn.externalId).toBe("er-9");
+    expect(txn).toMatchObject({ externalId: "er-9", merchant: "" });
   });
 
   it("skips transactions without a stable entry reference, including details-only ids", async () => {

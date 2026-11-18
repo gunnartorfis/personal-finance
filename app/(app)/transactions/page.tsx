@@ -145,6 +145,8 @@ export default async function TransactionsPage({
     .filter((row) => row.parentId !== null)
     .map((row) => ({ id: row.id, labelKey: row.labelKey, label: row.label }))
 
+  const accountOptions = accountRows.map(({ id, name, isDefault }) => ({ id, name, isDefault }))
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -158,7 +160,7 @@ export default async function TransactionsPage({
         </div>
         <div className="flex items-center gap-2">
           <PeriodSelector options={options} selected={selected} />
-          <AddTransactionSheet accounts={accountRows} />
+          <AddTransactionSheet accounts={accountOptions} />
           <Button variant="outline" size="sm" render={<Link href="/upload" />}>
             <Upload />
             {t("upload")}
@@ -213,8 +215,10 @@ export default async function TransactionsPage({
           <TransactionsTable
             key={`${selected}:${category ?? ""}`}
             rows={rows}
+            cycle={selected}
             currency={billingCurrency}
             categories={categories}
+            accounts={accountOptions}
             initialCategoryId={category}
             initialDeleted={deletedRows}
             backlogElsewhere={reviewTotal}

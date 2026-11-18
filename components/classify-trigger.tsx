@@ -130,6 +130,8 @@ export function ClassifyTrigger({
   pendingCount,
   resumable = false,
   retryOnly = false,
+  cycle,
+  onSettled,
   className,
 }: {
   autoRun?: boolean
@@ -144,6 +146,9 @@ export function ClassifyTrigger({
   resumable?: boolean
   /** Hide the "Classify pending" button and show only the "Retry failed" affordance. */
   retryOnly?: boolean
+  /** Reclassify this cycle's expenses using fresh results. */
+  cycle?: string
+  onSettled?: () => void
   className?: string
 }) {
   const t = useTranslations("classify")
@@ -203,21 +208,30 @@ export function ClassifyTrigger({
     // Mark the drain in-flight so a refresh mid-run resumes it (resumable controls only).
     if (resumable) setDrainActive(true)
     const run: ClassifyTotals = { classified: 0, failed: 0, capped: 0 }
+    const params = new URLSearchParams()
+    if (cycle) params.set("cycle", cycle)
     try {
       for (let batch = 0; batch < MAX_BATCHES; batch++) {
         // react-doctor-disable-next-line react-doctor/async-await-in-loop -- sequential drain: the server classifies one batch per POST and each pass depends on the prior draining rows (loop stops when a pass makes no progress); parallelizing would race the queue and defeat the Free-cap gating
         const res = await postWithRetry(
-          "/api/classify",
+          cycle ? `/api/classify?${params}` : "/api/classify",
           controller.signal,
           () => unloadingRef.current
         )
-        const result = (await res.json()) as ClassifyTotals
+        const result = (await res.json()) as ClassifyTotals & {
+          nextCursor?: string | null
+        }
         run.classified += result.classified
         run.failed += result.failed
-        run.capped = result.capped // latest pass reflects rows still paused by the cap
+        run.capped = cycle ? run.capped + result.capped : result.capped
         setTotals({ ...run })
-        // A batch that classified nothing new means the queue is drained or fully capped.
-        if (result.classified === 0 && result.failed === 0) break
+        if (cycle) {
+          if (!result.nextCursor) break
+          params.set("after", result.nextCursor)
+        } else if (result.classified === 0 && result.failed === 0) {
+          // The household queue is drained or fully capped.
+          break
+        }
       }
       // Reached only on a clean finish (no throw/abort): the queue is drained or capped, so there's
       // nothing left to resume — clear the flag so a later page load doesn't re-drive on its own.
@@ -232,9 +246,12 @@ export function ClassifyTrigger({
       // load — clear and let the user retry.
       if (resumable) setDrainActive(false)
     } finally {
-      if (!controller.signal.aborted && !unloadingRef.current) setBusy(false)
+      if (!controller.signal.aborted && !unloadingRef.current) {
+        setBusy(false)
+        onSettled?.()
+      }
     }
-  }, [resumable])
+  }, [cycle, onSettled, resumable])
 
   // Requeue prior failures, then drain them. The reset POST is quick (a status flip, no model
   // calls). It gets its own AbortController via abortRef — same as the drain — so an unmount during
@@ -304,13 +321,20 @@ export function ClassifyTrigger({
     <div className={cn("flex flex-col gap-2", className)}>
       <div className="flex flex-wrap gap-2">
         {!retryOnly && (
-          <Button type="button" onClick={() => void classify()} disabled={busy}>
+          <Button
+            type="button"
+            variant={cycle ? "outline" : "default"}
+            onClick={() => void classify()}
+            disabled={busy}
+          >
             {busy ? <Loader2 className="animate-spin" /> : <Sparkles />}
             {busy
               ? t("classifying")
-              : pendingCount !== undefined
-                ? t("pendingCount", { count: pendingCount })
-                : t("pending")}
+              : cycle
+                ? t("reclassifyMonth")
+                : pendingCount !== undefined
+                  ? t("pendingCount", { count: pendingCount })
+                  : t("pending")}
           </Button>
         )}
 

@@ -15,13 +15,13 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }))
 
 afterEach(() => vi.unstubAllGlobals())
 
-/** The per-row "Type" pill is the row's only button; click it to open its action menu. */
+/** Open the inline Type menu independently of the details drawer. */
 async function openRowMenu(
   user: ReturnType<typeof userEvent.setup>,
   name: RegExp
 ) {
   const row = screen.getByRole("row", { name })
-  await user.click(within(row).getByRole("button"))
+  await user.click(within(row).getByRole("button", { expanded: false, name: /^(?!View details)/i }))
   return row
 }
 
@@ -80,6 +80,31 @@ const ROWS: TransactionRow[] = [
 ]
 
 describe("TransactionsTable", () => {
+  it("filters rows by account and opens the matched transaction details", async () => {
+    const user = userEvent.setup()
+    const accounts = [
+      { id: "card", name: "Visa" },
+      { id: "current", name: "Current account" },
+    ]
+    const rows: TransactionRow[] = [
+      { ...ROWS[0], accountId: "card", source: "bank_sync", bankReference: "March subscription" },
+      { ...ROWS[1], accountId: "current" },
+    ]
+    render(<TransactionsTable rows={rows} accounts={accounts} currency="ISK" />)
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Filter by account" }), "card")
+    expect(screen.queryByText("GYM")).not.toBeInTheDocument()
+    const row = screen.getByRole("row", { name: /NETFLIX/ })
+    await user.click(within(row).getByRole("cell", { name: /1,990/ }))
+    const drawer = await screen.findByRole("dialog", { name: "NETFLIX" })
+    expect(within(drawer).getByText("Visa")).toBeInTheDocument()
+    expect(within(drawer).getByText("Bank sync")).toBeInTheDocument()
+    expect(within(drawer).getByText("March subscription")).toBeInTheDocument()
+    expect(within(drawer).getByText("Recurring subscription")).toBeInTheDocument()
+    await user.keyboard("{Escape}")
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
   it("renders a row per transaction with merchant and a formatted amount", () => {
     render(<TransactionsTable rows={ROWS} currency="ISK" />)
     expect(screen.getByText("NETFLIX")).toBeInTheDocument()

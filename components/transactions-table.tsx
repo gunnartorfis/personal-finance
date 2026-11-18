@@ -4,16 +4,27 @@ import { ChevronDown, ChevronsUpDown, ChevronUp, RotateCcw, Search, Undo2 } from
 import { useLocale, useTranslations } from "next-intl"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useId, useMemo, useState } from "react"
+import { useCallback, useId, useMemo, useState, type MouseEvent } from "react"
 
+import { ClassifyTrigger } from "@/components/classify-trigger"
 import { RowTypeControl } from "@/components/row-type-control"
 import { Button } from "@/components/ui/button"
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 import { useCategoryLabel } from "@/lib/categories/label"
 import { currencyFormatter } from "@/lib/format/currency"
 import { formatDate } from "@/lib/format/date"
 import { defaultLocale, toLocale } from "@/lib/i18n/config"
 import { restoreTransaction } from "@/lib/transactions/delete-client"
 import { cn } from "@/lib/utils"
+import { useExpenseTypeLabels } from "@/lib/expense-type-labels"
 import type { ExpenseType } from "@/shared/types"
 
 /** A row's effective bucket for filtering: excluded, an expense type, an unreviewed debit, or a credit. */
@@ -63,11 +74,13 @@ function filterAndSortRows(
   query: string,
   typeFilter: TypeFilter,
   categoryFilter: string | null,
+  accountFilter: string | null,
   sortKey: SortKey,
   sortDir: SortDir
 ): TransactionRow[] {
   const needle = query.trim().toLowerCase()
   const filtered = rows.filter((row) => {
+    if (accountFilter !== null && row.accountId !== accountFilter) return false
     if (typeFilter !== "all" && bucketOf(row) !== typeFilter) return false
     if (categoryFilter !== null) {
       const catId = effectiveCategoryId(row)
@@ -128,6 +141,9 @@ export interface TransactionRow {
   id: string
   date: string
   merchant: string
+  accountId?: string
+  bankReference?: string | null
+  transferGroupId?: string | null
   amount: number
   /**
    * The Household's Own share of a Shared expense (ADR-0014): the negative portion of this debit it
@@ -165,6 +181,9 @@ const NO_CATEGORIES: CategoryOption[] = []
 
 /** Stable empty default for the optional `initialDeleted` prop (same rationale as {@link NO_CATEGORIES}). */
 const NO_ROWS: TransactionRow[] = []
+
+type AccountOption = { id: string; name: string }
+const NO_ACCOUNTS: AccountOption[] = []
 
 /** A Household Category leaf's identity + label parts, for resolving a row's effective Category. */
 export interface CategoryOption {
@@ -220,6 +239,9 @@ function TableToolbar({
   categoryOptions,
   categoryValue,
   onCategoryChange,
+  accounts,
+  accountFilter,
+  onAccountChange,
 }: {
   query: string
   onQueryChange: (value: string) => void
@@ -231,6 +253,9 @@ function TableToolbar({
   categoryOptions: { value: string; label: string }[]
   categoryValue: string
   onCategoryChange: (value: string) => void
+  accounts: AccountOption[]
+  accountFilter: string | null
+  onAccountChange: (value: string | null) => void
 }) {
   const t = useTranslations("transactions")
 
@@ -255,9 +280,10 @@ function TableToolbar({
   const searchId = useId()
   const typeFilterId = useId()
   const categoryFilterId = useId()
+  const accountFilterId = useId()
 
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
       <div className="relative sm:max-w-xs sm:flex-1">
         <Search
           className="pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -277,7 +303,27 @@ function TableToolbar({
         />
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {accounts.length > 0 && (
+          <div className="relative inline-grid h-8 max-w-full grid-cols-[1fr_1.75rem] items-center rounded-md border border-border">
+            <label className="sr-only" htmlFor={accountFilterId}>
+              {t("accountFilterLabel")}
+            </label>
+            <select
+              id={accountFilterId}
+              name="txn-account-filter"
+              value={accountFilter ?? ""}
+              onChange={(event) => onAccountChange(event.target.value || null)}
+              className="col-span-full row-start-1 min-w-0 appearance-none truncate bg-transparent py-1 pr-7 pl-2.5 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">{t("allAccounts")}</option>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>{account.name}</option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none col-start-2 row-start-1 size-4 text-muted-foreground" aria-hidden />
+          </div>
+        )}
         {/* Category filter — hidden when there's nothing to filter (only the "All" option). */}
         {categoryOptions.length > 1 && (
           <div className="relative inline-grid h-8 grid-cols-[1fr_1.75rem] items-center rounded-md border border-border">
@@ -450,6 +496,106 @@ function TransactionsTableHead({
   )
 }
 
+function openTransactionFromRow(event: MouseEvent<HTMLTableRowElement>) {
+  const { target, currentTarget } = event
+  if (!(target instanceof Element) || !currentTarget.contains(target)) return
+  if (target.closest("button, a, input, select, textarea") || window.getSelection()?.toString()) return
+  currentTarget.querySelector<HTMLButtonElement>("[data-transaction-details]")?.click()
+}
+
+function TransactionDetailsTrigger({ row, onOpen }: { row: TransactionRow; onOpen: () => void }) {
+  const t = useTranslations("transactions")
+  const merchant = row.merchant.trim() || t("unknownMerchant")
+  return (
+    <SheetTrigger
+      data-transaction-details
+      aria-label={t("openDetails", { merchant })}
+      onClick={onOpen}
+      className="rounded-sm text-left underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {merchant}
+    </SheetTrigger>
+  )
+}
+
+function TransactionDetails({
+  row,
+  accountName,
+  categoryLabel,
+  currency,
+}: {
+  row: TransactionRow
+  accountName?: string
+  categoryLabel: string | null
+  currency: string
+}) {
+  const t = useTranslations("transactions")
+  const typeLabels = useExpenseTypeLabels()
+  const locale = toLocale(useLocale()) ?? defaultLocale
+  const bucket = bucketOf(row)
+  const type =
+    bucket === "credit"
+      ? t(row.incomeMarked ? "details.income" : "details.credit")
+      : bucket === "excluded"
+        ? t("filter.excluded")
+        : bucket === "unclassified"
+          ? t("filter.unclassified")
+          : typeLabels[bucket]
+  const source = {
+    bank_sync: t("details.bankSync"),
+    csv: t("details.csv"),
+    manual: t("details.manual"),
+  }
+  const money = currencyFormatter(currency, locale)
+  const fields = [
+    {
+      label: t("colDate"),
+      value: formatDate(new Date(row.date), locale, { dateStyle: "long", timeZone: "UTC" }),
+    },
+    { label: t("details.account"), value: accountName },
+    { label: t("details.source"), value: row.source && source[row.source] },
+    { label: t("colType"), value: row.transferGroupId ? t("details.transfer") : type },
+    { label: t("colCategory"), value: categoryLabel ?? t("uncategorized") },
+    { label: t("details.ownShare"), value: row.ownShareAmount !== null ? money.format(row.ownShareAmount) : null },
+    { label: t("details.reference"), value: row.bankReference },
+    { label: t("details.exclusionNote"), value: row.exclusionNote },
+  ]
+
+  return (
+    <SheetContent className="w-full overflow-y-auto sm:max-w-md" showCloseButton={false}>
+      <SheetHeader className="gap-2 pr-20">
+        <SheetTitle className="text-lg wrap-break-word">
+          {row.merchant.trim() || t("unknownMerchant")}
+        </SheetTitle>
+        <SheetDescription className="text-2xl font-semibold tabular-nums">
+          {money.format(row.amount)}
+        </SheetDescription>
+      </SheetHeader>
+      <SheetClose
+        className="absolute top-6 right-6"
+        render={<Button variant="outline" size="sm" />}
+      >
+        {t("details.close")}
+      </SheetClose>
+      <dl className="flex flex-col gap-3 border-t border-border p-6 text-sm">
+        {fields
+          .filter(({ value }) => value)
+          .map(({ label, value }) => (
+            <div key={label} className="grid grid-cols-[2fr_3fr] items-baseline gap-3">
+              <dt className="text-muted-foreground">{label}</dt>
+              <dd className="min-w-0 wrap-break-word">{value}</dd>
+            </div>
+          ))}
+      </dl>
+      {row.reasoning && (
+        <p className="border-t border-border p-6 text-sm wrap-break-word text-muted-foreground">
+          {row.reasoning}
+        </p>
+      )}
+    </SheetContent>
+  )
+}
+
 /** A single transaction row: date, merchant, amount (+ own share) and the inline Type control. */
 function TransactionRowView({
   row,
@@ -462,6 +608,7 @@ function TransactionRowView({
   onShareChanged,
   onRuleCreated,
   onDeleted,
+  onOpenDetails,
 }: {
   row: TransactionRow
   /** The row's effective Category label (override ?? classified), or null when Uncategorized. */
@@ -477,11 +624,12 @@ function TransactionRowView({
   onShareChanged: (share: number | null) => void
   onRuleCreated: () => void
   onDeleted: () => void
+  onOpenDetails: () => void
 }) {
   const t = useTranslations("transactions")
   const isCredit = row.amount > 0
   return (
-    <tr className="border-b border-border last:border-0">
+    <tr className="cursor-pointer border-b border-border hover:bg-muted/40 last:border-0" onClick={openTransactionFromRow}>
       <td className="py-3 pr-4 text-muted-foreground tabular-nums">
         {fmtDate(row.date)}
       </td>
@@ -492,7 +640,7 @@ function TransactionRowView({
           row.excluded && "text-muted-foreground line-through"
         )}
       >
-        {row.merchant}
+        <TransactionDetailsTrigger row={row} onOpen={onOpenDetails} />
       </td>
       <td
         className={cn(
@@ -581,18 +729,22 @@ function DeletedRowView({
   fmtDate,
   fmtAmount,
   onRestore,
+  onOpenDetails,
 }: {
   row: TransactionRow
   categoryLabel: string | null
   fmtDate: (date: string) => string
   fmtAmount: (amount: number) => string
   onRestore: () => void
+  onOpenDetails: () => void
 }) {
   const t = useTranslations("transactions")
   return (
-    <tr className="border-b border-border text-muted-foreground last:border-0">
+    <tr className="cursor-pointer border-b border-border text-muted-foreground hover:bg-muted/40 last:border-0" onClick={openTransactionFromRow}>
       <td className="py-3 pr-4 tabular-nums">{fmtDate(row.date)}</td>
-      <td className="py-3 pr-4 font-medium line-through">{row.merchant}</td>
+      <td className="py-3 pr-4 font-medium line-through">
+        <TransactionDetailsTrigger row={row} onOpen={onOpenDetails} />
+      </td>
       <td className="py-3 pr-4 text-right tabular-nums line-through">
         {fmtAmount(row.amount)}
       </td>
@@ -640,7 +792,9 @@ export function TransactionsTable({
   rows: initial,
   currency,
   categories = NO_CATEGORIES,
+  accounts = NO_ACCOUNTS,
   initialCategoryId,
+  cycle,
   initialDeleted = NO_ROWS,
   className,
   backlogElsewhere = 0,
@@ -651,11 +805,13 @@ export function TransactionsTable({
   initialDeleted?: TransactionRow[]
   /** The Household's Category leaves, to label each row's effective Category (ADR-0020). */
   categories?: CategoryOption[]
+  accounts?: AccountOption[]
   /**
    * Pre-seed the Category filter (from `?category` — a leaf id, or `none` for Uncategorized). Lets a
    * click on the dashboard breakdown land here already filtered. Ignored when it matches no leaf.
    */
   initialCategoryId?: string
+  cycle?: string
   className?: string
   /** Whole-household expenses still needing review — used only to explain an empty period. */
   backlogElsewhere?: number
@@ -682,30 +838,48 @@ export function TransactionsTable({
     initialCategoryId && (initialCategoryId === "none" || categoryParts.has(initialCategoryId))
       ? initialCategoryId
       : null
-  // react-doctor-disable-next-line react-doctor/no-derived-useState -- `rows` is an intentional local mutable mirror seeded once from the server prop; the inline controls optimistically mutate it for instant feedback (router.refresh recomputes the server-derived summaries), so it must NOT be re-derived from `initial` on every render
+  // Local edits stay immediate. A new server snapshot (e.g. after reclassification)
+  // replaces the mirrors without remounting the table or clearing its filters.
   const [rows, setRows] = useState(initial)
-  // react-doctor-disable-next-line react-doctor/no-derived-useState -- seeded once from the server prop like `rows`; delete/restore move rows between the two mirrors locally (router.refresh recomputes the server summaries), so it must NOT re-derive from `initialDeleted`
   const [deleted, setDeleted] = useState(initialDeleted)
+  const [snapshot, setSnapshot] = useState({ initial, initialDeleted })
+  if (snapshot.initial !== initial || snapshot.initialDeleted !== initialDeleted) {
+    setSnapshot({ initial, initialDeleted })
+    setRows(initial)
+    setDeleted(initialDeleted)
+  }
   // The most-recently soft-deleted row, backing the inline Undo affordance; null once undone/dismissed.
   const [justDeleted, setJustDeleted] = useState<TransactionRow | null>(null)
   // Set when a restore request fails, so the failure is surfaced instead of silently swallowed.
   const [restoreError, setRestoreError] = useState(false)
   const [query, setQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all")
+  const [accountFilter, setAccountFilter] = useState<string | null>(null)
+  const [detailsId, setDetailsId] = useState<string | null>(null)
   // react-doctor-disable-next-line react-doctor/no-derived-useState -- one-time seed from the URL param (like `rows`); the chip's clear button owns it thereafter, so it must not re-derive from the prop
   const [categoryFilter, setCategoryFilter] = useState<string | null>(seededCategoryFilter)
   const [sortKey, setSortKey] = useState<SortKey>("date")
   const [sortDir, setSortDir] = useState<SortDir>("desc")
   const router = useRouter()
+  const refreshCycle = useCallback(() => {
+    const url = new URL(window.location.href)
+    // The default landing month can change as the review queue is updated. Keep this month selected.
+    if (cycle && url.searchParams.get("cycle") !== cycle) {
+      url.searchParams.set("cycle", cycle)
+      router.replace(url.pathname + url.search, { scroll: false })
+    } else {
+      router.refresh()
+    }
+  }, [cycle, router])
 
   // Derive the shown rows from the (stateful) period rows so inline override/income edits — which
   // mutate `rows` — re-filter and re-sort in place. Cheap: one cycle's rows are bounded.
   const visible = useMemo(
-    () => filterAndSortRows(rows, query, typeFilter, categoryFilter, sortKey, sortDir),
-    [rows, query, typeFilter, categoryFilter, sortKey, sortDir]
+    () => filterAndSortRows(rows, query, typeFilter, categoryFilter, accountFilter, sortKey, sortDir),
+    [rows, query, typeFilter, categoryFilter, accountFilter, sortKey, sortDir]
   )
 
-  const filtering = query.trim() !== "" || typeFilter !== "all" || categoryFilter !== null
+  const filtering = query.trim() !== "" || typeFilter !== "all" || categoryFilter !== null || accountFilter !== null
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
@@ -721,6 +895,7 @@ export function TransactionsTable({
     setQuery("")
     setTypeFilter("all")
     setCategoryFilter(null)
+    setAccountFilter(null)
   }
 
   // Options for the Category filter select: "All", then each Category present in this cycle's rows
@@ -786,8 +961,7 @@ export function TransactionsTable({
 
   // RowTypeControl already soft-deleted the row on the server (ADR-0026); move it from the live
   // mirror to the deleted one, surface an inline Undo, and refresh so the server-derived summaries
-  // drop it. Local mirrors keep the two views consistent without a remount (the prop mirrors seed
-  // once). We hold the whole row so Undo can re-insert it without a re-fetch.
+  // drop it. We hold the whole row so Undo can re-insert it without waiting for the refresh.
   function handleDeleted(row: TransactionRow) {
     setRestoreError(false)
     setRows((current) => current.filter((r) => r.id !== row.id))
@@ -819,14 +993,25 @@ export function TransactionsTable({
     )
   }
 
+  const reclassifyCount = cycle
+    ? initial.filter((row) =>
+        row.amount < 0 &&
+        row.merchant.trim() &&
+        !row.excluded &&
+        !row.transferGroupId &&
+        row.overrideType === null &&
+        row.overrideCategoryId === null
+      ).length
+    : 0
   const showingDeleted = typeFilter === "deleted"
-  // The Deleted view honors the search box (by merchant) and shows newest-first; the type/category
-  // filters and the column sort apply to the live view only.
+  // The Deleted view applies the account and merchant filters and shows newest-first.
   const needle = query.trim().toLowerCase()
   const deletedShown = deleted
+    .filter((r) => accountFilter === null || r.accountId === accountFilter)
     .filter((r) => needle === "" || r.merchant.toLowerCase().includes(needle))
     .toSorted((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id))
   const shown = showingDeleted ? deletedShown : visible
+  const details = rows.find((row) => row.id === detailsId) ?? deleted.find((row) => row.id === detailsId)
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
@@ -843,7 +1028,19 @@ export function TransactionsTable({
         </p>
       )}
 
+      {cycle && reclassifyCount > 0 && (
+        <ClassifyTrigger
+          cycle={cycle}
+          pendingCount={reclassifyCount}
+          onSettled={refreshCycle}
+          className="items-end"
+        />
+      )}
+
       <TableToolbar
+        accounts={accounts}
+        accountFilter={accountFilter}
+        onAccountChange={setAccountFilter}
         query={query}
         onQueryChange={setQuery}
         typeFilter={typeFilter}
@@ -860,59 +1057,76 @@ export function TransactionsTable({
         </p>
       )}
 
-      {shown.length === 0 ? (
-        showingDeleted ? (
-          <p className="rounded-lg border border-dashed border-border px-6 py-12 text-center text-sm text-muted-foreground">
-            {t("noDeleted")}
-          </p>
+      <Sheet
+        open={detailsId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDetailsId(null)
+        }}
+      >
+        {shown.length === 0 ? (
+          showingDeleted ? (
+            <p className="rounded-lg border border-dashed border-border px-6 py-12 text-center text-sm text-muted-foreground">
+              {t("noDeleted")}
+            </p>
+          ) : (
+            <NoMatch onClear={clearFilters} />
+          )
         ) : (
-          <NoMatch onClear={clearFilters} />
-        )
-      ) : (
-        <div className="-mx-6 -my-2 overflow-x-auto whitespace-nowrap">
-          <div className="inline-block min-w-full px-6 py-2 align-middle">
-            <table className="w-full border-collapse text-sm">
-              <TransactionsTableHead
-                sortKey={sortKey}
-                sortDir={sortDir}
-                onToggleSort={toggleSort}
-              />
-              <tbody>
-                {showingDeleted
-                  ? deletedShown.map((row) => (
-                      <DeletedRowView
-                        key={row.id}
-                        row={row}
-                        categoryLabel={resolveCategory(row)}
-                        fmtDate={fmtDate}
-                        fmtAmount={fmtAmount}
-                        onRestore={() => void restore(row)}
-                      />
-                    ))
-                  : visible.map((row) => (
-                      <TransactionRowView
-                        key={row.id}
-                        row={row}
-                        categoryLabel={resolveCategory(row)}
-                        fmtDate={fmtDate}
-                        fmtAmount={fmtAmount}
-                        onOverrideChanged={(next) => handleChanged(row.id, next)}
-                        onIncomeChanged={(marked) =>
-                          handleIncomeChanged(row.id, marked)
-                        }
-                        onExcludeChanged={(next) =>
-                          handleExcludeChanged(row.id, next)
-                        }
-                        onShareChanged={(share) => handleShareChanged(row.id, share)}
-                        onRuleCreated={() => router.refresh()}
-                        onDeleted={() => handleDeleted(row)}
-                      />
-                    ))}
-              </tbody>
-            </table>
+          <div className="-mx-6 -my-2 overflow-x-auto whitespace-nowrap">
+            <div className="inline-block min-w-full px-6 py-2 align-middle">
+              <table className="w-full border-collapse text-sm">
+                <TransactionsTableHead
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onToggleSort={toggleSort}
+                />
+                <tbody>
+                  {showingDeleted
+                    ? deletedShown.map((row) => (
+                        <DeletedRowView
+                          key={row.id}
+                          row={row}
+                          categoryLabel={resolveCategory(row)}
+                          fmtDate={fmtDate}
+                          fmtAmount={fmtAmount}
+                          onRestore={() => void restore(row)}
+                          onOpenDetails={() => setDetailsId(row.id)}
+                        />
+                      ))
+                    : visible.map((row) => (
+                        <TransactionRowView
+                          key={row.id}
+                          row={row}
+                          categoryLabel={resolveCategory(row)}
+                          fmtDate={fmtDate}
+                          fmtAmount={fmtAmount}
+                          onOverrideChanged={(next) => handleChanged(row.id, next)}
+                          onIncomeChanged={(marked) =>
+                            handleIncomeChanged(row.id, marked)
+                          }
+                          onExcludeChanged={(next) =>
+                            handleExcludeChanged(row.id, next)
+                          }
+                          onShareChanged={(share) => handleShareChanged(row.id, share)}
+                          onRuleCreated={() => router.refresh()}
+                          onDeleted={() => handleDeleted(row)}
+                          onOpenDetails={() => setDetailsId(row.id)}
+                        />
+                      ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+        {details && (
+          <TransactionDetails
+            row={details}
+            accountName={accounts.find((account) => account.id === details.accountId)?.name}
+            categoryLabel={resolveCategory(details)}
+            currency={currency}
+          />
+        )}
+      </Sheet>
     </div>
   )
 }

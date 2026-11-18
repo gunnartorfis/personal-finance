@@ -79,6 +79,28 @@ describe("ReviewMode", () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it("shows an unknown merchant without repeating an unsupported AI guess", () => {
+    render(
+      <ReviewMode
+        rows={[row({
+          id: "unknown",
+          merchant: "  ",
+          classificationStatus: "classified",
+          classifiedType: "Nice to have",
+          confidence: 0.3,
+          reasoning: "A guess without a merchant",
+        })]}
+        currency="ISK"
+        onOverride={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText("Unknown merchant")).toBeInTheDocument()
+    expect(screen.getByText("No merchant details. Review manually.")).toBeInTheDocument()
+    expect(screen.queryByText(/AI guessed|A guess without a merchant/)).not.toBeInTheDocument()
+  })
+
   it("shows the classification status for the current card", () => {
     render(
       <ReviewMode
