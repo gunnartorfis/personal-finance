@@ -7,6 +7,7 @@ import {
 } from "@/shared/merchant-rules";
 import type { ExpenseType, Plan } from "@/shared/types";
 
+import { classificationFailure } from "./failure";
 import { CREDIT_REASON, MERCHANT_RULE_REASON, REUSED_REASON } from "./reasons";
 import { REUSE_CONFIDENCE_FLOOR, buildReuseSeed } from "./reuse";
 
@@ -171,6 +172,7 @@ export async function drainPending(
       if (saved) reused += 1;
       continue;
     }
+    let stage: "model" | "save" = "model";
     try {
       const result = await classify({
         merchant: txn.merchant,
@@ -182,6 +184,7 @@ export async function drainPending(
       // slug that isn't one of the Household's leaves (e.g. a hidden/renamed seed) → Uncategorized.
       const categoryId = result.category ? (leafSlugToId.get(result.category) ?? null) : null;
       const categoryConfidence = categoryId ? result.categoryConfidence : undefined;
+      stage = "save";
       await save({ ...result, categoryId, categoryConfidence });
       // Within-run reuse (ADR-0012): make this merchant's fresh type + resolved Category available to
       // its later rows in the same drain, unconditionally (regardless of confidence) — a single
@@ -193,9 +196,13 @@ export async function drainPending(
         categoryId,
         categoryConfidence: categoryConfidence ?? null,
       });
-    } catch {
-      // SDK errors can contain the statement prompt. Log the event without the error payload.
-      console.error(JSON.stringify({ event: "classification.failed" }));
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "classification.failed",
+        mode: rerun ? "reclassify_month" : "pending",
+        stage,
+        ...classificationFailure(error),
+      }));
       if (!rerun) await repo.transactions.markFailed(txn.id);
       failed += 1;
     }

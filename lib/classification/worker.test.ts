@@ -253,12 +253,25 @@ describe("drainPending", () => {
       errs.push(args.map(String).join(" "));
     });
     const boom: Classifier = async () => {
-      throw new Error("model error: SECRET-MERCHANT -4242 secret-token");
+      throw Object.assign(new Error("retry failed"), {
+        name: "AI_RetryError",
+        lastError: Object.assign(new Error("model error: SECRET-MERCHANT -4242 secret-token"), {
+          name: "GatewayAuthenticationError",
+          statusCode: 401,
+          code: "secret-token",
+        }),
+      });
     };
     await drainPending(repo, boom, { plan: "Premium" });
     spy.mockRestore();
     const joined = errs.join("\n");
-    expect(joined).toContain("classification.failed"); // failure remains observable without provider payloads
+    expect(JSON.parse(joined)).toEqual({
+      event: "classification.failed",
+      mode: "pending",
+      stage: "model",
+      errorType: "GatewayAuthenticationError",
+      httpStatus: 401,
+    });
     expect(joined).not.toContain("SECRET-MERCHANT");
     expect(joined).not.toContain("4242");
     expect(joined).not.toContain("secret-token");
