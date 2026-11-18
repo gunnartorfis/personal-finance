@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { householdRepo } from "@/lib/db/household-repo";
 import { households } from "@/lib/db/schema";
 
+import { bankAccountFingerprint } from "./account-identity";
 import type { IngestionProvider, ProviderTransaction } from "./provider";
 import { mapProviderTransaction, syncActiveConnections, syncConnection } from "./sync";
 
@@ -80,6 +81,39 @@ describe("mapProviderTransaction", () => {
 });
 
 describe("syncConnection", () => {
+  it("excludes both directions of confirmed own-account transfers on first import", async () => {
+    const repo = await freshHousehold();
+    const otherHousehold = await freshHousehold();
+    const { conn, account } = await connectionWithAccount(repo);
+    const accountIban = "IS960000000000000000000001";
+    const ownIban = "IS960000000000000000000002";
+    const externalIban = "IS960000000000000000000003";
+    await repo.accounts.setBankAccountFingerprint(account.id, bankAccountFingerprint(accountIban)!);
+    await repo.accounts.create({ name: "Savings", bankAccountFingerprint: bankAccountFingerprint(ownIban) });
+    await otherHousehold.accounts.create({ name: "Another household", bankAccountFingerprint: bankAccountFingerprint(externalIban) });
+    const { provider } = recordingProvider({
+      "uid-a": [
+        { ...tx("out", -2000), counterpartyIban: ownIban.toLowerCase(), reference: "Savings transfer" },
+        { ...tx("in", 3000), counterpartyIban: ownIban },
+        { ...tx("external", -2000), counterpartyIban: externalIban },
+        { ...tx("self", -4000), counterpartyIban: accountIban },
+      ],
+    });
+
+    await syncConnection({ repo, provider, connection: conn, now: NOW });
+    const rows = await repo.transactions.list();
+    const byId = new Map(rows.map((row) => [row.externalId, row]));
+    expect(byId.get("out")).toMatchObject({ excluded: true, bankReference: "Savings transfer" });
+    expect(byId.get("in")?.excluded).toBe(true);
+    expect(byId.get("external")?.excluded).toBe(false);
+    expect(byId.get("self")?.excluded).toBe(false);
+    expect((await repo.transactions.listPending()).map((row) => row.externalId).sort()).toEqual(["external", "self"]);
+
+    await repo.transactions.setExcluded(byId.get("out")!.id, false, null);
+    await syncConnection({ repo, provider, connection: conn, now: NOW });
+    expect((await repo.transactions.findById(byId.get("out")!.id))?.excluded).toBe(false);
+  });
+
   it("backfills over the default window and inserts pending synced rows", async () => {
     const repo = await freshHousehold();
     const { conn } = await connectionWithAccount(repo);

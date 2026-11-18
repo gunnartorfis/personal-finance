@@ -285,9 +285,11 @@ export function RowTypeControl({
           disabled={busy}
           title={
             unclassified
-              ? row.classificationStatus === "failed"
-                ? t("failedTitle")
-                : t("awaitingTitle")
+              ? !row.merchant.trim()
+                ? t("missingMerchantTitle")
+                : row.classificationStatus === "failed"
+                  ? t("failedTitle")
+                  : t("awaitingTitle")
               : undefined
           }
         >

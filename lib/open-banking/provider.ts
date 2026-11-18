@@ -33,6 +33,7 @@ export interface ProviderTransaction {
   currency: string;
   merchant: string;
   reference: string | null;
+  counterpartyIban?: string;
 }
 
 /** The redirect that begins user authorization (SCA) at the bank. */

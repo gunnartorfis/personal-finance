@@ -302,6 +302,13 @@
       "when": 1784909714711,
       "tag": "0042_wet_tarantula",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1795007699763,
+      "tag": "0043_transaction_review_signals",
+      "breakpoints": true
     }
   ]
 }

@@ -757,6 +757,7 @@
     "cash-withdrawal": "Cash withdrawals"
   },
   "rowType": {
+    "missingMerchantTitle": "No merchant details — review manually",
     "saveError": "Couldn't save",
     "excluded": "Excluded",
     "include": "Include in calculations",
@@ -867,6 +868,7 @@
     }
   },
   "classify": {
+    "reclassifyMonth": "Reclassify month",
     "classifying": "Classifying…",
     "pending": "Classify pending",
     "pendingCount": "Classify pending ({count})",
@@ -880,6 +882,7 @@
     "resultCapped": " Some transactions are paused by your Free plan limit."
   },
   "rapidReview": {
+    "statusMissingMerchant": "No merchant details. Review manually.",
     "launch": "⚡ Rapid review ({count})",
     "queueError": "Couldn't load the review queue. Try again.",
     "dialogLabel": "Rapid review",
@@ -924,6 +927,24 @@
     "saveError": "Couldn't add — try again"
   },
   "transactions": {
+    "accountFilterLabel": "Filter by account",
+    "allAccounts": "All accounts",
+    "unknownMerchant": "Unknown merchant",
+    "openDetails": "View details for {merchant}",
+    "details": {
+      "account": "Account",
+      "source": "Source",
+      "bankSync": "Bank sync",
+      "csv": "CSV upload",
+      "manual": "Manual entry",
+      "income": "Income",
+      "credit": "Credit",
+      "transfer": "Own-account transfer",
+      "ownShare": "Your share",
+      "reference": "Bank reference",
+      "exclusionNote": "Exclusion reason",
+      "close": "Close"
+    },
     "pageTitle": "Transactions",
     "pageSubtitle": "Review and reclassify spending for the selected period.",
     "upload": "Upload",

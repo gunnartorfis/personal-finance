@@ -282,6 +282,8 @@ export const accounts = pgTable(
     connectionId: uuid("connection_id"),
     /** The aggregator's account id, for synced accounts; null for manual/CSV. */
     externalAccountId: text("external_account_id"),
+    /** Normalized IBAN fingerprint used for own-account transfer detection. */
+    bankAccountFingerprint: text("bank_account_fingerprint"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -531,6 +533,7 @@ export const transactions = pgTable(
     originalCurrency: text("original_currency"),
     merchant: text("merchant").notNull(),
     rawCategory: text("raw_category").notNull(),
+    bankReference: text("bank_reference"),
     /** CSV row index for traceability; null for synced rows (which use externalId instead). */
     sourceRow: integer("source_row"),
     classificationStatus: classificationStatusEnum("classification_status")

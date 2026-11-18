@@ -21,7 +21,8 @@ import { REUSE_CONFIDENCE_FLOOR, buildReuseSeed } from "./reuse";
  * Vercel AI Gateway is wired separately, so this core is testable without a key). The drain is
  * crash-safe / resumable: it only touches `pending` rows (classify/markFailed are no-ops
  * otherwise), so re-running continues where a previous run stopped. A classifier error marks just
- * that row `failed` and the drain continues.
+ * that row `failed` and the drain continues. An explicit cycle rerun skips AI reuse and replaces
+ * each prior classification only after computing a fresh result.
  *
  * The Free cap (ADR-0002) is enforced on the model AND reuse paths: a Free Household stops being
  * classified once it has 50 classified Transactions lifetime — a reused type is still a
@@ -63,6 +64,8 @@ export interface DrainResult {
    * `classified`.
    */
   reused: number;
+  /** Cursor for a manual cycle rerun. Null means the cycle has been visited. */
+  nextCursor?: string | null;
 }
 
 /**
@@ -73,14 +76,23 @@ export interface DrainResult {
 export async function drainPending(
   repo: HouseholdRepo,
   classify: Classifier,
-  opts: { plan: Plan; limit?: number },
+  opts: {
+    plan: Plan;
+    limit?: number;
+    rerun?: { range: { from: string; to: string }; after: string | null };
+  },
 ): Promise<DrainResult> {
-  const batch = await repo.transactions.listPending(opts.limit);
+  const { rerun } = opts;
+  const limit = opts.limit ?? 25;
+  const candidates = rerun
+    ? await repo.transactions.listForReclassification(rerun.range, rerun.after, limit + 1)
+    : await repo.transactions.listPending(opts.limit);
+  const batch = rerun ? candidates.slice(0, limit) : candidates;
   const rules = (await repo.merchantRules.list()).map(toMerchantRule);
   // Classification reuse seed (ADR-0012): normalized merchant → confident majority type from the
   // Household's own model history. Mutated below to also cover merchants first seen in THIS run.
   const reuse = buildReuseSeed(
-    (await repo.transactions.reuseTallies(REUSE_CONFIDENCE_FLOOR))
+    (rerun ? [] : await repo.transactions.reuseTallies(REUSE_CONFIDENCE_FLOOR))
       // A classified row always has a non-null type (DB CHECK). Drop any null defensively rather
       // than coercing it to "" (NOT_BUCKETED), which would mis-bucket a genuine expense.
       .filter((t): t is typeof t & { expenseType: string } => t.expenseType !== null)
@@ -103,16 +115,20 @@ export async function drainPending(
   let capped = 0;
   let reused = 0;
   for (const txn of batch) {
+    const wasClassified = txn.classificationStatus === "classified";
+    const save = async (result: Parameters<typeof repo.transactions.classify>[1]) => {
+      const [row] = await repo.transactions.classify(txn.id, result, rerun ? txn : undefined);
+      if (!row) return false;
+      classified += 1;
+      if (!wasClassified) classifiedCount += 1;
+      return true;
+    };
     if (!isExpense(txn.amount)) {
       // Credits and transfers are not bucketed — no model call, not gated by the cap.
-      const [row] = await repo.transactions.classify(txn.id, {
+      await save({
         expenseType: NOT_BUCKETED,
         reasoning: CREDIT_REASON,
       });
-      if (row) {
-        classified += 1;
-        classifiedCount += 1;
-      }
       continue;
     }
     const ruleMatch = applyMerchantRules(rules, { merchant: txn.merchant, amount: txn.amount });
@@ -121,23 +137,19 @@ export async function drainPending(
       // Classification). Like credits it skips the model and is not gated by the Free cap. The rule
       // may also carry a Category (ADR-0020), applied here with full confidence — but only if it is
       // still visible, so hiding a Category suppresses it on the rule path too (parity with the
-      // model path). A rule pointing at a since-hidden Category → Uncategorized.
+      // model path). On a rerun, a type-only rule leaves an existing Category intact.
       const ruleCategoryId =
         ruleMatch.categoryId && visibleLeafIds.has(ruleMatch.categoryId) ? ruleMatch.categoryId : null;
-      const [row] = await repo.transactions.classify(txn.id, {
+      await save({
         expenseType: ruleMatch.type,
         confidence: 1,
         reasoning: MERCHANT_RULE_REASON,
-        categoryId: ruleCategoryId,
-        categoryConfidence: ruleCategoryId ? 1 : undefined,
+        categoryId: ruleCategoryId ?? (rerun ? txn.categoryId : null),
+        categoryConfidence: ruleCategoryId ? 1 : rerun ? txn.categoryConfidence ?? undefined : undefined,
       });
-      if (row) {
-        classified += 1;
-        classifiedCount += 1;
-      }
       continue;
     }
-    if (!canClassify(opts.plan, classifiedCount)) {
+    if (!wasClassified && !canClassify(opts.plan, classifiedCount)) {
       // Free cap reached: leave the expense pending; it classifies on upgrade. Gates reuse too — a
       // reused type is still a Classification and counts against the cap.
       capped += 1;
@@ -149,18 +161,14 @@ export async function drainPending(
       // Reuse the Household's own prior confident decision for this merchant — no model call.
       // Forward the resolved Category too (ADR-0020) so repeated merchants in one drain get the same
       // Category; cross-run seed entries have no categoryId, so those stay Uncategorized (S7 backfill).
-      const [row] = await repo.transactions.classify(txn.id, {
+      const saved = await save({
         expenseType: hit.type,
         confidence: hit.confidence ?? undefined,
         reasoning: REUSED_REASON,
         categoryId: hit.categoryId ?? null,
         categoryConfidence: hit.categoryConfidence ?? undefined,
       });
-      if (row) {
-        classified += 1;
-        classifiedCount += 1;
-        reused += 1;
-      }
+      if (saved) reused += 1;
       continue;
     }
     try {
@@ -174,16 +182,12 @@ export async function drainPending(
       // slug that isn't one of the Household's leaves (e.g. a hidden/renamed seed) → Uncategorized.
       const categoryId = result.category ? (leafSlugToId.get(result.category) ?? null) : null;
       const categoryConfidence = categoryId ? result.categoryConfidence : undefined;
-      const [row] = await repo.transactions.classify(txn.id, { ...result, categoryId, categoryConfidence });
-      if (row) {
-        classified += 1;
-        classifiedCount += 1;
-      }
+      await save({ ...result, categoryId, categoryConfidence });
       // Within-run reuse (ADR-0012): make this merchant's fresh type + resolved Category available to
       // its later rows in the same drain, unconditionally (regardless of confidence) — a single
       // upload stays internally consistent and costs one model call per distinct merchant. Low-
       // confidence types are still not seeded across runs (reuseTallies applies the floor next time).
-      reuse.set(merchantKey, {
+      if (!rerun) reuse.set(merchantKey, {
         type: result.expenseType,
         confidence: result.confidence ?? null,
         categoryId,
@@ -192,9 +196,12 @@ export async function drainPending(
     } catch {
       // SDK errors can contain the statement prompt. Log the event without the error payload.
       console.error(JSON.stringify({ event: "classification.failed" }));
-      await repo.transactions.markFailed(txn.id);
+      if (!rerun) await repo.transactions.markFailed(txn.id);
       failed += 1;
     }
   }
-  return { classified, failed, capped, reused };
+  return {
+    classified, failed, capped, reused,
+    ...(rerun ? { nextCursor: candidates.length > limit ? batch.at(-1)?.id ?? null : null } : {}),
+  };
 }

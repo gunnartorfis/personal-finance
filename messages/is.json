@@ -757,6 +757,7 @@
     "cash-withdrawal": "Peningaúttektir"
   },
   "rowType": {
+    "missingMerchantTitle": "Engar upplýsingar um söluaðila — farðu yfir færsluna handvirkt",
     "saveError": "Tókst ekki að vista",
     "excluded": "Undanskilið",
     "include": "Taka með í útreikninga",
@@ -867,6 +868,7 @@
     }
   },
   "classify": {
+    "reclassifyMonth": "Endurflokka mánuð",
     "classifying": "Flokka…",
     "pending": "Flokka í bið",
     "pendingCount": "Flokka í bið ({count})",
@@ -880,6 +882,7 @@
     "resultCapped": " Sumar færslur eru í bið vegna takmarka ókeypis áætlunar."
   },
   "rapidReview": {
+    "statusMissingMerchant": "Engar upplýsingar um söluaðila. Farðu yfir færsluna handvirkt.",
     "launch": "⚡ Hraðyfirferð ({count})",
     "queueError": "Tókst ekki að hlaða yfirferðarröðinni. Reyndu aftur.",
     "dialogLabel": "Hraðyfirferð",
@@ -924,6 +927,24 @@
     "saveError": "Tókst ekki að bæta við — reyndu aftur"
   },
   "transactions": {
+    "accountFilterLabel": "Sía eftir reikningi",
+    "allAccounts": "Allir reikningar",
+    "unknownMerchant": "Óþekktur söluaðili",
+    "openDetails": "Skoða færslu fyrir {merchant}",
+    "details": {
+      "account": "Reikningur",
+      "source": "Uppruni",
+      "bankSync": "Bankasamstilling",
+      "csv": "CSV-innflutningur",
+      "manual": "Handvirk skráning",
+      "income": "Tekjur",
+      "credit": "Innborgun",
+      "transfer": "Millifærsla milli eigin reikninga",
+      "ownShare": "Þinn hlutur",
+      "reference": "Tilvísun frá banka",
+      "exclusionNote": "Ástæða útilokunar",
+      "close": "Loka"
+    },
     "pageTitle": "Færslur",
     "pageSubtitle": "Farðu yfir og endurflokkaðu útgjöld fyrir valið tímabil.",
     "upload": "Hlaða upp",

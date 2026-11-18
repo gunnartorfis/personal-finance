@@ -1,5 +1,6 @@
 import type { HouseholdRepo } from "@/lib/db/household-repo";
 
+import { bankAccountFingerprint } from "./account-identity";
 import type { IngestionProvider } from "./provider";
 
 export interface ConnectResult {
@@ -62,7 +63,11 @@ export async function completeBankConnection(params: {
   const accountIds: string[] = [];
   for (const account of session.accounts) {
     const existing = await repo.accounts.bySyncKey(connection.id, account.uid);
+    const fingerprint = bankAccountFingerprint(account.iban);
     if (existing) {
+      if (fingerprint && fingerprint !== existing.bankAccountFingerprint) {
+        await repo.accounts.setBankAccountFingerprint(existing.id, fingerprint);
+      }
       accountIds.push(existing.id);
       continue;
     }
@@ -70,6 +75,7 @@ export async function completeBankConnection(params: {
       name: account.name ?? account.iban ?? "Bank account",
       connectionId: connection.id,
       externalAccountId: account.uid,
+      bankAccountFingerprint: fingerprint,
     });
     accountIds.push(created.id);
   }
