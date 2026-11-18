@@ -108,7 +108,7 @@ export const searchTransactionsTool: AssistantTool<SearchInput, SearchTransactio
         amount: row.amount,
         expenseType: (row.overrideType ?? row.classifiedType) as ExpenseType | null,
         excluded: row.excluded,
-        isTransfer: row.transferGroupId != null,
+        isTransfer: row.transferGroupId != null || (row.sharedTransferRuleApplies && !row.incomeMarked),
         incomeMarked: row.incomeMarked,
       })),
     };

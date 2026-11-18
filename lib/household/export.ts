@@ -2,6 +2,7 @@ import type {
   accountBalances,
   accounts,
   bankConnections,
+  bankTransferRules,
   expenseTypeBudgets,
   merchantRules,
   overrides,
@@ -25,6 +26,7 @@ export interface HouseholdExportInput {
   transactions: Array<typeof transactions.$inferSelect>;
   overrides: Array<typeof overrides.$inferSelect>;
   merchantRules: Array<typeof merchantRules.$inferSelect>;
+  bankTransferRules: Array<typeof bankTransferRules.$inferSelect>;
   bankConnections: BankConnection[];
   savings: {
     goal: (typeof savingsGoals.$inferSelect) | undefined;

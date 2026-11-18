@@ -13,6 +13,7 @@ import {
 import { useTranslations } from "next-intl"
 import { useRef, useState, type ReactNode } from "react"
 
+import { InternalTransferRuleSheet } from "@/components/internal-transfer-rule-sheet"
 import type { TransactionRow } from "@/components/transactions-table"
 import { Button } from "@/components/ui/button"
 import {
@@ -106,6 +107,61 @@ function ExcludeMenuItem({ onSelect }: { onSelect: () => void }) {
   )
 }
 
+function AccountTransferRuleMenuItem({ row, onSelect }: { row: TransactionRow; onSelect: () => void }) {
+  const t = useTranslations("internalTransferRule")
+  if (row.source !== "bank_sync") return null
+  return <MenuItem onClick={onSelect}>{t(row.sharedTransferRuleApplies ? "manage" : "create")}</MenuItem>
+}
+
+function CreditOrInternalTransferControl({
+  row,
+  busy,
+  errorSlot,
+  deleteItem,
+  onIncomeChange,
+  onExclude,
+  onRule,
+}: {
+  row: TransactionRow
+  busy: boolean
+  errorSlot: ReactNode
+  deleteItem: ReactNode
+  onIncomeChange: (marked: boolean) => void
+  onExclude: () => void
+  onRule: () => void
+}) {
+  const t = useTranslations("rowType")
+  const transfer = useTranslations("internalTransferRule")
+  const label = row.incomeMarked
+    ? t("income")
+    : row.sharedTransferRuleApplies ? transfer("label") : t("credit")
+  const tone = row.incomeMarked
+    ? "border-emerald-600/30 text-emerald-700 dark:border-emerald-500/30 dark:text-emerald-400"
+    : "text-muted-foreground"
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <Menu>
+        <MenuTrigger render={pillButton(tone)} disabled={busy}>
+          <Dot className={row.incomeMarked ? "bg-emerald-500" : "bg-muted-foreground/40"} />
+          {label}
+          <ChevronDown className="opacity-60" aria-hidden />
+        </MenuTrigger>
+        <MenuContent>
+          {row.amount > 0 && (
+            <MenuCheckboxItem checked={row.incomeMarked} onCheckedChange={onIncomeChange}>
+              {t("countAsIncome")}
+            </MenuCheckboxItem>
+          )}
+          <AccountTransferRuleMenuItem row={row} onSelect={onRule} />
+          <ExcludeMenuItem onSelect={onExclude} />
+          {deleteItem}
+        </MenuContent>
+      </Menu>
+      {errorSlot}
+    </div>
+  )
+}
+
 /**
  * The single inline control that owns a transaction row's "Type" cell (Phase H redesign). It
  * collapses what used to be a row of competing links — the type dropdown, Reset, the "apply to all"
@@ -155,7 +211,7 @@ export function RowTypeControl({
 }) {
   const t = useTranslations("rowType")
   const typeLabels = useExpenseTypeLabels()
-  const [editor, setEditor] = useState<"none" | "split" | "exclude">("none")
+  const [editor, setEditor] = useState<"none" | "split" | "exclude" | "transfer-rule">("none")
   const [busy, setBusy] = useState(false)
   const [errored, setErrored] = useState(false)
 
@@ -244,45 +300,33 @@ export function RowTypeControl({
     )
   }
 
-  // --- Credit: only a marked credit contributes income (ADR-0009). ---
-  if (row.amount > 0) {
+  if (editor === "transfer-rule") {
     return (
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <Menu>
-          <MenuTrigger
-            render={pillButton(
-              row.incomeMarked
-                ? "border-emerald-600/30 text-emerald-700 dark:border-emerald-500/30 dark:text-emerald-400"
-                : "text-muted-foreground"
-            )}
-            disabled={busy}
-          >
-            <Dot
-              className={
-                row.incomeMarked ? "bg-emerald-500" : "bg-muted-foreground/40"
-              }
-            />
-            {row.incomeMarked ? t("income") : t("credit")}
-            <ChevronDown className="opacity-60" aria-hidden />
-          </MenuTrigger>
-          <MenuContent>
-            <MenuCheckboxItem
-              checked={row.incomeMarked}
-              onCheckedChange={(checked) =>
-                void run(async () => {
-                  await (checked ? markIncome(row.id) : unmarkIncome(row.id))
-                  onIncomeChanged(checked)
-                })
-              }
-            >
-              {t("countAsIncome")}
-            </MenuCheckboxItem>
-            <ExcludeMenuItem onSelect={() => setEditor("exclude")} />
-            {deleteItem}
-          </MenuContent>
-        </Menu>
-        {errorSlot}
-      </div>
+      <InternalTransferRuleSheet
+        transactionId={row.id}
+        merchant={row.merchant}
+        formatAmount={formatAmount}
+        onClose={() => setEditor("none")}
+        onSaved={onRuleCreated}
+        onExclude={() => setEditor("exclude")}
+      />
+    )
+  }
+
+  if (row.amount > 0 || row.sharedTransferRuleApplies) {
+    return (
+      <CreditOrInternalTransferControl
+        row={row}
+        busy={busy}
+        errorSlot={errorSlot}
+        deleteItem={deleteItem}
+        onIncomeChange={(marked) => void run(async () => {
+          await (marked ? markIncome(row.id) : unmarkIncome(row.id))
+          onIncomeChanged(marked)
+        })}
+        onExclude={() => setEditor("exclude")}
+        onRule={() => setEditor("transfer-rule")}
+      />
     )
   }
 
@@ -405,6 +449,7 @@ export function RowTypeControl({
               {t("removeSplit")}
             </MenuItem>
           )}
+          <AccountTransferRuleMenuItem row={row} onSelect={() => setEditor("transfer-rule")} />
           <ExcludeMenuItem onSelect={() => setEditor("exclude")} />
           {deleteItem}
         </MenuContent>

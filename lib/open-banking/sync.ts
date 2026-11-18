@@ -2,7 +2,7 @@ import type { HouseholdRepo } from "@/lib/db/household-repo";
 import { detectAndLinkTransfers } from "@/lib/transactions/link-transfers";
 import type { transactions } from "@/lib/db/schema";
 
-import { bankAccountFingerprint } from "./account-identity";
+import { bankAccountFingerprint, knownCounterparties } from "./account-identity";
 import type { IngestionProvider, ProviderTransaction } from "./provider";
 
 /** How far back the first sync of a connection reaches (bank-capped in practice). */
@@ -65,9 +65,11 @@ export async function syncConnection(params: {
   for (const account of accounts) {
     if (!account.externalAccountId) continue;
     const pts = await provider.listTransactions(account.externalAccountId, { from, to });
+    const counterparties = knownCounterparties(pts);
     const rows = pts.map((pt) => {
       const row = mapProviderTransaction(pt, account.id);
       const counterparty = bankAccountFingerprint(pt.counterpartyIban);
+      row.counterpartyFingerprint = counterparties.get(pt.externalId);
       if (
         account.bankAccountFingerprint &&
         counterparty &&
@@ -79,6 +81,9 @@ export async function syncConnection(params: {
       return row;
     });
     const newRows = await repo.transactions.createSyncedMany(rows);
+    if (newRows.length < rows.length) {
+      await repo.transactions.fillCounterpartyFingerprints(account.id, counterparties);
+    }
     inserted += newRows.length;
   }
   await repo.bankConnections.update(connection.id, { lastSyncedAt: now });

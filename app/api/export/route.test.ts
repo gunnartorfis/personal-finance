@@ -13,6 +13,7 @@ function repoStub() {
     transactions: { list: vi.fn().mockResolvedValue([{ id: "t1", amount: -100 }]) },
     overrides: { list: list() },
     merchantRules: { list: list() },
+    bankTransferRules: { list: list() },
     bankConnections: {
       list: vi.fn().mockResolvedValue([
         { id: "c1", provider: "enable_banking", accessToken: "SECRET-A", refreshToken: "SECRET-R" },

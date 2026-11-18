@@ -58,7 +58,7 @@ function effectiveCategoryId(row: TransactionRow): string | null {
 function bucketOf(row: TransactionRow): TypeBucket {
   // Excluded rows count for nothing, so they leave every type-specific bucket (ADR-0011).
   if (row.excluded) return "excluded"
-  if (row.transferGroupId) return "transfer"
+  if (row.transferGroupId || (row.sharedTransferRuleApplies && !row.incomeMarked)) return "transfer"
   if (row.amount > 0) return "credit"
   const unclassified =
     row.classificationStatus !== "classified" && row.overrideType === null
@@ -146,6 +146,7 @@ export interface TransactionRow {
   accountId?: string
   bankReference?: string | null
   transferGroupId?: string | null
+  sharedTransferRuleApplies?: boolean
   amount: number
   /**
    * The Household's Own share of a Shared expense (ADR-0014): the negative portion of this debit it
@@ -533,12 +534,13 @@ function TransactionDetails({
   currency: string
 }) {
   const t = useTranslations("transactions")
+  const internalTransfer = useTranslations("internalTransferRule")
   const typeLabels = useExpenseTypeLabels()
   const locale = toLocale(useLocale()) ?? defaultLocale
   const bucket = bucketOf(row)
   const type =
     bucket === "transfer"
-      ? t("details.transfer")
+      ? row.transferGroupId ? t("details.transfer") : internalTransfer("label")
       : bucket === "credit"
         ? t(row.incomeMarked ? "details.income" : "details.credit")
         : bucket === "excluded"
@@ -631,7 +633,7 @@ function TransactionRowView({
 }) {
   const t = useTranslations("transactions")
   const isCredit = row.amount > 0
-  const outsideTotals = row.excluded || Boolean(row.transferGroupId)
+  const outsideTotals = row.excluded || bucketOf(row) === "transfer"
   return (
     <tr className="cursor-pointer border-b border-border hover:bg-muted/40 last:border-0" onClick={openTransactionFromRow}>
       <td className="py-3 pr-4 text-muted-foreground tabular-nums">
@@ -1014,7 +1016,7 @@ export function TransactionsTable({
         row.amount < 0 &&
         row.merchant.trim() &&
         !row.excluded &&
-        !row.transferGroupId &&
+        bucketOf(row) !== "transfer" &&
         row.overrideType === null &&
         row.overrideCategoryId === null
       ).length

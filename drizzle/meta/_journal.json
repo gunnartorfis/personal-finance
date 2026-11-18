@@ -309,6 +309,13 @@
       "when": 1795007699763,
       "tag": "0043_transaction_review_signals",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1795015411440,
+      "tag": "0044_shared_bank_transfers",
+      "breakpoints": true
     }
   ]
 }
