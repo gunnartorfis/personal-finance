@@ -634,6 +634,7 @@
       "transactionRecategorized": "breytti flokki færslu",
       "transactionShareSet": "setti sameiginlega upphæð á færslu",
       "transactionShareCleared": "hreinsaði sameiginlega upphæð færslu",
+      "transactionReportingMonthChanged": "breytti tímabilinu sem færsla telst til",
       "transactionDeleted": "eyddi færslu",
       "transactionRestored": "endurheimti eydda færslu",
       "transactionCreated": "bætti við færslu",
@@ -954,6 +955,18 @@
     "allAccounts": "Allir reikningar",
     "unknownMerchant": "Óþekktur söluaðili",
     "openDetails": "Skoða færslu fyrir {merchant}",
+    "reportingMonth": {
+      "label": "Tímabil í yfirliti",
+      "change": "Breyta tímabili",
+      "month": "Mánuður",
+      "year": "Ár",
+      "description": "Færslan telst með í samtölum valins mánaðar. Upprunaleg dagsetning færslunnar helst óbreytt.",
+      "save": "Vista tímabil",
+      "reset": "Nota upprunalegan mánuð",
+      "error": "Ekki tókst að vista tímabilið. Reyndu aftur.",
+      "moved": "Færsla flutt í {month}.",
+      "view": "Skoða {month}"
+    },
     "details": {
       "account": "Reikningur",
       "source": "Uppruni",

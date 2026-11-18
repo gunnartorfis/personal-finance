@@ -634,6 +634,7 @@
       "transactionRecategorized": "changed a transaction's category",
       "transactionShareSet": "set a shared amount on a transaction",
       "transactionShareCleared": "cleared a transaction's shared amount",
+      "transactionReportingMonthChanged": "changed the month a transaction counts in",
       "transactionDeleted": "deleted a transaction",
       "transactionRestored": "restored a deleted transaction",
       "transactionCreated": "added a transaction",
@@ -954,6 +955,18 @@
     "allAccounts": "All accounts",
     "unknownMerchant": "Unknown merchant",
     "openDetails": "View details for {merchant}",
+    "reportingMonth": {
+      "label": "Count in month",
+      "change": "Change month",
+      "month": "Month",
+      "year": "Year",
+      "description": "This changes the month used in your totals. Your original transaction date stays the same.",
+      "save": "Save month",
+      "reset": "Use original month",
+      "error": "The month could not be saved. Try again.",
+      "moved": "Transaction moved to {month}.",
+      "view": "View {month}"
+    },
     "details": {
       "account": "Account",
       "source": "Source",

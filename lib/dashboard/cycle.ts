@@ -1,6 +1,6 @@
 /**
  * Statement-cycle boundaries (Phase F/H). A cycle is one calendar month, identified by its
- * `YYYY-MM` key. All math is in UTC so it matches the date-only `transactions.date` column without
+ * `YYYY-MM` key. All math is in UTC so it matches the date-only reporting and booked dates without
  * timezone drift; ranges are returned half-open `[from, to)` for {@link loadNetSummary} and the
  * transactions list. The dashboard works off "the month containing now"; the transactions view lets
  * the user pick any past cycle by key, so the key-based helpers are the primitive and the
@@ -35,10 +35,10 @@ export function currentCycleKey(now: Date): CycleKey {
 /** The `[from, to)` ISO date range (`YYYY-MM-DD`) of a cycle. */
 export function cycleKeyRange(key: CycleKey): { from: string; to: string } {
   const { year, month } = parseKey(key);
-  const from = `${year}-${pad(month)}-01`;
+  const from = `${key}-01`;
   const nextYear = month === 12 ? year + 1 : year;
   const nextMonth = month === 12 ? 1 : month + 1;
-  const to = `${nextYear}-${pad(nextMonth)}-01`;
+  const to = `${String(nextYear).padStart(4, "0")}-${pad(nextMonth)}-01`;
   return { from, to };
 }
 
@@ -76,13 +76,17 @@ export function cyclesBetweenInclusive(startKey: CycleKey, endKey: CycleKey): nu
 /** The key of the calendar month before `key`. */
 export function previousCycleKey(key: CycleKey): CycleKey {
   const { year, month } = parseKey(key);
-  return month === 1 ? `${year - 1}-12` : `${year}-${pad(month - 1)}`;
+  return month === 1
+    ? `${String(year - 1).padStart(4, "0")}-12`
+    : `${key.slice(0, 4)}-${pad(month - 1)}`;
 }
 
 /** The key of the calendar month after `key`. */
 export function nextCycleKey(key: CycleKey): CycleKey {
   const { year, month } = parseKey(key);
-  return month === 12 ? `${year + 1}-01` : `${year}-${pad(month + 1)}`;
+  return month === 12
+    ? `${String(year + 1).padStart(4, "0")}-01`
+    : `${key.slice(0, 4)}-${pad(month + 1)}`;
 }
 
 /**

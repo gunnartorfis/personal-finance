@@ -44,6 +44,7 @@ type SearchInput = z.infer<typeof searchSchema>;
 export interface FoundTransaction {
   id: string;
   date: string;
+  reportingMonth?: string;
   merchant: string;
   amount: number;
   expenseType: ExpenseType | null;
@@ -78,12 +79,15 @@ export const searchTransactionsTool: AssistantTool<SearchInput, SearchTransactio
   description:
     "Find individual transactions in a window (a `cycle`, an explicit `from`/`to`, or the last 3 " +
     "cycles by default) filtered by merchant `text`, amount magnitude (`minAmount`/`maxAmount`), and " +
-    "`expenseType`. Returns up to `limit` (default 20) newest-first, plus the true match `count`. " +
+    "`expenseType`. Cycles use the reporting month. Explicit dates use the booked date. " +
+    "Returns up to `limit` (default 20) newest-first, plus the true match `count`. " +
     "Rows keep their sign and carry `excluded`/`incomeMarked` flags — do not sum excluded rows as spend.",
   inputSchema: searchSchema,
   async run(ctx, input) {
     const range = resolveRange(ctx, input);
-    const rows = await ctx.repo.transactions.listWithOverrides(range);
+    const rows = !input.cycle && input.from && input.to
+      ? await ctx.repo.transactions.listWithOverrides(range, { bookedDates: true })
+      : await ctx.repo.transactions.listWithOverrides(range);
     const needle = input.text ? normalizeMerchant(input.text) : null;
     const limit = input.limit ?? DEFAULT_LIMIT;
 
@@ -104,6 +108,7 @@ export const searchTransactionsTool: AssistantTool<SearchInput, SearchTransactio
       transactions: matched.slice(0, limit).map((row) => ({
         id: row.id,
         date: row.date,
+        ...(row.reportingMonth && { reportingMonth: row.reportingMonth.slice(0, 7) }),
         merchant: row.merchant,
         amount: row.amount,
         expenseType: (row.overrideType ?? row.classifiedType) as ExpenseType | null,

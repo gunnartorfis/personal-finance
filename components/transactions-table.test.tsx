@@ -80,6 +80,52 @@ const ROWS: TransactionRow[] = [
 ]
 
 describe("TransactionsTable", () => {
+  it("suggests the previous month for an early salary and links to the destination after saving", async () => {
+    const user = userEvent.setup()
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ month: "2026-09" })))
+    vi.stubGlobal("fetch", fetch)
+    const early = { ...ROWS[2], date: "2026-10-01", incomeMarked: true }
+    const late = { ...early, id: "late", date: "2026-10-30", merchant: "NEXT SALARY" }
+    render(<TransactionsTable rows={[early, late]} currency="ISK" />)
+
+    await user.click(screen.getByRole("button", { name: "View details for SALARY" }))
+    const drawer = within(screen.getByRole("dialog", { name: "SALARY" }))
+    expect(drawer.getByText("October 1, 2026")).toBeInTheDocument()
+    await user.click(drawer.getByRole("button", { name: "Change month" }))
+    expect(drawer.getByRole("combobox", { name: "Month" })).toHaveValue("09")
+    expect(drawer.getByRole("textbox", { name: "Year" })).toHaveValue("2026")
+    await user.click(drawer.getByRole("button", { name: "Save month" }))
+
+    expect(fetch).toHaveBeenCalledWith("/api/transactions/t2/reporting-month", expect.objectContaining({
+      method: "PUT", body: JSON.stringify({ month: "2026-09" }),
+    }))
+    expect(await screen.findByRole("link", { name: "View September 2026" }))
+      .toHaveAttribute("href", "/transactions?cycle=2026-09")
+    expect(screen.queryByRole("button", { name: "View details for SALARY" })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "View details for NEXT SALARY" })).toBeInTheDocument()
+  })
+
+  it("lets a member restore the original month from a moved transaction's details", async () => {
+    const user = userEvent.setup()
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ month: "2026-01" })))
+    vi.stubGlobal("fetch", fetch)
+    const salary = { ...ROWS[2], date: "2026-01-02", reportingMonth: "2025-12-01" }
+    render(<TransactionsTable rows={[salary]} currency="ISK" />)
+
+    await user.click(screen.getByRole("button", { name: "View details for SALARY" }))
+    const drawer = within(screen.getByRole("dialog", { name: "SALARY" }))
+    expect(drawer.getByText("January 2, 2026")).toBeInTheDocument()
+    expect(drawer.getByText("December 2025")).toBeInTheDocument()
+    await user.click(drawer.getByRole("button", { name: "Change month" }))
+    await user.click(drawer.getByRole("button", { name: "Use original month" }))
+
+    expect(fetch).toHaveBeenCalledWith("/api/transactions/t2/reporting-month", expect.objectContaining({
+      method: "PUT", body: JSON.stringify({ month: null }),
+    }))
+    expect(await screen.findByRole("link", { name: "View January 2026" }))
+      .toHaveAttribute("href", "/transactions?cycle=2026-01")
+  })
+
   it("filters rows by account and opens the matched transaction details", async () => {
     const user = userEvent.setup()
     const accounts = [

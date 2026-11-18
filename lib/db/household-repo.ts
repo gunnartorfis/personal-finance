@@ -72,6 +72,9 @@ type Db = NodePgDatabase<typeof schema>
 // A drizzle transaction handle (or the db itself) — what the savings swap helpers write through.
 type DbOrTx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0]
 
+// Use the entered month for reporting; bank operations and balance checks use the booked date.
+const reportingDate = sql<string>`coalesce(${transactions.reportingMonth}, ${transactions.date})`
+
 const hasMerchant = sql`${transactions.merchant} ~ '[^[:space:]]'`
 // A confirmed label rule is confined to unverified incoming bank credits on one receiving account.
 const incomingLabelRuleKey = sql<string | null>`case when
@@ -999,8 +1002,8 @@ export function householdRepo(db: Db, householdId: string) {
               isNull(overrides.id),
               eq(transactions.archived, false),
               isNull(transactions.deletedAt),
-              gte(transactions.date, range.from),
-              lt(transactions.date, range.to),
+              gte(reportingDate, range.from),
+              lt(reportingDate, range.to),
               after ? gt(transactions.id, after) : undefined
             )
           )
@@ -1118,8 +1121,8 @@ export function householdRepo(db: Db, householdId: string) {
               // Both legs of a detected inter-account transfer are money movement, not spend or
               // income — drop them so a card-bill payment doesn't double-count (issue #97).
               notTransfer,
-              gte(transactions.date, range.from),
-              lt(transactions.date, range.to)
+              gte(reportingDate, range.from),
+              lt(reportingDate, range.to)
             )
           ),
       /**
@@ -1130,11 +1133,13 @@ export function householdRepo(db: Db, householdId: string) {
        * without changing the displayed face value. Scoped to the household on both the transactions
        * filter and the override join.
        */
-      listWithOverrides: (range: { from: string; to: string }) =>
-        db
+      listWithOverrides: (range: { from: string; to: string }, options?: { bookedDates: boolean }) => {
+        const date = options?.bookedDates ? sql<string>`${transactions.date}` : reportingDate
+        return db
           .select({
             id: transactions.id,
             date: transactions.date,
+            reportingMonth: transactions.reportingMonth,
             merchant: transactions.merchant,
             accountId: transactions.accountId,
             bankReference: transactions.bankReference,
@@ -1167,11 +1172,12 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.householdId, householdId),
               // Archived rows (undone Upload) are hidden from every read (ADR-0024).
               eq(transactions.archived, false), isNull(transactions.deletedAt),
-              gte(transactions.date, range.from),
-              lt(transactions.date, range.to)
+              gte(date, range.from),
+              lt(date, range.to)
             )
           )
-          .orderBy(desc(transactions.date), asc(transactions.id)),
+          .orderBy(desc(transactions.date), asc(transactions.id))
+      },
       /**
        * The soft-deleted (ADR-0026) Transactions in a range — the durable "Deleted" view's rows.
        * Same shape/order as {@link listWithOverrides} but the complement predicate
@@ -1182,6 +1188,7 @@ export function householdRepo(db: Db, householdId: string) {
           .select({
             id: transactions.id,
             date: transactions.date,
+            reportingMonth: transactions.reportingMonth,
             merchant: transactions.merchant,
             accountId: transactions.accountId,
             bankReference: transactions.bankReference,
@@ -1214,8 +1221,8 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.householdId, householdId),
               eq(transactions.archived, false),
               isNotNull(transactions.deletedAt),
-              gte(transactions.date, range.from),
-              lt(transactions.date, range.to)
+              gte(reportingDate, range.from),
+              lt(reportingDate, range.to)
             )
           )
           .orderBy(desc(transactions.date), asc(transactions.id)),
@@ -1228,7 +1235,7 @@ export function householdRepo(db: Db, householdId: string) {
        * as a string from the driver, so both totals are coerced to numbers. Scoped to the household.
        */
       monthlySpendSeries: async (range: { from: string; to: string }) => {
-        const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`;
+        const month = sql<string>`to_char(${reportingDate}, 'YYYY-MM')`;
         // Spend counts the Own share on a Shared expense (effective_amount), never the full charge
         // (ADR-0014); income is unaffected — effective_amount equals amount for credits.
         const spending = sql<string>`coalesce(sum(case when ${transactions.amount} < 0 then -${transactions.effectiveAmount} else 0 end), 0)`;
@@ -1245,8 +1252,8 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.archived, false), isNull(transactions.deletedAt),
               // Detected inter-account transfer legs are money movement, not spend or income (#97).
               notTransfer,
-              gte(transactions.date, range.from),
-              lt(transactions.date, range.to)
+              gte(reportingDate, range.from),
+              lt(reportingDate, range.to)
             )
           )
           .groupBy(month)
@@ -1289,8 +1296,8 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.archived, false), isNull(transactions.deletedAt),
               // Neither is a detected inter-account transfer leg — it's money movement, not spend (#97).
               notTransfer,
-              gte(transactions.date, range.from),
-              lt(transactions.date, range.to),
+              gte(reportingDate, range.from),
+              lt(reportingDate, range.to),
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
             )
           )
@@ -1306,7 +1313,7 @@ export function householdRepo(db: Db, householdId: string) {
        * the transactions filter and the override join; `sum(...)` is coerced from the driver string.
        */
       monthlyCategorySpend: async (range: { from: string; to: string }) => {
-        const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`;
+        const month = sql<string>`to_char(${reportingDate}, 'YYYY-MM')`;
         const effectiveType = sql<
           string | null
         >`coalesce(${overrides.expenseType}, ${transactions.expenseType})`;
@@ -1332,8 +1339,8 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.archived, false), isNull(transactions.deletedAt),
               // Neither is a detected inter-account transfer leg — it's money movement, not spend (#97).
               notTransfer,
-              gte(transactions.date, range.from),
-              lt(transactions.date, range.to)
+              gte(reportingDate, range.from),
+              lt(reportingDate, range.to)
             )
           )
           .groupBy(month, effectiveType)
@@ -1389,7 +1396,7 @@ export function householdRepo(db: Db, householdId: string) {
        * split-payment merchant never surfaces as a spend mover. Scoped to the household.
        */
       monthlyMerchantSpend: async (range: { from: string; to: string }) => {
-        const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`;
+        const month = sql<string>`to_char(${reportingDate}, 'YYYY-MM')`;
         // Own share, not the full charge, on a Shared expense (ADR-0014); equal for ordinary rows.
         const spending = sql<string>`sum(-${transactions.effectiveAmount})`;
         const rows = await db
@@ -1412,8 +1419,8 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.archived, false), isNull(transactions.deletedAt),
               // Neither is a detected inter-account transfer leg — it's money movement, not spend (#97).
               notTransfer,
-              gte(transactions.date, range.from),
-              lt(transactions.date, range.to),
+              gte(reportingDate, range.from),
+              lt(reportingDate, range.to),
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
             )
           )
@@ -1454,8 +1461,8 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.archived, false), isNull(transactions.deletedAt),
               // Neither is a detected inter-account transfer leg — it's money movement, not spend (#97).
               notTransfer,
-              gte(transactions.date, range.from),
-              lt(transactions.date, range.to),
+              gte(reportingDate, range.from),
+              lt(reportingDate, range.to),
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
             )
           )
@@ -1548,8 +1555,8 @@ export function householdRepo(db: Db, householdId: string) {
               eq(transactions.archived, false), isNull(transactions.deletedAt),
               // Neither is a detected inter-account transfer leg — it's money movement, not spend (#97).
               notTransfer,
-              gte(transactions.date, range.from),
-              lt(transactions.date, range.to),
+              gte(reportingDate, range.from),
+              lt(reportingDate, range.to),
               sql`coalesce(${overrides.expenseType}, ${transactions.expenseType}) is distinct from ''`
             )
           )
@@ -1567,7 +1574,7 @@ export function householdRepo(db: Db, householdId: string) {
        * with the `[from, to)` cycle ranges used to list and summarise a period.
        */
       cycleMonths: async () => {
-        const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`
+        const month = sql<string>`to_char(${reportingDate}, 'YYYY-MM')`
         const rows = await db
           .select({ month })
           .from(transactions)
@@ -1589,7 +1596,7 @@ export function householdRepo(db: Db, householdId: string) {
        * (and so never becomes the default landing period).
        */
       deletedMonths: async () => {
-        const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`
+        const month = sql<string>`to_char(${reportingDate}, 'YYYY-MM')`
         const rows = await db
           .select({ month })
           .from(transactions)
@@ -1614,7 +1621,7 @@ export function householdRepo(db: Db, householdId: string) {
        * queue itself, so the badge total equals the number of cards {@link reviewQueue} will present.
        */
       reviewQueueMonths: async () => {
-        const month = sql<string>`to_char(${transactions.date}, 'YYYY-MM')`
+        const month = sql<string>`to_char(${reportingDate}, 'YYYY-MM')`
         const rows = await db
           .select({ month, value: count() })
           .from(transactions)
@@ -1863,6 +1870,24 @@ export function householdRepo(db: Db, householdId: string) {
           )
           .returning()
       },
+      setReportingMonth: (id: string, month: string | null) =>
+        db
+          .update(transactions)
+          .set({
+            reportingMonth: month === null
+              ? null
+              : sql`case when to_char(${transactions.date}, 'YYYY-MM') = ${month}
+                     then null else ${`${month}-01`}::date end`,
+          })
+          .where(
+            and(
+              eq(transactions.id, id),
+              eq(transactions.householdId, householdId),
+              eq(transactions.archived, false),
+              isNull(transactions.deletedAt),
+            )
+          )
+          .returning(),
       /**
        * Mark (or unmark) a credit as real income (ADR-0009). Scoped to the household and to
        * credits (`amount > 0`) — a debit id updates nothing (returns []) rather than tripping the

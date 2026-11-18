@@ -509,6 +509,8 @@ export const transactions = pgTable(
     /** The aggregator's stable transaction id, for synced rows; null for CSV. The dedup key. */
     externalId: text("external_id"),
     date: date("date").notNull(),
+    /** First day of the selected reporting month; null uses the original transaction date. */
+    reportingMonth: date("reporting_month"),
     /** Charged amount in the Household's billing currency; negative = expense. */
     amount: integer("amount").notNull(),
     /**
@@ -601,6 +603,14 @@ export const transactions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    check(
+      "transactions_reporting_month_first_day",
+      sql`extract(day from ${t.reportingMonth}) = 1`,
+    ),
+    index("transactions_household_reporting_date_idx").on(
+      t.householdId,
+      sql`coalesce(${t.reportingMonth}, ${t.date})`,
+    ),
     // Only a credit (amount > 0) can be marked as income; debits are always spending.
     check(
       "transactions_income_marked_credit_only",

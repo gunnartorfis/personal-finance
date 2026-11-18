@@ -25,8 +25,7 @@ export function formatCycleMonth(
   locale: Locale,
   opts?: { short?: boolean }
 ): string {
-  const [year, month] = key.split("-").map(Number)
-  const date = new Date(Date.UTC(year, month - 1, 1))
+  const date = new Date(`${key}-01T00:00:00Z`)
   return dateFormatter(locale, {
     month: opts?.short ? "short" : "long",
     year: opts?.short ? undefined : "numeric",

@@ -8,6 +8,7 @@ import { useCallback, useId, useMemo, useState, type MouseEvent } from "react"
 
 import { ClassifyTrigger } from "@/components/classify-trigger"
 import { RowTypeControl } from "@/components/row-type-control"
+import { TransactionReportingMonth } from "@/components/transaction-reporting-month"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -20,7 +21,7 @@ import {
 } from "@/components/ui/sheet"
 import { useCategoryLabel } from "@/lib/categories/label"
 import { currencyFormatter } from "@/lib/format/currency"
-import { formatDate } from "@/lib/format/date"
+import { formatCycleMonth, formatDate } from "@/lib/format/date"
 import { defaultLocale, toLocale } from "@/lib/i18n/config"
 import { restoreTransaction } from "@/lib/transactions/delete-client"
 import { cn } from "@/lib/utils"
@@ -142,6 +143,7 @@ function buildCategoryOptions(
 export interface TransactionRow {
   id: string
   date: string
+  reportingMonth?: string | null
   merchant: string
   accountId?: string
   bankReference?: string | null
@@ -527,11 +529,15 @@ function TransactionDetails({
   accountName,
   categoryLabel,
   currency,
+  editable,
+  onMoved,
 }: {
   row: TransactionRow
   accountName?: string
   categoryLabel: string | null
   currency: string
+  editable: boolean
+  onMoved: (month: string) => void
 }) {
   const t = useTranslations("transactions")
   const internalTransfer = useTranslations("internalTransferRule")
@@ -592,6 +598,13 @@ function TransactionDetails({
           </div>
         ))}
       </dl>
+      <TransactionReportingMonth
+        transactionId={row.id}
+        date={row.date}
+        reportingMonth={row.reportingMonth}
+        editable={editable}
+        onMoved={onMoved}
+      />
       {row.reasoning && (
         <p className="border-t border-border p-6 text-sm wrap-break-word text-muted-foreground">
           {row.reasoning}
@@ -804,13 +817,13 @@ function useTransactionRows(initial: TransactionRow[], initialDeleted: Transacti
       : { rows: initial, deleted: initialDeleted }
   }
 
-  function updateLists(update: (current: TransactionLists) => TransactionLists) {
+  function updateLists(update: (current: TransactionLists) => TransactionLists, refresh = () => router.refresh()) {
     setLocal((snapshot) => ({
       initial,
       initialDeleted,
       lists: update(currentLists(snapshot)),
     }))
-    router.refresh()
+    refresh()
   }
 
   function patchRow(id: string, patch: Partial<TransactionRow>) {
@@ -829,6 +842,13 @@ function useTransactionRows(initial: TransactionRow[], initialDeleted: Transacti
     }))
   }
 
+  function removeMovedRow(id: string, refresh: () => void) {
+    updateLists(({ rows, deleted }) => ({
+      rows: rows.filter((row) => row.id !== id),
+      deleted,
+    }), refresh)
+  }
+
   async function restore(row: TransactionRow) {
     setRestoreError(false)
     try {
@@ -844,7 +864,7 @@ function useTransactionRows(initial: TransactionRow[], initialDeleted: Transacti
     }))
   }
 
-  return { ...currentLists(local), justDeleted, restoreError, patchRow, handleDeleted, restore }
+  return { ...currentLists(local), justDeleted, restoreError, patchRow, handleDeleted, removeMovedRow, restore }
 }
 
 /**
@@ -906,17 +926,18 @@ export function TransactionsTable({
     initialCategoryId && (initialCategoryId === "none" || categoryParts.has(initialCategoryId))
       ? initialCategoryId
       : null
-  const { rows, deleted, justDeleted, restoreError, patchRow, handleDeleted, restore } =
-    useTransactionRows(initial, initialDeleted)
   const [query, setQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all")
   const [accountFilter, setAccountFilter] = useState<string | null>(null)
   const [detailsId, setDetailsId] = useState<string | null>(null)
+  const [movedTo, setMovedTo] = useState<string | null>(null)
   // react-doctor-disable-next-line react-doctor/no-derived-useState -- one-time seed from the URL param (like `rows`); the chip's clear button owns it thereafter, so it must not re-derive from the prop
   const [categoryFilter, setCategoryFilter] = useState<string | null>(seededCategoryFilter)
   const [sortKey, setSortKey] = useState<SortKey>("date")
   const [sortDir, setSortDir] = useState<SortDir>("desc")
   const router = useRouter()
+  const { rows, deleted, justDeleted, restoreError, patchRow, handleDeleted, removeMovedRow, restore } =
+    useTransactionRows(initial, initialDeleted)
   const refreshCycle = useCallback(() => {
     const url = new URL(window.location.href)
     // The default landing month can change as the review queue is updated. Keep this month selected.
@@ -1005,7 +1026,25 @@ export function TransactionsTable({
   const handleShareChanged = (id: string, ownShareAmount: number | null) =>
     patchRow(id, { ownShareAmount })
 
+  const movedLabel = movedTo ? formatCycleMonth(movedTo, locale) : null
+  const moveNotice = movedTo && movedLabel && (
+    <p role="status" className="flex flex-wrap items-center gap-x-3 text-sm">
+      {t("reportingMonth.moved", { month: movedLabel })}
+      <Link href={`/transactions?cycle=${movedTo}`} className="font-medium underline underline-offset-4">
+        {t("reportingMonth.view", { month: movedLabel })}
+      </Link>
+    </p>
+  )
+
   if (rows.length === 0 && deleted.length === 0) {
+    if (moveNotice) {
+      return (
+        <div className={cn("flex flex-col gap-3", className)}>
+          {moveNotice}
+          <EmptyPeriod backlogElsewhere={backlogElsewhere} />
+        </div>
+      )
+    }
     return (
       <EmptyPeriod backlogElsewhere={backlogElsewhere} className={className} />
     )
@@ -1035,6 +1074,7 @@ export function TransactionsTable({
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
+      {moveNotice}
       {justDeleted && (
         <UndoBanner
           merchant={justDeleted.merchant}
@@ -1140,10 +1180,17 @@ export function TransactionsTable({
         )}
         {details && (
           <TransactionDetails
+            key={details.id}
             row={details}
             accountName={accounts.find((account) => account.id === details.accountId)?.name}
             categoryLabel={resolveCategory(details)}
             currency={currency}
+            editable={rows.some(({ id }) => id === details.id)}
+            onMoved={(month) => {
+              setDetailsId((id) => id === details.id ? null : id)
+              setMovedTo(month)
+              removeMovedRow(details.id, refreshCycle)
+            }}
           />
         )}
       </Sheet>
