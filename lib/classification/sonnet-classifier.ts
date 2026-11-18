@@ -17,14 +17,14 @@ const CATEGORY_CATALOG = CATEGORY_SEED.map(
 ).join("\n");
 
 /**
- * The real classifier (ADR-0005): classifies an expense Transaction with Sonnet 5 through the
- * Vercel AI Gateway (the `"anthropic/claude-sonnet-5"` model string is resolved by the gateway,
- * authed via AI_GATEWAY_API_KEY / Vercel OIDC). The system prompt is the shared rules prompt; the
+ * The real classifier (ADR-0005): classifies an expense Transaction with Claude Sonnet through
+ * Vercel AI Gateway. Set CLASSIFICATION_MODEL at runtime to select a versioned Gateway model ID.
+ * The system prompt is the shared rules prompt; the
  * model returns a structured Expense type plus calibrated confidence and a short reasoning.
  *
  * Only expense rows reach here — the worker handles credits as not-bucketed without a model call.
  */
-export const SONNET_MODEL = "anthropic/claude-sonnet-5";
+const DEFAULT_SONNET_MODEL = "anthropic/claude-sonnet-5.5";
 
 const ClassificationSchema = z.object({
   expenseType: z.enum(["Fixed", "Necessary", "Nice to have", ""]),
@@ -44,11 +44,12 @@ const ClassificationSchema = z.object({
 const MAX_PROMPT_FIELD = 200;
 const clamp = (s: string) => s.slice(0, MAX_PROMPT_FIELD);
 
-/** Build a {@link Classifier} backed by Sonnet 5 via the AI Gateway. */
+/** Build a {@link Classifier} with a fixed model for the lifetime of this instance. */
 export function sonnetClassifier(): Classifier {
+  const model = process.env.CLASSIFICATION_MODEL?.trim() || DEFAULT_SONNET_MODEL;
   return async (txn) => {
     const { object } = await generateObject({
-      model: SONNET_MODEL,
+      model,
       schema: ClassificationSchema,
       // The data-framing instruction lives in the system turn (higher authority than the user turn
       // that carries the injectable merchant/category value), so a crafted cell can't override it.
