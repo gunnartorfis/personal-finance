@@ -78,6 +78,8 @@ export const members = pgTable(
       .references(() => households.id, { onDelete: "cascade" }),
     /** The Stack Auth user id this Member maps to. */
     authUserId: text("auth_user_id").notNull().unique(),
+    /** Fingerprint of the Clerk profile name used to recognize incoming bank transfers. */
+    transferNameFingerprint: text("transfer_name_fingerprint"),
     /**
      * The Member's chosen Locale (`is`/`en`); `null` = not chosen, so locale
      * resolution falls through to geo / Accept-Language (ADR-0013). Validated in

@@ -15,7 +15,7 @@ import { ensureHouseholdForUser } from "./provision";
 type Db = NodePgDatabase<typeof schema>;
 
 /** Resolve (provisioning if needed) the Household for `authUserId`, its Plan, and a scoped repo. */
-export async function householdContext(db: Db, authUserId: string) {
+export async function householdContext(db: Db, authUserId: string, fullName?: string | null) {
   const { householdId, memberId } = await ensureHouseholdForUser(db, authUserId);
   const [household] = await db.select().from(households).where(eq(households.id, householdId));
   if (!household) {
@@ -24,6 +24,8 @@ export async function householdContext(db: Db, authUserId: string) {
     // noUncheckedIndexedAccess, so guard explicitly rather than let `.plan` throw a TypeError.
     throw new Error(`Household ${householdId} not found after provisioning`);
   }
+  const repo = householdRepo(db, householdId);
+  if (fullName !== undefined) await repo.members.setTransferName(memberId, fullName);
   return {
     householdId,
     memberId,
@@ -31,6 +33,6 @@ export async function householdContext(db: Db, authUserId: string) {
     planRenewsAt: household.planRenewsAt,
     subscriptionPeriod: household.subscriptionPeriod,
     billingCurrency: household.billingCurrency,
-    repo: householdRepo(db, householdId),
+    repo,
   };
 }

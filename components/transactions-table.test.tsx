@@ -226,6 +226,22 @@ describe("TransactionsTable", () => {
     expect(screen.getByText("Own-account transfer")).toBeInTheDocument()
   })
 
+  it("shows both same-day self-transfers and respects an explicit income mark", async () => {
+    const user = userEvent.setup()
+    const credit = { ...ROWS[2], source: "bank_sync" as const, amount: 65_000, ownAccountCredit: true }
+    render(<TransactionsTable rows={[
+      credit,
+      { ...credit, id: "second" },
+      { ...credit, id: "marked", incomeMarked: true },
+    ]} currency="ISK" />)
+
+    expect(screen.getAllByRole("button", { name: "Own-account transfer" })).toHaveLength(2)
+    expect(screen.getByRole("button", { name: "Income" })).toBeInTheDocument()
+    await user.selectOptions(screen.getByLabelText(/filter by type/i), "credit")
+    expect(screen.queryByRole("button", { name: "Own-account transfer" })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Income" })).toBeInTheDocument()
+  })
+
   it("previews matches before saving the internal transfer rule with history", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({

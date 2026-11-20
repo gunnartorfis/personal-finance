@@ -132,9 +132,10 @@ function CreditOrInternalTransferControl({
 }) {
   const t = useTranslations("rowType")
   const transfer = useTranslations("internalTransferRule")
+  const details = useTranslations("transactions.details")
   const label = row.incomeMarked
     ? t("income")
-    : row.sharedTransferRuleApplies ? transfer("label") : t("credit")
+    : row.ownAccountCredit ? details("transfer") : row.sharedTransferRuleApplies ? transfer("label") : t("credit")
   const tone = row.incomeMarked
     ? "border-emerald-600/30 text-emerald-700 dark:border-emerald-500/30 dark:text-emerald-400"
     : "text-muted-foreground"

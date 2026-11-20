@@ -43,6 +43,51 @@ describe("householdContext", () => {
     expect(second.householdId).toBe(first.householdId);
   });
 
+  it("recognizes historical and new credits from a household member's full name", async () => {
+    const authUserId = "ctx_transfer_sender";
+    const { repo } = await householdContext(asDb(db), authUserId);
+    const { repo: otherRepo } = await householdContext(asDb(db), "ctx_other_sender");
+    const [account] = await repo.accounts.list();
+    const [otherAccount] = await otherRepo.accounts.list();
+    const range = { from: "2026-10-01", to: "2026-11-01" };
+    const credit = {
+      source: "bank_sync" as const,
+      amount: 65_000,
+      date: "2026-10-14",
+      merchant: "Sigrún María Jónsdóttir",
+      rawCategory: "",
+    };
+    await repo.transactions.createSyncedMany([
+      { ...credit, accountId: account.id, externalId: "older" },
+    ]);
+    expect(await repo.transactions.listWithOverrides(range)).toMatchObject([{ ownAccountCredit: false }]);
+
+    await householdContext(asDb(db), authUserId, credit.merchant);
+    await repo.transactions.createSyncedMany([
+      { ...credit, accountId: account.id, externalId: "second", merchant: "  SIGRÚN  MARÍA JÓNSDÓTTIR ".normalize("NFD") },
+      { ...credit, accountId: account.id, externalId: "debit", amount: -65_000 },
+      { ...credit, accountId: account.id, externalId: "longer-label", merchant: `${credit.merchant} Refund` },
+      { ...credit, accountId: account.id, externalId: "verified", counterpartyFingerprint: "other-account" },
+    ]);
+    await otherRepo.transactions.createSyncedMany([
+      { ...credit, accountId: otherAccount.id, externalId: "other-household" },
+    ]);
+    const recognized = (await repo.transactions.listWithOverrides(range)).filter((row) => row.ownAccountCredit);
+    expect(recognized).toHaveLength(2);
+    expect(recognized.every((row) => row.amount === credit.amount)).toBe(true);
+    expect(await otherRepo.transactions.listWithOverrides(range)).toMatchObject([{ ownAccountCredit: false }]);
+    expect((await repo.transactions.listPending()).map((row) => row.externalId).sort())
+      .toEqual(["debit", "longer-label", "verified"]);
+
+    await repo.transactions.setIncomeMarked(recognized[0].id, true);
+    expect(await repo.transactions.summaryRows(range)).toContainEqual(
+      expect.objectContaining({ amount: credit.amount, incomeMarked: true }),
+    );
+
+    await householdContext(asDb(db), authUserId, null);
+    expect((await repo.transactions.listWithOverrides(range)).some((row) => row.ownAccountCredit)).toBe(false);
+  });
+
   it("exposes the household plan (defaulting to Free) for free-cap gating", async () => {
     const ctx = await householdContext(asDb(db), "ctx_user_5");
     expect(ctx.plan).toBe("Free");

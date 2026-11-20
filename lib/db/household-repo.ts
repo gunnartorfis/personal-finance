@@ -76,6 +76,26 @@ type DbOrTx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0]
 const reportingDate = sql<string>`coalesce(${transactions.reportingMonth}, ${transactions.date})`
 
 const hasMerchant = sql`${transactions.merchant} ~ '[^[:space:]]'`
+function transferNameFingerprint(name: typeof transactions.merchant | string | null) {
+  return sql<string | null>`encode(sha256(convert_to(
+    nullif(lower(normalize(btrim(regexp_replace(${name}::text, '[[:space:]]+', ' ', 'g')))), ''),
+    'UTF8'
+  )), 'hex')`
+}
+
+// A profile name is a fallback for incoming credits whose sender account is missing.
+// Keep these rows eligible for pairing so the funding debit can still be identified.
+const ownAccountCredit = sql<boolean>`(
+  ${transactions.source} = 'bank_sync'
+  and ${transactions.amount} > 0
+  and ${transactions.counterpartyFingerprint} is null
+  and exists (
+    select 1 from ${members}
+    where ${members.householdId} = ${transactions.householdId}
+      and ${members.transferNameFingerprint} = ${transferNameFingerprint(transactions.merchant)}
+  )
+)`
+
 // A confirmed label rule is confined to unverified incoming bank credits on one receiving account.
 const incomingLabelRuleKey = sql<string | null>`case when
   ${transactions.source} = 'bank_sync' and ${transactions.amount} > 0
@@ -100,6 +120,7 @@ const notTransfer = and(isNull(transactions.transferGroupId), sql`not (${sharedT
 const classificationCandidate = and(
   eq(transactions.excluded, false),
   notTransfer,
+  sql`not (${ownAccountCredit} and not ${transactions.incomeMarked})`,
   or(gte(transactions.amount, 0), hasMerchant)
 )
 
@@ -1146,6 +1167,7 @@ export function householdRepo(db: Db, householdId: string) {
             amount: transactions.amount,
             ownShareAmount: transactions.ownShareAmount,
             sharedTransferRuleApplies,
+            ownAccountCredit,
             incomeMarked: transactions.incomeMarked,
             excluded: transactions.excluded,
             exclusionNote: transactions.exclusionNote,
@@ -2587,6 +2609,14 @@ export function householdRepo(db: Db, householdId: string) {
       },
     },
     members: {
+      setTransferName: (memberId: string, fullName: string | null) => {
+        const fingerprint = transferNameFingerprint(fullName)
+        return db.update(members).set({ transferNameFingerprint: fingerprint }).where(and(
+          eq(members.householdId, householdId),
+          eq(members.id, memberId),
+          sql`${members.transferNameFingerprint} is distinct from ${fingerprint}`
+        ))
+      },
       /** All Members of this Household (identity name/email is resolved separately via users_sync). */
       list: () =>
         db

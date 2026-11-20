@@ -10,5 +10,8 @@ export async function getIdentity() {
     id: user.id,
     email: email.emailAddress,
     emailVerified: email.verification?.status === "verified",
+    fullName: user.firstName?.trim() && user.lastName?.trim()
+      ? `${user.firstName} ${user.lastName}`
+      : null,
   }
 }

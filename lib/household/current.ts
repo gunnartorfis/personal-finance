@@ -36,5 +36,5 @@ export async function requireHousehold() {
     }
   }
 
-  return { user, ...(await householdContext(db, user.id)) };
+  return { user, ...(await householdContext(db, user.id, user.fullName)) };
 }

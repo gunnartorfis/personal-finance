@@ -1,0 +1,1 @@
+ALTER TABLE "members" ADD COLUMN "transfer_name_fingerprint" text;

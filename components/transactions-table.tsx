@@ -59,7 +59,7 @@ function effectiveCategoryId(row: TransactionRow): string | null {
 function bucketOf(row: TransactionRow): TypeBucket {
   // Excluded rows count for nothing, so they leave every type-specific bucket (ADR-0011).
   if (row.excluded) return "excluded"
-  if (row.transferGroupId || (row.sharedTransferRuleApplies && !row.incomeMarked)) return "transfer"
+  if (row.transferGroupId || ((row.ownAccountCredit || row.sharedTransferRuleApplies) && !row.incomeMarked)) return "transfer"
   if (row.amount > 0) return "credit"
   const unclassified =
     row.classificationStatus !== "classified" && row.overrideType === null
@@ -148,6 +148,7 @@ export interface TransactionRow {
   accountId?: string
   bankReference?: string | null
   transferGroupId?: string | null
+  ownAccountCredit?: boolean
   sharedTransferRuleApplies?: boolean
   amount: number
   /**
@@ -546,7 +547,7 @@ function TransactionDetails({
   const bucket = bucketOf(row)
   const type =
     bucket === "transfer"
-      ? row.transferGroupId ? t("details.transfer") : internalTransfer("label")
+      ? row.transferGroupId || row.ownAccountCredit ? t("details.transfer") : internalTransfer("label")
       : bucket === "credit"
         ? t(row.incomeMarked ? "details.income" : "details.credit")
         : bucket === "excluded"

@@ -17,8 +17,12 @@ beforeEach(() => { currentUser.mockReset(); currentUser.mockResolvedValue(identi
 describe("Clerk identity boundary", () => {
   it("uses only the backend primary email for household invitations", async () => {
     expect(await getCurrentUser()).toEqual({
-      id: "user_synthetic", email: "member@example.invalid", emailVerified: true,
+      id: "user_synthetic", email: "member@example.invalid", emailVerified: true, fullName: null,
     })
+  })
+  it("reads the full profile name for own-account credit matching", async () => {
+    currentUser.mockResolvedValue({ ...identity, firstName: "Sigrún María", lastName: "Jónsdóttir" })
+    expect((await getCurrentUser())?.fullName).toBe("Sigrún María Jónsdóttir")
   })
   it("reads the authoritative backend user for fresh verification callers", async () => {
     await getCurrentUser({ fresh: true })
