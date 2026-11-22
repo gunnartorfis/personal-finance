@@ -1,16 +1,28 @@
-import { UserProfile } from "@clerk/nextjs"
+import { getTranslations } from "next-intl/server"
 
+import { AccountSecuritySettings } from "@/components/settings/account-security-settings"
 import { requireUser } from "@/lib/auth/session"
 
 // Auth-scoped, per-request session UI: always render dynamically (no static prerender).
 export const dynamic = "force-dynamic"
 
-/** Clerk profile and security controls retain the application settings routes. */
 export default async function SecuritySettingsPage() {
-  await requireUser()
+  const [, nav, t] = await Promise.all([
+    requireUser(),
+    getTranslations("nav"),
+    getTranslations("securitySettings"),
+  ])
   return (
     <div className="flex flex-col gap-6">
-      <UserProfile routing="hash" />
+      <header className="flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {nav("security")}
+        </h1>
+        <p className="text-sm text-pretty text-muted-foreground">
+          {t("description")}
+        </p>
+      </header>
+      <AccountSecuritySettings />
     </div>
   )
 }

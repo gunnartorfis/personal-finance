@@ -19,7 +19,6 @@ import { useNavLabels } from "@/lib/nav-labels"
 import { isActivePath, type NavLabelKey } from "@/lib/nav"
 import { cn } from "@/lib/utils"
 
-/** Every settings section, in nav order. App-owned sections plus the Neon Auth account/security views. */
 const SETTINGS_NAV: ReadonlyArray<{
   href: string
   labelKey: NavLabelKey
