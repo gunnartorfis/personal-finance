@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 
 import { SidebarAccountMenu } from "@/components/auth/sidebar-account-menu"
 import { LocaleSwitcher } from "@/components/locale-switcher"
-import { useThemeMenuItems } from "@/components/theme-menu-items"
+import { SidebarThemeMenu } from "@/components/sidebar-theme-menu"
 import {
   Sidebar,
   SidebarContent,
@@ -29,7 +29,6 @@ import { isActivePath, NAV_ITEMS } from "@/lib/nav"
 export function AppSidebar() {
   const pathname = usePathname()
   const labels = useNavLabels()
-  const themeItems = useThemeMenuItems()
 
   return (
     <TooltipProvider>
@@ -72,8 +71,8 @@ export function AppSidebar() {
         </SidebarContent>
         <SidebarFooter>
           <LocaleSwitcher />
+          <SidebarThemeMenu />
           <SidebarAccountMenu />
-          <div className="flex flex-wrap gap-1">{themeItems}</div>
         </SidebarFooter>
       </Sidebar>
     </TooltipProvider>

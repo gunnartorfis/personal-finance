@@ -120,6 +120,7 @@
     "switchTo": "Switch to {language}"
   },
   "theme": {
+    "appearance": "Appearance",
     "system": "System",
     "light": "Light",
     "dark": "Dark"

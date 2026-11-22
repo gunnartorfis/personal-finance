@@ -1,9 +1,9 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { NextIntlClientProvider } from "next-intl"
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 
-import en from "@/messages/en.json"
+import { ThemeProvider } from "@/components/theme-provider"
+import { renderWithIntl } from "@/lib/test/render"
 
 const usePathname = vi.fn()
 const signOut = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
@@ -41,12 +41,12 @@ beforeAll(() => {
 afterEach(() => usePathname.mockReset())
 
 function renderSidebar() {
-  return render(
-    <NextIntlClientProvider locale="en" messages={en}>
+  return renderWithIntl(
+    <ThemeProvider storageKey="sidebar-test-theme">
       <SidebarProvider>
         <AppSidebar />
       </SidebarProvider>
-    </NextIntlClientProvider>,
+    </ThemeProvider>,
   )
 }
 
@@ -69,6 +69,25 @@ describe("AppSidebar", () => {
     screen.getByRole("menuitem", { name: "Sign out" }).focus()
     await user.keyboard("{Enter}")
     expect(signOut).toHaveBeenCalledWith({ redirectUrl: "/" })
+  })
+
+  it("keeps theme choices in the appearance menu and marks the selected choice", async () => {
+    usePathname.mockReturnValue("/dashboard")
+    const user = userEvent.setup()
+    renderSidebar()
+
+    expect(screen.queryByRole("button", { name: "System" })).not.toBeInTheDocument()
+    const trigger = screen.getByRole("button", { name: "Appearance" })
+
+    trigger.focus()
+    await user.keyboard("{Enter}")
+    expect(await screen.findByRole("menuitemradio", { name: "System", checked: true })).toBeVisible()
+    await user.click(screen.getByRole("menuitemradio", { name: "Dark" }))
+    expect(trigger).toHaveAttribute("aria-expanded", "false")
+    expect(document.documentElement).toHaveClass("dark")
+
+    await user.click(trigger)
+    expect(await screen.findByRole("menuitemradio", { name: "Dark", checked: true })).toBeVisible()
   })
 
   it("renders the brand plus every primary nav link", () => {
