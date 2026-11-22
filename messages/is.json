@@ -120,6 +120,7 @@
     "switchTo": "Skipta yfir í {language}"
   },
   "theme": {
+    "appearance": "Útlit",
     "system": "Kerfi",
     "light": "Ljóst",
     "dark": "Dökkt"
