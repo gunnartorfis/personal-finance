@@ -6,7 +6,7 @@ import { UserRound } from "lucide-react"
 import { useTranslations } from "next-intl"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { useRef, type FormEvent } from "react"
+import { Fragment, useRef, type FormEvent } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -36,10 +36,10 @@ export function AccountProfileSettings() {
     )
 
   return (
-    <>
-      <ProfileDetails key={user.id} user={user} />
-      <AccountEmailSettings key={user.id} user={user} />
-    </>
+    <Fragment key={user.id}>
+      <ProfileDetails user={user} />
+      <AccountEmailSettings user={user} />
+    </Fragment>
   )
 }
 
@@ -107,6 +107,7 @@ function ProfileDetails({ user }: { user: UserResource }) {
             ref={photoInput}
             type="file"
             accept="image/*"
+            aria-label={t("uploadPhoto")}
             hidden
             onChange={(event) => {
               const file = event.currentTarget.files?.[0]

@@ -8,7 +8,7 @@ import type {
 } from "@clerk/nextjs/types"
 import { Laptop, Smartphone } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
-import { useEffect, useState, type FormEvent } from "react"
+import { Fragment, useEffect, useState, type FormEvent } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,14 +40,14 @@ export function AccountSecuritySettings() {
     )
 
   return (
-    <>
-      <PasswordSettings key={user.id} user={user} />
+    <Fragment key={user.id}>
+      <PasswordSettings user={user} />
       <SessionSettings
-        key={session?.id ?? user.id}
+        key={session?.id}
         user={user}
         currentSessionId={session?.id}
       />
-    </>
+    </Fragment>
   )
 }
 
@@ -150,9 +150,10 @@ function SessionSettings({
   const t = useTranslations("securitySettings")
   const common = useTranslations("identitySettings")
   const locale = toLocale(useLocale()) ?? defaultLocale
-  const [sessions, setSessions] = useState<SessionWithActivitiesResource[]>()
-  const [loadFailed, setLoadFailed] = useState(false)
-  const [loadAttempt, setLoadAttempt] = useState(0)
+  const [sessions, setSessions] = useState<
+    SessionWithActivitiesResource[] | "error"
+  >()
+  const loadingSessions = sessions === undefined
   const [confirmRevoke, setConfirmRevoke] = useState<string>()
   const { pending, feedback, run } = useSettingsAction()
   const revokeSession = useReverification(
@@ -160,6 +161,7 @@ function SessionSettings({
   )
 
   useEffect(() => {
+    if (!loadingSessions) return
     let active = true
     void user.getSessions().then(
       (result) => {
@@ -167,19 +169,23 @@ function SessionSettings({
           setSessions(result.filter((session) => session.status === "active"))
       },
       () => {
-        if (active) setLoadFailed(true)
+        if (active) setSessions("error")
       }
     )
     return () => {
       active = false
     }
-  }, [user, loadAttempt])
+  }, [user, loadingSessions])
 
   function revoke(session: SessionWithActivitiesResource) {
     void run(
       async () => {
         await revokeSession(session)
-        setSessions((current) => current?.filter(({ id }) => id !== session.id))
+        setSessions((current) =>
+          Array.isArray(current)
+            ? current.filter(({ id }) => id !== session.id)
+            : current
+        )
         setConfirmRevoke(undefined)
       },
       t("revokeError"),
@@ -192,16 +198,13 @@ function SessionSettings({
       title={t("sessions")}
       description={t("sessionsDescription")}
     >
-      {loadFailed ? (
+      {sessions === "error" ? (
         <div className="flex flex-col items-start gap-3">
           <SettingsFeedback error={t("sessionsError")} />
           <Button
             type="button"
             variant="outline"
-            onClick={() => {
-              setLoadFailed(false)
-              setLoadAttempt((attempt) => attempt + 1)
-            }}
+            onClick={() => setSessions(undefined)}
           >
             {common("retry")}
           </Button>
