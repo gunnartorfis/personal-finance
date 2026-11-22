@@ -1,11 +1,11 @@
 "use client"
 
-import { useReverification } from "@clerk/nextjs"
 import type { EmailAddressResource, UserResource } from "@clerk/nextjs/types"
 import { useTranslations } from "next-intl"
 import { useRouter } from "next/navigation"
 import { useState, type FormEvent } from "react"
 
+import { useAppReverification } from "@/components/auth/reverification"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -22,20 +22,20 @@ export function AccountEmailSettings({ user }: { user: UserResource }) {
   const [verification, setVerification] = useState<EmailAddressResource>()
   const [confirmRemove, setConfirmRemove] = useState<string>()
   const { pending, feedback, run } = useSettingsAction()
-  const createEmail = useReverification((email: string) =>
+  const createEmail = useAppReverification((email: string) =>
     user.createEmailAddress({ email })
   )
-  const sendCode = useReverification((address: EmailAddressResource) =>
+  const sendCode = useAppReverification((address: EmailAddressResource) =>
     address.prepareVerification({ strategy: "email_code" })
   )
-  const verifyCode = useReverification(
+  const verifyCode = useAppReverification(
     (address: EmailAddressResource, code: string) =>
       address.attemptVerification({ code })
   )
-  const makePrimary = useReverification((id: string) =>
+  const makePrimary = useAppReverification((id: string) =>
     user.update({ primaryEmailAddressId: id })
   )
-  const removeEmail = useReverification((address: EmailAddressResource) =>
+  const removeEmail = useAppReverification((address: EmailAddressResource) =>
     address.destroy()
   )
 

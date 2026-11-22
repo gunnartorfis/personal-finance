@@ -1,17 +1,20 @@
 import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { NextIntlClientProvider } from "next-intl"
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 
 import en from "@/messages/en.json"
 
 const usePathname = vi.fn()
+const signOut = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 vi.mock("next/navigation", () => ({
   usePathname: () => usePathname(),
   useRouter: () => ({ refresh: () => {} }),
 }))
-// UserButton needs the Clerk provider; stub it so the sidebar renders standalone.
+// Supply the account identity without a live Clerk session.
 vi.mock("@clerk/nextjs", () => ({
-  UserButton: () => <div data-testid="user-button" />,
+  useUser: () => ({ user: { fullName: "Test Member" } }),
+  useClerk: () => ({ signOut }),
 }))
 
 import { SidebarProvider } from "@/components/ui/sidebar"
@@ -48,6 +51,18 @@ function renderSidebar() {
 }
 
 describe("AppSidebar", () => {
+  it("opens app-owned account and security links and signs out through Clerk", async () => {
+    usePathname.mockReturnValue("/dashboard")
+    const user = userEvent.setup()
+    renderSidebar()
+
+    await user.click(screen.getByRole("button", { name: "Account menu" }))
+    expect(screen.getByRole("menuitem", { name: "Account" })).toHaveAttribute("href", "/settings/account")
+    expect(screen.getByRole("menuitem", { name: "Security" })).toHaveAttribute("href", "/settings/security")
+    await user.click(screen.getByRole("menuitem", { name: "Sign out" }))
+    expect(signOut).toHaveBeenCalledWith({ redirectUrl: "/" })
+  })
+
   it("renders the brand plus every primary nav link", () => {
     usePathname.mockReturnValue("/dashboard")
     renderSidebar()

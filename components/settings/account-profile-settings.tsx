@@ -1,6 +1,6 @@
 "use client"
 
-import { useReverification, useUser } from "@clerk/nextjs"
+import { useUser } from "@clerk/nextjs"
 import type { UserResource } from "@clerk/nextjs/types"
 import { UserRound } from "lucide-react"
 import { useTranslations } from "next-intl"
@@ -8,6 +8,7 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Fragment, useRef, type FormEvent } from "react"
 
+import { useAppReverification } from "@/components/auth/reverification"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -51,10 +52,11 @@ function ProfileDetails({ user }: { user: UserResource }) {
   const names = useSettingsAction()
   const photo = useSettingsAction()
   const pending = names.pending || photo.pending
-  const updateName = useReverification((firstName: string, lastName: string) =>
-    user.update({ firstName, lastName })
+  const updateName = useAppReverification(
+    (firstName: string, lastName: string) =>
+      user.update({ firstName, lastName })
   )
-  const updatePhoto = useReverification((file: File | null) =>
+  const updatePhoto = useAppReverification((file: File | null) =>
     user.setProfileImage({ file })
   )
 

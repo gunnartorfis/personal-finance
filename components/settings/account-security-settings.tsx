@@ -1,6 +1,6 @@
 "use client"
 
-import { useReverification, useSession, useUser } from "@clerk/nextjs"
+import { useSession, useUser } from "@clerk/nextjs"
 import { isClerkAPIResponseError } from "@clerk/nextjs/errors"
 import type {
   SessionWithActivitiesResource,
@@ -10,6 +10,7 @@ import { Laptop, Smartphone } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
 import { Fragment, useEffect, useState, type FormEvent } from "react"
 
+import { useAppReverification } from "@/components/auth/reverification"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { formatDate } from "@/lib/format/date"
@@ -55,7 +56,7 @@ function PasswordSettings({ user }: { user: UserResource }) {
   const t = useTranslations("securitySettings")
   const common = useTranslations("identitySettings")
   const { pending, feedback, run } = useSettingsAction()
-  const updatePassword = useReverification(
+  const updatePassword = useAppReverification(
     (newPassword: string, currentPassword?: string) =>
       user.updatePassword({ newPassword, currentPassword })
   )
@@ -156,7 +157,7 @@ function SessionSettings({
   const loadingSessions = sessions === undefined
   const [confirmRevoke, setConfirmRevoke] = useState<string>()
   const { pending, feedback, run } = useSettingsAction()
-  const revokeSession = useReverification(
+  const revokeSession = useAppReverification(
     (session: SessionWithActivitiesResource) => session.revoke()
   )
 

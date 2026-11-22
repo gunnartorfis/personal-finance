@@ -1,10 +1,10 @@
 "use client"
 
-import { UserButton } from "@clerk/nextjs"
 import { PiggyBank } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
+import { SidebarAccountMenu } from "@/components/auth/sidebar-account-menu"
 import { LocaleSwitcher } from "@/components/locale-switcher"
 import { useThemeMenuItems } from "@/components/theme-menu-items"
 import {
@@ -23,7 +23,7 @@ import { isActivePath, NAV_ITEMS } from "@/lib/nav"
 
 /**
  * Left app sidebar for signed-in users (ADR Phase H): brand, primary navigation that collapses to
- * an icon rail, and the Clerk user menu in the footer. Wrapped in its own `TooltipProvider`
+ * an icon rail, and the account menu in the footer. Wrapped in its own `TooltipProvider`
  * so the icon-mode menu tooltips work without touching the root layout.
  */
 export function AppSidebar() {
@@ -72,7 +72,7 @@ export function AppSidebar() {
         </SidebarContent>
         <SidebarFooter>
           <LocaleSwitcher />
-          <UserButton showName userProfileMode="navigation" userProfileUrl="/settings/account" />
+          <SidebarAccountMenu />
           <div className="flex flex-wrap gap-1">{themeItems}</div>
         </SidebarFooter>
       </Sidebar>
