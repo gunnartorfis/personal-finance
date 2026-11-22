@@ -56,10 +56,18 @@ describe("AppSidebar", () => {
     const user = userEvent.setup()
     renderSidebar()
 
-    await user.click(screen.getByRole("button", { name: "Account menu" }))
-    expect(screen.getByRole("menuitem", { name: "Account" })).toHaveAttribute("href", "/settings/account")
-    expect(screen.getByRole("menuitem", { name: "Security" })).toHaveAttribute("href", "/settings/security")
-    await user.click(screen.getByRole("menuitem", { name: "Sign out" }))
+    screen.getByRole("button", { name: "Account menu" }).focus()
+    await user.keyboard("{Enter}")
+    expect(await screen.findByRole("menuitem", { name: "Account" })).toHaveAttribute(
+      "href",
+      "/settings/account",
+    )
+    expect(screen.getByRole("menuitem", { name: "Security" })).toHaveAttribute(
+      "href",
+      "/settings/security",
+    )
+    screen.getByRole("menuitem", { name: "Sign out" }).focus()
+    await user.keyboard("{Enter}")
     expect(signOut).toHaveBeenCalledWith({ redirectUrl: "/" })
   })
 
