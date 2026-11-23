@@ -1113,6 +1113,20 @@
       "allCategories": "Allir flokkar"
     },
     "showingCount": "{visible} af {total} færslum",
+    "display": "Birting",
+    "tableCount": "{count, plural, one {# færsla} other {# færslur}}",
+    "selection": {
+      "all": "Velja allar sýnilegar færslur",
+      "row": "Velja færslu fyrir {merchant}",
+      "count": "{count, plural, one {# færsla valin} other {# færslur valdar}}",
+      "changeType": "Breyta tegund",
+      "changeSomeTypes": "Breyta tegund ({count})",
+      "noRetypable": "Veldu útgjaldafærslu til að breyta tegund hennar.",
+      "clear": "Hreinsa val",
+      "saving": "Vista tegundir…",
+      "saved": "{count, plural, one {Tegund # færslu uppfærð.} other {Tegund # færslna uppfærð.}}",
+      "failed": "{count, plural, one {Ekki tókst að uppfæra # færslu. Reyndu aftur.} other {Ekki tókst að uppfæra # færslur. Reyndu aftur.}}"
+    },
     "empty": "Engar færslur á þessu tímabili",
     "emptyBacklog": "{count, plural, one {# færsla á öðrum tímabilum þarf enn yfirferð} other {# færslur á öðrum tímabilum þurfa enn yfirferð}} — notaðu Hraðyfirferð að ofan, eða veldu annað tímabil.",
     "emptyCta": "Veldu annað tímabil eða <link>hladdu upp yfirliti</link>.",

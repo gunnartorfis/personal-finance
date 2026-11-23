@@ -80,6 +80,76 @@ const ROWS: TransactionRow[] = [
 ]
 
 describe("TransactionsTable", () => {
+  it("selects a range in the displayed sort order and scopes Select all to the current filters", async () => {
+    const user = userEvent.setup()
+    render(<TransactionsTable rows={ROWS} currency="ISK" />)
+    const checkbox = (merchant: string) => screen.getByRole("checkbox", { name: `Select transaction for ${merchant}` })
+    const selectAll = screen.getByRole("checkbox", { name: "Select all visible transactions" })
+
+    await user.click(checkbox("SALARY"))
+    expect(selectAll).toBePartiallyChecked()
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Amount" }))
+    await user.keyboard("{Shift>}")
+    await user.click(checkbox("GYM"))
+    await user.keyboard("{/Shift}")
+    expect(checkbox("NETFLIX")).toBeChecked()
+    expect(selectAll).toBeChecked()
+
+    await user.keyboard("{Escape}")
+    expect(selectAll).not.toBeChecked()
+    await user.type(screen.getByRole("searchbox"), "gym")
+    selectAll.focus()
+    await user.keyboard(" ")
+    expect(screen.getByText("1 transaction selected")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Clear selection" }))
+    expect(selectAll).toHaveFocus()
+    await user.click(selectAll)
+    await user.clear(screen.getByRole("searchbox"))
+    expect(checkbox("GYM")).not.toBeChecked()
+    expect(checkbox("NETFLIX")).not.toBeChecked()
+  })
+
+  it("bulk retypes eligible expenses and leaves failed rows selected for retry", async () => {
+    const user = userEvent.setup()
+    const fetch = vi.fn(async (url: string) => ({ ok: !url.includes("/t3/"), status: 500 }))
+    vi.stubGlobal("fetch", fetch)
+    render(<TransactionsTable rows={ROWS} currency="ISK" />)
+
+    await user.click(screen.getByRole("checkbox", { name: "Select all visible transactions" }))
+    await user.click(screen.getByRole("button", { name: "Change type (2)" }))
+    await user.click(await screen.findByRole("menuitem", { name: "Necessary" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't update 1 transaction.")
+    expect(screen.getByText("Updated the type of 1 transaction.")).toBeInTheDocument()
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+      "/api/transactions/t1/override",
+      "/api/transactions/t3/override",
+    ])
+    expect(within(screen.getByRole("row", { name: /NETFLIX/ })).getByRole("button", { name: "Necessary" })).toBeInTheDocument()
+    expect(screen.getByRole("checkbox", { name: "Select transaction for NETFLIX" })).not.toBeChecked()
+    expect(screen.getByRole("checkbox", { name: "Select transaction for GYM" })).toBeChecked()
+  })
+
+  it("lets users choose display columns while keeping their selection", async () => {
+    const user = userEvent.setup()
+    render(
+      <TransactionsTable
+        rows={[{ ...ROWS[0], accountId: "account-1" }]}
+        accounts={[{ id: "account-1", name: "Everyday" }]}
+        currency="ISK"
+      />
+    )
+    await user.click(screen.getByRole("checkbox", { name: "Select all visible transactions" }))
+    await user.click(screen.getByRole("button", { name: "Display" }))
+    await user.click(await screen.findByRole("menuitemcheckbox", { name: "Category" }))
+    expect(screen.queryByRole("columnheader", { name: "Category" })).not.toBeInTheDocument()
+    await user.click(screen.getByRole("menuitemcheckbox", { name: "Account" }))
+    expect(screen.getByRole("cell", { name: "Everyday" })).toBeInTheDocument()
+    expect(screen.getByRole("checkbox", { name: "Select all visible transactions" })).toBeChecked()
+  })
+
   it("suggests the previous month for an early salary and links to the destination after saving", async () => {
     const user = userEvent.setup()
     const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ month: "2026-09" })))
@@ -514,7 +584,7 @@ describe("TransactionsTable", () => {
     screen
       .getAllByRole("row")
       .slice(1)
-      .map((row) => within(row).getAllByRole("cell")[1].textContent)
+      .map((row) => within(row).getByRole("button", { name: /^view details for/i }).textContent)
 
   it("filters by merchant search", async () => {
     render(<TransactionsTable rows={ROWS} currency="ISK" />)

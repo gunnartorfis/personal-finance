@@ -1113,6 +1113,20 @@
       "allCategories": "All categories"
     },
     "showingCount": "{visible} of {total} transactions",
+    "display": "Display",
+    "tableCount": "{count, plural, one {# transaction} other {# transactions}}",
+    "selection": {
+      "all": "Select all visible transactions",
+      "row": "Select transaction for {merchant}",
+      "count": "{count, plural, one {# transaction selected} other {# transactions selected}}",
+      "changeType": "Change type",
+      "changeSomeTypes": "Change type ({count})",
+      "noRetypable": "Select an expense to change its type.",
+      "clear": "Clear selection",
+      "saving": "Saving types…",
+      "saved": "{count, plural, one {Updated the type of # transaction.} other {Updated the type of # transactions.}}",
+      "failed": "{count, plural, one {Couldn't update # transaction. Try again.} other {Couldn't update # transactions. Try again.}}"
+    },
     "empty": "No transactions in this period",
     "emptyBacklog": "{count, plural, one {# transaction in other periods still needs review} other {# transactions in other periods still need review}} — use Rapid review above, or pick another period.",
     "emptyCta": "Pick another period or <link>upload a statement</link>.",

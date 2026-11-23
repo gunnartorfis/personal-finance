@@ -1,15 +1,16 @@
 "use client"
 
-import { ChevronDown, ChevronsUpDown, ChevronUp, RotateCcw, Search, Undo2 } from "lucide-react"
+import { ChevronDown, ChevronsUpDown, ChevronUp, RotateCcw, Search, SlidersHorizontal, Undo2 } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useCallback, useId, useMemo, useState, type MouseEvent } from "react"
+import { useCallback, useId, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject } from "react"
 
 import { ClassifyTrigger } from "@/components/classify-trigger"
 import { RowTypeControl } from "@/components/row-type-control"
 import { TransactionReportingMonth } from "@/components/transaction-reporting-month"
 import { Button } from "@/components/ui/button"
+import { Menu, MenuCheckboxItem, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu"
 import {
   Sheet,
   SheetClose,
@@ -23,10 +24,11 @@ import { useCategoryLabel } from "@/lib/categories/label"
 import { currencyFormatter } from "@/lib/format/currency"
 import { formatCycleMonth, formatDate } from "@/lib/format/date"
 import { defaultLocale, toLocale } from "@/lib/i18n/config"
+import { putOverride } from "@/lib/overrides/client"
 import { restoreTransaction } from "@/lib/transactions/delete-client"
 import { cn } from "@/lib/utils"
 import { useExpenseTypeLabels } from "@/lib/expense-type-labels"
-import type { ExpenseType } from "@/shared/types"
+import { EXPENSE_TYPES, type ExpenseType } from "@/shared/types"
 
 /** A row's effective bucket for filtering: excluded, an expense type, an unreviewed debit, or a credit. */
 type TypeBucket = ExpenseType | "unclassified" | "credit" | "excluded" | "transfer"
@@ -93,8 +95,12 @@ function filterAndSortRows(
     if (needle && !row.merchant.toLowerCase().includes(needle)) return false
     return true
   })
+  return sortRows(filtered, sortKey, sortDir)
+}
+
+function sortRows(rows: TransactionRow[], sortKey: SortKey, sortDir: SortDir) {
   const dir = sortDir === "asc" ? 1 : -1
-  return filtered.toSorted((a, b) => {
+  return rows.toSorted((a, b) => {
     const cmp =
       sortKey === "merchant"
         ? a.merchant.localeCompare(b.merchant)
@@ -103,6 +109,10 @@ function filterAndSortRows(
           : a.date.localeCompare(b.date) || a.id.localeCompare(b.id)
     return cmp * dir
   })
+}
+
+function canRetype(row: TransactionRow) {
+  return row.amount <= 0 && !row.excluded && !row.transferGroupId && !row.sharedTransferRuleApplies
 }
 
 /**
@@ -248,6 +258,7 @@ function TableToolbar({
   accounts,
   accountFilter,
   onAccountChange,
+  children,
 }: {
   query: string
   onQueryChange: (value: string) => void
@@ -262,6 +273,7 @@ function TableToolbar({
   accounts: AccountOption[]
   accountFilter: string | null
   onAccountChange: (value: string | null) => void
+  children: ReactNode
 }) {
   const t = useTranslations("transactions")
 
@@ -393,22 +405,65 @@ function TableToolbar({
             <path d="M.5.5 4 4 7.5.5" stroke="currentColor" />
           </svg>
         </div>
+        {children}
       </div>
     </div>
   )
 }
 
-/** The sortable column header row (date / merchant / amount + a static Type column). */
+function SelectionCheckbox({
+  label,
+  checked,
+  mixed = false,
+  inputRef,
+  onToggle,
+}: {
+  label: string
+  checked: boolean
+  mixed?: boolean
+  inputRef?: RefObject<HTMLInputElement | null>
+  onToggle: (range: boolean) => void
+}) {
+  return (
+    <label className="flex size-11 cursor-pointer touch-manipulation items-center justify-center">
+      <input
+        ref={(node) => {
+          if (node) node.indeterminate = mixed
+          if (inputRef) inputRef.current = node
+        }}
+        type="checkbox"
+        aria-label={label}
+        checked={checked}
+        onChange={({ nativeEvent }) => onToggle(nativeEvent instanceof MouseEvent && nativeEvent.shiftKey)}
+        className="size-4 cursor-pointer accent-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+      />
+    </label>
+  )
+}
+
+/** The sortable columns and visible-row selection control. */
 function TransactionsTableHead({
   sortKey,
   sortDir,
   onToggleSort,
+  selection,
+  showCategory,
+  showAccount,
 }: {
   sortKey: SortKey
   sortDir: SortDir
   onToggleSort: (key: SortKey) => void
+  selection?: { checked: boolean; mixed: boolean; inputRef: RefObject<HTMLInputElement | null>; onToggle: () => void }
+  showCategory: boolean
+  showAccount: boolean
 }) {
   const t = useTranslations("transactions")
+
+  const columns: { key: SortKey; label: string; className?: string }[] = [
+    { key: "merchant", label: t("colMerchant"), className: !selection ? "pl-3" : undefined },
+    { key: "amount", label: t("colAmount"), className: "text-right" },
+    { key: "date", label: t("colDate"), className: "w-24" },
+  ]
 
   const sortIndicator = (key: SortKey) => {
     if (sortKey !== key)
@@ -421,81 +476,44 @@ function TransactionsTableHead({
   }
 
   return (
-    <thead>
+    <thead className="bg-muted/55 text-xs">
       <tr className="border-b border-border text-left text-muted-foreground">
-        <th
-          scope="col"
-          aria-sort={
-            sortKey === "date"
-              ? sortDir === "asc"
-                ? "ascending"
-                : "descending"
-              : "none"
-          }
-          className="py-2 pr-4 font-medium whitespace-nowrap"
-        >
-          <button
-            type="button"
-            onClick={() => onToggleSort("date")}
-            className={cn(
-              "inline-flex items-center gap-1 font-medium transition-colors hover:text-foreground",
-              sortKey === "date" && "text-foreground"
-            )}
+        {selection && (
+          <th scope="col" className="w-11 p-0">
+            <SelectionCheckbox label={t("selection.all")} {...selection} />
+          </th>
+        )}
+        {columns.map(({ key, label, className }) => (
+          <th
+            key={key}
+            scope="col"
+            aria-sort={sortKey === key ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
+            className={cn("pr-4 font-medium whitespace-nowrap", className)}
           >
-            {t("colDate")}
-            {sortIndicator("date")}
-          </button>
-        </th>
-        <th
-          scope="col"
-          aria-sort={
-            sortKey === "merchant"
-              ? sortDir === "asc"
-                ? "ascending"
-                : "descending"
-              : "none"
-          }
-          className="py-2 pr-4 font-medium whitespace-nowrap"
-        >
-          <button
-            type="button"
-            onClick={() => onToggleSort("merchant")}
-            className={cn(
-              "inline-flex items-center gap-1 font-medium transition-colors hover:text-foreground",
-              sortKey === "merchant" && "text-foreground"
-            )}
-          >
-            {t("colMerchant")}
-            {sortIndicator("merchant")}
-          </button>
-        </th>
-        <th
-          scope="col"
-          aria-sort={
-            sortKey === "amount"
-              ? sortDir === "asc"
-                ? "ascending"
-                : "descending"
-              : "none"
-          }
-          className="py-2 pr-4 text-right font-medium whitespace-nowrap"
-        >
-          <button
-            type="button"
-            onClick={() => onToggleSort("amount")}
-            className={cn(
-              "inline-flex items-center gap-1 font-medium transition-colors hover:text-foreground",
-              sortKey === "amount" && "text-foreground"
-            )}
-          >
-            {t("colAmount")}
-            {sortIndicator("amount")}
-          </button>
-        </th>
-        <th scope="col" className="py-2 pr-4 font-medium whitespace-nowrap">
-          {t("colCategory")}
-        </th>
-        <th scope="col" className="py-2 font-medium whitespace-nowrap">
+            <button
+              type="button"
+              onClick={() => onToggleSort(key)}
+              className={cn(
+                "inline-flex min-h-11 touch-manipulation items-center gap-1 rounded-sm font-medium transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
+                sortKey === key && "text-foreground"
+              )}
+            >
+              {label}
+              {sortIndicator(key)}
+            </button>
+          </th>
+        ))}
+        {showCategory && (
+          <th scope="col" className="py-2 pr-4 font-medium whitespace-nowrap">
+            {t("colCategory")}
+          </th>
+        )}
+        {showAccount && (
+          <th scope="col" className="py-2 pr-4 font-medium whitespace-nowrap">
+            {t("details.account")}
+          </th>
+        )}
+        <th scope="col" className="py-2 pr-3 font-medium whitespace-nowrap">
           {t("colType")}
         </th>
       </tr>
@@ -503,10 +521,10 @@ function TransactionsTableHead({
   )
 }
 
-function openTransactionFromRow(event: MouseEvent<HTMLTableRowElement>) {
+function openTransactionFromRow(event: ReactMouseEvent<HTMLTableRowElement>) {
   const { target, currentTarget } = event
   if (!(target instanceof Element) || !currentTarget.contains(target)) return
-  if (target.closest("button, a, input, select, textarea") || window.getSelection()?.toString()) return
+  if (target.closest("button, a, input, select, textarea, label") || window.getSelection()?.toString()) return
   currentTarget.querySelector<HTMLButtonElement>("[data-transaction-details]")?.click()
 }
 
@@ -518,7 +536,7 @@ function TransactionDetailsTrigger({ row, onOpen }: { row: TransactionRow; onOpe
       data-transaction-details
       aria-label={t("openDetails", { merchant })}
       onClick={onOpen}
-      className="rounded-sm text-left underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+      className="block max-w-44 truncate rounded-sm text-left underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring sm:max-w-72 lg:max-w-96"
     >
       {merchant}
     </SheetTrigger>
@@ -619,6 +637,10 @@ function TransactionDetails({
 function TransactionRowView({
   row,
   categoryLabel,
+  showCategory,
+  accountName,
+  selected,
+  onSelect,
   fmtDate,
   fmtAmount,
   onOverrideChanged,
@@ -632,6 +654,10 @@ function TransactionRowView({
   row: TransactionRow
   /** The row's effective Category label (override ?? classified), or null when Uncategorized. */
   categoryLabel: string | null
+  showCategory: boolean
+  accountName: string | null | undefined
+  selected: boolean
+  onSelect: (range: boolean) => void
   fmtDate: (date: string) => string
   fmtAmount: (amount: number) => string
   onOverrideChanged: (next: {
@@ -649,13 +675,23 @@ function TransactionRowView({
   const isCredit = row.amount > 0
   const outsideTotals = row.excluded || bucketOf(row) === "transfer"
   return (
-    <tr className="cursor-pointer border-b border-border hover:bg-muted/40 last:border-0" onClick={openTransactionFromRow}>
-      <td className="py-3 pr-4 text-muted-foreground tabular-nums">
-        {fmtDate(row.date)}
+    <tr
+      className={cn(
+        "cursor-pointer border-b border-border last:border-0",
+        selected ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-muted/40"
+      )}
+      onClick={openTransactionFromRow}
+    >
+      <td className="p-0">
+        <SelectionCheckbox
+          label={t("selection.row", { merchant: row.merchant.trim() || t("unknownMerchant") })}
+          checked={selected}
+          onToggle={onSelect}
+        />
       </td>
       <td
         className={cn(
-          "py-3 pr-4 font-medium",
+          "py-2 pr-4 font-medium",
           // Excluded rows read as struck-through: they count for nothing (ADR-0011).
           outsideTotals && "text-muted-foreground line-through"
         )}
@@ -664,7 +700,7 @@ function TransactionRowView({
       </td>
       <td
         className={cn(
-          "py-3 pr-4 text-right tabular-nums",
+          "py-2 pr-4 text-right tabular-nums",
           isCredit &&
             !outsideTotals &&
             "text-emerald-600 dark:text-emerald-500",
@@ -682,16 +718,20 @@ function TransactionRowView({
           </div>
         )}
       </td>
-      <td
-        className={cn(
-          "py-3 pr-4 text-muted-foreground",
-          outsideTotals && "line-through"
-        )}
-      >
-        {/* Effective Category (override wins over classified); an em dash reads as Uncategorized. */}
-        {categoryLabel ?? "—"}
+      <td className="py-2 pr-4 text-muted-foreground tabular-nums">
+        {fmtDate(row.date)}
       </td>
-      <td className="py-3">
+      {showCategory && (
+        <td className={cn("py-2 pr-4 text-muted-foreground", outsideTotals && "line-through")}>
+          <span className="block max-w-44 truncate" title={categoryLabel ?? undefined}>{categoryLabel ?? "—"}</span>
+        </td>
+      )}
+      {accountName !== undefined && (
+        <td className="py-2 pr-4 text-muted-foreground">
+          <span className="block max-w-44 truncate" title={accountName ?? undefined}>{accountName ?? "—"}</span>
+        </td>
+      )}
+      <td className="py-2 pr-3">
         <RowTypeControl
           row={row}
           formatAmount={fmtAmount}
@@ -746,6 +786,8 @@ function UndoBanner({
 function DeletedRowView({
   row,
   categoryLabel,
+  showCategory,
+  accountName,
   fmtDate,
   fmtAmount,
   onRestore,
@@ -753,6 +795,8 @@ function DeletedRowView({
 }: {
   row: TransactionRow
   categoryLabel: string | null
+  showCategory: boolean
+  accountName: string | null | undefined
   fmtDate: (date: string) => string
   fmtAmount: (amount: number) => string
   onRestore: () => void
@@ -761,15 +805,24 @@ function DeletedRowView({
   const t = useTranslations("transactions")
   return (
     <tr className="cursor-pointer border-b border-border text-muted-foreground hover:bg-muted/40 last:border-0" onClick={openTransactionFromRow}>
-      <td className="py-3 pr-4 tabular-nums">{fmtDate(row.date)}</td>
-      <td className="py-3 pr-4 font-medium line-through">
+      <td className="py-3 pr-4 pl-3 font-medium line-through">
         <TransactionDetailsTrigger row={row} onOpen={onOpenDetails} />
       </td>
       <td className="py-3 pr-4 text-right tabular-nums line-through">
         {fmtAmount(row.amount)}
       </td>
-      <td className="py-3 pr-4 line-through">{categoryLabel ?? "—"}</td>
-      <td className="py-3">
+      <td className="py-3 pr-4 tabular-nums">{fmtDate(row.date)}</td>
+      {showCategory && (
+        <td className="py-3 pr-4 line-through">
+          <span className="block max-w-44 truncate" title={categoryLabel ?? undefined}>{categoryLabel ?? "—"}</span>
+        </td>
+      )}
+      {accountName !== undefined && (
+        <td className="py-3 pr-4">
+          <span className="block max-w-44 truncate" title={accountName ?? undefined}>{accountName ?? "—"}</span>
+        </td>
+      )}
+      <td className="py-3 pr-3">
         <Button variant="outline" size="sm" onClick={onRestore}>
           <RotateCcw />
           {t("restore")}
@@ -834,6 +887,13 @@ function useTransactionRows(initial: TransactionRow[], initialDeleted: Transacti
     }))
   }
 
+  function patchExpenseTypes(ids: Set<string>, expenseType: ExpenseType, refresh: () => void) {
+    updateLists(({ rows, deleted }) => ({
+      rows: rows.map((row) => ids.has(row.id) ? { ...row, overrideType: expenseType } : row),
+      deleted,
+    }), refresh)
+  }
+
   function handleDeleted(row: TransactionRow) {
     setRestoreError(false)
     setJustDeleted(row)
@@ -865,7 +925,7 @@ function useTransactionRows(initial: TransactionRow[], initialDeleted: Transacti
     }))
   }
 
-  return { ...currentLists(local), justDeleted, restoreError, patchRow, handleDeleted, removeMovedRow, restore }
+  return { ...currentLists(local), justDeleted, restoreError, patchRow, patchExpenseTypes, handleDeleted, removeMovedRow, restore }
 }
 
 function useTransactionCategories(
@@ -954,6 +1014,7 @@ export function TransactionsTable({
   // react-doctor-disable-next-line react-doctor/prefer-useReducer -- the state atoms (server-data mirror, search query, type filter, sort key/dir) are largely independent UI controls, not one cohesive state machine; a reducer would harm readability
 }) {
   const t = useTranslations("transactions")
+  const typeLabels = useExpenseTypeLabels()
   const locale = toLocale(useLocale()) ?? defaultLocale
   const [query, setQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all")
@@ -962,8 +1023,16 @@ export function TransactionsTable({
   const [movedTo, setMovedTo] = useState<string | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>("date")
   const [sortDir, setSortDir] = useState<SortDir>("desc")
+  const [showCategory, setShowCategory] = useState(true)
+  const [showAccount, setShowAccount] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const selectionAnchor = useRef<string | null>(null)
+  const selectAllRef = useRef<HTMLInputElement>(null)
+  const selectionBarRef = useRef<HTMLDivElement>(null)
+  const [savingTypes, setSavingTypes] = useState(false)
+  const [bulkResult, setBulkResult] = useState<{ saved: number; failed: number } | null>(null)
   const router = useRouter()
-  const { rows, deleted, justDeleted, restoreError, patchRow, handleDeleted, removeMovedRow, restore } =
+  const { rows, deleted, justDeleted, restoreError, patchRow, patchExpenseTypes, handleDeleted, removeMovedRow, restore } =
     useTransactionRows(initial, initialDeleted)
   const { categoryFilter, setCategoryFilter, resolveCategory, categoryOptions } =
     useTransactionCategories(categories, initialCategoryId, rows)
@@ -986,6 +1055,72 @@ export function TransactionsTable({
   )
 
   const filtering = query.trim() !== "" || typeFilter !== "all" || categoryFilter !== null || accountFilter !== null
+  const showingDeleted = typeFilter === "deleted"
+  const selectedRows = showingDeleted ? [] : visible.filter((row) => selectedIds.has(row.id))
+  const retypable = selectedRows.filter(canRetype)
+  const allSelected = visible.length > 0 && selectedRows.length === visible.length
+
+  function clearSelection() {
+    if (selectionBarRef.current?.contains(document.activeElement)) {
+      selectAllRef.current?.focus({ preventScroll: true })
+    }
+    selectionAnchor.current = null
+    setSelectedIds(new Set())
+    setBulkResult(null)
+  }
+
+  function toggleSelection(id: string, range: boolean) {
+    const anchorIndex = range ? visible.findIndex((row) => row.id === selectionAnchor.current) : -1
+    const index = visible.findIndex((row) => row.id === id)
+    const ids = anchorIndex < 0
+      ? [id]
+      : visible.slice(Math.min(anchorIndex, index), Math.max(anchorIndex, index) + 1).map((row) => row.id)
+
+    if (anchorIndex < 0) selectionAnchor.current = id
+    setBulkResult(null)
+    setSelectedIds((current) => {
+      const next = new Set(current)
+      for (const rowId of ids) {
+        if (current.has(id)) next.delete(rowId)
+        else next.add(rowId)
+      }
+      return next
+    })
+  }
+
+  function toggleAll() {
+    setBulkResult(null)
+    selectionAnchor.current = null
+    setSelectedIds(allSelected ? new Set() : new Set(visible.map((row) => row.id)))
+  }
+
+  async function changeSelectedType(expenseType: ExpenseType) {
+    if (savingTypes || retypable.length === 0) return
+    setSavingTypes(true)
+    setBulkResult(null)
+
+    // Reuse the household-scoped override endpoint and bound concurrent requests for large selections.
+    const saved = new Set<string>()
+    const batchSize = 5
+    for (let start = 0; start < retypable.length; start += batchSize) {
+      const batch = retypable.slice(start, start + batchSize)
+      const results = await Promise.allSettled(batch.map(({ id }) => putOverride(id, expenseType)))
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") saved.add(batch[index].id)
+      })
+    }
+
+    if (saved.size > 0) {
+      if (saved.size === selectedRows.length && selectionBarRef.current?.contains(document.activeElement)) {
+        selectAllRef.current?.focus({ preventScroll: true })
+      }
+      if (selectionAnchor.current && saved.has(selectionAnchor.current)) selectionAnchor.current = null
+      setSelectedIds((current) => new Set([...current].filter((id) => !saved.has(id))))
+      patchExpenseTypes(saved, expenseType, refreshCycle)
+    }
+    setBulkResult({ saved: saved.size, failed: retypable.length - saved.size })
+    setSavingTypes(false)
+  }
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
@@ -998,6 +1133,7 @@ export function TransactionsTable({
   }
 
   function clearFilters() {
+    clearSelection()
     setQuery("")
     setTypeFilter("all")
     setCategoryFilter(null)
@@ -1072,20 +1208,46 @@ export function TransactionsTable({
         row.overrideCategoryId === null
       ).length
     : 0
-  const showingDeleted = typeFilter === "deleted"
-  // The Deleted view applies the account and merchant filters and shows newest-first.
+  // The Deleted view applies the account and merchant filters.
   const needle = query.trim().toLowerCase()
-  const deletedShown = deleted
-    .filter((r) =>
+  const deletedShown = showingDeleted ? sortRows(
+    deleted.filter((r) =>
       (accountFilter === null || r.accountId === accountFilter) &&
       (needle === "" || r.merchant.toLowerCase().includes(needle))
-    )
-    .toSorted((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id))
+    ), sortKey, sortDir
+  ) : NO_ROWS
   const shown = showingDeleted ? deletedShown : visible
+  const accountNames = new Map(accounts.map(({ id, name }) => [id, name]))
+  const accountColumnVisible = showAccount && accounts.length > 0
+  const accountCell = (row: TransactionRow) =>
+    accountColumnVisible ? accountNames.get(row.accountId ?? "") ?? null : undefined
   const details = rows.find((row) => row.id === detailsId) ?? deleted.find((row) => row.id === detailsId)
+  const bulkFeedback = (
+    <div aria-live="polite">
+      {bulkResult && (
+        <div className="space-y-0.5 py-2 text-sm">
+          {bulkResult.saved > 0 && (
+            <p className="text-muted-foreground">{t("selection.saved", { count: bulkResult.saved })}</p>
+          )}
+          {bulkResult.failed > 0 && (
+            <p role="alert" className="text-destructive">{t("selection.failed", { count: bulkResult.failed })}</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
 
   return (
-    <div className={cn("flex flex-col gap-3", className)}>
+    <div
+      className={cn("flex min-w-0 flex-col gap-3", className)}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && !event.defaultPrevented && selectedRows.length > 0 &&
+          event.target instanceof Element && event.currentTarget.contains(event.target) &&
+          !event.target.closest("input:not([type=checkbox]), select, textarea, [contenteditable]")) {
+          clearSelection()
+        }
+      }}
+    >
       {moveNotice}
       {justDeleted && (
         <UndoBanner
@@ -1112,22 +1274,53 @@ export function TransactionsTable({
       <TableToolbar
         accounts={accounts}
         accountFilter={accountFilter}
-        onAccountChange={setAccountFilter}
+        onAccountChange={(value) => {
+          clearSelection()
+          setAccountFilter(value)
+        }}
         query={query}
-        onQueryChange={setQuery}
+        onQueryChange={(value) => {
+          clearSelection()
+          setQuery(value)
+        }}
         typeFilter={typeFilter}
-        onTypeFilterChange={setTypeFilter}
+        onTypeFilterChange={(value) => {
+          clearSelection()
+          setTypeFilter(value)
+        }}
         deletedCount={deleted.length}
         categoryOptions={categoryOptions}
         categoryValue={categoryFilter ?? "all"}
-        onCategoryChange={(value) => setCategoryFilter(value === "all" ? null : value)}
-      />
+        onCategoryChange={(value) => {
+          clearSelection()
+          setCategoryFilter(value === "all" ? null : value)
+        }}
+      >
+        <Menu>
+          <MenuTrigger render={<Button variant="outline" size="lg" className="touch-manipulation pointer-coarse:min-h-11" />}>
+            <SlidersHorizontal aria-hidden />
+            {t("display")}
+          </MenuTrigger>
+          <MenuContent align="end" className="motion-reduce:animate-none">
+            <MenuCheckboxItem checked={showCategory} onCheckedChange={setShowCategory} className="pointer-coarse:min-h-11">
+              {t("colCategory")}
+            </MenuCheckboxItem>
+            {accounts.length > 0 && (
+              <MenuCheckboxItem checked={showAccount} onCheckedChange={setShowAccount} className="pointer-coarse:min-h-11">
+                {t("details.account")}
+              </MenuCheckboxItem>
+            )}
+          </MenuContent>
+        </Menu>
+      </TableToolbar>
 
-      {filtering && !showingDeleted && (
+      {filtering && !showingDeleted && shown.length === 0 && (
         <p className="text-xs text-muted-foreground" aria-live="polite">
           {t("showingCount", { visible: visible.length, total: rows.length })}
         </p>
       )}
+
+      {shown.length === 0 && bulkFeedback}
 
       <Sheet
         open={detailsId !== null}
@@ -1144,13 +1337,79 @@ export function TransactionsTable({
             <NoMatch onClear={clearFilters} />
           )
         ) : (
-          <div className="-mx-6 -my-2 overflow-x-auto whitespace-nowrap">
-            <div className="inline-block min-w-full px-6 py-2 align-middle">
-              <table className="w-full border-collapse text-sm">
+          <div className="rounded-lg border border-border bg-card">
+            <div
+              ref={selectionBarRef}
+              className={cn(
+                "rounded-t-lg border-b border-border bg-card px-3",
+                (selectedRows.length > 0 || bulkResult) && "sticky top-0 z-10"
+              )}
+            >
+              <div className="flex min-h-12 flex-wrap items-center gap-x-3 py-0.5">
+                <p aria-live="polite" className="mr-auto text-sm tabular-nums">
+                  {selectedRows.length > 0 ? (
+                    <span className="font-medium">{t("selection.count", { count: selectedRows.length })}</span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      {!showingDeleted && filtering
+                        ? t("showingCount", { visible: shown.length, total: rows.length })
+                        : t("tableCount", { count: shown.length })}
+                    </span>
+                  )}
+                </p>
+                {selectedRows.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-x-1">
+                    {retypable.length > 0 || savingTypes ? (
+                      <Menu onOpenChange={(open, event) => {
+                        if (open && (savingTypes || retypable.length === 0)) event.cancel()
+                      }}>
+                        <MenuTrigger
+                          aria-disabled={savingTypes || retypable.length === 0}
+                          render={<Button variant="outline" size="lg" className="touch-manipulation pointer-coarse:min-h-11" />}
+                        >
+                          {savingTypes
+                            ? t("selection.saving")
+                            : retypable.length === selectedRows.length
+                              ? t("selection.changeType")
+                              : t("selection.changeSomeTypes", { count: retypable.length })}
+                          <ChevronDown aria-hidden />
+                        </MenuTrigger>
+                        <MenuContent align="end" className="motion-reduce:animate-none">
+                          {EXPENSE_TYPES.map((type) => (
+                            <MenuItem key={type} onClick={() => void changeSelectedType(type)} className="pointer-coarse:min-h-11">
+                              {typeLabels[type]}
+                            </MenuItem>
+                          ))}
+                        </MenuContent>
+                      </Menu>
+                    ) : (
+                      <span className="py-2 text-xs text-muted-foreground">{t("selection.noRetypable")}</span>
+                    )}
+                    <Button variant="ghost" size="lg" onClick={clearSelection} className="touch-manipulation pointer-coarse:min-h-11">
+                      {t("selection.clear")}
+                    </Button>
+                  </div>
+                )}
+              </div>
+              {bulkFeedback}
+            </div>
+            <div className={cn(
+              "overflow-x-auto rounded-b-lg",
+              (selectedRows.length > 0 || bulkResult) && "[&_:is(button,input)]:scroll-mt-32"
+            )}>
+              <table aria-label={t("pageTitle")} className="w-full min-w-max border-collapse text-sm whitespace-nowrap">
                 <TransactionsTableHead
                   sortKey={sortKey}
                   sortDir={sortDir}
                   onToggleSort={toggleSort}
+                  selection={showingDeleted ? undefined : {
+                    checked: allSelected,
+                    mixed: selectedRows.length > 0 && !allSelected,
+                    inputRef: selectAllRef,
+                    onToggle: toggleAll,
+                  }}
+                  showCategory={showCategory}
+                  showAccount={accountColumnVisible}
                 />
                 <tbody>
                   {showingDeleted
@@ -1159,6 +1418,8 @@ export function TransactionsTable({
                           key={row.id}
                           row={row}
                           categoryLabel={resolveCategory(row)}
+                          showCategory={showCategory}
+                          accountName={accountCell(row)}
                           fmtDate={fmtDate}
                           fmtAmount={fmtAmount}
                           onRestore={() => void restore(row)}
@@ -1170,6 +1431,10 @@ export function TransactionsTable({
                           key={row.id}
                           row={row}
                           categoryLabel={resolveCategory(row)}
+                          showCategory={showCategory}
+                          accountName={accountCell(row)}
+                          selected={selectedIds.has(row.id)}
+                          onSelect={(range) => toggleSelection(row.id, range)}
                           fmtDate={fmtDate}
                           fmtAmount={fmtAmount}
                           onOverrideChanged={(next) => handleChanged(row.id, next)}
@@ -1194,7 +1459,7 @@ export function TransactionsTable({
           <TransactionDetails
             key={details.id}
             row={details}
-            accountName={accounts.find((account) => account.id === details.accountId)?.name}
+            accountName={accountNames.get(details.accountId ?? "")}
             categoryLabel={resolveCategory(details)}
             currency={currency}
             editable={rows.some(({ id }) => id === details.id)}
