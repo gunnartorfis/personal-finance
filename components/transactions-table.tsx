@@ -4,13 +4,14 @@ import { ChevronDown, ChevronsUpDown, ChevronUp, RotateCcw, Search, SlidersHoriz
 import { useLocale, useTranslations } from "next-intl"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useCallback, useId, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject } from "react"
+import { useCallback, useId, useMemo, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject } from "react"
 
 import { ClassifyTrigger } from "@/components/classify-trigger"
 import { RowTypeControl } from "@/components/row-type-control"
+import { BulkTypeFeedback, TransactionSelectionBar, useTransactionSelection } from "@/components/transaction-table-selection"
 import { TransactionReportingMonth } from "@/components/transaction-reporting-month"
 import { Button } from "@/components/ui/button"
-import { Menu, MenuCheckboxItem, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu"
+import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from "@/components/ui/menu"
 import {
   Sheet,
   SheetClose,
@@ -24,11 +25,10 @@ import { useCategoryLabel } from "@/lib/categories/label"
 import { currencyFormatter } from "@/lib/format/currency"
 import { formatCycleMonth, formatDate } from "@/lib/format/date"
 import { defaultLocale, toLocale } from "@/lib/i18n/config"
-import { putOverride } from "@/lib/overrides/client"
 import { restoreTransaction } from "@/lib/transactions/delete-client"
 import { cn } from "@/lib/utils"
 import { useExpenseTypeLabels } from "@/lib/expense-type-labels"
-import { EXPENSE_TYPES, type ExpenseType } from "@/shared/types"
+import type { ExpenseType } from "@/shared/types"
 
 /** A row's effective bucket for filtering: excluded, an expense type, an unreviewed debit, or a credit. */
 type TypeBucket = ExpenseType | "unclassified" | "credit" | "excluded" | "transfer"
@@ -109,10 +109,6 @@ function sortRows(rows: TransactionRow[], sortKey: SortKey, sortDir: SortDir) {
           : a.date.localeCompare(b.date) || a.id.localeCompare(b.id)
     return cmp * dir
   })
-}
-
-function canRetype(row: TransactionRow) {
-  return row.amount <= 0 && !row.excluded && !row.transferGroupId && !row.sharedTransferRuleApplies
 }
 
 /**
@@ -887,6 +883,30 @@ function useTransactionRows(initial: TransactionRow[], initialDeleted: Transacti
     }))
   }
 
+  const handleChanged = (
+    id: string,
+    next: { expenseType: ExpenseType | null; hasOverride: boolean }
+  ) => patchRow(id, { overrideType: next.hasOverride ? next.expenseType : null })
+
+  const handleIncomeChanged = (id: string, incomeMarked: boolean) =>
+    patchRow(id, { incomeMarked })
+
+  const handleExcludeChanged = (
+    id: string,
+    next: { excluded: boolean; note: string | null }
+  ) =>
+    // Excluding clears any income mark (ADR-0011) and Own share (ADR-0014) — both mutually exclusive
+    // with Excluded; mirror the server so the row stays consistent without a round-trip. Re-including
+    // leaves them untouched (the patch omits them).
+    patchRow(id, {
+      excluded: next.excluded,
+      exclusionNote: next.note,
+      ...(next.excluded ? { incomeMarked: false, ownShareAmount: null } : {}),
+    })
+
+  const handleShareChanged = (id: string, ownShareAmount: number | null) =>
+    patchRow(id, { ownShareAmount })
+
   function patchExpenseTypes(ids: Set<string>, expenseType: ExpenseType, refresh: () => void) {
     updateLists(({ rows, deleted }) => ({
       rows: rows.map((row) => ids.has(row.id) ? { ...row, overrideType: expenseType } : row),
@@ -925,7 +945,10 @@ function useTransactionRows(initial: TransactionRow[], initialDeleted: Transacti
     }))
   }
 
-  return { ...currentLists(local), justDeleted, restoreError, patchRow, patchExpenseTypes, handleDeleted, removeMovedRow, restore }
+  return {
+    ...currentLists(local), justDeleted, restoreError, patchExpenseTypes, handleDeleted,
+    removeMovedRow, restore, handleChanged, handleIncomeChanged, handleExcludeChanged, handleShareChanged,
+  }
 }
 
 function useTransactionCategories(
@@ -975,6 +998,97 @@ function useTransactionCategories(
   return { categoryFilter, setCategoryFilter, resolveCategory, categoryOptions }
 }
 
+function useTransactionFilters(
+  rows: TransactionRow[],
+  deleted: TransactionRow[],
+  categories: CategoryOption[],
+  initialCategoryId: string | undefined
+) {
+  const [query, setQuery] = useState("")
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all")
+  const [accountFilter, setAccountFilter] = useState<string | null>(null)
+  const [sortKey, setSortKey] = useState<SortKey>("date")
+  const [sortDir, setSortDir] = useState<SortDir>("desc")
+  const { categoryFilter, setCategoryFilter, resolveCategory, categoryOptions } =
+    useTransactionCategories(categories, initialCategoryId, rows)
+
+  // Derive the shown rows from the (stateful) period rows so inline override/income edits — which
+  // mutate `rows` — re-filter and re-sort in place. Cheap: one cycle's rows are bounded.
+  const visible = useMemo(
+    () => filterAndSortRows(rows, query, typeFilter, categoryFilter, accountFilter, sortKey, sortDir),
+    [rows, query, typeFilter, categoryFilter, accountFilter, sortKey, sortDir]
+  )
+
+  const filtering = query.trim() !== "" || typeFilter !== "all" || categoryFilter !== null || accountFilter !== null
+  const showingDeleted = typeFilter === "deleted"
+  // The Deleted view applies the account and merchant filters.
+  const needle = query.trim().toLowerCase()
+  const deletedShown = showingDeleted ? sortRows(
+    deleted.filter((r) =>
+      (accountFilter === null || r.accountId === accountFilter) &&
+      (needle === "" || r.merchant.toLowerCase().includes(needle))
+    ), sortKey, sortDir
+  ) : NO_ROWS
+  const shown = showingDeleted ? deletedShown : visible
+
+  function toggleSort(key: SortKey) {
+    if (key === sortKey) {
+      setSortDir((dir) => (dir === "asc" ? "desc" : "asc"))
+      return
+    }
+    setSortKey(key)
+    // Text reads best A→Z; dates and amounts most-useful largest-first.
+    setSortDir(key === "merchant" ? "asc" : "desc")
+  }
+
+  function clearFilters() {
+    setQuery("")
+    setTypeFilter("all")
+    setCategoryFilter(null)
+    setAccountFilter(null)
+  }
+
+  return {
+    query, setQuery, typeFilter, setTypeFilter, accountFilter, setAccountFilter,
+    categoryFilter, setCategoryFilter, resolveCategory, categoryOptions,
+    sortKey, sortDir, toggleSort, clearFilters, filtering, showingDeleted, visible, shown,
+  }
+}
+
+function TransactionDisplayMenu({
+  showCategory,
+  setShowCategory,
+  showAccount,
+  setShowAccount,
+  hasAccounts,
+}: {
+  showCategory: boolean
+  setShowCategory: (checked: boolean) => void
+  showAccount: boolean
+  setShowAccount: (checked: boolean) => void
+  hasAccounts: boolean
+}) {
+  const t = useTranslations("transactions")
+  return (
+    <Menu>
+      <MenuTrigger render={<Button variant="outline" size="lg" className="touch-manipulation pointer-coarse:min-h-11" />}>
+        <SlidersHorizontal aria-hidden />
+        {t("display")}
+      </MenuTrigger>
+      <MenuContent align="end" className="motion-reduce:animate-none">
+        <MenuCheckboxItem checked={showCategory} onCheckedChange={setShowCategory} className="pointer-coarse:min-h-11">
+          {t("colCategory")}
+        </MenuCheckboxItem>
+        {hasAccounts && (
+          <MenuCheckboxItem checked={showAccount} onCheckedChange={setShowAccount} className="pointer-coarse:min-h-11">
+            {t("details.account")}
+          </MenuCheckboxItem>
+        )}
+      </MenuContent>
+    </Menu>
+  )
+}
+
 /**
  * A statement period's transactions (Phase H) with a single inline "Type" control per row
  * (<RowTypeControl>): a color-keyed pill that opens a menu holding every per-row action (set type,
@@ -1014,28 +1128,21 @@ export function TransactionsTable({
   // react-doctor-disable-next-line react-doctor/prefer-useReducer -- the state atoms (server-data mirror, search query, type filter, sort key/dir) are largely independent UI controls, not one cohesive state machine; a reducer would harm readability
 }) {
   const t = useTranslations("transactions")
-  const typeLabels = useExpenseTypeLabels()
   const locale = toLocale(useLocale()) ?? defaultLocale
-  const [query, setQuery] = useState("")
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all")
-  const [accountFilter, setAccountFilter] = useState<string | null>(null)
   const [detailsId, setDetailsId] = useState<string | null>(null)
   const [movedTo, setMovedTo] = useState<string | null>(null)
-  const [sortKey, setSortKey] = useState<SortKey>("date")
-  const [sortDir, setSortDir] = useState<SortDir>("desc")
   const [showCategory, setShowCategory] = useState(true)
   const [showAccount, setShowAccount] = useState(false)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
-  const selectionAnchor = useRef<string | null>(null)
-  const selectAllRef = useRef<HTMLInputElement>(null)
-  const selectionBarRef = useRef<HTMLDivElement>(null)
-  const [savingTypes, setSavingTypes] = useState(false)
-  const [bulkResult, setBulkResult] = useState<{ saved: number; failed: number } | null>(null)
   const router = useRouter()
-  const { rows, deleted, justDeleted, restoreError, patchRow, patchExpenseTypes, handleDeleted, removeMovedRow, restore } =
-    useTransactionRows(initial, initialDeleted)
-  const { categoryFilter, setCategoryFilter, resolveCategory, categoryOptions } =
-    useTransactionCategories(categories, initialCategoryId, rows)
+  const {
+    rows, deleted, justDeleted, restoreError, patchExpenseTypes, handleDeleted, removeMovedRow, restore,
+    handleChanged, handleIncomeChanged, handleExcludeChanged, handleShareChanged,
+  } = useTransactionRows(initial, initialDeleted)
+  const {
+    query, setQuery, typeFilter, setTypeFilter, accountFilter, setAccountFilter,
+    categoryFilter, setCategoryFilter, resolveCategory, categoryOptions,
+    sortKey, sortDir, toggleSort, clearFilters, filtering, showingDeleted, visible, shown,
+  } = useTransactionFilters(rows, deleted, categories, initialCategoryId)
   const refreshCycle = useCallback(() => {
     const url = new URL(window.location.href)
     // The default landing month can change as the review queue is updated. Keep this month selected.
@@ -1047,98 +1154,12 @@ export function TransactionsTable({
     }
   }, [cycle, router])
 
-  // Derive the shown rows from the (stateful) period rows so inline override/income edits — which
-  // mutate `rows` — re-filter and re-sort in place. Cheap: one cycle's rows are bounded.
-  const visible = useMemo(
-    () => filterAndSortRows(rows, query, typeFilter, categoryFilter, accountFilter, sortKey, sortDir),
-    [rows, query, typeFilter, categoryFilter, accountFilter, sortKey, sortDir]
-  )
-
-  const filtering = query.trim() !== "" || typeFilter !== "all" || categoryFilter !== null || accountFilter !== null
-  const showingDeleted = typeFilter === "deleted"
-  const selectedRows = showingDeleted ? [] : visible.filter((row) => selectedIds.has(row.id))
-  const retypable = selectedRows.filter(canRetype)
-  const allSelected = visible.length > 0 && selectedRows.length === visible.length
-
-  function clearSelection() {
-    if (selectionBarRef.current?.contains(document.activeElement)) {
-      selectAllRef.current?.focus({ preventScroll: true })
-    }
-    selectionAnchor.current = null
-    setSelectedIds(new Set())
-    setBulkResult(null)
-  }
-
-  function toggleSelection(id: string, range: boolean) {
-    const anchorIndex = range ? visible.findIndex((row) => row.id === selectionAnchor.current) : -1
-    const index = visible.findIndex((row) => row.id === id)
-    const ids = anchorIndex < 0
-      ? [id]
-      : visible.slice(Math.min(anchorIndex, index), Math.max(anchorIndex, index) + 1).map((row) => row.id)
-
-    if (anchorIndex < 0) selectionAnchor.current = id
-    setBulkResult(null)
-    setSelectedIds((current) => {
-      const next = new Set(current)
-      for (const rowId of ids) {
-        if (current.has(id)) next.delete(rowId)
-        else next.add(rowId)
-      }
-      return next
-    })
-  }
-
-  function toggleAll() {
-    setBulkResult(null)
-    selectionAnchor.current = null
-    setSelectedIds(allSelected ? new Set() : new Set(visible.map((row) => row.id)))
-  }
-
-  async function changeSelectedType(expenseType: ExpenseType) {
-    if (savingTypes || retypable.length === 0) return
-    setSavingTypes(true)
-    setBulkResult(null)
-
-    // Reuse the household-scoped override endpoint and bound concurrent requests for large selections.
-    const saved = new Set<string>()
-    const batchSize = 5
-    for (let start = 0; start < retypable.length; start += batchSize) {
-      const batch = retypable.slice(start, start + batchSize)
-      const results = await Promise.allSettled(batch.map(({ id }) => putOverride(id, expenseType)))
-      results.forEach((result, index) => {
-        if (result.status === "fulfilled") saved.add(batch[index].id)
-      })
-    }
-
-    if (saved.size > 0) {
-      if (saved.size === selectedRows.length && selectionBarRef.current?.contains(document.activeElement)) {
-        selectAllRef.current?.focus({ preventScroll: true })
-      }
-      if (selectionAnchor.current && saved.has(selectionAnchor.current)) selectionAnchor.current = null
-      setSelectedIds((current) => new Set([...current].filter((id) => !saved.has(id))))
-      patchExpenseTypes(saved, expenseType, refreshCycle)
-    }
-    setBulkResult({ saved: saved.size, failed: retypable.length - saved.size })
-    setSavingTypes(false)
-  }
-
-  function toggleSort(key: SortKey) {
-    if (key === sortKey) {
-      setSortDir((dir) => (dir === "asc" ? "desc" : "asc"))
-      return
-    }
-    setSortKey(key)
-    // Text reads best A→Z; dates and amounts most-useful largest-first.
-    setSortDir(key === "merchant" ? "asc" : "desc")
-  }
-
-  function clearFilters() {
-    clearSelection()
-    setQuery("")
-    setTypeFilter("all")
-    setCategoryFilter(null)
-    setAccountFilter(null)
-  }
+  const {
+    sectionRef, selectionBarRef, selectAllRef, selectedIds, selectedCount, retypableCount,
+    allSelected, savingTypes, bulkResult, clearSelection, toggleSelection, toggleAll, changeSelectedType,
+  } = useTransactionSelection(showingDeleted ? NO_ROWS : visible, (ids, type) => {
+    patchExpenseTypes(ids, type, refreshCycle)
+  })
 
   const money = currencyFormatter(currency, locale)
   const fmtAmount = (amount: number) => money.format(amount)
@@ -1149,30 +1170,6 @@ export function TransactionsTable({
       day: "numeric",
       timeZone: "UTC",
     })
-
-  const handleChanged = (
-    id: string,
-    next: { expenseType: ExpenseType | null; hasOverride: boolean }
-  ) => patchRow(id, { overrideType: next.hasOverride ? next.expenseType : null })
-
-  const handleIncomeChanged = (id: string, incomeMarked: boolean) =>
-    patchRow(id, { incomeMarked })
-
-  const handleExcludeChanged = (
-    id: string,
-    next: { excluded: boolean; note: string | null }
-  ) =>
-    // Excluding clears any income mark (ADR-0011) and Own share (ADR-0014) — both mutually exclusive
-    // with Excluded; mirror the server so the row stays consistent without a round-trip. Re-including
-    // leaves them untouched (the patch omits them).
-    patchRow(id, {
-      excluded: next.excluded,
-      exclusionNote: next.note,
-      ...(next.excluded ? { incomeMarked: false, ownShareAmount: null } : {}),
-    })
-
-  const handleShareChanged = (id: string, ownShareAmount: number | null) =>
-    patchRow(id, { ownShareAmount })
 
   const movedLabel = movedTo ? formatCycleMonth(movedTo, locale) : null
   const moveNotice = movedTo && movedLabel && (
@@ -1208,46 +1205,13 @@ export function TransactionsTable({
         row.overrideCategoryId === null
       ).length
     : 0
-  // The Deleted view applies the account and merchant filters.
-  const needle = query.trim().toLowerCase()
-  const deletedShown = showingDeleted ? sortRows(
-    deleted.filter((r) =>
-      (accountFilter === null || r.accountId === accountFilter) &&
-      (needle === "" || r.merchant.toLowerCase().includes(needle))
-    ), sortKey, sortDir
-  ) : NO_ROWS
-  const shown = showingDeleted ? deletedShown : visible
   const accountNames = new Map(accounts.map(({ id, name }) => [id, name]))
   const accountColumnVisible = showAccount && accounts.length > 0
   const accountCell = (row: TransactionRow) =>
     accountColumnVisible ? accountNames.get(row.accountId ?? "") ?? null : undefined
   const details = rows.find((row) => row.id === detailsId) ?? deleted.find((row) => row.id === detailsId)
-  const bulkFeedback = (
-    <div aria-live="polite">
-      {bulkResult && (
-        <div className="space-y-0.5 py-2 text-sm">
-          {bulkResult.saved > 0 && (
-            <p className="text-muted-foreground">{t("selection.saved", { count: bulkResult.saved })}</p>
-          )}
-          {bulkResult.failed > 0 && (
-            <p role="alert" className="text-destructive">{t("selection.failed", { count: bulkResult.failed })}</p>
-          )}
-        </div>
-      )}
-    </div>
-  )
-
   return (
-    <div
-      className={cn("flex min-w-0 flex-col gap-3", className)}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && !event.defaultPrevented && selectedRows.length > 0 &&
-          event.target instanceof Element && event.currentTarget.contains(event.target) &&
-          !event.target.closest("input:not([type=checkbox]), select, textarea, [contenteditable]")) {
-          clearSelection()
-        }
-      }}
-    >
+    <div ref={sectionRef} className={cn("flex min-w-0 flex-col gap-3", className)}>
       {moveNotice}
       {justDeleted && (
         <UndoBanner
@@ -1296,22 +1260,13 @@ export function TransactionsTable({
           setCategoryFilter(value === "all" ? null : value)
         }}
       >
-        <Menu>
-          <MenuTrigger render={<Button variant="outline" size="lg" className="touch-manipulation pointer-coarse:min-h-11" />}>
-            <SlidersHorizontal aria-hidden />
-            {t("display")}
-          </MenuTrigger>
-          <MenuContent align="end" className="motion-reduce:animate-none">
-            <MenuCheckboxItem checked={showCategory} onCheckedChange={setShowCategory} className="pointer-coarse:min-h-11">
-              {t("colCategory")}
-            </MenuCheckboxItem>
-            {accounts.length > 0 && (
-              <MenuCheckboxItem checked={showAccount} onCheckedChange={setShowAccount} className="pointer-coarse:min-h-11">
-                {t("details.account")}
-              </MenuCheckboxItem>
-            )}
-          </MenuContent>
-        </Menu>
+        <TransactionDisplayMenu
+          showCategory={showCategory}
+          setShowCategory={setShowCategory}
+          showAccount={showAccount}
+          setShowAccount={setShowAccount}
+          hasAccounts={accounts.length > 0}
+        />
       </TableToolbar>
 
       {filtering && !showingDeleted && shown.length === 0 && (
@@ -1320,7 +1275,7 @@ export function TransactionsTable({
         </p>
       )}
 
-      {shown.length === 0 && bulkFeedback}
+      {shown.length === 0 && <BulkTypeFeedback result={bulkResult} />}
 
       <Sheet
         open={detailsId !== null}
@@ -1334,68 +1289,27 @@ export function TransactionsTable({
               {t("noDeleted")}
             </p>
           ) : (
-            <NoMatch onClear={clearFilters} />
+            <NoMatch onClear={() => {
+              clearSelection()
+              clearFilters()
+            }} />
           )
         ) : (
           <div className="rounded-lg border border-border bg-card">
-            <div
-              ref={selectionBarRef}
-              className={cn(
-                "rounded-t-lg border-b border-border bg-card px-3",
-                (selectedRows.length > 0 || bulkResult) && "sticky top-0 z-10"
-              )}
-            >
-              <div className="flex min-h-12 flex-wrap items-center gap-x-3 py-0.5">
-                <p aria-live="polite" className="mr-auto text-sm tabular-nums">
-                  {selectedRows.length > 0 ? (
-                    <span className="font-medium">{t("selection.count", { count: selectedRows.length })}</span>
-                  ) : (
-                    <span className="text-muted-foreground">
-                      {!showingDeleted && filtering
-                        ? t("showingCount", { visible: shown.length, total: rows.length })
-                        : t("tableCount", { count: shown.length })}
-                    </span>
-                  )}
-                </p>
-                {selectedRows.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-x-1">
-                    {retypable.length > 0 || savingTypes ? (
-                      <Menu onOpenChange={(open, event) => {
-                        if (open && (savingTypes || retypable.length === 0)) event.cancel()
-                      }}>
-                        <MenuTrigger
-                          aria-disabled={savingTypes || retypable.length === 0}
-                          render={<Button variant="outline" size="lg" className="touch-manipulation pointer-coarse:min-h-11" />}
-                        >
-                          {savingTypes
-                            ? t("selection.saving")
-                            : retypable.length === selectedRows.length
-                              ? t("selection.changeType")
-                              : t("selection.changeSomeTypes", { count: retypable.length })}
-                          <ChevronDown aria-hidden />
-                        </MenuTrigger>
-                        <MenuContent align="end" className="motion-reduce:animate-none">
-                          {EXPENSE_TYPES.map((type) => (
-                            <MenuItem key={type} onClick={() => void changeSelectedType(type)} className="pointer-coarse:min-h-11">
-                              {typeLabels[type]}
-                            </MenuItem>
-                          ))}
-                        </MenuContent>
-                      </Menu>
-                    ) : (
-                      <span className="py-2 text-xs text-muted-foreground">{t("selection.noRetypable")}</span>
-                    )}
-                    <Button variant="ghost" size="lg" onClick={clearSelection} className="touch-manipulation pointer-coarse:min-h-11">
-                      {t("selection.clear")}
-                    </Button>
-                  </div>
-                )}
-              </div>
-              {bulkFeedback}
-            </div>
+            <TransactionSelectionBar
+              barRef={selectionBarRef}
+              selectedCount={selectedCount}
+              retypableCount={retypableCount}
+              saving={savingTypes}
+              result={bulkResult}
+              visibleCount={shown.length}
+              totalCount={!showingDeleted && filtering ? rows.length : undefined}
+              onClear={clearSelection}
+              onChangeType={changeSelectedType}
+            />
             <div className={cn(
               "overflow-x-auto rounded-b-lg",
-              (selectedRows.length > 0 || bulkResult) && "[&_:is(button,input)]:scroll-mt-32"
+              (selectedCount > 0 || bulkResult) && "[&_:is(button,input)]:scroll-mt-32"
             )}>
               <table aria-label={t("pageTitle")} className="w-full min-w-max border-collapse text-sm whitespace-nowrap">
                 <TransactionsTableHead
@@ -1404,7 +1318,7 @@ export function TransactionsTable({
                   onToggleSort={toggleSort}
                   selection={showingDeleted ? undefined : {
                     checked: allSelected,
-                    mixed: selectedRows.length > 0 && !allSelected,
+                    mixed: selectedCount > 0 && !allSelected,
                     inputRef: selectAllRef,
                     onToggle: toggleAll,
                   }}
@@ -1413,7 +1327,7 @@ export function TransactionsTable({
                 />
                 <tbody>
                   {showingDeleted
-                    ? deletedShown.map((row) => (
+                    ? shown.map((row) => (
                         <DeletedRowView
                           key={row.id}
                           row={row}
