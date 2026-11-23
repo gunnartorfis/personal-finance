@@ -15,6 +15,7 @@ import { useTranslations } from "next-intl"
 import { useRef, useState, type ReactNode, type RefObject } from "react"
 
 import { InternalTransferRuleSheet, useInternalTransferRulePreview } from "@/components/internal-transfer-rule-sheet"
+import { AiTypeBadge, TransactionTypeDot } from "@/components/transaction-type-indicators"
 import type { TransactionRow } from "@/components/transactions-table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -44,28 +45,6 @@ import { EXPENSE_TYPES, type ExpenseType } from "@/shared/types"
 
 /** Matches the DB cap on `exclusion_note`; the input can't exceed what the API accepts. */
 const MAX_NOTE_LENGTH = 280
-
-/**
- * Per-type swatch, drawn from the same hues the charts use ({@link CATEGORIES} in
- * `spending-by-type`) so the pill, the menu radios, and the breakdown chart never drift. Labels are
- * localized via {@link useExpenseTypeLabels}; `""` is the not-bucketed / split type.
- */
-const TYPE_DOT: Record<ExpenseType, string> = {
-  Fixed: "bg-emerald-500",
-  Necessary: "bg-amber-500",
-  "Nice to have": "bg-rose-500",
-  "": "bg-zinc-400 dark:bg-zinc-500",
-}
-
-/** A small colored status dot used inside the pill and the type radios. */
-function Dot({ className }: { className?: string }) {
-  return (
-    <span
-      className={cn("size-1.5 shrink-0 rounded-full", className)}
-      aria-hidden
-    />
-  )
-}
 
 /** The collapsed pill shape — a compact outline button that opens the row's action menu. */
 function pillButton(className?: string) {
@@ -149,7 +128,7 @@ function CreditOrInternalTransferControl({
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
       <Menu>
         <MenuTrigger ref={triggerRef} render={pillButton(tone)} disabled={busy}>
-          <Dot className={row.incomeMarked ? "bg-emerald-500" : "bg-muted-foreground/40"} />
+          <TransactionTypeDot className={row.incomeMarked ? "bg-emerald-500" : "bg-muted-foreground/40"} />
           {label}
           <ChevronDown className="opacity-60" aria-hidden />
         </MenuTrigger>
@@ -260,7 +239,7 @@ export function RowTypeControl({
             )}
             disabled={busy}
           >
-            <Dot className="bg-muted-foreground/40" />
+            <TransactionTypeDot className="bg-muted-foreground/40" />
             {t("excluded")}
             <ChevronDown className="opacity-60" aria-hidden />
           </MenuTrigger>
@@ -382,9 +361,9 @@ export function RowTypeControl({
           title={unclassified ? t(classificationStatusTitle(row)) : undefined}
         >
           {unclassified ? (
-            <Dot className="bg-muted-foreground/40" />
+            <TransactionTypeDot className="bg-muted-foreground/40" />
           ) : (
-            <Dot className={TYPE_DOT[effective]} />
+            <TransactionTypeDot type={effective} />
           )}
           {unclassified ? t("needsReview") : typeLabels[effective]}
           <ChevronDown className="opacity-60" aria-hidden />
@@ -409,17 +388,9 @@ export function RowTypeControl({
             >
               {EXPENSE_TYPES.map((type) => (
                 <MenuRadioItem key={type} value={type}>
-                  <Dot className={TYPE_DOT[type]} />
+                  <TransactionTypeDot type={type} />
                   <span className="flex-1">{typeLabels[type]}</span>
-                  {row.classifiedType === type && !unclassified && (
-                    <span
-                      className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-                      title={t("aiSuggestion")}
-                    >
-                      <Sparkles className="size-3" aria-hidden />
-                      {t("ai")}
-                    </span>
-                  )}
+                  {row.classifiedType === type && !unclassified && <AiTypeBadge />}
                 </MenuRadioItem>
               ))}
             </MenuRadioGroup>

@@ -1122,6 +1122,7 @@
       "actions": "Actions",
       "searchActions": "Search actions",
       "setType": "Change type to {type}",
+      "currentType": "Current type",
       "appliesTo": "{count} of {total}",
       "exclude": "Exclude from totals",
       "unmarkIncome": "Stop counting as income",

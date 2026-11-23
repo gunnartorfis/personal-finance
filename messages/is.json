@@ -1122,6 +1122,7 @@
       "actions": "Aðgerðir",
       "searchActions": "Leita að aðgerðum",
       "setType": "Breyta tegund í {type}",
+      "currentType": "Núverandi tegund",
       "appliesTo": "{count} af {total}",
       "exclude": "Undanskilja frá útreikningum",
       "unmarkIncome": "Hætta að telja sem tekjur",
