@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react"
+import { screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -197,17 +197,28 @@ describe("RowTypeControl", () => {
     await user.click(screen.getByRole("button", { name: /necessary/i }))
     await user.click(await screen.findByRole("menuitem", { name: /exclude/i }))
 
-    await user.type(screen.getByLabelText(/reason for excluding/i), "duplicate")
-    await user.click(screen.getByRole("button", { name: /^exclude$/i }))
+    const dialog = await screen.findByRole("dialog", {
+      name: /exclude transaction/i,
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+    await user.type(
+      within(dialog).getByLabelText(/reason for excluding/i),
+      "duplicate"
+    )
+    await user.click(within(dialog).getByRole("button", { name: /^exclude$/i }))
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/transactions/t1/exclude",
-      expect.objectContaining({ method: "PUT" })
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({ note: "duplicate" }),
+      })
     )
     expect(onExcludeChanged).toHaveBeenCalledWith({
       excluded: true,
       note: "duplicate",
     })
+    expect(dialog).not.toBeInTheDocument()
   })
 
   it("offers Edit / Remove split on an already-shared row", async () => {

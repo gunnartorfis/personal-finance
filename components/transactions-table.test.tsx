@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react"
+import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -211,6 +211,31 @@ describe("TransactionsTable", () => {
     expect(
       await screen.findByRole("menuitem", { name: /exclude/i })
     ).toBeInTheDocument()
+  })
+
+  it("opens credit exclusion outside the table and returns focus when canceled", async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    render(<TransactionsTable rows={ROWS} currency="ISK" />)
+
+    const row = screen.getByRole("row", { name: /SALARY/ })
+    const trigger = within(row).getByRole("button", { name: /^credit$/i })
+    await user.click(trigger)
+    await user.click(await screen.findByRole("menuitem", { name: /exclude/i }))
+
+    const dialog = await screen.findByRole("dialog", {
+      name: /exclude transaction/i,
+    })
+    expect(row.closest("table")).not.toContainElement(dialog)
+    expect(row).toContainElement(trigger)
+    const cancel = within(dialog).getByRole("button", { name: /cancel/i })
+    await waitFor(() => expect(cancel).toHaveFocus())
+    await user.click(cancel)
+
+    expect(dialog).not.toBeInTheDocument()
+    await waitFor(() => expect(trigger).toHaveFocus())
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it("labels linked bank credits as transfers and keeps them out of the Credits filter", async () => {

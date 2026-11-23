@@ -927,9 +927,11 @@
       "saveError": "Couldn't save"
     },
     "excludeEditor": {
+      "title": "Exclude transaction?",
+      "description": "This transaction will be left out of all calculations. You can include it again from the transaction menu.",
       "reasonLabel": "Reason for excluding (optional)",
-      "reasonPlaceholder": "Reason (optional)",
       "exclude": "Exclude",
+      "saving": "Excluding…",
       "cancel": "Cancel",
       "saveError": "Couldn't save"
     }

@@ -1,5 +1,6 @@
 "use client"
 
+import { Dialog } from "@base-ui/react/dialog"
 import {
   Ban,
   Check,
@@ -11,11 +12,12 @@ import {
   Undo2,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { useRef, useState, type ReactNode } from "react"
+import { useRef, useState, type ReactNode, type RefObject } from "react"
 
 import { InternalTransferRuleSheet, useInternalTransferRulePreview } from "@/components/internal-transfer-rule-sheet"
 import type { TransactionRow } from "@/components/transactions-table"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Menu,
   MenuCheckboxItem,
@@ -115,6 +117,8 @@ function AccountTransferRuleMenuItem({ row, onSelect }: { row: TransactionRow; o
 
 function CreditOrInternalTransferControl({
   row,
+  triggerRef,
+  excludeOpen,
   busy,
   errorSlot,
   deleteItem,
@@ -123,6 +127,8 @@ function CreditOrInternalTransferControl({
   onRule,
 }: {
   row: TransactionRow
+  triggerRef: RefObject<HTMLButtonElement | null>
+  excludeOpen: boolean
   busy: boolean
   errorSlot: ReactNode
   deleteItem: ReactNode
@@ -142,12 +148,12 @@ function CreditOrInternalTransferControl({
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
       <Menu>
-        <MenuTrigger render={pillButton(tone)} disabled={busy}>
+        <MenuTrigger ref={triggerRef} render={pillButton(tone)} disabled={busy}>
           <Dot className={row.incomeMarked ? "bg-emerald-500" : "bg-muted-foreground/40"} />
           {label}
           <ChevronDown className="opacity-60" aria-hidden />
         </MenuTrigger>
-        <MenuContent>
+        <MenuContent finalFocus={excludeOpen ? false : undefined}>
           {row.amount > 0 && (
             <MenuCheckboxItem checked={row.incomeMarked} onCheckedChange={onIncomeChange}>
               {t("countAsIncome")}
@@ -167,8 +173,7 @@ function CreditOrInternalTransferControl({
  * The single inline control that owns a transaction row's "Type" cell (Phase H redesign). It
  * collapses what used to be a row of competing links — the type dropdown, Reset, the "apply to all"
  * nudge, Exclude, and Split — into one color-keyed **type pill** that opens a menu holding every
- * action for that row. The two actions that need input (Split, Exclude) swap an inline editor into
- * the cell rather than crowding the collapsed state.
+ * action for that row. Split opens an inline editor, and Exclude opens a confirmation dialog.
  *
  * Four shapes, matching the table's display logic:
  * - **Debit**: the pill shows the effective type (`overrideType ?? classifiedType`), or "Needs
@@ -213,6 +218,7 @@ export function RowTypeControl({
   const t = useTranslations("rowType")
   const typeLabels = useExpenseTypeLabels()
   const [editor, setEditor] = useState<"none" | "split" | "exclude">("none")
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const transferRule = useInternalTransferRulePreview(row.id)
   const [busy, setBusy] = useState(false)
   const [errored, setErrored] = useState(false)
@@ -248,6 +254,7 @@ export function RowTypeControl({
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <Menu>
           <MenuTrigger
+            ref={triggerRef}
             render={pillButton(
               "border-dashed text-muted-foreground line-through decoration-1"
             )}
@@ -289,18 +296,17 @@ export function RowTypeControl({
     return <TransferTypeControl deleteItem={onDeleted && row.source !== "bank_sync" ? deleteItem : undefined} />
   }
 
-  if (editor === "exclude") {
-    return (
-      <ExcludeEditor
-        transactionId={row.id}
-        onDone={(note) => {
-          onExcludeChanged({ excluded: true, note })
-          setEditor("none")
-        }}
-        onCancel={() => setEditor("none")}
-      />
-    )
-  }
+  const excludeDialog = editor === "exclude" && (
+    <ExcludeDialog
+      transactionId={row.id}
+      triggerRef={triggerRef}
+      onDone={(note) => {
+        setEditor("none")
+        onExcludeChanged({ excluded: true, note })
+      }}
+      onCancel={() => setEditor("none")}
+    />
+  )
 
   if (transferRule.state) {
     return (
@@ -318,18 +324,23 @@ export function RowTypeControl({
 
   if (row.amount > 0 || row.sharedTransferRuleApplies) {
     return (
-      <CreditOrInternalTransferControl
-        row={row}
-        busy={busy}
-        errorSlot={errorSlot}
-        deleteItem={deleteItem}
-        onIncomeChange={(marked) => void run(async () => {
-          await (marked ? markIncome(row.id) : unmarkIncome(row.id))
-          onIncomeChanged(marked)
-        })}
-        onExclude={() => setEditor("exclude")}
-        onRule={transferRule.open}
-      />
+      <>
+        <CreditOrInternalTransferControl
+          row={row}
+          triggerRef={triggerRef}
+          excludeOpen={editor === "exclude"}
+          busy={busy}
+          errorSlot={errorSlot}
+          deleteItem={deleteItem}
+          onIncomeChange={(marked) => void run(async () => {
+            await (marked ? markIncome(row.id) : unmarkIncome(row.id))
+            onIncomeChanged(marked)
+          })}
+          onExclude={() => setEditor("exclude")}
+          onRule={transferRule.open}
+        />
+        {excludeDialog}
+      </>
     )
   }
 
@@ -365,6 +376,7 @@ export function RowTypeControl({
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
       <Menu>
         <MenuTrigger
+          ref={triggerRef}
           render={pillButton(unclassified ? "border-dashed" : undefined)}
           disabled={busy}
           title={unclassified ? t(classificationStatusTitle(row)) : undefined}
@@ -377,7 +389,10 @@ export function RowTypeControl({
           {unclassified ? t("needsReview") : typeLabels[effective]}
           <ChevronDown className="opacity-60" aria-hidden />
         </MenuTrigger>
-        <MenuContent className="min-w-56">
+        <MenuContent
+          className="min-w-56"
+          finalFocus={editor === "exclude" ? false : undefined}
+        >
           <MenuGroup>
             <MenuGroupLabel>{t("setType")}</MenuGroupLabel>
             <MenuRadioGroup
@@ -464,6 +479,7 @@ export function RowTypeControl({
         </span>
       )}
       {errorSlot}
+      {excludeDialog}
     </div>
   )
 }
@@ -702,16 +718,14 @@ function SplitEditor({
   )
 }
 
-/**
- * Inline editor to exclude a transaction from every calculation (ADR-0011) with an optional reason.
- * Persists via {@link excludeTransaction} and reports the saved note.
- */
-function ExcludeEditor({
+function ExcludeDialog({
   transactionId,
+  triggerRef,
   onDone,
   onCancel,
 }: {
   transactionId: string
+  triggerRef: RefObject<HTMLButtonElement | null>
   onDone: (note: string | null) => void
   onCancel: () => void
 }) {
@@ -719,8 +733,10 @@ function ExcludeEditor({
   const [draft, setDraft] = useState("")
   const [saving, setSaving] = useState(false)
   const [errored, setErrored] = useState(false)
+  const cancelRef = useRef<HTMLButtonElement>(null)
 
   async function submit() {
+    if (saving) return
     setSaving(true)
     setErrored(false)
     const trimmed = draft.trim()
@@ -730,53 +746,79 @@ function ExcludeEditor({
     } catch {
       setErrored(true)
     } finally {
-      // As in SplitEditor: onDone unmounts us on success, but reset anyway so a future change that
-      // keeps the editor mounted doesn't leave the button stuck disabled.
       setSaving(false)
     }
   }
 
   return (
-    // react-doctor-disable-next-line react-doctor/no-prevent-default -- client-only submit via excludeTransaction; no server action, preventDefault is required to stop the native submit
-    <form
-      className="flex flex-wrap items-center gap-2 text-sm"
-      onSubmit={(event) => {
-        event.preventDefault()
-        void submit()
+    <Dialog.Root
+      open
+      disablePointerDismissal
+      onOpenChange={(open, event) => {
+        if (saving) event.cancel()
+        else if (!open) onCancel()
       }}
     >
-      <label className="sr-only" htmlFor={`exclude-note-${transactionId}`}>
-        {t("reasonLabel")}
-      </label>
-      <input
-        id={`exclude-note-${transactionId}`}
-        name={`exclude-note-${transactionId}`}
-        aria-label={t("reasonLabel")}
-        type="text"
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        maxLength={MAX_NOTE_LENGTH}
-        placeholder={t("reasonPlaceholder")}
-        disabled={saving}
-        className="h-7 min-w-0 flex-1 rounded-md border border-input bg-input/20 px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:opacity-50 max-sm:text-base/relaxed md:text-sm dark:bg-input/30"
-      />
-      <Button type="submit" variant="outline" disabled={saving}>
-        {t("exclude")}
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={onCancel}
-        disabled={saving}
-        className="text-muted-foreground"
-      >
-        {t("cancel")}
-      </Button>
-      {errored && (
-        <span role="alert" className="text-destructive">
-          {t("saveError")}
-        </span>
-      )}
-    </form>
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/60" />
+        <Dialog.Popup
+          initialFocus={cancelRef}
+          finalFocus={triggerRef}
+          className="fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-sm -translate-1/2 flex-col gap-4 overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-lg"
+        >
+          <div className="flex flex-col gap-1">
+            <Dialog.Title className="text-lg font-semibold">
+              {t("title")}
+            </Dialog.Title>
+            <Dialog.Description className="text-sm text-muted-foreground">
+              {t("description")}
+            </Dialog.Description>
+          </div>
+          {/* react-doctor-disable-next-line react-doctor/no-prevent-default -- client-only submit via excludeTransaction */}
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void submit()
+            }}
+          >
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              {t("reasonLabel")}
+              <Input
+                name="exclusionNote"
+                type="text"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                maxLength={MAX_NOTE_LENGTH}
+                disabled={saving}
+                className="h-11 text-base md:text-base"
+              />
+            </label>
+            {errored && (
+              <p role="alert" className="text-sm text-destructive">
+                {t("saveError")}
+              </p>
+            )}
+            <div className="flex flex-wrap justify-end gap-2">
+              <Dialog.Close
+                ref={cancelRef}
+                render={<Button variant="outline" className="h-11 px-3" />}
+                disabled={saving}
+              >
+                {t("cancel")}
+              </Dialog.Close>
+              <Button
+                type="submit"
+                variant="destructive"
+                className="h-11 px-3"
+                disabled={saving}
+              >
+                {saving ? t("saving") : t("exclude")}
+              </Button>
+            </div>
+          </form>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }

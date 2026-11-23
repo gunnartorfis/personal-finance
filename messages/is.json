@@ -927,9 +927,11 @@
       "saveError": "Tókst ekki að vista"
     },
     "excludeEditor": {
-      "reasonLabel": "Ástæða fyrir undanskilningi (valfrjálst)",
-      "reasonPlaceholder": "Ástæða (valfrjálst)",
+      "title": "Undanskilja færslu?",
+      "description": "Færslan verður undanskilin öllum útreikningum. Þú getur tekið hana með aftur í valmynd færslunnar.",
+      "reasonLabel": "Ástæða (valfrjálst)",
       "exclude": "Undanskilja",
+      "saving": "Undanskilur…",
       "cancel": "Hætta við",
       "saveError": "Tókst ekki að vista"
     }
