@@ -30,7 +30,7 @@ export function CycleSummary({
   const totalExpense = Math.abs(summary.expense)
 
   return (
-    <section className={cn("@container flex flex-col gap-6", className)}>
+    <section className={cn("@container flex flex-col gap-4", className)}>
       <dl className="grid grid-cols-1 divide-y divide-border @md:grid-cols-3 @md:divide-x @md:divide-y-0">
         <div className="flex flex-col gap-1 py-4 first:pt-0 last:pb-0 @md:px-6 @md:py-0 @md:first:pl-0 @md:last:pr-0">
           <dt className="truncate text-sm text-muted-foreground">
@@ -65,7 +65,7 @@ export function CycleSummary({
         </div>
       </dl>
 
-      <SpendingByType summary={summary} currency={currency} />
+      <SpendingByType summary={summary} currency={currency} showLegend={false} />
     </section>
   )
 }

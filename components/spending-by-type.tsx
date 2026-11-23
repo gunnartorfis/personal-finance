@@ -20,20 +20,21 @@ import { cn } from "@/lib/utils"
 
 /**
  * Spending-by-type breakdown shared by the transactions period overview ({@link CycleSummary}) and
- * the dashboard net card ({@link NetSummaryCard}) so both surfaces read identically: a 100%-stacked
- * proportion bar (Recharts) over a colour-keyed amounts legend. Pure and prop-driven; renders nothing
- * when there is no expense. Amounts come in signed and are shown as magnitudes. `headingLevel` lets
- * each caller slot the "Spending by type" heading at the right depth in its surrounding hierarchy.
+ * the dashboard net card ({@link NetSummaryCard}). A 100%-stacked bar shows spending proportions,
+ * with an optional visible legend for amounts. The legend is always available to screen readers.
+ * Amounts are shown as magnitudes. The caller controls the heading level.
  */
 export function SpendingByType({
   summary,
   currency,
   headingLevel = 2,
+  showLegend = true,
   className,
 }: {
   summary: NetSummary
   currency: string
   headingLevel?: 2 | 3
+  showLegend?: boolean
   className?: string
 }) {
   const t = useTranslations("spendingByType")
@@ -148,7 +149,7 @@ export function SpendingByType({
         </BarChart>
       </ChartContainer>
 
-      <ul className="flex flex-col gap-2">
+      <ul className={showLegend ? "flex flex-col gap-2" : "sr-only"}>
         {breakdown.map((category) => (
           <li
             key={category.key}

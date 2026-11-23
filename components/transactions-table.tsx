@@ -457,7 +457,7 @@ function TransactionsTableHead({
 
   const columns: { key: SortKey; label: string; className?: string }[] = [
     { key: "merchant", label: t("colMerchant"), className: !selection ? "pl-3" : undefined },
-    { key: "amount", label: t("colAmount"), className: "text-right" },
+    { key: "amount", label: t("colAmount"), className: "text-right lg:w-32" },
     { key: "date", label: t("colDate"), className: "w-24" },
   ]
 
@@ -500,16 +500,16 @@ function TransactionsTableHead({
           </th>
         ))}
         {showCategory && (
-          <th scope="col" className="py-2 pr-4 font-medium whitespace-nowrap">
+          <th scope="col" className="py-2 pr-4 font-medium whitespace-nowrap lg:w-36">
             {t("colCategory")}
           </th>
         )}
         {showAccount && (
-          <th scope="col" className="py-2 pr-4 font-medium whitespace-nowrap">
+          <th scope="col" className="py-2 pr-4 font-medium whitespace-nowrap lg:w-36">
             {t("details.account")}
           </th>
         )}
-        <th scope="col" className="py-2 pr-3 font-medium whitespace-nowrap">
+        <th scope="col" className="py-2 pr-3 font-medium whitespace-nowrap lg:w-36">
           {t("colType")}
         </th>
       </tr>

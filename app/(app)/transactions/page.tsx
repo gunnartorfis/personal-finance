@@ -148,7 +148,7 @@ export default async function TransactionsPage({
   const accountOptions = accountRows.map(({ id, name, isDefault }) => ({ id, name, isDefault }))
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6">
+    <div className="flex w-full min-w-0 flex-col gap-6 px-4 py-5 sm:px-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -158,7 +158,7 @@ export default async function TransactionsPage({
             {t("pageSubtitle")}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <PeriodSelector options={options} selected={selected} />
           <AddTransactionSheet accounts={accountOptions} />
           <Button variant="outline" size="sm" render={<Link href="/upload" />}>
