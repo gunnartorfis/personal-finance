@@ -9,7 +9,7 @@ import { useCallback, useId, useMemo, useState, type MouseEvent as ReactMouseEve
 import { ClassifyTrigger } from "@/components/classify-trigger"
 import { RowTypeControl } from "@/components/row-type-control"
 import { TransactionSelectionActions } from "@/components/transaction-selection-actions"
-import { BulkTypeFeedback, TransactionListStatus, useTransactionSelection } from "@/components/transaction-table-selection"
+import { BulkUpdateFeedback, TransactionListStatus, useTransactionSelection } from "@/components/transaction-table-selection"
 import { TransactionReportingMonth } from "@/components/transaction-reporting-month"
 import { Button } from "@/components/ui/button"
 import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from "@/components/ui/menu"
@@ -908,9 +908,9 @@ function useTransactionRows(initial: TransactionRow[], initialDeleted: Transacti
   const handleShareChanged = (id: string, ownShareAmount: number | null) =>
     patchRow(id, { ownShareAmount })
 
-  function patchExpenseTypes(ids: Set<string>, expenseType: ExpenseType, refresh: () => void) {
+  function patchSelectedRows(ids: Set<string>, patch: Partial<TransactionRow>, refresh: () => void) {
     updateLists(({ rows, deleted }) => ({
-      rows: rows.map((row) => ids.has(row.id) ? { ...row, overrideType: expenseType } : row),
+      rows: rows.map((row) => ids.has(row.id) ? { ...row, ...patch } : row),
       deleted,
     }), refresh)
   }
@@ -947,7 +947,7 @@ function useTransactionRows(initial: TransactionRow[], initialDeleted: Transacti
   }
 
   return {
-    ...currentLists(local), justDeleted, restoreError, patchExpenseTypes, handleDeleted,
+    ...currentLists(local), justDeleted, restoreError, patchSelectedRows, handleDeleted,
     removeMovedRow, restore, handleChanged, handleIncomeChanged, handleExcludeChanged, handleShareChanged,
   }
 }
@@ -1136,7 +1136,7 @@ export function TransactionsTable({
   const [showAccount, setShowAccount] = useState(false)
   const router = useRouter()
   const {
-    rows, deleted, justDeleted, restoreError, patchExpenseTypes, handleDeleted, removeMovedRow, restore,
+    rows, deleted, justDeleted, restoreError, patchSelectedRows, handleDeleted, removeMovedRow, restore,
     handleChanged, handleIncomeChanged, handleExcludeChanged, handleShareChanged,
   } = useTransactionRows(initial, initialDeleted)
   const {
@@ -1156,10 +1156,10 @@ export function TransactionsTable({
   }, [cycle, router])
 
   const {
-    sectionRef, selectionBarRef, selectAllRef, selectedIds, selectedCount, retypableCount,
-    allSelected, savingTypes, bulkResult, clearSelection, toggleSelection, toggleAll, changeSelectedType,
-  } = useTransactionSelection(showingDeleted ? NO_ROWS : visible, (ids, type) => {
-    patchExpenseTypes(ids, type, refreshCycle)
+    sectionRef, selectionBarRef, selectAllRef, selectedIds, selectedCount, updates,
+    allSelected, saving, bulkResult, clearSelection, toggleSelection, toggleAll, updateSelected,
+  } = useTransactionSelection(showingDeleted ? NO_ROWS : visible, (ids, patch) => {
+    patchSelectedRows(ids, patch, refreshCycle)
   })
 
   const money = currencyFormatter(currency, locale)
@@ -1276,7 +1276,7 @@ export function TransactionsTable({
         </p>
       )}
 
-      {shown.length === 0 && <BulkTypeFeedback result={bulkResult} />}
+      {shown.length === 0 && <BulkUpdateFeedback result={bulkResult} />}
 
       <Sheet
         open={detailsId !== null}
@@ -1385,13 +1385,13 @@ export function TransactionsTable({
           barRef={selectionBarRef}
           sectionRef={sectionRef}
           selectedCount={selectedCount}
-          retypableCount={retypableCount}
+          updates={updates}
           allSelected={allSelected}
-          saving={savingTypes}
+          saving={saving}
           result={bulkResult}
           onSelectAll={toggleAll}
           onClear={clearSelection}
-          onChangeType={changeSelectedType}
+          onUpdate={updateSelected}
         />
       )}
     </div>

@@ -127,7 +127,7 @@ describe("TransactionsTable", () => {
     await user.keyboard("{Enter}")
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't update 1 transaction.")
-    expect(screen.getByText("Updated the type of 1 transaction.")).toBeInTheDocument()
+    expect(screen.getByText("Updated 1 transaction.")).toBeInTheDocument()
     expect(fetch.mock.calls.map(([url]) => url)).toEqual([
       "/api/transactions/t1/override",
       "/api/transactions/t3/override",
@@ -135,6 +135,61 @@ describe("TransactionsTable", () => {
     expect(within(screen.getByRole("row", { name: /NETFLIX/ })).getByRole("button", { name: "Necessary" })).toBeInTheDocument()
     expect(screen.getByRole("checkbox", { name: "Select transaction for NETFLIX" })).not.toBeChecked()
     expect(screen.getByRole("checkbox", { name: "Select transaction for GYM" })).toBeChecked()
+  })
+
+  it("counts only eligible selected credits as income and reverses the change in bulk", async () => {
+    const user = userEvent.setup()
+    const fetch = vi.fn<(url: string, options: RequestInit) => Promise<{ ok: boolean }>>().mockResolvedValue({ ok: true })
+    vi.stubGlobal("fetch", fetch)
+    render(<TransactionsTable rows={[ROWS[0], ROWS[2], { ...ROWS[2], id: "bonus", merchant: "BONUS" }]} currency="ISK" />)
+    const selectAll = screen.getByRole("checkbox", { name: "Select all visible transactions" })
+
+    await user.click(selectAll)
+    await user.click(screen.getByRole("button", { name: "Actions" }))
+    await user.click(await screen.findByRole("option", { name: /Count as income.*2 of 3/ }))
+    expect(await screen.findByText("Updated 2 transactions.")).toBeInTheDocument()
+    expect(fetch.mock.calls.map(([url, options]) => [url, options.method])).toEqual([
+      ["/api/transactions/t2/income", "PUT"],
+      ["/api/transactions/bonus/income", "PUT"],
+    ])
+    expect(within(screen.getByRole("row", { name: /SALARY/ })).getByRole("button", { name: "Income" })).toBeInTheDocument()
+
+    await user.click(selectAll)
+    await user.click(screen.getByRole("button", { name: "Actions" }))
+    await user.click(await screen.findByRole("option", { name: /Stop counting as income.*2 of 3/ }))
+    expect(await screen.findByText("Updated 2 transactions.")).toBeInTheDocument()
+    expect(fetch.mock.calls.slice(2).map(([url, options]) => [url, options.method])).toEqual([
+      ["/api/transactions/t2/income", "DELETE"],
+      ["/api/transactions/bonus/income", "DELETE"],
+    ])
+  })
+
+  it("excludes selected transactions from totals and includes them again", async () => {
+    const user = userEvent.setup()
+    const fetch = vi.fn<(url: string, options: RequestInit) => Promise<{ ok: boolean }>>().mockResolvedValue({ ok: true })
+    vi.stubGlobal("fetch", fetch)
+    render(<TransactionsTable rows={[ROWS[0], { ...ROWS[2], incomeMarked: true }]} currency="ISK" />)
+    const selectAll = screen.getByRole("checkbox", { name: "Select all visible transactions" })
+
+    await user.click(selectAll)
+    await user.click(screen.getByRole("button", { name: "Actions" }))
+    await user.click(await screen.findByRole("option", { name: "Exclude from totals" }))
+    expect(await screen.findByText("Updated 2 transactions.")).toBeInTheDocument()
+    expect(screen.getAllByRole("button", { name: "Excluded" })).toHaveLength(2)
+    expect(fetch.mock.calls.map(([url, options]) => [url, options.method])).toEqual([
+      ["/api/transactions/t1/exclude", "PUT"],
+      ["/api/transactions/t2/exclude", "PUT"],
+    ])
+
+    await user.click(selectAll)
+    await user.click(screen.getByRole("button", { name: "Actions" }))
+    await user.click(await screen.findByRole("option", { name: "Include in calculations" }))
+    expect(await screen.findByText("Updated 2 transactions.")).toBeInTheDocument()
+    expect(within(screen.getByRole("row", { name: /SALARY/ })).getByRole("button", { name: "Credit" })).toBeInTheDocument()
+    expect(fetch.mock.calls.slice(2).map(([url, options]) => [url, options.method])).toEqual([
+      ["/api/transactions/t1/exclude", "DELETE"],
+      ["/api/transactions/t2/exclude", "DELETE"],
+    ])
   })
 
   it("opens the floating actions with a click and keeps the selection when Escape closes the palette", async () => {

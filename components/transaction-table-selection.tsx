@@ -4,16 +4,29 @@ import { useTranslations } from "next-intl"
 import { useEffect, useEffectEvent, useRef, useState } from "react"
 
 import type { TransactionRow } from "@/components/transactions-table"
-import { putOverride } from "@/lib/overrides/client"
-import type { ExpenseType } from "@/shared/types"
+import { useExpenseTypeLabels } from "@/lib/expense-type-labels"
+import { clearOverride, putOverride } from "@/lib/overrides/client"
+import { excludeTransaction, includeTransaction } from "@/lib/transactions/exclude-client"
+import { markIncome, unmarkIncome } from "@/lib/transactions/income-client"
+import { EXPENSE_TYPES } from "@/shared/types"
 
-export type BulkTypeResult = { saved: number; failed: number }
+export type BulkUpdateResult = { saved: number; failed: number }
 
 function canRetype(row: TransactionRow) {
   return row.amount <= 0 && !row.excluded && !row.transferGroupId && !row.sharedTransferRuleApplies
 }
 
-async function saveExpenseTypes(rows: TransactionRow[], type: ExpenseType) {
+type PersistUpdate = (id: string) => Promise<void>
+
+export type BulkTransactionUpdate = {
+  id: string
+  label: string
+  rows: TransactionRow[]
+  persist: PersistUpdate
+  patch: Partial<TransactionRow>
+}
+
+async function saveTransactionUpdates(rows: TransactionRow[], persist: PersistUpdate) {
   const pending = rows.values()
   const saved = new Set<string>()
 
@@ -23,7 +36,7 @@ async function saveExpenseTypes(rows: TransactionRow[], type: ExpenseType) {
     if (next.done) return
     const { id } = next.value
     try {
-      await putOverride(id, type)
+      await persist(id)
       saved.add(id)
     } catch {
       // Failed rows remain selected for retry.
@@ -37,18 +50,20 @@ async function saveExpenseTypes(rows: TransactionRow[], type: ExpenseType) {
 
 export function useTransactionSelection(
   visible: TransactionRow[],
-  onSaved: (ids: Set<string>, type: ExpenseType) => void
+  onSaved: (ids: Set<string>, patch: Partial<TransactionRow>) => void
 ) {
+  const t = useTranslations("transactions")
+  const rowLabel = useTranslations("rowType")
+  const typeLabels = useExpenseTypeLabels()
   const sectionRef = useRef<HTMLDivElement>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const selectionAnchor = useRef<string | null>(null)
   const selectAllRef = useRef<HTMLInputElement>(null)
   const selectionBarRef = useRef<HTMLDivElement>(null)
-  const [savingTypes, setSavingTypes] = useState(false)
-  const [bulkResult, setBulkResult] = useState<BulkTypeResult | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [bulkResult, setBulkResult] = useState<BulkUpdateResult | null>(null)
   const selectedRows = visible.filter((row) => selectedIds.has(row.id))
   const hasSelection = selectedRows.length > 0
-  const retypable = selectedRows.filter(canRetype)
   const allSelected = visible.length > 0 && selectedRows.length === visible.length
 
   function clearSelection() {
@@ -85,12 +100,12 @@ export function useTransactionSelection(
     setSelectedIds(allSelected ? new Set() : new Set(visible.map((row) => row.id)))
   }
 
-  async function changeSelectedType(expenseType: ExpenseType) {
-    if (savingTypes || retypable.length === 0) return
-    setSavingTypes(true)
+  async function updateSelected({ rows: eligible, persist, patch }: BulkTransactionUpdate) {
+    if (saving || eligible.length === 0) return
+    setSaving(true)
     setBulkResult(null)
 
-    const saved = await saveExpenseTypes(retypable, expenseType)
+    const saved = await saveTransactionUpdates(eligible, persist)
 
     if (saved.size > 0) {
       if (saved.size === selectedRows.length && selectionBarRef.current?.contains(document.activeElement)) {
@@ -98,10 +113,10 @@ export function useTransactionSelection(
       }
       if (selectionAnchor.current && saved.has(selectionAnchor.current)) selectionAnchor.current = null
       setSelectedIds((current) => new Set([...current].filter((id) => !saved.has(id))))
-      onSaved(saved, expenseType)
+      onSaved(saved, patch)
     }
-    setBulkResult({ saved: saved.size, failed: retypable.length - saved.size })
-    setSavingTypes(false)
+    setBulkResult({ saved: saved.size, failed: eligible.length - saved.size })
+    setSaving(false)
   }
 
   const onEscape = useEffectEvent((event: KeyboardEvent) => {
@@ -119,14 +134,44 @@ export function useTransactionSelection(
     return () => window.removeEventListener("keydown", listener)
   }, [hasSelection])
 
+  const updates: BulkTransactionUpdate[] = []
+  function addUpdate(
+    id: string,
+    label: string,
+    eligible: TransactionRow[],
+    persist: PersistUpdate,
+    patch: Partial<TransactionRow>
+  ) {
+    if (!saving && eligible.length > 0) {
+      updates.push({ id, label, rows: eligible, persist, patch })
+    }
+  }
+
+  const retypable = selectedRows.filter(canRetype)
+  for (const type of EXPENSE_TYPES) {
+    addUpdate(`type-${type}`, t("selection.setType", { type: typeLabels[type] }), retypable,
+      (id) => putOverride(id, type), { overrideType: type })
+  }
+  addUpdate("reset", rowLabel("resetToAi"), retypable.filter((row) => row.overrideType !== null),
+    clearOverride, { overrideType: null, overrideCategoryId: null })
+  addUpdate("exclude", t("selection.exclude"), selectedRows.filter((row) => !row.excluded && !row.transferGroupId),
+    excludeTransaction, { excluded: true, exclusionNote: null, incomeMarked: false, ownShareAmount: null })
+  addUpdate("include", rowLabel("include"), selectedRows.filter((row) => row.excluded),
+    includeTransaction, { excluded: false, exclusionNote: null })
+
+  const credits = selectedRows.filter((row) => row.amount > 0 && !row.excluded && !row.transferGroupId)
+  addUpdate("income", rowLabel("countAsIncome"), credits.filter((row) => !row.incomeMarked),
+    markIncome, { incomeMarked: true })
+  addUpdate("unmark-income", t("selection.unmarkIncome"), credits.filter((row) => row.incomeMarked),
+    unmarkIncome, { incomeMarked: false })
+
   return {
     sectionRef, selectionBarRef, selectAllRef, selectedIds, selectedCount: selectedRows.length,
-    retypableCount: retypable.length, allSelected, savingTypes, bulkResult, clearSelection,
-    toggleSelection, toggleAll, changeSelectedType,
+    updates, updateSelected, allSelected, saving, bulkResult, clearSelection, toggleSelection, toggleAll,
   }
 }
 
-export function BulkTypeFeedback({ result }: { result: BulkTypeResult | null }) {
+export function BulkUpdateFeedback({ result }: { result: BulkUpdateResult | null }) {
   const t = useTranslations("transactions")
   return (
     <div aria-live="polite">
@@ -151,7 +196,7 @@ export function TransactionListStatus({
 }: {
   visibleCount: number
   totalCount?: number
-  result: BulkTypeResult | null
+  result: BulkUpdateResult | null
 }) {
   const t = useTranslations("transactions")
   return (
@@ -161,7 +206,7 @@ export function TransactionListStatus({
           ? t("tableCount", { count: visibleCount })
           : t("showingCount", { visible: visibleCount, total: totalCount })}
       </p>
-      <BulkTypeFeedback result={result} />
+      <BulkUpdateFeedback result={result} />
     </div>
   )
 }

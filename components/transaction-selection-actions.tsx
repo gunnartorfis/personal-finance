@@ -6,38 +6,35 @@ import { Command, Search, X } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useEffect, useRef, useState, type RefObject } from "react"
 
-import { BulkTypeFeedback, type BulkTypeResult } from "@/components/transaction-table-selection"
+import { BulkUpdateFeedback, type BulkTransactionUpdate, type BulkUpdateResult } from "@/components/transaction-table-selection"
 import { Button } from "@/components/ui/button"
-import { useExpenseTypeLabels } from "@/lib/expense-type-labels"
-import { EXPENSE_TYPES, type ExpenseType } from "@/shared/types"
 
-type SelectionCommand = { id: string; label: string; run: () => void }
+type SelectionCommand = BulkTransactionUpdate | { id: "select-all"; label: string }
 
 export function TransactionSelectionActions({
   barRef,
   sectionRef,
   selectedCount,
-  retypableCount,
+  updates,
   allSelected,
   saving,
   result,
   onSelectAll,
   onClear,
-  onChangeType,
+  onUpdate,
 }: {
   barRef: RefObject<HTMLDivElement | null>
   sectionRef: RefObject<HTMLDivElement | null>
   selectedCount: number
-  retypableCount: number
+  updates: BulkTransactionUpdate[]
   allSelected: boolean
   saving: boolean
-  result: BulkTypeResult | null
+  result: BulkUpdateResult | null
   onSelectAll: () => void
   onClear: () => void
-  onChangeType: (type: ExpenseType) => Promise<void>
+  onUpdate: (update: BulkTransactionUpdate) => Promise<void>
 }) {
   const t = useTranslations("transactions")
-  const typeLabels = useExpenseTypeLabels()
   const [open, setOpen] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const actionsRef = useRef<HTMLButtonElement>(null)
@@ -59,19 +56,9 @@ export function TransactionSelectionActions({
     return () => window.removeEventListener("keydown", handleShortcut, { capture: true })
   }, [sectionRef])
 
-  const commands: SelectionCommand[] = []
-  if (!allSelected) {
-    commands.push({ id: "select-all", label: t("selection.all"), run: onSelectAll })
-  }
-  if (retypableCount > 0 && !saving) {
-    for (const type of EXPENSE_TYPES) {
-      commands.push({
-        id: `type-${type}`,
-        label: t("selection.setType", { type: typeLabels[type] }),
-        run: () => void onChangeType(type),
-      })
-    }
-  }
+  const commands: SelectionCommand[] = allSelected
+    ? updates
+    : [...updates, { id: "select-all", label: t("selection.all") }]
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -99,7 +86,7 @@ export function TransactionSelectionActions({
               <X aria-hidden />
             </Button>
           </div>
-          <BulkTypeFeedback result={result} />
+          <BulkUpdateFeedback result={result} />
         </div>
       </div>
       <Dialog.Portal>
@@ -115,7 +102,7 @@ export function TransactionSelectionActions({
             {t("selection.count", { count: selectedCount })}
           </Dialog.Description>
           {open && (
-            <Autocomplete.Root items={commands} inline open autoHighlight="always">
+            <Autocomplete.Root items={commands} inline open autoHighlight>
               <div className="flex items-center gap-3 border-b border-border px-4">
                 <Search aria-hidden className="size-4 shrink-0 text-muted-foreground" />
                 <Autocomplete.Input
@@ -131,13 +118,6 @@ export function TransactionSelectionActions({
                   <X aria-hidden />
                 </Dialog.Close>
               </div>
-              {retypableCount !== selectedCount && (
-                <p className="px-4 pt-3 text-xs text-muted-foreground">
-                  {retypableCount > 0
-                    ? t("selection.eligible", { count: retypableCount })
-                    : t("selection.noRetypable")}
-                </p>
-              )}
               <Autocomplete.Empty className="px-4 py-3 text-sm text-muted-foreground empty:hidden">
                 {t("selection.noActions")}
               </Autocomplete.Empty>
@@ -148,11 +128,17 @@ export function TransactionSelectionActions({
                     value={command}
                     onClick={() => {
                       setOpen(false)
-                      command.run()
+                      if ("persist" in command) void onUpdate(command)
+                      else onSelectAll()
                     }}
-                    className="flex min-h-10 cursor-default items-center rounded-md px-2 text-sm data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground pointer-coarse:min-h-11"
+                    className="flex min-h-10 cursor-default items-center justify-between gap-3 rounded-md px-2 text-sm data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground pointer-coarse:min-h-11"
                   >
-                    {command.label}
+                    <span>{command.label}</span>
+                    {"rows" in command && command.rows.length < selectedCount && (
+                      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                        {t("selection.appliesTo", { count: command.rows.length, total: selectedCount })}
+                      </span>
+                    )}
                   </Autocomplete.Item>
                 )}
               </Autocomplete.List>
