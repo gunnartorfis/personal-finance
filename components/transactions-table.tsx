@@ -8,7 +8,8 @@ import { useCallback, useId, useMemo, useState, type MouseEvent as ReactMouseEve
 
 import { ClassifyTrigger } from "@/components/classify-trigger"
 import { RowTypeControl } from "@/components/row-type-control"
-import { BulkTypeFeedback, TransactionSelectionBar, useTransactionSelection } from "@/components/transaction-table-selection"
+import { TransactionSelectionActions } from "@/components/transaction-selection-actions"
+import { BulkTypeFeedback, TransactionListStatus, useTransactionSelection } from "@/components/transaction-table-selection"
 import { TransactionReportingMonth } from "@/components/transaction-reporting-month"
 import { Button } from "@/components/ui/button"
 import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from "@/components/ui/menu"
@@ -1211,7 +1212,7 @@ export function TransactionsTable({
     accountColumnVisible ? accountNames.get(row.accountId ?? "") ?? null : undefined
   const details = rows.find((row) => row.id === detailsId) ?? deleted.find((row) => row.id === detailsId)
   return (
-    <div ref={sectionRef} className={cn("flex min-w-0 flex-col gap-3", className)}>
+    <div ref={sectionRef} className={cn("flex min-w-0 flex-col gap-3", selectedCount > 0 && "pb-32", className)}>
       {moveNotice}
       {justDeleted && (
         <UndoBanner
@@ -1296,20 +1297,14 @@ export function TransactionsTable({
           )
         ) : (
           <div className="rounded-lg border border-border bg-card">
-            <TransactionSelectionBar
-              barRef={selectionBarRef}
-              selectedCount={selectedCount}
-              retypableCount={retypableCount}
-              saving={savingTypes}
-              result={bulkResult}
+            <TransactionListStatus
+              result={selectedCount === 0 ? bulkResult : null}
               visibleCount={shown.length}
               totalCount={!showingDeleted && filtering ? rows.length : undefined}
-              onClear={clearSelection}
-              onChangeType={changeSelectedType}
             />
             <div className={cn(
               "overflow-x-auto rounded-b-lg",
-              (selectedCount > 0 || bulkResult) && "[&_:is(button,input)]:scroll-mt-32"
+              selectedCount > 0 && "[&_:is(button,input)]:scroll-mb-32"
             )}>
               <table aria-label={t("pageTitle")} className="w-full min-w-max border-collapse text-sm whitespace-nowrap">
                 <TransactionsTableHead
@@ -1385,6 +1380,20 @@ export function TransactionsTable({
           />
         )}
       </Sheet>
+      {selectedCount > 0 && (
+        <TransactionSelectionActions
+          barRef={selectionBarRef}
+          sectionRef={sectionRef}
+          selectedCount={selectedCount}
+          retypableCount={retypableCount}
+          allSelected={allSelected}
+          saving={savingTypes}
+          result={bulkResult}
+          onSelectAll={toggleAll}
+          onClear={clearSelection}
+          onChangeType={changeSelectedType}
+        />
+      )}
     </div>
   )
 }

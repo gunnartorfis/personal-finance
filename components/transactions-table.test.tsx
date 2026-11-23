@@ -118,8 +118,13 @@ describe("TransactionsTable", () => {
     render(<TransactionsTable rows={ROWS} currency="ISK" />)
 
     await user.click(screen.getByRole("checkbox", { name: "Select all visible transactions" }))
-    await user.click(screen.getByRole("button", { name: "Change type (2)" }))
-    await user.click(await screen.findByRole("menuitem", { name: "Necessary" }))
+    await user.keyboard("{Control>}k{/Control}")
+    const dialog = await screen.findByRole("dialog", { name: "Actions" })
+    const search = within(dialog).getByRole("combobox", { name: "Search actions" })
+    expect(search).toHaveFocus()
+    await user.type(search, "necessary")
+    expect(within(dialog).getAllByRole("option")).toHaveLength(1)
+    await user.keyboard("{Enter}")
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't update 1 transaction.")
     expect(screen.getByText("Updated the type of 1 transaction.")).toBeInTheDocument()
@@ -130,6 +135,22 @@ describe("TransactionsTable", () => {
     expect(within(screen.getByRole("row", { name: /NETFLIX/ })).getByRole("button", { name: "Necessary" })).toBeInTheDocument()
     expect(screen.getByRole("checkbox", { name: "Select transaction for NETFLIX" })).not.toBeChecked()
     expect(screen.getByRole("checkbox", { name: "Select transaction for GYM" })).toBeChecked()
+  })
+
+  it("opens the floating actions with a click and keeps the selection when Escape closes the palette", async () => {
+    const user = userEvent.setup()
+    render(<TransactionsTable rows={ROWS} currency="ISK" />)
+
+    expect(screen.queryByRole("button", { name: "Actions" })).not.toBeInTheDocument()
+    const checkbox = screen.getByRole("checkbox", { name: "Select transaction for NETFLIX" })
+    await user.click(checkbox)
+    const trigger = screen.getByRole("button", { name: "Actions" })
+    await user.click(trigger)
+    expect(await screen.findByRole("option", { name: "Select all visible transactions" })).toBeInTheDocument()
+    await user.keyboard("{Escape}")
+    expect(screen.queryByRole("dialog", { name: "Actions" })).not.toBeInTheDocument()
+    expect(checkbox).toBeChecked()
+    expect(trigger).toHaveFocus()
   })
 
   it("lets users choose display columns while keeping their selection", async () => {

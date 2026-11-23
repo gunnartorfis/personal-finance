@@ -60,4 +60,13 @@ describe("AssistantLauncher", () => {
       screen.queryByText("Ask about your household finances")
     ).not.toBeInTheDocument()
   })
+
+  it("leaves a shortcut claimed by another surface alone", () => {
+    renderWithIntl(<AssistantLauncher />)
+    const event = new KeyboardEvent("keydown", { key: "k", metaKey: true, cancelable: true })
+    event.preventDefault()
+    fireEvent(window, event)
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
 })

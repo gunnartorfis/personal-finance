@@ -1,18 +1,13 @@
 "use client"
 
-import { ChevronDown } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { useEffect, useEffectEvent, useRef, useState, type RefObject } from "react"
+import { useEffect, useEffectEvent, useRef, useState } from "react"
 
 import type { TransactionRow } from "@/components/transactions-table"
-import { Button } from "@/components/ui/button"
-import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu"
-import { useExpenseTypeLabels } from "@/lib/expense-type-labels"
 import { putOverride } from "@/lib/overrides/client"
-import { cn } from "@/lib/utils"
-import { EXPENSE_TYPES, type ExpenseType } from "@/shared/types"
+import type { ExpenseType } from "@/shared/types"
 
-type BulkTypeResult = { saved: number; failed: number }
+export type BulkTypeResult = { saved: number; failed: number }
 
 function canRetype(row: TransactionRow) {
   return row.amount <= 0 && !row.excluded && !row.transferGroupId && !row.sharedTransferRuleApplies
@@ -149,83 +144,23 @@ export function BulkTypeFeedback({ result }: { result: BulkTypeResult | null }) 
   )
 }
 
-export function TransactionSelectionBar({
-  barRef,
-  selectedCount,
-  retypableCount,
-  saving,
-  result,
+export function TransactionListStatus({
   visibleCount,
   totalCount,
-  onClear,
-  onChangeType,
+  result,
 }: {
-  barRef: RefObject<HTMLDivElement | null>
-  selectedCount: number
-  retypableCount: number
-  saving: boolean
-  result: BulkTypeResult | null
   visibleCount: number
   totalCount?: number
-  onClear: () => void
-  onChangeType: (type: ExpenseType) => Promise<void>
+  result: BulkTypeResult | null
 }) {
   const t = useTranslations("transactions")
-  const typeLabels = useExpenseTypeLabels()
   return (
-    <div
-      ref={barRef}
-      className={cn(
-        "rounded-t-lg border-b border-border bg-card px-3",
-        (selectedCount > 0 || result) && "sticky top-0 z-10"
-      )}
-    >
-      <div className="flex min-h-12 flex-wrap items-center gap-x-3 py-0.5">
-        <p aria-live="polite" className="mr-auto text-sm tabular-nums">
-          {selectedCount > 0 ? (
-            <span className="font-medium">{t("selection.count", { count: selectedCount })}</span>
-          ) : (
-            <span className="text-muted-foreground">
-              {totalCount !== undefined
-                ? t("showingCount", { visible: visibleCount, total: totalCount })
-                : t("tableCount", { count: visibleCount })}
-            </span>
-          )}
-        </p>
-        {selectedCount > 0 && (
-          <div className="flex flex-wrap items-center gap-x-1">
-            {retypableCount > 0 || saving ? (
-              <Menu onOpenChange={(open, event) => {
-                if (open && (saving || retypableCount === 0)) event.cancel()
-              }}>
-                <MenuTrigger
-                  aria-disabled={saving || retypableCount === 0}
-                  render={<Button variant="outline" size="lg" className="touch-manipulation pointer-coarse:min-h-11" />}
-                >
-                  {saving
-                    ? t("selection.saving")
-                    : retypableCount === selectedCount
-                      ? t("selection.changeType")
-                      : t("selection.changeSomeTypes", { count: retypableCount })}
-                  <ChevronDown aria-hidden />
-                </MenuTrigger>
-                <MenuContent align="end" className="motion-reduce:animate-none">
-                  {EXPENSE_TYPES.map((type) => (
-                    <MenuItem key={type} onClick={() => void onChangeType(type)} className="pointer-coarse:min-h-11">
-                      {typeLabels[type]}
-                    </MenuItem>
-                  ))}
-                </MenuContent>
-              </Menu>
-            ) : (
-              <span className="py-2 text-xs text-muted-foreground">{t("selection.noRetypable")}</span>
-            )}
-            <Button variant="ghost" size="lg" onClick={onClear} className="touch-manipulation pointer-coarse:min-h-11">
-              {t("selection.clear")}
-            </Button>
-          </div>
-        )}
-      </div>
+    <div className="rounded-t-lg border-b border-border px-3">
+      <p aria-live="polite" className="flex min-h-12 items-center text-sm text-muted-foreground tabular-nums">
+        {totalCount === undefined
+          ? t("tableCount", { count: visibleCount })
+          : t("showingCount", { visible: visibleCount, total: totalCount })}
+      </p>
       <BulkTypeFeedback result={result} />
     </div>
   )
